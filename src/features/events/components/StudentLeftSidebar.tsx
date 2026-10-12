@@ -1,0 +1,189 @@
+import React from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import {
+  Home,
+  Bookmark,
+  Clock,
+  ClipboardList,
+  Hand,
+  CalendarDays,
+  Award,
+} from 'lucide-react'
+
+export interface FollowedOrg {
+  id: string
+  name: string
+  avatarUrl: string
+  hasUnread?: boolean
+}
+
+interface StudentLeftSidebarProps {
+  followedOrgs?: FollowedOrg[]
+}
+
+const DEFAULT_FOLLOWED_ORGS: FollowedOrg[] = [
+  {
+    id: 'org-1',
+    name: 'Đoàn Trường CNTT...',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100&auto=format&fit=crop&q=60',
+    hasUnread: true,
+  },
+  {
+    id: 'org-2',
+    name: 'Chi hội Sinh Viên Lon...',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=100&auto=format&fit=crop&q=60',
+    hasUnread: true,
+  },
+]
+
+export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
+  followedOrgs = DEFAULT_FOLLOWED_ORGS,
+}) => {
+  const location = useLocation()
+  const currentPath = location.pathname
+
+  return (
+    <aside className="w-full flex flex-col gap-6 text-sm">
+      {/* 0. Home Link (As shown at top of student_profile.png) */}
+      <Link
+        to="/"
+        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold transition-colors ${
+          currentPath === '/'
+            ? 'bg-muted/90 text-foreground shadow-sm'
+            : 'text-foreground/80 hover:bg-muted/80 hover:text-foreground'
+        }`}
+      >
+        <Home className={`h-5 w-5 ${currentPath === '/' ? 'text-primary' : 'text-muted-foreground'}`} />
+        <span>Trang chủ</span>
+      </Link>
+
+      {/* 1. Trang đã theo dõi */}
+      <div>
+        <h3 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-2.5 px-1">
+          Trang đã theo dõi
+        </h3>
+
+        {followedOrgs.length > 0 ? (
+          <div className="flex flex-col gap-1.5">
+            {followedOrgs.map((org) => (
+              <button
+                key={org.id}
+                type="button"
+                className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-muted/80 transition-colors text-left group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <img
+                    src={org.avatarUrl}
+                    alt={org.name}
+                    className="h-9 w-9 rounded-full object-cover border border-border shrink-0"
+                  />
+                  <span className="font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                    {org.name}
+                  </span>
+                </div>
+                {org.hasUnread && (
+                  <span
+                    className="h-2.5 w-2.5 rounded-full bg-slate-400 dark:bg-slate-500 shrink-0"
+                    title="Có bài đăng mới"
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl bg-muted/60 px-4 py-3 text-center text-xs text-muted-foreground">
+            Hiện chưa có trang nào
+          </div>
+        )}
+      </div>
+
+      {/* 2. Sự kiện */}
+      <div>
+        <h3 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-2 px-1">
+          Sự kiện
+        </h3>
+        <nav className="flex flex-col gap-1">
+          <Link
+            to="/events?filter=recent"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-foreground/85 hover:bg-muted/80 hover:text-primary transition-colors"
+          >
+            <CalendarDays className="h-5 w-5 text-muted-foreground" />
+            <span>Đăng kí gần đây</span>
+          </Link>
+          <Link
+            to="/events?saved=true"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-foreground/85 hover:bg-muted/80 hover:text-primary transition-colors"
+          >
+            <Bookmark className="h-5 w-5 text-muted-foreground" />
+            <span>Đã lưu</span>
+          </Link>
+          <Link
+            to="/events?history=true"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-foreground/85 hover:bg-muted/80 hover:text-primary transition-colors"
+          >
+            <Clock className="h-5 w-5 text-muted-foreground" />
+            <span>Lịch sử tham gia</span>
+          </Link>
+        </nav>
+      </div>
+
+      {/* 3. Bạn */}
+      <div>
+        <h3 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-2 px-1">
+          Bạn
+        </h3>
+        <nav className="flex flex-col gap-1">
+          <Link
+            to="/certificate"
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium transition-colors ${
+              currentPath === '/certificate'
+                ? 'bg-muted/90 text-primary font-semibold shadow-sm'
+                : 'text-foreground/85 hover:bg-muted/80 hover:text-primary'
+            }`}
+          >
+            <Award className="h-5 w-5 text-muted-foreground" />
+            <span>Chứng nhận</span>
+          </Link>
+          <Link
+            to="/drl"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-foreground/85 hover:bg-muted/80 hover:text-primary transition-colors"
+          >
+            <ClipboardList className="h-5 w-5 text-muted-foreground" />
+            <span>Quản lý điểm rèn luyện</span>
+          </Link>
+          <Link
+            to="/sv5t"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-foreground/85 hover:bg-muted/80 hover:text-primary transition-colors"
+          >
+            <Hand className="h-5 w-5 text-muted-foreground" />
+            <span>Quản lý tiêu chí SV5T</span>
+          </Link>
+        </nav>
+      </div>
+
+      {/* 4. Footer Links */}
+      <div className="pt-4 border-t border-border/60 text-xs text-muted-foreground flex flex-col gap-1 px-1">
+        <div className="flex items-center gap-2">
+          <a href="#about" className="hover:underline">
+            Giới thiệu
+          </a>
+          <span>·</span>
+          <a href="#contact" className="hover:underline">
+            Liên hệ
+          </a>
+        </div>
+        <div className="flex items-center gap-2">
+          <a href="#terms" className="hover:underline">
+            Điều khoản
+          </a>
+          <span>·</span>
+          <a href="#privacy" className="hover:underline">
+            Chính sách
+          </a>
+        </div>
+      </div>
+    </aside>
+  )
+}
