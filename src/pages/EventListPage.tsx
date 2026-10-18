@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { EventCard, EventFilterBar, type Event } from '@/features/events'
+import { EventCard, EventFilterBar, StudentLeftSidebar, type Event } from '@/features/events'
 
 const mockEvents: Event[] = [
   {
@@ -52,20 +52,36 @@ export const EventListPage: React.FC = () => {
   )
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Upcoming Events</h1>
-          <p className="text-muted-foreground mt-1">Discover workshops, seminars, and summits.</p>
-        </div>
+    <div className="w-full h-full flex flex-col overflow-hidden">
+      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
+        {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 custom-scrollbar">
+          <StudentLeftSidebar />
+        </aside>
 
-        <EventFilterBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
-      </div>
+        {/* Center / Main Content */}
+        <main className="flex-1 min-w-0 h-full overflow-y-auto py-5 px-1 flex justify-center custom-scrollbar">
+          <div className="w-full max-w-5xl flex flex-col gap-6 pb-16">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold font-heading text-foreground tracking-tight">
+                  Tất cả sự kiện
+                </h1>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                  Khám phá các hội thảo, tọa đàm, chiến dịch tình nguyện và phong trào sinh viên
+                </p>
+              </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredEvents.map((evt) => (
-          <EventCard key={evt.id} event={evt} />
-        ))}
+              <EventFilterBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredEvents.map((evt) => (
+                <EventCard key={evt.id} event={evt} />
+              ))}
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   )

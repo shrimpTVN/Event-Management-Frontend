@@ -14,6 +14,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['"Readex Pro"', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        k2d: ['"K2D"', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -51,6 +55,19 @@ export default {
         "brand-subtle": {
           DEFAULT: "hsl(var(--brand-subtle))",
           foreground: "hsl(var(--brand-subtle-foreground))",
+        },
+        "brand-sky": "#00AFF0",
+        "brand-follow": {
+          DEFAULT: "#065C85",
+          bg: "#EFF5FC",
+        },
+        "drl-link": {
+          DEFAULT: "#1B406F",
+          bg: "#DCEAF8",
+        },
+        "calendar-active": {
+          DEFAULT: "#1B365D",
+          bg: "#BDD7F0",
         },
         warning: {
           DEFAULT: "hsl(var(--warning))",

@@ -1,17 +1,9 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import {
-  Search,
-  Filter,
-  MessageSquare,
-  Bell,
-  LogOut,
-  User,
-  CheckCircle2,
-  Award,
-  LayoutDashboard,
-} from 'lucide-react'
 import { useAuthStore } from '@/features/auth'
+import { Search, Filter, MessageSquare, Bell } from 'lucide-react'
+import logoImg from '@/assets/logo.svg'
+import { AccountNavigationPopup } from './AccountNavigationPopup'
 
 export const Navbar: React.FC = () => {
   const { user, isAuthenticated, clearAuth } = useAuthStore()
@@ -32,27 +24,22 @@ export const Navbar: React.FC = () => {
     }
   }
 
+  const homePath = user?.role === 'ORGANIZER' ? '/staff/fanpages' : '/'
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-      <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+      <div className="w-full flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* 1. Brand Logo: CTU Event (HTQL Sự Kiện) */}
-        <Link to="/" className="flex items-center gap-3 shrink-0 group">
-          {/* CTU Diamond Emblem */}
-          <div className="relative flex h-10 w-10 items-center justify-center rounded-lg border-2 border-primary/80 bg-brand-subtle rotate-45 shadow-sm group-hover:border-primary transition-colors">
-            <span className="-rotate-45 font-extrabold text-primary text-xs tracking-tighter">
-              CTU
-            </span>
-          </div>
-
-          <div className="flex flex-col leading-tight">
-            <div className="flex items-center text-lg sm:text-xl font-extrabold tracking-tight">
-              <span className="text-foreground">CTU</span>
-              <span className="text-sky-500 ml-1">Event</span>
-            </div>
-            <span className="text-[11px] font-medium text-muted-foreground tracking-wide">
-              HTQL Sự Kiện
-            </span>
-          </div>
+        <Link
+          to={homePath}
+          className="flex items-center shrink-0 group transition-transform hover:opacity-95"
+          title={user?.role === 'ORGANIZER' ? 'Trung tâm Fanpage' : 'Trang chủ'}
+        >
+          <img
+            src={logoImg}
+            alt="CTU Event - HTQL Sự Kiện"
+            className="h-10 w-auto object-contain"
+          />
         </Link>
 
         {/* 2. Center: Search Bar with Integrated Filter Funnel */}
@@ -61,13 +48,13 @@ export const Navbar: React.FC = () => {
           className="hidden md:flex flex-1 max-w-xl mx-8 relative items-center"
         >
           <div className="relative w-full flex items-center">
-            <Search className="absolute left-3.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Search className="absolute left-3.5 h-4 w-4 text-[#9CA3AF] pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm sự kiện..."
-              className="w-full h-10 rounded-xl border border-border bg-background pl-10 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              className="w-full h-10 rounded-xl border border-[#E5E7EB] dark:border-border bg-[#F9FAFB] dark:bg-background pl-10 pr-12 text-sm text-[#374151] dark:text-foreground placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-sans"
             />
             <button
               type="button"
@@ -123,73 +110,27 @@ export const Navbar: React.FC = () => {
                   )}
                 </button>
 
-                {/* Dropdown Menu */}
-                {showDropdown && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-xl border border-border bg-card p-1.5 shadow-lg z-50 text-sm">
-                    <div className="px-3 py-2 border-b border-border/60">
-                      <p className="font-semibold text-foreground truncate">{user.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                    </div>
-
-                    <div className="py-1">
-                      <Link
-                        to="/profile"
-                        onClick={() => setShowDropdown(false)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-foreground hover:bg-muted transition-colors font-medium"
-                      >
-                        <User className="h-4 w-4 text-primary" />
-                        Hồ sơ sinh viên
-                      </Link>
-                      <Link
-                        to="/checkin"
-                        onClick={() => setShowDropdown(false)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-foreground hover:bg-muted transition-colors"
-                      >
-                        <CheckCircle2 className="h-4 w-4 text-primary" />
-                        Check-in khuôn mặt
-                      </Link>
-                      <Link
-                        to="/certificate"
-                        onClick={() => setShowDropdown(false)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-foreground hover:bg-muted transition-colors"
-                      >
-                        <Award className="h-4 w-4 text-primary" />
-                        Chứng nhận E-Certificate
-                      </Link>
-                      {user.role === 'ORGANIZER' && (
-                        <Link
-                          to="/dashboard"
-                          onClick={() => setShowDropdown(false)}
-                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-foreground hover:bg-muted transition-colors"
-                        >
-                          <LayoutDashboard className="h-4 w-4 text-primary" />
-                          Quản lý kiểm duyệt
-                        </Link>
-                      )}
-                    </div>
-
-                    <div className="pt-1 border-t border-border/60">
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        Đăng xuất
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* Account Navigation Popup */}
+                <AccountNavigationPopup
+                  isOpen={showDropdown}
+                  onClose={() => setShowDropdown(false)}
+                  user={user}
+                  onLogout={handleLogout}
+                />
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                {/* Default student avatar icon button linking to profile */}
                 <Link
-                  to="/profile"
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-primary font-bold text-sm text-primary-foreground shadow-sm hover:opacity-90 transition-opacity"
-                  title="Hồ sơ sinh viên"
+                  to="/login"
+                  className="px-3.5 py-1.5 rounded-lg border border-primary/20 text-primary hover:bg-primary/10 text-xs sm:text-sm font-semibold transition-colors"
                 >
-                  U
+                  Đăng nhập
+                </Link>
+                <Link
+                  to="/register"
+                  className="hidden sm:inline-flex px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm font-semibold transition-all shadow-sm"
+                >
+                  Đăng ký
                 </Link>
               </div>
             )}

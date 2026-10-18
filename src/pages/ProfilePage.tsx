@@ -1,6 +1,4 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Edit3, Info } from 'lucide-react'
 import { StudentLeftSidebar } from '@/features/events'
 import {
   ProfileHeaderCard,
@@ -24,7 +22,7 @@ export const ProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full h-full flex flex-col overflow-hidden">
       {/* Toast Feedback */}
       {successToast && (
         <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-foreground text-background px-4 py-2.5 text-xs font-semibold shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2">
@@ -32,59 +30,33 @@ export const ProfilePage: React.FC = () => {
         </div>
       )}
 
-      {/* Main 2-Column Container: Sidebar Left + Profile Content */}
-      <div className="flex items-start justify-center gap-6 lg:gap-8">
-        {/* Left Sidebar (Desktop / Tablet) */}
-        <div className="hidden md:block w-56 lg:w-64 shrink-0 sticky top-20 self-start">
+      {/* Main Container Layout: Left sidebar (240px) + Main Content (gap 24px) */}
+      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
+        {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 custom-scrollbar">
           <StudentLeftSidebar />
-        </div>
+        </aside>
 
-        {/* Right Main Content */}
-        <main className="flex-1 min-w-0 max-w-5xl flex flex-col gap-6">
-          {/* Breadcrumb & Action Header */}
-          <div className="flex items-center justify-between gap-4">
-            <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Link to="/" className="hover:text-foreground transition-colors">
-                Trang chủ
-              </Link>
-              <span>/</span>
-              <span className="font-semibold text-foreground">Hồ sơ sinh viên</span>
-            </nav>
+        {/* Right Main Content: Vertical stack of full-width cards with 12px gap */}
+        <main className="flex-1 min-w-0 h-full overflow-y-auto pt-4 pb-12 px-1 sm:pl-8 custom-scrollbar flex flex-col items-center">
+          <div className="w-full max-w-[1112px] flex flex-col gap-3">
+            {/* 1. Header Overview Card */}
+            <ProfileHeaderCard
+              profile={profile}
+              onEdit={() => setIsEditModalOpen(true)}
+            />
 
-            <button
-              type="button"
-              onClick={() => setIsEditModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-foreground text-background px-4 py-2 text-xs font-semibold shadow hover:opacity-90 transition-opacity"
-            >
-              <Edit3 className="h-3.5 w-3.5" />
-              <span>Cập nhật</span>
-            </button>
-          </div>
+            {/* 2. Personal Info Card */}
+            <PersonalInfoCard profile={profile} />
 
-          {/* Profile Overview Header Card */}
-          <ProfileHeaderCard profile={profile} />
+            {/* 3. Contact Info Card */}
+            <ContactInfoCard
+              profile={profile}
+              onAddPhone={() => setIsEditModalOpen(true)}
+            />
 
-          {/* Details 2-Column Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            {/* Left Sub-Column: Personal Info + Contact Info */}
-            <div className="flex flex-col gap-6">
-              <PersonalInfoCard profile={profile} />
-              <ContactInfoCard profile={profile} />
-            </div>
-
-            {/* Right Sub-Column: Academic & Youth Union Info */}
-            <div className="flex flex-col gap-6">
-              <AcademicYouthUnionCard profile={profile} />
-            </div>
-          </div>
-
-          {/* Admin Verification Notice Box */}
-          <div className="rounded-xl border border-border/70 bg-muted/50 p-4 text-xs text-muted-foreground flex items-center gap-2.5">
-            <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <p>
-              Mọi thay đổi hành chính sau khi xác nhận thông tin sẽ cần được duyệt bởi Văn phòng
-              Đoàn khoa của bạn.
-            </p>
+            {/* 4. Academic & Youth Union Info Card */}
+            <AcademicYouthUnionCard profile={profile} />
           </div>
         </main>
       </div>
@@ -99,3 +71,4 @@ export const ProfilePage: React.FC = () => {
     </div>
   )
 }
+

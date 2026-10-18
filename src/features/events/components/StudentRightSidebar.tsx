@@ -1,6 +1,18 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart3, ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import {
+  format,
+  addMonths,
+  subMonths,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameMonth,
+  isSameDay,
+} from 'date-fns'
 
 interface CriteriaItem {
   id: string
@@ -18,8 +30,14 @@ const CRITERIA_LIST: CriteriaItem[] = [
   { id: '5', name: 'Mục V', current: 5, max: 20 },
 ]
 
+// Mock dates with events (in 2026-10) matching the Figma mockup
+const EVENT_DAY_NUMBERS = [8, 15, 22, 29]
+
 export const StudentRightSidebar: React.FC = () => {
-  const [selectedDay, setSelectedDay] = useState<number>(23)
+  // Default to Month 10/2026 matching Figma design (day 23 selected)
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date(2026, 9, 1))
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 9, 23))
+
   const currentScore = 65
   const maxScore = 100
   const scorePercentage = (currentScore / maxScore) * 100
@@ -29,69 +47,35 @@ export const StudentRightSidebar: React.FC = () => {
   const circumference = 2 * Math.PI * radius
   const strokeDashoffset = circumference - (scorePercentage / 100) * circumference
 
-  // Calendar dates representation for Month 10/2026 (Mon-Sun: T2 - CN)
-  // Matching the design widget layout
-  const calendarDays = [
-    { day: 28, isCurrentMonth: false, hasEvent: false },
-    { day: 29, isCurrentMonth: false, hasEvent: false },
-    { day: 30, isCurrentMonth: false, hasEvent: false },
-    { day: 1, isCurrentMonth: true, hasEvent: false },
-    { day: 2, isCurrentMonth: true, hasEvent: false },
-    { day: 3, isCurrentMonth: true, hasEvent: false },
-    { day: 4, isCurrentMonth: true, hasEvent: false },
+  // Compute days in grid (starts on Monday: weekStartsOn = 1)
+  const monthStart = startOfMonth(currentMonth)
+  const monthEnd = endOfMonth(monthStart)
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 })
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
+  const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
 
-    { day: 5, isCurrentMonth: true, hasEvent: false },
-    { day: 6, isCurrentMonth: true, hasEvent: false },
-    { day: 7, isCurrentMonth: true, hasEvent: false },
-    { day: 8, isCurrentMonth: true, hasEvent: true },
-    { day: 9, isCurrentMonth: true, hasEvent: false },
-    { day: 10, isCurrentMonth: true, hasEvent: false },
-    { day: 11, isCurrentMonth: true, hasEvent: false },
-
-    { day: 12, isCurrentMonth: true, hasEvent: false },
-    { day: 13, isCurrentMonth: true, hasEvent: false },
-    { day: 14, isCurrentMonth: true, hasEvent: false },
-    { day: 15, isCurrentMonth: true, hasEvent: true },
-    { day: 16, isCurrentMonth: true, hasEvent: false },
-    { day: 17, isCurrentMonth: true, hasEvent: false },
-    { day: 18, isCurrentMonth: true, hasEvent: false },
-
-    { day: 19, isCurrentMonth: true, hasEvent: false },
-    { day: 20, isCurrentMonth: true, hasEvent: false },
-    { day: 21, isCurrentMonth: true, hasEvent: false },
-    { day: 22, isCurrentMonth: true, hasEvent: true },
-    { day: 23, isCurrentMonth: true, hasEvent: false },
-    { day: 24, isCurrentMonth: true, hasEvent: false },
-    { day: 25, isCurrentMonth: true, hasEvent: false },
-
-    { day: 26, isCurrentMonth: true, hasEvent: false },
-    { day: 27, isCurrentMonth: true, hasEvent: false },
-    { day: 28, isCurrentMonth: true, hasEvent: false },
-    { day: 29, isCurrentMonth: true, hasEvent: true },
-    { day: 30, isCurrentMonth: true, hasEvent: false },
-    { day: 31, isCurrentMonth: true, hasEvent: false },
-    { day: 1, isCurrentMonth: false, hasEvent: false },
-  ]
+  const handlePrevMonth = () => setCurrentMonth((prev) => subMonths(prev, 1))
+  const handleNextMonth = () => setCurrentMonth((prev) => addMonths(prev, 1))
 
   return (
     <aside className="w-full flex flex-col gap-6 text-sm">
-      {/* 1. TIẾN ĐỘ ĐIỂM RÈN LUYỆN Card */}
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm flex flex-col gap-5">
-        <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
-          <BarChart3 className="h-4 w-4" />
+      {/* 1. TIẾN ĐỘ ĐIỂM RÈN LUYỆN Section (Seamless on #F0F2F5 canvas as in Figma) */}
+      <div className="flex flex-col gap-3.5 font-sans">
+        <div className="flex items-center gap-2 text-[#111827] dark:text-foreground font-medium text-xs tracking-wide">
+          <BarChart3 className="h-4 w-4 text-[#111827] dark:text-foreground" />
           <span>TIẾN ĐỘ ĐIỂM RÈN LUYỆN</span>
         </div>
 
         {/* Circular Gauge + Classification */}
         <div className="flex items-center justify-between gap-4 pt-1">
           <div className="relative flex items-center justify-center shrink-0">
-            <svg className="h-32 w-32 -rotate-90 transform" viewBox="0 0 128 128">
+            <svg className="h-28 w-28 -rotate-90 transform" viewBox="0 0 128 128">
               {/* Background circle track */}
               <circle
                 cx="64"
                 cy="64"
                 r={radius}
-                className="stroke-muted"
+                className="stroke-[#D9D9D9] dark:stroke-muted"
                 strokeWidth="12"
                 fill="none"
               />
@@ -100,7 +84,7 @@ export const StudentRightSidebar: React.FC = () => {
                 cx="64"
                 cy="64"
                 r={radius}
-                className="stroke-primary"
+                className="stroke-[#008CCC]"
                 strokeWidth="12"
                 strokeLinecap="round"
                 fill="none"
@@ -109,41 +93,47 @@ export const StudentRightSidebar: React.FC = () => {
               />
             </svg>
             <div className="absolute flex flex-col items-center justify-center text-center">
-              <span className="text-3xl font-extrabold text-foreground leading-none">
+              <span className="font-k2d font-semibold text-[22.4px] text-black dark:text-foreground leading-none">
                 {currentScore}
               </span>
-              <span className="text-xs text-muted-foreground mt-0.5">/{maxScore}</span>
+              <span className="text-[10.4px] font-medium text-[#6B7280] mt-0.5">/{maxScore}</span>
             </div>
           </div>
 
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-foreground/80">Xếp loại:</span>
-            <span className="text-xl font-bold text-foreground tracking-tight">Trung Bình</span>
+          <div className="flex-1 flex flex-col items-center justify-center text-center">
+            <span className="text-[15px] font-normal text-black dark:text-foreground">Xếp loại:</span>
+            <span className="font-k2d font-bold text-[18px] text-black dark:text-foreground tracking-tight">Trung Bình</span>
           </div>
         </div>
 
-        <p className="text-xs text-muted-foreground text-center">
-          Cần thêm <strong className="text-primary font-semibold">5 điểm</strong> để xếp loại khá
+        <p className="text-[9px] text-[#6B7280] text-center font-medium">
+          Cần thêm <span className="font-semibold text-[#285FA4]">5 điểm</span> để xếp loại khá
         </p>
 
         {/* Breakdown by criteria */}
-        <div className="flex flex-col gap-3.5 pt-1">
-          {CRITERIA_LIST.map((item) => {
+        <div className="flex flex-col gap-2 pt-1">
+          {CRITERIA_LIST.map((item, idx) => {
             const pct = Math.min(100, Math.round((item.current / item.max) * 100))
+            const isLast = idx === CRITERIA_LIST.length - 1
             return (
-              <div key={item.id} className="flex flex-col gap-1.5 text-xs">
-                <div className="flex items-center justify-between font-semibold">
-                  <span className="text-foreground">{item.name}</span>
-                  <span className="flex items-center gap-1 text-foreground">
+              <div
+                key={item.id}
+                className={`flex flex-col gap-1 text-xs ${
+                  !isLast ? 'border-b border-[#E5E7EB] dark:border-border/60 pb-2' : ''
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-[9.5px] text-black dark:text-foreground">{item.name}</span>
+                  <span className="flex items-center gap-1 font-semibold text-[9.5px] text-black dark:text-foreground">
                     {item.current}/{item.max}
-                    {item.isCompleted && <Check className="h-3.5 w-3.5 text-emerald-600 stroke-[3]" />}
+                    {item.isCompleted && <Check className="h-3 w-3 text-[#3B8858] stroke-[3]" />}
                   </span>
                 </div>
                 {/* Progress bar track */}
-                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                <div className="h-1.5 w-full rounded-full bg-[#E5E7EB] dark:bg-muted overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
-                      item.isCompleted ? 'bg-emerald-600' : 'bg-slate-400'
+                      item.isCompleted ? 'bg-[#3B8858]' : 'bg-[#9CA3AF]'
                     }`}
                     style={{ width: `${pct}%` }}
                   />
@@ -156,37 +146,41 @@ export const StudentRightSidebar: React.FC = () => {
         {/* CTA Button */}
         <Link
           to="/drl"
-          className="w-full inline-flex items-center justify-center rounded-xl bg-brand-subtle py-2.5 px-4 font-semibold text-xs text-primary hover:bg-primary/10 transition-colors"
+          className="w-full inline-flex items-center justify-center rounded-lg bg-[#DCEAF8] py-2 px-3 font-semibold text-[10.5px] text-[#1B406F] hover:bg-[#DCEAF8]/80 transition-colors"
         >
           → Xem chi tiết bảng điểm ĐRL
         </Link>
       </div>
 
-      {/* 2. Interactive Calendar Widget */}
-      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col gap-4">
+      {/* 2. Interactive Calendar Widget (border #E5E7EB, bg #F0F2F5 as in Figma) */}
+      <div className="rounded-2xl border border-[#E5E7EB] dark:border-border bg-[#F0F2F5] dark:bg-card p-2.5 sm:p-3 flex flex-col gap-3 font-sans">
         {/* Header Month & Arrows */}
         <div className="flex items-center justify-between px-1">
-          <span className="font-semibold text-sm text-foreground">Tháng 10, 2026</span>
-          <div className="flex items-center gap-1 text-muted-foreground">
+          <span className="font-medium text-xs text-[#111827] dark:text-foreground">
+            Tháng {format(currentMonth, 'M, yyyy')}
+          </span>
+          <div className="flex items-center gap-1 text-[#9CA3AF]">
             <button
               type="button"
+              onClick={handlePrevMonth}
               className="p-1 rounded-lg hover:bg-muted hover:text-foreground transition-colors"
               title="Tháng trước"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-3.5 w-3.5" />
             </button>
             <button
               type="button"
+              onClick={handleNextMonth}
               className="p-1 rounded-lg hover:bg-muted hover:text-foreground transition-colors"
               title="Tháng sau"
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
 
         {/* Days of Week */}
-        <div className="grid grid-cols-7 text-center text-xs font-semibold text-muted-foreground">
+        <div className="grid grid-cols-7 text-center text-[8px] font-semibold text-[#9CA3AF]">
           <span>T2</span>
           <span>T3</span>
           <span>T4</span>
@@ -197,25 +191,37 @@ export const StudentRightSidebar: React.FC = () => {
         </div>
 
         {/* Days Grid */}
-        <div className="grid grid-cols-7 gap-y-1 text-center text-xs">
-          {calendarDays.map((dateObj, idx) => {
-            const isSelected = dateObj.isCurrentMonth && dateObj.day === selectedDay
+        <div className="grid grid-cols-7 gap-y-1 text-center text-[9.5px]">
+          {calendarDays.map((dayDate, idx) => {
+            const inCurrentMonth = isSameMonth(dayDate, currentMonth)
+            const isSelected = isSameDay(dayDate, selectedDate)
+            const dayNum = dayDate.getDate()
+            const hasEvent =
+              inCurrentMonth &&
+              currentMonth.getMonth() === 9 &&
+              EVENT_DAY_NUMBERS.includes(dayNum)
+
             return (
               <button
                 key={idx}
                 type="button"
-                onClick={() => dateObj.isCurrentMonth && setSelectedDay(dateObj.day)}
-                className={`relative flex flex-col items-center justify-center h-8 rounded-lg transition-colors ${
+                onClick={() => {
+                  setSelectedDate(dayDate)
+                  if (!inCurrentMonth) {
+                    setCurrentMonth(startOfMonth(dayDate))
+                  }
+                }}
+                className={`relative flex flex-col items-center justify-center h-7 rounded-md transition-colors ${
                   isSelected
-                    ? 'bg-blue-200/80 font-bold text-foreground'
-                    : dateObj.isCurrentMonth
-                    ? 'text-foreground hover:bg-muted/70'
-                    : 'text-muted-foreground/40'
+                    ? 'bg-[#BDD7F0] text-[#1B365D] font-bold shadow-xs'
+                    : inCurrentMonth
+                    ? 'text-black dark:text-foreground hover:bg-muted/70 font-medium'
+                    : 'text-[#9CA3AF]/40'
                 }`}
               >
-                <span>{dateObj.day}</span>
-                {dateObj.hasEvent && (
-                  <span className="absolute bottom-1 h-1 w-1 rounded-full bg-primary" />
+                <span>{dayNum}</span>
+                {hasEvent && (
+                  <span className="absolute bottom-0.5 h-1 w-1 rounded-full bg-[#008CCC]" />
                 )}
               </button>
             )
@@ -225,3 +231,4 @@ export const StudentRightSidebar: React.FC = () => {
     </aside>
   )
 }
+

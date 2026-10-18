@@ -7,49 +7,35 @@ interface PersonalInfoCardProps {
 
 export const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({ profile }) => {
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col gap-6">
-      <h2 className="font-bold text-sm text-foreground uppercase tracking-wider">
-        I. THÔNG TIN CÁ NHÂN
+    <div className="w-full max-w-[1112px] rounded-xl border border-border bg-card p-6 sm:p-7 shadow-sm flex flex-col gap-5">
+      {/* Card Section Header */}
+      <h2 className="text-base font-medium text-[#1B4B8A] dark:text-primary tracking-normal uppercase">
+        THÔNG TIN CÁ NHÂN
       </h2>
 
-      {/* 2-Column Details Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-5 gap-x-6 text-sm">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground font-medium">Họ và tên</span>
-          <span className="font-semibold text-foreground text-sm sm:text-base">
+      {/* 2-Column Fields Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        {/* Họ và tên */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-[#6B7280] dark:text-muted-foreground leading-5">
+            Họ và tên
+          </span>
+          <span className="text-base font-normal text-[#111827] dark:text-foreground leading-6">
             {profile.fullName}
           </span>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground font-medium">Ngày sinh</span>
-          <span className="font-semibold text-foreground text-sm sm:text-base">
-            {profile.dateOfBirth}
+        {/* Giới tính */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-[#6B7280] dark:text-muted-foreground leading-5">
+            Giới tính
           </span>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground font-medium">Giới tính</span>
-          <span className="font-semibold text-foreground text-sm sm:text-base">
+          <span className="text-base font-normal text-[#111827] dark:text-foreground leading-6">
             {profile.gender}
           </span>
         </div>
-
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground font-medium">MSSV</span>
-          <span className="font-semibold text-foreground text-sm sm:text-base">
-            {profile.studentId}
-          </span>
-        </div>
-      </div>
-
-      {/* Bio / Description */}
-      <div className="flex flex-col gap-1 pt-2 border-t border-border/60">
-        <span className="text-xs text-muted-foreground font-medium">Mô tả bản thân</span>
-        <p className="text-sm text-foreground/90 leading-relaxed font-normal">
-          {profile.bio}
-        </p>
       </div>
     </div>
   )
 }
+

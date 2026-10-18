@@ -45,7 +45,9 @@ This rule establishes the design constraints, color tokens, typography scales, s
 
 ## 2. Typography Hierarchy
 
-Primary Font: `Inter`, `Roboto`, system sans-serif.
+- **Primary Font**: `Readex Pro` (Body, Buttons, Navigation, Labels, Calendar)
+- **Heading / Display / Numbers Font**: `K2D` (Brand Logo, Event Titles, Big Scores, Classifications)
+- **Fallback Font**: `Inter`, system sans-serif.
 
 ### Desktop Scale
 - **Display**: `font-bold text-4xl` (`36px - 40px`, leading: `1.2`)
