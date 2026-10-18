@@ -1,21 +1,21 @@
 import type { StudentProfile } from '../types/profile.types'
 
 export const MOCK_STUDENT_PROFILE: StudentProfile = {
-  id: 'std-b2009234',
-  fullName: 'Nguyễn Văn A',
+  id: 'std-b2303827',
+  fullName: 'Đoàn Tài Lộc',
   status: 'Đang học',
-  studentId: 'B2009234',
-  classId: 'DI2096A1',
-  cohort: 'K50 (2024 - 2028)',
-  dateOfBirth: '23 Tháng 9, 2002',
+  studentId: 'B2303827',
+  classId: 'DI2396A1',
+  cohort: 'K49 (2023 - 2027)',
+  dateOfBirth: '20/10/2005',
   gender: 'Nam',
-  bio: 'Morem ipsum dolor sit amet, consectetur adipiscing elit. Nunc vulputate libero et velit interdum, ac aliquet odio mattis. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Curabitur tempus urna at turpis condimentum lobortis.',
-  phoneNumber: '0912345678',
-  email: 'nguyenvana@student.ctu.edu.vn',
+  bio: '',
+  phoneNumber: '', // Trống để hiển thị "Chưa cập nhật. Thêm" theo thiết kế Figma
+  email: 'locb2303827@student.ctu.edu.vn',
   faculty: 'Trường Công nghệ Thông tin và Truyền thông',
-  major: 'Công nghệ thông tin',
-  majorCode: '7480201',
-  academicProgram: 'Đại trà (Chương trình chuẩn)',
-  youthUnionBranch: 'Chi hội sinh viên Mỹ Xuyên - Trần Đề',
-  avatarUrl: '', // blank / placeholder circle as shown in Figma
+  major: 'Kỹ thuật phần mềm',
+  majorCode: '7480103',
+  academicProgram: 'Chính quy',
+  youthUnionBranch: 'Đoàn trường CNTT & TT',
+  avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
 }

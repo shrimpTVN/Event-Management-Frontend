@@ -10,14 +10,14 @@ interface FeedTabsProps {
 
 export const FeedTabs: React.FC<FeedTabsProps> = ({ activeTab, onTabChange }) => {
   return (
-    <div className="flex items-center gap-1.5 rounded-2xl bg-muted/80 p-1.5 w-full">
+    <div className="w-full max-w-[680px] h-10 bg-[#F0F2F5] dark:bg-muted p-1 rounded-[10px] flex items-center gap-2">
       <button
         type="button"
         onClick={() => onTabChange('DISCOVER')}
-        className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-xl px-5 py-2 text-sm font-semibold transition-all ${
+        className={`w-[94px] h-8 px-3 py-1.5 rounded-lg text-sm transition-all flex items-center justify-center shrink-0 cursor-pointer ${
           activeTab === 'DISCOVER'
-            ? 'bg-card text-foreground shadow-sm'
-            : 'text-muted-foreground hover:text-foreground'
+            ? 'bg-white dark:bg-card text-[#1B4B8A] dark:text-primary font-semibold shadow-xs'
+            : 'bg-[#E5E7EB] dark:bg-muted/80 text-[#6B7280] dark:text-muted-foreground font-medium hover:bg-[#E5E7EB]/80'
         }`}
       >
         Khám phá
@@ -26,23 +26,23 @@ export const FeedTabs: React.FC<FeedTabsProps> = ({ activeTab, onTabChange }) =>
       <button
         type="button"
         onClick={() => onTabChange('RECOMMENDED')}
-        className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-xl px-5 py-2 text-sm font-semibold transition-all ${
+        className={`w-[89px] h-8 px-3 py-1.5 rounded-lg text-sm transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
           activeTab === 'RECOMMENDED'
-            ? 'bg-card text-foreground shadow-sm'
-            : 'text-muted-foreground hover:text-foreground'
+            ? 'bg-white dark:bg-card text-[#1B4B8A] dark:text-primary font-semibold shadow-xs'
+            : 'bg-[#E5E7EB] dark:bg-muted/80 text-[#6B7280] dark:text-muted-foreground font-medium hover:bg-[#E5E7EB]/80'
         }`}
       >
-        <Sparkles className="h-4 w-4 text-amber-500" />
-        Gợi ý
+        <Sparkles className={`h-4 w-4 shrink-0 ${activeTab === 'RECOMMENDED' ? 'text-amber-500' : 'text-[#6B7280]'}`} />
+        <span>Gợi ý</span>
       </button>
 
       <button
         type="button"
         onClick={() => onTabChange('FOLLOWING')}
-        className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-xl px-5 py-2 text-sm font-semibold transition-all ${
+        className={`w-[121px] h-8 px-3 py-1.5 rounded-lg text-sm transition-all flex items-center justify-center shrink-0 cursor-pointer ${
           activeTab === 'FOLLOWING'
-            ? 'bg-card text-foreground shadow-sm'
-            : 'text-muted-foreground hover:text-foreground'
+            ? 'bg-white dark:bg-card text-[#1B4B8A] dark:text-primary font-semibold shadow-xs'
+            : 'bg-[#E5E7EB] dark:bg-muted/80 text-[#6B7280] dark:text-muted-foreground font-medium hover:bg-[#E5E7EB]/80'
         }`}
       >
         Đang theo dõi

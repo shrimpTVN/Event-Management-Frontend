@@ -19,8 +19,7 @@ const MOCK_STUDENT_FEED_EVENTS: Event[] = [
       'Bạn đã sẵn sàng cho một buổi tối vừa xem phim, vừa làm một điều thật ý nghĩa chưa? Tháng 9 này, Đoàn trường CNTT-TT mang đến một đêm chiếu phim đặc biệt với tác phẩm kinh điển "3 Chàng Ngốc", cùng gây quỹ ủng hộ trẻ em có hoàn cảnh khó khăn tại địa phương.',
     category: 'NETWORKING',
     status: 'PUBLISHED',
-    bannerUrl:
-      'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1200&auto=format&fit=crop&q=80',
+    bannerUrl: '/banner_3changngoc.png',
     startTime: '22/09/2026 · 18:00',
     endTime: '21:30',
     location: {
@@ -157,7 +156,7 @@ export const HomePage: React.FC = () => {
   const [showMobileRight, setShowMobileRight] = useState(false)
 
   return (
-    <div className="w-full">
+    <div className="w-full h-full flex flex-col overflow-hidden bg-[#F0F2F5] dark:bg-background">
       {/* Toast Notification */}
       {notificationMessage && (
         <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-foreground text-background px-4 py-2.5 text-xs font-semibold shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2">
@@ -166,7 +165,7 @@ export const HomePage: React.FC = () => {
       )}
 
       {/* Mobile Toolbar (Visible only on smaller screens where sidebars collapse) */}
-      <div className="flex lg:hidden items-center justify-between gap-2 mb-4 bg-card border border-border rounded-xl p-2 text-xs font-semibold">
+      <div className="flex lg:hidden items-center justify-between gap-2 mb-2 pt-3 shrink-0 bg-card border border-border rounded-xl p-2 text-xs font-semibold">
         <button
           type="button"
           onClick={() => setShowMobileLeft(true)}
@@ -191,7 +190,7 @@ export const HomePage: React.FC = () => {
             className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
             onClick={() => setShowMobileLeft(false)}
           />
-          <div className="relative w-80 max-w-[85%] bg-card p-5 h-full overflow-y-auto shadow-2xl z-10 flex flex-col gap-4">
+          <div className="relative w-80 max-w-[85%] bg-card p-5 h-full overflow-y-auto custom-scrollbar shadow-2xl z-10 flex flex-col gap-4">
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <span className="font-bold text-sm text-foreground">Menu & Tổ chức</span>
               <button
@@ -214,7 +213,7 @@ export const HomePage: React.FC = () => {
             className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
             onClick={() => setShowMobileRight(false)}
           />
-          <div className="relative w-88 max-w-[90%] bg-card p-5 h-full overflow-y-auto shadow-2xl z-10 flex flex-col gap-4">
+          <div className="relative w-88 max-w-[90%] bg-card p-5 h-full overflow-y-auto custom-scrollbar shadow-2xl z-10 flex flex-col gap-4">
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <span className="font-bold text-sm text-foreground">Tiến độ ĐRL & Lịch</span>
               <button
@@ -230,48 +229,51 @@ export const HomePage: React.FC = () => {
         </div>
       )}
 
-      {/* 3-Column Layout following student_homepage.png */}
-      <div className="flex items-start justify-center gap-6 lg:gap-8">
-        {/* Left Column: Organization Navigation & Student Tools (Visible from md: 768px+) */}
-        <div className="hidden md:block w-56 lg:w-64 shrink-0 sticky top-20 self-start">
+      {/* 3-Column Layout: Left sidebar flush left, Right sidebar flush right, Feed centered */}
+      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
+        {/* Left Column: Organization Navigation & Student Tools (Figma width: 240px, pad: 16px 0 10px 0) */}
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-2.5 px-0 custom-scrollbar">
           <StudentLeftSidebar />
-        </div>
+        </aside>
 
-        {/* Center Column: Feed (Tabs + Event Feed Cards) */}
-        <main className="flex-1 min-w-0 max-w-2xl flex flex-col gap-6">
-          {/* Feed Filter Tabs */}
-          <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        {/* Center Column: Feed (Tabs + Event Feed Cards, centered with Figma Feed width: 680px, gap: 8px) */}
+        <main className="flex-1 min-w-0 h-full overflow-y-auto py-2.5 px-1 flex justify-center custom-scrollbar">
+          {/* Feed Container (Figma gap: 8px, pad: 8px 0 8px 0) */}
+          <div className="w-full max-w-[680px] flex flex-col gap-2 pb-14">
+            {/* Feed Filter Tabs */}
+            <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-          {/* Feed List */}
-          <div className="flex flex-col gap-6">
-            {filteredEvents.length > 0 ? (
-              filteredEvents.map((event) => (
-                <EventFeedCard
-                  key={event.id}
-                  event={event}
-                  onRegister={handleRegister}
-                  onToggleSave={handleToggleSave}
-                  onToggleFollow={handleToggleFollow}
-                />
-              ))
-            ) : (
-              <div className="rounded-2xl border border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-2">
-                <span className="text-3xl">🎉</span>
-                <h3 className="font-semibold text-foreground text-base">
-                  Chưa có sự kiện trong mục này
-                </h3>
-                <p className="text-xs text-muted-foreground max-w-sm">
-                  Hãy thử chuyển sang tab "Khám phá" để xem các hoạt động mới nhất từ các Đoàn - Hội và CLB.
-                </p>
-              </div>
-            )}
+            {/* Feed List (Figma gap: 8px between consecutive cards) */}
+            <div className="flex flex-col gap-2">
+              {filteredEvents.length > 0 ? (
+                filteredEvents.map((event) => (
+                  <EventFeedCard
+                    key={event.id}
+                    event={event}
+                    onRegister={handleRegister}
+                    onToggleSave={handleToggleSave}
+                    onToggleFollow={handleToggleFollow}
+                  />
+                ))
+              ) : (
+                <div className="rounded-2xl border border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-2">
+                  <span className="text-3xl">🎉</span>
+                  <h3 className="font-semibold text-foreground text-base">
+                    Chưa có sự kiện trong mục này
+                  </h3>
+                  <p className="text-xs text-muted-foreground max-w-sm">
+                    Hãy thử chuyển sang tab "Khám phá" để xem các hoạt động mới nhất từ các Đoàn - Hội và CLB.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </main>
 
-        {/* Right Column: Training Points Progress & Calendar Widget (Visible from lg: 1024px+) */}
-        <div className="hidden lg:block w-72 xl:w-80 shrink-0 sticky top-20 self-start">
+        {/* Right Column: Training Points Progress & Calendar Widget (Figma width: 240px, pad: 16px 10px 0 10px) */}
+        <aside className="hidden lg:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-2.5 px-0 custom-scrollbar">
           <StudentRightSidebar />
-        </div>
+        </aside>
       </div>
     </div>
   )

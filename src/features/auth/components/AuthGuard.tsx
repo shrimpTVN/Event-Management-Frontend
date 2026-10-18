@@ -6,22 +6,51 @@ import type { UserRole } from '../types/auth.types'
 interface AuthGuardProps {
   children: React.ReactNode
   requiredRole?: UserRole
+  allowedRoles?: UserRole[]
+  disallowedRoles?: UserRole[]
+  roleRedirectPath?: string
 }
 
-export const AuthGuard: React.FC<AuthGuardProps> = ({ children, requiredRole }) => {
+export const AuthGuard: React.FC<AuthGuardProps> = ({
+  children,
+  requiredRole,
+  allowedRoles,
+  disallowedRoles,
+  roleRedirectPath,
+}) => {
   const { isAuthenticated, user } = useAuthStore()
   const location = useLocation()
 
   if (!isAuthenticated) {
-    return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />
+    const isRoot = location.pathname === '/'
+    const targetUrl = isRoot
+      ? '/login'
+      : `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`
+    return <Navigate to={targetUrl} replace />
   }
 
+  // Handle disallowed roles (e.g. ORGANIZER disallowed on student home page)
+  if (disallowedRoles && user?.role && disallowedRoles.includes(user.role)) {
+    const fallbackPath = user.role === 'ORGANIZER' ? '/staff/fanpages' : '/'
+    return <Navigate to={roleRedirectPath || fallbackPath} replace />
+  }
+
+  // Handle allowed roles whitelist
+  if (allowedRoles && user?.role && !allowedRoles.includes(user.role)) {
+    const fallbackPath = user.role === 'ORGANIZER' ? '/staff/fanpages' : '/'
+    return <Navigate to={roleRedirectPath || fallbackPath} replace />
+  }
+
+  // Handle single requiredRole check
   if (requiredRole && user?.role !== requiredRole) {
+    if (user?.role === 'ORGANIZER') {
+      return <Navigate to="/staff/fanpages" replace />
+    }
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <h2 className="text-2xl font-bold text-destructive">Access Restricted</h2>
+        <h2 className="text-2xl font-bold text-destructive">Truy cập bị giới hạn</h2>
         <p className="mt-2 text-muted-foreground">
-          You need {requiredRole} privileges to view this section.
+          Bạn cần quyền {requiredRole} để truy cập khu vực này.
         </p>
       </div>
     )
@@ -29,3 +58,4 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children, requiredRole }) 
 
   return <>{children}</>
 }
+
