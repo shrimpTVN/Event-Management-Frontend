@@ -7,23 +7,57 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Dependencies
+node_modules/
+
+# Production & Build outputs
+dist/
+dist-ssr/
+temp-scaffold/
+*.tsbuildinfo
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+!.env.template
 *.local
-temp-scaffold
+.agentignore
+
+# Test coverage & reports
+coverage/
+*.lcov
+.nyc_output/
+playwright-report/
+test-results/
+
+# Caches & build tools
+.cache/
+.eslintcache
+.stylelintcache
+.turbo/
+
+# Project internal & AI docs
 .codegraph/
-docs/superpowers
-
-
+docs/superpowers/
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.sublime-workspace
+*.sublime-project
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
