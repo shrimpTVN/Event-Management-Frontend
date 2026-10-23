@@ -1,0 +1,571 @@
+{
+  "roles": [
+    {
+      "id": 1,
+      "name": "ADMIN",
+      "description": "Quản trị viên toàn hệ thống",
+      "isActive": true
+    },
+    {
+      "id": 2,
+      "name": "STUDENT",
+      "description": "Sinh viên Đại học Cần Thơ",
+      "isActive": true
+    },
+    {
+      "id": 3,
+      "name": "FANPAGE_ADMIN",
+      "description": "Ban quản trị CLB / Đoàn - Hội",
+      "isActive": true
+    }
+  ],
+  "schools": [
+    {
+      "id": 1,
+      "name": "Trường Công nghệ Thông tin và Truyền thông",
+      "description": "College of Information and Communication Technology",
+      "isActive": true
+    },
+    {
+      "id": 2,
+      "name": "Trường Kinh tế",
+      "description": "College of Economics",
+      "isActive": true
+    },
+    {
+      "id": 3,
+      "name": "Trường Nông nghiệp",
+      "description": "College of Agriculture",
+      "isActive": true
+    },
+    {
+      "id": 4,
+      "name": "Trường Sư phạm",
+      "description": "College of Education",
+      "isActive": true
+    }
+  ],
+  "majors": [
+    {
+      "id": 1,
+      "code": "7480103",
+      "name": "Kỹ thuật phần mềm",
+      "schoolId": 1,
+      "isActive": true
+    },
+    {
+      "id": 2,
+      "code": "7480101",
+      "name": "Khoa học máy tính",
+      "schoolId": 1,
+      "isActive": true
+    },
+    {
+      "id": 3,
+      "code": "7480104",
+      "name": "Hệ thống thông tin",
+      "schoolId": 1,
+      "isActive": true
+    },
+    {
+      "id": 4,
+      "code": "7340101",
+      "name": "Quản trị kinh doanh",
+      "schoolId": 2,
+      "isActive": true
+    },
+    {
+      "id": 5,
+      "code": "7340201",
+      "name": "Tài chính - Ngân hàng",
+      "schoolId": 2,
+      "isActive": true
+    }
+  ],
+  "associations": [
+    {
+      "id": 1,
+      "name": "Đoàn Trường Đại học Cần Thơ",
+      "address": "Khu II, Đường 3/2, Q. Ninh Kiều, TP. Cần Thơ",
+      "description": "Đoàn Thanh niên Cộng sản Hồ Chí Minh Trường Đại học Cần Thơ",
+      "isActive": true
+    },
+    {
+      "id": 2,
+      "name": "Hội Sinh viên Trường Đại học Cần Thơ",
+      "address": "Khu II, Đường 3/2, Q. Ninh Kiều, TP. Cần Thơ",
+      "description": "Hội Sinh viên Việt Nam Trường Đại học Cần Thơ",
+      "isActive": true
+    },
+    {
+      "id": 3,
+      "name": "Đoàn Trường Công nghệ Thông tin & Truyền thông",
+      "address": "Nhà học CICT, Khu II, ĐHCT",
+      "description": "Đoàn cơ sở Trường CNTT & TT",
+      "isActive": true
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "email": "loc@student.ctu.edu.vn",
+      "password": "123123",
+      "providerId": "LOCAL",
+      "firstName": "Tài Lộc",
+      "lastName": "Đoàn",
+      "gender": "MALE",
+      "avatarUrl": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80",
+      "isActive": true
+    },
+    {
+      "id": 2,
+      "email": "organizer@ctu.edu.vn",
+      "password": "123123",
+      "providerId": "LOCAL",
+      "firstName": "Minh Anh",
+      "lastName": "Nguyễn",
+      "gender": "FEMALE",
+      "avatarUrl": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80",
+      "isActive": true
+    },
+    {
+      "id": 3,
+      "email": "admin@ctu.edu.vn",
+      "password": "123123",
+      "providerId": "LOCAL",
+      "firstName": "Quản Trị",
+      "lastName": "Hệ Thống",
+      "gender": "OTHER",
+      "avatarUrl": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&auto=format&fit=crop&q=80",
+      "isActive": true
+    }
+  ],
+  "user_roles": [
+    { "userId": 1, "roleId": 2, "isActive": true },
+    { "userId": 2, "roleId": 3, "isActive": true },
+    { "userId": 3, "roleId": 1, "isActive": true }
+  ],
+  "student_profiles": [
+    {
+      "id": 1,
+      "studentId": "B2303827",
+      "kNumber": 49,
+      "majorId": 1,
+      "userId": 1,
+      "associationId": 3,
+      "isActive": true
+    }
+  ],
+  "fanpage_admin_profiles": [
+    {
+      "id": 1,
+      "staffId": "CB-0104",
+      "orgName": "Đoàn Trường CNTT&TT",
+      "title": "Bí thư Đoàn khoa",
+      "dob": "1995-10-15",
+      "phoneNumber": "02923872254",
+      "userId": 2,
+      "isActive": true
+    }
+  ],
+  "fanpages": [
+    {
+      "id": 1,
+      "name": "Đoàn Trường CNTT & TT",
+      "description": "Kết nối sinh viên, tổ chức hoạt động học thuật và lan tỏa các chương trình bổ ích của Trường CNTT&TT.",
+      "avatarUrl": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=120&auto=format&fit=crop&q=60",
+      "status": "ACTIVE",
+      "orgType": "YOUTH_UNION",
+      "orgName": "Đoàn Trường Công Nghệ Thông Tin và Truyền Thông",
+      "parentOrg": "Đoàn Trường Đại học Cần Thơ",
+      "helpContact": "truongcntt@ctu.edu.vn",
+      "helpPhone": "0292 387 2254",
+      "followersCount": 12480,
+      "eventsCount": 18,
+      "isActive": true,
+      "createdAt": "2026-01-10T08:00:00Z"
+    },
+    {
+      "id": 2,
+      "name": "Trường Đại học Cần Thơ",
+      "description": "Fanpage Chính thức Trường Đại học Cần Thơ.",
+      "avatarUrl": "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=120&auto=format&fit=crop&q=60",
+      "status": "ACTIVE",
+      "orgType": "UNION",
+      "orgName": "Trường Đại học Cần Thơ",
+      "parentOrg": "Bộ Giáo dục và Đào tạo",
+      "helpContact": "social-admin@ctu.edu.vn",
+      "helpPhone": "0292 383 2663",
+      "followersCount": 58200,
+      "eventsCount": 142,
+      "isActive": true,
+      "createdAt": "2026-01-01T08:00:00Z"
+    },
+    {
+      "id": 3,
+      "name": "CLB Công nghệ phần mềm CTU",
+      "description": "Không gian học tập, chia sẻ kiến thức công nghệ và lập trình cho sinh viên.",
+      "avatarUrl": "https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=120&auto=format&fit=crop&q=60",
+      "status": "ACTIVE",
+      "orgType": "CLUB",
+      "orgName": "CLB Công nghệ phần mềm",
+      "parentOrg": "Đoàn Trường CNTT&TT",
+      "helpContact": "software.club@ctu.edu.vn",
+      "helpPhone": "0987 654 321",
+      "followersCount": 840,
+      "eventsCount": 9,
+      "isActive": true,
+      "createdAt": "2026-03-15T08:00:00Z"
+    }
+  ],
+  "fanpage_members": [
+    {
+      "fanpageId": 1,
+      "userId": 2,
+      "role": "ADMIN",
+      "isActive": true
+    }
+  ],
+  "event_types": [
+    { "id": 1, "name": "Workshop", "description": "Hội thảo tập huấn kỹ năng", "isActive": true },
+    { "id": 2, "name": "Networking", "description": "Giao lưu, kết nối cộng đồng", "isActive": true },
+    { "id": 3, "name": "Sports", "description": "Hoạt động thể dục thể thao", "isActive": true },
+    { "id": 4, "name": "Volunteer", "description": "Chiến dịch tình nguyện vì cộng đồng", "isActive": true },
+    { "id": 5, "name": "Academic", "description": "Nghiên cứu khoa học và học thuật", "isActive": true },
+    { "id": 6, "name": "Seminar", "description": "Tọa đàm chuyên đề", "isActive": true }
+  ],
+  "academic_years": [
+    {
+      "id": 1,
+      "code": "2025-2026",
+      "startDate": "2025-09-01",
+      "endDate": "2026-06-30",
+      "isActive": true
+    },
+    {
+      "id": 2,
+      "code": "2026-2027",
+      "startDate": "2026-09-01",
+      "endDate": "2027-06-30",
+      "isActive": true
+    }
+  ],
+  "semesters": [
+    {
+      "id": 1,
+      "number": 1,
+      "academicYearId": 2,
+      "academicYear": "2026-2027",
+      "startDate": "2026-09-01",
+      "endDate": "2027-01-15",
+      "status": "ACTIVE",
+      "isActive": true
+    },
+    {
+      "id": 2,
+      "number": 2,
+      "academicYearId": 2,
+      "academicYear": "2026-2027",
+      "startDate": "2027-01-16",
+      "endDate": "2027-05-30",
+      "status": "UPCOMING",
+      "isActive": true
+    }
+  ],
+  "criterias": [
+    {
+      "id": 1,
+      "name": "Danh hiệu Sinh viên 5 tốt Đại học Cần Thơ",
+      "note": "Ban hành kèm Quyết định 17/QĐ-HSV ngày 04/3/2026",
+      "scope": "UNIVERSITY",
+      "level": 0,
+      "childrenOrder": 1,
+      "parentId": null,
+      "isActive": true
+    },
+    {
+      "id": 10,
+      "name": "Tiêu chuẩn Đạo đức tốt",
+      "note": "Đạt đủ 03 tiêu chuẩn (1.1), (1.2) và (1.3)",
+      "scope": "UNIVERSITY",
+      "level": 1,
+      "childrenOrder": 1,
+      "parentId": 1,
+      "isActive": true
+    },
+    {
+      "id": 20,
+      "name": "Tiêu chuẩn Học tập tốt",
+      "note": "Điểm trung bình cộng năm học đạt từ 3.0 trở lên, không nợ học phần",
+      "scope": "UNIVERSITY",
+      "level": 1,
+      "childrenOrder": 2,
+      "parentId": 1,
+      "isActive": true
+    },
+    {
+      "id": 30,
+      "name": "Tiêu chuẩn Thể lực tốt",
+      "note": "Đạt tiêu chuẩn rèn luyện thể lực sinh viên",
+      "scope": "UNIVERSITY",
+      "level": 1,
+      "childrenOrder": 3,
+      "parentId": 1,
+      "isActive": true
+    },
+    {
+      "id": 40,
+      "name": "Tiêu chuẩn Tình nguyện tốt",
+      "note": "Tham gia ít nhất 2 hoạt động tình nguyện trong năm học",
+      "scope": "UNIVERSITY",
+      "level": 1,
+      "childrenOrder": 4,
+      "parentId": 1,
+      "isActive": true
+    },
+    {
+      "id": 50,
+      "name": "Tiêu chuẩn Hội nhập tốt",
+      "note": "Hoàn thành chứng chỉ ngoại ngữ / tin học hoặc giao lưu quốc tế",
+      "scope": "UNIVERSITY",
+      "level": 1,
+      "childrenOrder": 5,
+      "parentId": 1,
+      "isActive": true
+    }
+  ],
+  "point_categories": [
+    {
+      "id": 1,
+      "name": "I. Trách nhiệm, tinh thần và thái độ trong học tập",
+      "note": "Mã tiêu chí: I",
+      "maximum": 20,
+      "dateApply": "2026-08-01",
+      "level": 0,
+      "childrenOrder": 1,
+      "parentCategoryId": null,
+      "isActive": true
+    },
+    {
+      "id": 2,
+      "name": "II. Ý thức chấp hành nội quy, quy chế",
+      "note": "Mã tiêu chí: II",
+      "maximum": 25,
+      "dateApply": "2026-08-01",
+      "level": 0,
+      "childrenOrder": 2,
+      "parentCategoryId": null,
+      "isActive": true
+    },
+    {
+      "id": 3,
+      "name": "III. Ý thức tham gia các hoạt động chính trị - xã hội",
+      "note": "Mã tiêu chí: III",
+      "maximum": 20,
+      "dateApply": "2026-08-01",
+      "level": 0,
+      "childrenOrder": 3,
+      "parentCategoryId": null,
+      "isActive": true
+    },
+    {
+      "id": 4,
+      "name": "IV. Phẩm chất công dân và quan hệ cộng đồng",
+      "note": "Mã tiêu chí: IV",
+      "maximum": 25,
+      "dateApply": "2026-08-01",
+      "level": 0,
+      "childrenOrder": 4,
+      "parentCategoryId": null,
+      "isActive": true
+    },
+    {
+      "id": 5,
+      "name": "V. Ý thức tham gia các hoạt động lớp, đoàn thể",
+      "note": "Mã tiêu chí: V",
+      "maximum": 10,
+      "dateApply": "2026-08-01",
+      "level": 0,
+      "childrenOrder": 5,
+      "parentCategoryId": null,
+      "isActive": true
+    }
+  ],
+  "events": [
+    {
+      "id": 1,
+      "name": "SỰ KIỆN CHIẾU PHIM GÂY QUỸ - CHIẾN DỊCH VẦNG TRĂNG ƯƠM MƠ LẦN THỨ II NĂM 2026",
+      "description": "Bạn đã sẵn sàng cho một buổi tối vừa xem phim, vừa làm một điều thật ý nghĩa chưa? Tháng 9 này, Đoàn trường CNTT-TT mang đến một đêm chiếu phim đặc biệt với tác phẩm kinh điển '3 Chàng Ngốc', cùng gây quỹ ủng hộ trẻ em có hoàn cảnh khó khăn tại địa phương.",
+      "location": "Hội trường Rùa, Đại học Cần Thơ",
+      "dateOpen": "2026-09-15T00:00:00Z",
+      "dateClose": "2026-09-22T17:00:00Z",
+      "dateHappen": "2026-09-22T18:00:00Z",
+      "capacity": 500,
+      "maleQuantity": 250,
+      "femaleQuantity": 250,
+      "bannerUrl": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1200&auto=format&fit=crop&q=80",
+      "status": "PUBLISHED",
+      "eventTypeId": 2,
+      "criteriaId": 40,
+      "fanpageId": 1,
+      "semesterId": 1,
+      "isActive": true,
+      "updatedAt": "2026-09-10T08:00:00Z"
+    },
+    {
+      "id": 2,
+      "name": "TUYỂN CỔ ĐỘNG VIÊN THAM GIA CỔ VŨ TRẬN TỨ KẾT GIẢI FUTSAL SINH VIÊN ĐẠI HỌC CẦN THƠ - VIETTEL TAMMI CUP 2026",
+      "description": "Sau những màn tranh tài đầy nỗ lực, Trường Kinh tế đã chính thức góp mặt ở vòng Tứ kết Giải Futsal Sinh viên Đại học Cần Thơ - Viettel Tammi Cup 2026. Hãy cùng hòa vào không khí cuồng nhiệt trên khán đài tiếp thêm sức mạnh cho các chàng trai của chúng ta!",
+      "location": "Nhà Thi Đấu mới, Đại học Cần Thơ",
+      "dateOpen": "2026-09-20T00:00:00Z",
+      "dateClose": "2026-09-29T18:00:00Z",
+      "dateHappen": "2026-09-29T19:30:00Z",
+      "capacity": 1000,
+      "maleQuantity": 500,
+      "femaleQuantity": 500,
+      "bannerUrl": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1200&auto=format&fit=crop&q=80",
+      "status": "PUBLISHED",
+      "eventTypeId": 3,
+      "criteriaId": 30,
+      "fanpageId": 2,
+      "semesterId": 1,
+      "isActive": true,
+      "updatedAt": "2026-09-12T08:00:00Z"
+    },
+    {
+      "id": 3,
+      "name": "NGÀY HỘI VIỆC LÀM VÀ KẾT NỐI DOANH NGHIỆP CNTT 2026",
+      "description": "Gặp gỡ hơn 30 doanh nghiệp công nghệ hàng đầu, phỏng vấn thử, nhận cơ hội thực tập và tuyển dụng trực tiếp ngay tại ngày hội.",
+      "location": "Hội trường Lớn Khu II, Đại học Cần Thơ",
+      "dateOpen": "2026-10-01T00:00:00Z",
+      "dateClose": "2026-10-11T17:00:00Z",
+      "dateHappen": "2026-10-12T08:00:00Z",
+      "capacity": 300,
+      "maleQuantity": 150,
+      "femaleQuantity": 150,
+      "bannerUrl": "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80",
+      "status": "PUBLISHED",
+      "eventTypeId": 1,
+      "criteriaId": 20,
+      "fanpageId": 1,
+      "semesterId": 1,
+      "isActive": true,
+      "updatedAt": "2026-09-15T08:00:00Z"
+    },
+    {
+      "id": 4,
+      "name": "HỘI THẢO CHUYÊN ĐỀ: TRÍ TUỆ NHÂN TẠO & XU HƯỚNG MÔ HÌNH NGÔN NGỮ LỚN (LLM)",
+      "description": "Lắng nghe các chuyên gia AI đầu ngành chia sẻ về kiến trúc transformer, generative AI và lộ trình phát triển kỹ năng cho kỹ sư trẻ.",
+      "location": "Phòng Hội thảo CICT, Đại học Cần Thơ",
+      "dateOpen": "2026-08-01T00:00:00Z",
+      "dateClose": "2026-08-14T17:00:00Z",
+      "dateHappen": "2026-08-15T14:00:00Z",
+      "capacity": 200,
+      "maleQuantity": 100,
+      "femaleQuantity": 100,
+      "bannerUrl": "https://images.unsplash.com/photo-1515187029135-18ee286d815b?auto=format&fit=crop&w=1200&q=80",
+      "status": "COMPLETED",
+      "eventTypeId": 6,
+      "criteriaId": 20,
+      "fanpageId": 3,
+      "semesterId": 1,
+      "isActive": true,
+      "updatedAt": "2026-08-16T08:00:00Z"
+    }
+  ],
+  "event_points": [
+    { "id": 1, "eventId": 1, "pointCategoryId": 5, "point": 3, "isActive": true },
+    { "id": 2, "eventId": 2, "pointCategoryId": 3, "point": 2, "isActive": true },
+    { "id": 3, "eventId": 3, "pointCategoryId": 1, "point": 5, "isActive": true },
+    { "id": 4, "eventId": 4, "pointCategoryId": 1, "point": 4, "isActive": true }
+  ],
+  "registrations": [
+    {
+      "userId": 1,
+      "eventId": 3,
+      "regDate": "2026-10-02T10:00:00Z",
+      "checkInAt": null,
+      "checkInEvidenceUrl": null,
+      "checkOutAt": null,
+      "checkOutEvidenceUrl": null,
+      "status": "REGISTERED",
+      "reason": null
+    },
+    {
+      "userId": 1,
+      "eventId": 1,
+      "regDate": "2026-09-18T14:20:00Z",
+      "checkInAt": null,
+      "checkInEvidenceUrl": null,
+      "checkOutAt": null,
+      "checkOutEvidenceUrl": null,
+      "status": "REGISTERED",
+      "reason": null
+    },
+    {
+      "userId": 1,
+      "eventId": 4,
+      "regDate": "2026-08-10T09:00:00Z",
+      "checkInAt": "2026-08-15T13:50:00Z",
+      "checkInEvidenceUrl": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200",
+      "checkOutAt": "2026-08-15T17:05:00Z",
+      "checkOutEvidenceUrl": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200",
+      "status": "COMPLETED",
+      "reason": null
+    }
+  ],
+  "student_criteria_progress": [
+    {
+      "id": 1,
+      "userId": 1,
+      "criteriaId": 10,
+      "academicYearId": 2,
+      "eventId": null,
+      "completionSource": "MANUAL",
+      "note": "Điểm rèn luyện đạt 92/100",
+      "isActive": true
+    },
+    {
+      "id": 2,
+      "userId": 1,
+      "criteriaId": 20,
+      "academicYearId": 2,
+      "eventId": 4,
+      "completionSource": "EVENT_CHECKOUT",
+      "note": "Hoàn thành Hội thảo AI",
+      "isActive": true
+    }
+  ],
+  "point_transactions": [
+    {
+      "id": 1,
+      "userId": 1,
+      "semesterId": 1,
+      "pointCategoryId": 1,
+      "eventId": 4,
+      "points": 4,
+      "type": "EVENT",
+      "status": "CONFIRMED",
+      "description": "Tham gia Hội thảo AI & LLM",
+      "createdAt": "2026-08-15T17:10:00Z"
+    }
+  ],
+  "student_semester_points": [
+    {
+      "id": 1,
+      "userId": 1,
+      "semesterId": 1,
+      "pointCategoryId": 1,
+      "totalPoint": 15,
+      "finalizedAt": null
+    },
+    {
+      "id": 2,
+      "userId": 1,
+      "semesterId": 1,
+      "pointCategoryId": 5,
+      "totalPoint": 10,
+      "finalizedAt": null
+    }
+  ]
+}

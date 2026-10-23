@@ -26,7 +26,7 @@ describe('Router and Shell Integration', () => {
       </AppProviders>
     )
 
-    expect(screen.getAllByText(/CTU/i).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByAltText(/CTU/i)).toBeInTheDocument()
     expect(screen.getByText(/Khám phá/i)).toBeInTheDocument()
   })
 
@@ -48,8 +48,8 @@ describe('Router and Shell Integration', () => {
       </AppProviders>
     )
 
-    expect(screen.getByText(/Upcoming Events/i)).toBeInTheDocument()
-    expect(screen.getByPlaceholderText(/Search events.../i)).toBeInTheDocument()
+    expect(screen.getByText(/Tất cả sự kiện/i)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/Tìm kiếm sự kiện/i)).toBeInTheDocument()
   })
 
   it('renders NotFoundPage on unknown route', () => {

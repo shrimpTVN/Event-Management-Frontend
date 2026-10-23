@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'temp-scaffold/**', '.superpowers/**', '.agents/**', '*.cjs'],
+    ignores: ['dist/**', 'node_modules/**', 'temp-scaffold/**', '.superpowers/**', '.agents/**', '**/*.cjs', 'mock/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

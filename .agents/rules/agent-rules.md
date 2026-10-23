@@ -109,6 +109,10 @@ Before implementing custom solutions for complex, non-trivial, or common utility
 - **Primary Navigation Tool:** Always prioritize semantic navigation tools (such as codegraph) to trace symbol definitions, call hierarchies, interfaces, and architecture.
 - **UI & Component Discovery:**
   - Check existing shadcn components via codebase search or shadcn CLI discovery before writing new UI components.
+- **Topography and color guidline:**
+  - read agent.md to retrieve information about color and topography constrant
+- **Document:**
+  - Read file in docs/material to read information about table schema, api description, and enum type
 - **Search Constraints:**
   - Avoid unstructured traversal, blind grep, or arbitrary recursive filesystem scans across `node_modules` or build directories.
   - Rely on semantic graph queries and targeted path queries.
