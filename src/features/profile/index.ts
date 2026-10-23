@@ -1,5 +1,5 @@
 export * from './types/profile.types'
-export * from './services/profileMock'
+export * from './services/profileService'
 export * from './components/ProfileHeaderCard'
 export * from './components/PersonalInfoCard'
 export * from './components/ContactInfoCard'

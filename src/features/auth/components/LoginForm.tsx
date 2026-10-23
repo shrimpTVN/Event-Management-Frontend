@@ -2,11 +2,12 @@ import React, { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQueryClient } from '@tanstack/react-query'
 import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
 import { loginSchema, type LoginInput } from '../types/auth.schemas'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
-import { isStaffEmail } from '../utils/authUtils'
+import { isStaffUser, isStudentRole } from '../utils/authUtils'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 import { GoogleAuthButton } from './GoogleAuthButton'
 
@@ -14,6 +15,7 @@ export const LoginForm: React.FC = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { setAuth } = useAuthStore()
+  const queryClient = useQueryClient()
 
   const [showPassword, setShowPassword] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
@@ -26,7 +28,8 @@ export const LoginForm: React.FC = () => {
   React.useEffect(() => {
     const state = useAuthStore.getState()
     if (state.isAuthenticated && state.user) {
-      if (state.user.role === 'ORGANIZER' || isStaffEmail(state.user.email)) {
+      const isStaff = isStaffUser(state.user)
+      if (isStaff) {
         navigate('/staff/fanpages', { replace: true })
       } else {
         navigate(redirectUrl === '/staff/fanpages' ? '/' : redirectUrl, { replace: true })
@@ -51,13 +54,16 @@ export const LoginForm: React.FC = () => {
       setIsSubmitting(true)
       setApiError(null)
       const res = await authService.login(data)
-      setAuth(res.user, res.tokens.accessToken)
+      
+      // Xóa toàn bộ query cache từ tài khoản trước đó để tránh xung đột dữ liệu
+      queryClient.clear()
+      setAuth(res.user, res.tokens?.accessToken || null)
 
       // Cán bộ / Ban tổ chức tuyệt đối không điều hướng qua trang chủ sinh viên
-      const isStaff = isStaffEmail(data.email) || res.user.role === 'ORGANIZER'
+      const isStaff = isStaffUser(res.user)
       if (isStaff) {
         navigate('/staff/fanpages', { replace: true })
-      } else if (res.user.role === 'STUDENT' && !res.user.isProfileComplete) {
+      } else if (isStudentRole(res.user.role) && !res.user.isProfileComplete) {
         navigate('/onboarding/student', { replace: true })
       } else {
         // Sinh viên chuyển về trang chủ hoặc trang mong muốn
@@ -82,13 +88,15 @@ export const LoginForm: React.FC = () => {
         email,
         password: 'GoogleLoginPass123',
       })
-      setAuth(res.user, credentialResponse?.credential || res.tokens.accessToken)
+      
+      queryClient.clear()
+      setAuth(res.user, credentialResponse?.credential || res.tokens?.accessToken || null)
 
       // Cán bộ / Ban tổ chức tuyệt đối không điều hướng qua trang chủ sinh viên
-      const isStaff = isStaffEmail(email) || res.user.role === 'ORGANIZER'
+      const isStaff = isStaffUser(res.user)
       if (isStaff) {
         navigate('/staff/fanpages', { replace: true })
-      } else if (res.user.role === 'STUDENT' && !res.user.isProfileComplete) {
+      } else if (isStudentRole(res.user.role) && !res.user.isProfileComplete) {
         navigate('/onboarding/student', { replace: true })
       } else {
         const target = redirectUrl === '/staff/fanpages' ? '/' : redirectUrl

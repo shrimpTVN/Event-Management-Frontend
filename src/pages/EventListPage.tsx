@@ -1,53 +1,16 @@
 import React, { useState } from 'react'
-import { EventCard, EventFilterBar, StudentLeftSidebar, type Event } from '@/features/events'
-
-const mockEvents: Event[] = [
-  {
-    id: 'evt-1',
-    title: 'AI & Machine Learning Global Summit 2026',
-    description:
-      'Explore the future of agentic AI, large models, and real-world enterprise applications.',
-    category: 'CONFERENCE',
-    status: 'PUBLISHED',
-    startTime: '2026-11-15T09:00:00Z',
-    endTime: '2026-11-17T17:00:00Z',
-    location: { type: 'OFFLINE', city: 'San Francisco, CA', address: 'Moscone Center' },
-    capacity: 500,
-    registeredCount: 342,
-    price: 199,
-    organizerId: 'org-1',
-    organizerName: 'TechVision Foundation',
-    tags: ['AI', 'Engineering', 'Innovation'],
-    isModerationRequired: true,
-    createdAt: '2026-10-01T00:00:00Z',
-    updatedAt: '2026-10-01T00:00:00Z',
-  },
-  {
-    id: 'evt-2',
-    title: 'Fullstack React Architecture Masterclass',
-    description:
-      'Deep dive into Clean & Layered Architecture, state machines, and resilient web design.',
-    category: 'WORKSHOP',
-    status: 'PUBLISHED',
-    startTime: '2026-10-28T14:00:00Z',
-    endTime: '2026-10-28T18:00:00Z',
-    location: { type: 'ONLINE', onlineMeetingUrl: 'https://meet.eventhub.io/react-arch' },
-    capacity: 100,
-    registeredCount: 88,
-    price: 0,
-    organizerId: 'org-2',
-    organizerName: 'DevCraft Academy',
-    tags: ['React', 'TypeScript', 'Clean Code'],
-    isModerationRequired: false,
-    createdAt: '2026-10-05T00:00:00Z',
-    updatedAt: '2026-10-05T00:00:00Z',
-  },
-]
+import { useQuery } from '@tanstack/react-query'
+import { EventCard, EventFilterBar, StudentLeftSidebar, eventService } from '@/features/events'
 
 export const EventListPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
 
-  const filteredEvents = mockEvents.filter((evt) =>
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: ['events', 'list'],
+    queryFn: () => eventService.getEvents(),
+  })
+
+  const filteredEvents = events.filter((evt) =>
     evt.title.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
@@ -75,11 +38,38 @@ export const EventListPage: React.FC = () => {
               <EventFilterBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredEvents.map((evt) => (
-                <EventCard key={evt.id} event={evt} />
-              ))}
-            </div>
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <div
+                    key={n}
+                    className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 animate-pulse h-64"
+                  >
+                    <div className="h-32 bg-muted rounded-xl w-full" />
+                    <div className="h-5 bg-muted rounded w-3/4" />
+                    <div className="h-4 bg-muted rounded w-1/2" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredEvents.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filteredEvents.map((evt) => (
+                  <EventCard key={evt.id} event={evt} />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border p-12 text-center flex flex-col items-center justify-center gap-2">
+                <span className="text-3xl">🔍</span>
+                <h3 className="font-semibold text-foreground text-base">
+                  Không tìm thấy sự kiện nào
+                </h3>
+                <p className="text-xs text-muted-foreground max-w-sm">
+                  {searchTerm
+                    ? `Không có sự kiện nào khớp với "${searchTerm}". Hãy thử từ khóa khác.`
+                    : 'Hiện chưa có sự kiện nào được công bố.'}
+                </p>
+              </div>
+            )}
           </div>
         </main>
       </div>

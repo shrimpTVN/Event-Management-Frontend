@@ -1,4 +1,15 @@
-export type UserRole = 'ATTENDEE' | 'ORGANIZER' | 'ADMIN'
+export const RoleEnum = {
+  STUDENT: 'STUDENT',
+  FANPAGE_ADMIN: 'FANPAGE_ADMIN',
+  ADMIN: 'ADMIN',
+  ROLE_STUDENT: 'ROLE_STUDENT',
+  ROLE_FANPAGE_ADMIN: 'ROLE_FANPAGE_ADMIN',
+  ROLE_ADMIN: 'ROLE_ADMIN',
+} as const
+
+export type RoleEnum = (typeof RoleEnum)[keyof typeof RoleEnum]
+
+export type UserRole = RoleEnum
 
 export interface User {
   id: string
@@ -6,7 +17,10 @@ export interface User {
   name: string
   avatarUrl?: string
   role: UserRole
+  roles?: string[]
   createdAt: string
+  isProfileComplete?: boolean
+  studentId?: string
 }
 
 export interface AuthTokens {
@@ -18,6 +32,10 @@ export interface AuthTokens {
 export interface AuthResponse {
   user: User
   tokens: AuthTokens
+  userId?: number | string
+  email?: string
+  roles?: string[]
+  role?: string
 }
 
 export interface GoogleAuthPayload {

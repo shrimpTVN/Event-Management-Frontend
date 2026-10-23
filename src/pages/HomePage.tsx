@@ -1,121 +1,26 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   StudentLeftSidebar,
   StudentRightSidebar,
   FeedTabs,
   EventFeedCard,
+  eventService,
   type FeedTabType,
   type Event,
 } from '@/features/events'
 
-// Mock events data matching Figma designs (images 4 & 5)
-const MOCK_STUDENT_FEED_EVENTS: Event[] = [
-  {
-    id: 'evt-1',
-    title:
-      'SỰ KIỆN CHIẾU PHIM GÂY QUỸ - CHIẾN DỊCH VẦNG TRĂNG ƯƠM MƠ LẦN THỨ II NĂM 2026',
-    description:
-      'Bạn đã sẵn sàng cho một buổi tối vừa xem phim, vừa làm một điều thật ý nghĩa chưa? Tháng 9 này, Đoàn trường CNTT-TT mang đến một đêm chiếu phim đặc biệt với tác phẩm kinh điển "3 Chàng Ngốc", cùng gây quỹ ủng hộ trẻ em có hoàn cảnh khó khăn tại địa phương.',
-    category: 'NETWORKING',
-    status: 'PUBLISHED',
-    bannerUrl: '/banner_3changngoc.png',
-    startTime: '22/09/2026 · 18:00',
-    endTime: '21:30',
-    location: {
-      type: 'OFFLINE',
-      address: 'Hội trường Rùa',
-      city: 'Đại học Cần Thơ',
-    },
-    capacity: 500,
-    registeredCount: 382,
-    price: 0,
-    organizerId: 'org-cntt',
-    organizerName: 'Đoàn Trường Công nghệ Thông tin và Truyền thông - Đại Học Cần Thơ',
-    organizerAvatarUrl:
-      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=120&auto=format&fit=crop&q=60',
-    pointsReward: 'Cộng 03 điểm rèn luyện mục V.b',
-    quotaText: '500 sinh viên',
-    timeAgo: '10h trước',
-    isFollowed: true,
-    isSaved: false,
-    isModerationRequired: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'evt-2',
-    title:
-      'TUYỂN CỔ ĐỘNG VIÊN THAM GIA CỔ VŨ TRẬN TỨ KẾT GIẢI FUTSAL SINH VIÊN ĐẠI HỌC CẦN THƠ - VIETTEL TAMMI CUP 2026',
-    description:
-      'Sau những màn tranh tài đầy nỗ lực, Trường Kinh tế đã chính thức góp mặt ở vòng Tứ kết Giải Futsal Sinh viên Đại học Cần Thơ - Viettel Tammi Cup 2026. Hãy cùng hòa vào không khí cuồng nhiệt trên khán đài tiếp thêm sức mạnh cho các chàng trai của chúng ta!',
-    category: 'OTHER',
-    status: 'PUBLISHED',
-    bannerUrl:
-      'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1200&auto=format&fit=crop&q=80',
-    startTime: '29/09/2026 · 19:30',
-    endTime: '21:00',
-    location: {
-      type: 'OFFLINE',
-      address: 'Nhà Thi Đấu mới',
-      city: 'Khu II ĐHCT',
-    },
-    capacity: 300,
-    registeredCount: 245,
-    price: 0,
-    organizerId: 'org-kinhte',
-    organizerName: 'Đoàn trường Kinh tế - Đại Học Cần Thơ',
-    organizerAvatarUrl:
-      'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=120&auto=format&fit=crop&q=60',
-    pointsReward: 'Cộng 03 điểm rèn luyện mục V.b',
-    quotaText: '300 sinh viên',
-    timeAgo: '5h trước',
-    isFollowed: false,
-    isSaved: true,
-    isModerationRequired: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'evt-3',
-    title:
-      'TẬP HUẤN KỸ NĂNG VÀ HƯỚNG DẪN HỒ SƠ DANH HIỆU "SINH VIÊN 5 TỐT" CÁC CẤP NĂM 2026',
-    description:
-      'Chương trình hỗ trợ sinh viên tháo gỡ mọi khó khăn về việc minh chứng và hoàn thiện 5 tiêu chí: Đạo đức tốt, Học tập tốt, Thể lực tốt, Tình nguyện tốt và Hội nhập tốt. Diễn giả là các thủ khoa SV5T cấp Trung ương.',
-    category: 'WORKSHOP',
-    status: 'PUBLISHED',
-    bannerUrl:
-      'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1200&auto=format&fit=crop&q=80',
-    startTime: '05/10/2026 · 08:00',
-    endTime: '11:30',
-    location: {
-      type: 'OFFLINE',
-      address: 'Hội trường Lớn',
-      city: 'Khu II ĐHCT',
-    },
-    capacity: 450,
-    registeredCount: 410,
-    price: 0,
-    organizerId: 'org-hoisinhvien',
-    organizerName: 'Hội Sinh viên Trường Đại học Cần Thơ',
-    organizerAvatarUrl:
-      'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=120&auto=format&fit=crop&q=60',
-    pointsReward: 'Cộng 04 điểm rèn luyện mục II và III',
-    quotaText: '450 sinh viên',
-    timeAgo: '1 ngày trước',
-    isFollowed: true,
-    isSaved: false,
-    isModerationRequired: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-]
-
 export const HomePage: React.FC = () => {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<FeedTabType>('DISCOVER')
-  const [events, setEvents] = useState<Event[]>(MOCK_STUDENT_FEED_EVENTS)
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
+
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: ['events', 'feed'],
+    queryFn: () => eventService.getEvents(),
+  })
 
   // Filter events by selected feed tab
   const filteredEvents = events.filter((evt) => {
@@ -130,13 +35,12 @@ export const HomePage: React.FC = () => {
   })
 
   const handleRegister = (eventId: string) => {
-    // Navigate to registration page or show notification
     navigate(`/events/${eventId}`)
   }
 
   const handleToggleSave = (eventId: string) => {
-    setEvents((prev) =>
-      prev.map((evt) =>
+    queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
+      old.map((evt) =>
         evt.id === eventId ? { ...evt, isSaved: !evt.isSaved } : evt
       )
     )
@@ -145,8 +49,8 @@ export const HomePage: React.FC = () => {
   }
 
   const handleToggleFollow = (organizerId: string) => {
-    setEvents((prev) =>
-      prev.map((evt) =>
+    queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
+      old.map((evt) =>
         evt.organizerId === organizerId ? { ...evt, isFollowed: !evt.isFollowed } : evt
       )
     )
@@ -245,7 +149,26 @@ export const HomePage: React.FC = () => {
 
             {/* Feed List (Figma gap: 8px between consecutive cards) */}
             <div className="flex flex-col gap-2">
-              {filteredEvents.length > 0 ? (
+              {isLoading ? (
+                <div className="flex flex-col gap-4">
+                  {[1, 2, 3].map((n) => (
+                    <div
+                      key={n}
+                      className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-4 animate-pulse"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-muted" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-muted rounded w-1/3" />
+                          <div className="h-3 bg-muted rounded w-1/4" />
+                        </div>
+                      </div>
+                      <div className="h-5 bg-muted rounded w-3/4" />
+                      <div className="h-48 bg-muted rounded-xl w-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : filteredEvents.length > 0 ? (
                 filteredEvents.map((event) => (
                   <EventFeedCard
                     key={event.id}

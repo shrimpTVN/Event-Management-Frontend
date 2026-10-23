@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { UserRound, LogOut } from 'lucide-react'
-import type { User } from '@/features/auth'
+import { type User, isStaffUser } from '@/features/auth'
 
 interface AccountNavigationPopupProps {
   isOpen: boolean
@@ -54,14 +54,19 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
     if (u.studentId) return u.studentId
     const match = u.email?.match(/([bB]\d{7})/i)
     if (match) return match[1].toUpperCase()
-    return 'B2303827'
+    return ''
   }
 
-  const isOrganizer = user.role === 'ORGANIZER'
-  const displayName = user.name || (isOrganizer ? 'Cán bộ Đoàn' : 'Đoàn Tài Lộc')
-  const displaySubtitle = isOrganizer ? (user.email || 'Cán bộ quản trị') : extractStudentId(user)
-  const primaryNavPath = isOrganizer ? '/staff/fanpages' : '/profile'
-  const primaryNavLabel = isOrganizer ? 'Trung tâm Fanpage' : 'Thông tin cá nhân'
+  const isStaff = isStaffUser(user)
+  const displayName = user.name || (isStaff ? 'Cán bộ quản trị' : user.email || 'Người dùng')
+  const studentMssv = extractStudentId(user)
+  const displaySubtitle = isStaff
+    ? user.email || 'Ban quản trị Fanpage'
+    : studentMssv
+      ? `MSSV: ${studentMssv}`
+      : user.email || 'Sinh viên'
+  const primaryNavPath = isStaff ? '/staff/fanpages' : '/profile'
+  const primaryNavLabel = isStaff ? 'Trung tâm Fanpage' : 'Thông tin cá nhân'
 
   return (
     <div

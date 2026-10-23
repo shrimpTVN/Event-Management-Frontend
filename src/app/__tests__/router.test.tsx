@@ -26,7 +26,7 @@ describe('Router and Shell Integration', () => {
       </AppProviders>
     )
 
-    expect(screen.getByAltText(/CTU/i)).toBeInTheDocument()
+    expect(screen.getAllByAltText(/CTU/i)[0]).toBeInTheDocument()
     expect(screen.getByText(/Khám phá/i)).toBeInTheDocument()
   })
 

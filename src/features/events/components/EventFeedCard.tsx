@@ -47,20 +47,20 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
           {event.organizerAvatarUrl ? (
             <img
               src={event.organizerAvatarUrl}
-              alt={event.organizerName}
+              alt={event.organizerName || event.fanpageName || 'Ban Tổ Chức'}
               className="h-10 w-10 rounded-full object-cover shrink-0"
             />
           ) : (
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
-              {event.organizerName.charAt(0)}
+              {(event.organizerName || event.fanpageName || 'CTU').charAt(0)}
             </div>
           )}
           <div className="flex flex-col gap-0.5 min-w-0 flex-1">
             <span
               className="font-medium text-sm leading-5 text-foreground truncate"
-              title={event.organizerName}
+              title={event.organizerName || event.fanpageName || 'Ban Tổ Chức'}
             >
-              {event.organizerName}
+              {event.organizerName || event.fanpageName || 'Ban Tổ Chức'}
             </span>
             <span className="text-xs font-medium leading-4 text-[#4B5563] dark:text-muted-foreground">
               {event.timeAgo || 'Vừa xong'}
@@ -95,10 +95,12 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
         </h2>
 
         <div className="text-sm font-normal text-[#374151] dark:text-muted-foreground leading-5">
-          {isExpanded ? event.description : `${event.description.slice(0, 140)}...`}
+          {isExpanded
+            ? event.description || ''
+            : `${(event.description || '').slice(0, 140)}${(event.description || '').length > 140 ? '...' : ''}`}
         </div>
 
-        {event.description.length > 100 && (
+        {(event.description || '').length > 100 && (
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
@@ -148,10 +150,10 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             <div className="flex flex-col gap-0.5 justify-center min-w-0">
               <span className="text-xs font-medium leading-4 text-[#9CA3AF]">Địa điểm</span>
               <span className="font-medium text-sm leading-5 text-[#374151] dark:text-foreground truncate">
-                {event.location.type === 'ONLINE'
+                {event.location?.type === 'ONLINE'
                   ? 'Trực tuyến (Online stream)'
-                  : `${event.location.address || ''}${
-                      event.location.city ? `, ${event.location.city}` : ''
+                  : `${event.location?.address || 'Hội trường Rùa'}${
+                      event.location?.city ? `, ${event.location.city}` : ''
                     }`}
               </span>
             </div>

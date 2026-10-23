@@ -1,27 +1,66 @@
 import React, { useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { isMockMode } from '@/shared'
 import {
   FanpageAdminLayout,
   FanpageHomeView,
+  fanpageAdminService,
+  EMPTY_ACTIVITY_STATS,
   MOCK_CURRENT_FANPAGE,
-  MOCK_AVAILABLE_FANPAGES,
   MOCK_ACTIVITY_STATS,
   MOCK_UPCOMING_REMINDER,
-  MOCK_FEED_POSTS,
 } from '@/features/fanpage-admin'
 import type { FanpageSummary, AdminNavTab } from '@/features/fanpage-admin'
-import { Link } from 'react-router-dom'
 
 export const FanpageAdminPage: React.FC = () => {
-  const [currentFanpage, setCurrentFanpage] = useState<FanpageSummary>(MOCK_CURRENT_FANPAGE)
-  const [availableFanpages] = useState<FanpageSummary[]>(MOCK_AVAILABLE_FANPAGES)
+  const location = useLocation()
+  const initialFanpageId = (location.state as { fanpageId?: string } | undefined)?.fanpageId
+
+  const { data: availableFanpages = [] } = useQuery<FanpageSummary[]>({
+    queryKey: ['admin-available-fanpages'],
+    queryFn: () => fanpageAdminService.getAvailableFanpages(),
+  })
+
+  const [selectedFanpage, setSelectedFanpage] = useState<FanpageSummary | null>(null)
+
+  const currentFanpage: FanpageSummary | undefined =
+    selectedFanpage ||
+    (initialFanpageId ? availableFanpages.find((fp) => fp.id === initialFanpageId) : undefined) ||
+    availableFanpages[0] ||
+    (isMockMode() ? MOCK_CURRENT_FANPAGE : undefined)
+
+  const { data: posts = [] } = useQuery({
+    queryKey: ['admin-feed-posts', currentFanpage?.id],
+    queryFn: () => fanpageAdminService.getFeedPosts(currentFanpage?.id),
+    enabled: Boolean(currentFanpage?.id),
+  })
+
   const [activeTab, setActiveTab] = useState<AdminNavTab | null>(null)
+
+  if (!currentFanpage) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center">
+        <h2 className="text-lg font-bold text-foreground">Chưa có Fanpage được chỉ định</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Bạn chưa có quyền quản trị fanpage nào hoặc chưa chọn fanpage làm việc.
+        </p>
+        <Link
+          to="/staff/fanpages"
+          className="mt-4 px-4 py-2 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors"
+        >
+          Về Trung tâm Fanpage
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <FanpageAdminLayout
       currentFanpage={currentFanpage}
       availableFanpages={availableFanpages}
       onSelectFanpage={(fp) => {
-        setCurrentFanpage(fp)
+        setSelectedFanpage(fp)
         setActiveTab(null) // Return to home on fanpage change
       }}
       activeTab={activeTab}
@@ -31,9 +70,9 @@ export const FanpageAdminPage: React.FC = () => {
       {activeTab === null && (
         <FanpageHomeView
           currentFanpage={currentFanpage}
-          stats={MOCK_ACTIVITY_STATS}
-          reminder={MOCK_UPCOMING_REMINDER}
-          posts={MOCK_FEED_POSTS}
+          stats={isMockMode() ? MOCK_ACTIVITY_STATS : EMPTY_ACTIVITY_STATS}
+          reminder={isMockMode() ? MOCK_UPCOMING_REMINDER : null}
+          posts={posts}
         />
       )}
 
@@ -72,7 +111,7 @@ export const FanpageAdminPage: React.FC = () => {
           <div className="p-6 rounded-2xl bg-white dark:bg-card border border-border space-y-4">
             <h3 className="font-bold text-sm text-foreground">Sự kiện gần nhất</h3>
             <div className="space-y-3">
-              {MOCK_FEED_POSTS.map((post) => (
+              {posts.map((post) => (
                 <div
                   key={post.id}
                   className="p-4 rounded-xl border border-border bg-[#F9FAFB] dark:bg-background/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"

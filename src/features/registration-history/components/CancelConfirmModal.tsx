@@ -17,6 +17,8 @@ export const CancelConfirmModal: React.FC<CancelConfirmModalProps> = ({
 }) => {
   if (!isOpen || !event) return null
 
+  const title = event.title || event.eventName || 'Sự kiện'
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -38,7 +40,7 @@ export const CancelConfirmModal: React.FC<CancelConfirmModalProps> = ({
             </h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
               Bạn có chắc chắn muốn hủy đăng ký tham gia sự kiện <br />
-              <span className="font-semibold text-foreground">"{event.title}"</span>?
+              <span className="font-semibold text-foreground">"{title}"</span>?
             </p>
           </div>
 
@@ -51,7 +53,7 @@ export const CancelConfirmModal: React.FC<CancelConfirmModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs md:text-sm font-medium text-muted-foreground hover:bg-muted/80 rounded-xl transition-colors"
+            className="px-4 py-2 text-xs md:text-sm font-medium text-muted-foreground hover:bg-muted/80 rounded-xl transition-colors cursor-pointer"
           >
             Quay lại
           </button>
@@ -61,7 +63,7 @@ export const CancelConfirmModal: React.FC<CancelConfirmModalProps> = ({
               onConfirm(event)
               onClose()
             }}
-            className="px-5 py-2 text-xs md:text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs"
+            className="px-5 py-2 text-xs md:text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs cursor-pointer"
           >
             Xác nhận hủy
           </button>

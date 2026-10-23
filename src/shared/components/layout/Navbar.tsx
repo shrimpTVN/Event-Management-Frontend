@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuthStore } from '@/features/auth'
+import { useQueryClient } from '@tanstack/react-query'
+import { useAuthStore, isStaffUser } from '@/features/auth'
 import { Search, Filter, MessageSquare, Bell } from 'lucide-react'
 import logoImg from '@/assets/logo.svg'
 import { AccountNavigationPopup } from './AccountNavigationPopup'
@@ -8,10 +9,13 @@ import { AccountNavigationPopup } from './AccountNavigationPopup'
 export const Navbar: React.FC = () => {
   const { user, isAuthenticated, clearAuth } = useAuthStore()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
 
   const handleLogout = () => {
+    // Xóa toàn bộ TanStack query cache khi đăng xuất
+    queryClient.clear()
     clearAuth()
     setShowDropdown(false)
     navigate('/login')
@@ -24,7 +28,8 @@ export const Navbar: React.FC = () => {
     }
   }
 
-  const homePath = user?.role === 'ORGANIZER' ? '/staff/fanpages' : '/'
+  const isStaff = isStaffUser(user)
+  const homePath = isStaff ? '/staff/fanpages' : '/'
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -33,7 +38,7 @@ export const Navbar: React.FC = () => {
         <Link
           to={homePath}
           className="flex items-center shrink-0 group transition-transform hover:opacity-95"
-          title={user?.role === 'ORGANIZER' ? 'Trung tâm Fanpage' : 'Trang chủ'}
+          title={isStaff ? 'Trung tâm Fanpage' : 'Trang chủ'}
         >
           <img
             src={logoImg}

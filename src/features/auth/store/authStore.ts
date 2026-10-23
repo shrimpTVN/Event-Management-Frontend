@@ -6,7 +6,7 @@ interface AuthStoreState {
   user: User | null
   token: string | null
   isAuthenticated: boolean
-  setAuth: (user: User, token: string) => void
+  setAuth: (user: User, token?: string | null) => void
   clearAuth: () => void
   updateUser: (user: Partial<User>) => void
 }
@@ -35,16 +35,20 @@ const initialUser = getInitialUser()
 export const useAuthStore = create<AuthStoreState>((set) => ({
   user: initialUser,
   token: initialToken,
-  isAuthenticated: Boolean(initialToken && initialUser),
+  isAuthenticated: Boolean(initialUser),
 
-  setAuth: (user: User, token: string) => {
+  setAuth: (user: User, token?: string | null) => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY_TOKEN, token)
+      if (token) {
+        localStorage.setItem(STORAGE_KEY_TOKEN, token)
+      } else {
+        localStorage.removeItem(STORAGE_KEY_TOKEN)
+      }
       localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user))
     }
     set({
       user,
-      token,
+      token: token || null,
       isAuthenticated: true,
     })
   },

@@ -11,13 +11,19 @@ You must strictly follow this lifecycle for every feature request or technical t
 1. **Requirement Analysis:** Analyze the task against business logic, existing interfaces, and data models. 
 - If the task involves UI, components, or styling, read `AGENTS.md` at the project root on demand to reference and apply the Figma design specification (color tokens, typography scales, spacing, radius).
 - if the task need database schema or API information read 'docs/materials' folder to find schema.sql or api_documentations.md file
-2. **Ambiguity Resolution:** If any requirements, edge cases, or dependencies are unclear, immediately halt and ask concise clarifying questions.
-3. **Structured Plan:** Draft a step-by-step implementation plan detailing:
+2. **Component-to-API Contract & Mock Provisioning (Mandatory Skill: `design-to-api-contract`):**
+- Before implementing or scaffolding any UI components that consume or mutate dynamic data, you **MUST** evaluate and apply the `design-to-api-contract` skill (`.agents/skills/design-to-api-contract/SKILL.md`).
+- Map all component data requirements against `docs/materials/api_documentation.md`, `schema.sql`, and `domain_enums_documentation.md`.
+- **MANDATORY HARD-GATE:** If any UI field requires new database columns, modified DTOs, or new endpoints, you **MUST HALT** and ask the user to approve the schema/API proposal before provisioning mock data or writing UI code.
+- Ensure mock records exist in `mock/db.json` and endpoints are implemented in `mock/server.cjs` using project envelope helpers (`successEnvelope`, `makePageResponse`, `errorEnvelope`).
+- **STRICT PROHIBITION:** Never embed hardcoded mock data, mock arrays, or fallback dummy users directly inside React component files.
+3. **Ambiguity Resolution:** If any requirements, edge cases, or dependencies are unclear, immediately halt and ask concise clarifying questions.
+4. **Structured Plan:** Draft a step-by-step implementation plan detailing:
    - Target feature directory (`src/features/<feature-name>/...`).
    - UI components required (distinguish existing shadcn primitives vs. components to install/compose).
    - Files to create or modify (components, custom hooks, API calls, types).
    - State management, validation schemas (e.g., Zod), and data fetching strategies.
-4. **HALT EXECUTION:** You must explicitly pause and prompt the user:
+5. **HALT EXECUTION:** You must explicitly pause and prompt the user:
    > *"Please approve this plan before I begin implementation."*
    **Do NOT write, scaffold, or modify functional code during this phase.**
 
@@ -103,18 +109,21 @@ Before implementing custom solutions for complex, non-trivial, or common utility
    - **Form State & Schema Validation:** Do NOT write custom validation engines or multi-step form state managers (use `react-hook-form` + `zod`).
    - **Accessible UI Primitives:** Do NOT build custom modals, dialogs, dropdowns, popovers, or tooltips from scratch (use shadcn / Radix UI primitives for built-in ARIA compliance and focus trapping).
    - **Data Fetching & Cache Management:** Do NOT write custom fetch wrappers with manual retry, caching, or deduplication logic (use `axios` / `ky` + `@tanstack/react-query`).
+   - **Hardcoded / In-Component Mock Data:** Do NOT hardcode mock arrays, dummy objects, static stats, or fallback mock users inside React components or services. All mock data must reside in `mock/db.json` and be served via `mock/server.cjs` through standard `@tanstack/react-query` hooks.
    - **Icons:** Do NOT draw inline SVGs manually (use `lucide-react`).
 
-### [4] Context Retrieval & Codebase Navigation
-- **Primary Navigation Tool:** Always prioritize semantic navigation tools (such as codegraph) to trace symbol definitions, call hierarchies, interfaces, and architecture.
+### [4] Context Retrieval & Codebase Navigation (CodeGraph Strict Mandate)
+- **STRICT MANDATE (BẮT BUỘC):** Every codebase exploration, file lookup, symbol search, interface tracing, and call-hierarchy discovery MUST ALWAYS start with **CodeGraph** (`call_mcp_tool` with ServerName: "codegraph", ToolName: "codegraph_explore", or shell `codegraph explore "<symbol or file>"`). Name a symbol or file path directly in the query to get line-numbered source and blast radius in one turn.
+- **STRICT PROHIBITION (NGHIÊM CẤM):** 
+  - Never use shell commands `grep`, `egrep`, `find`, `rg`, or `ls -R` to search, explore, or locate code in the repository.
+  - Blind grep and recursive filesystem scans are strictly forbidden. Any turn using grep/find to explore indexed code is considered a rule violation.
+- **Sub-Agent Rule Inheritance:**
+  - Whenever dispatching or acting as a sub-agent, CodeGraph exploration MUST be the primary and mandatory search mechanism.
 - **UI & Component Discovery:**
-  - Check existing shadcn components via codebase search or shadcn CLI discovery before writing new UI components.
-- **Topography and color guidline:**
-  - read agent.md to retrieve information about color and topography constrant
-- **Document:**
-  - Read file in docs/material to read information about table schema, api description, and enum type
-- **Search Constraints:**
-  - Avoid unstructured traversal, blind grep, or arbitrary recursive filesystem scans across `node_modules` or build directories.
-  - Rely on semantic graph queries and targeted path queries.
-- **Fallback Protocol:**
-  - Standard text or regex searches are permitted only if semantic tools error out, time out, or need to locate unindexed, freshly created files.
+  - Use `codegraph explore "<ComponentName>"` to inspect existing shadcn and UI primitives before creating new components.
+- **Typography and Color Guideline:**
+  - Read `AGENTS.md` at root on demand to retrieve constraints on color tokens, typography scales, spacing, and radius.
+- **Material Documents:**
+  - Read files under `docs/materials/` (`schema.sql`, `api_documentation.md`, `domain_enums_documentation.md`, `seed_*.sql`) for database schema, API contracts, and domain enum types.
+- **Exception Protocol:**
+  - Standard text or regex searches are ONLY permitted if `.codegraph/` does not exist, or if CodeGraph daemon explicitly errors out or times out.

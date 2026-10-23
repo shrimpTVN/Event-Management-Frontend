@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { PageShell } from '@/shared'
-import { AuthGuard } from '@/features/auth'
+import { AuthGuard, STAFF_ROLES } from '@/features/auth'
 import { HomePage } from '../pages/HomePage'
 import { EventListPage } from '../pages/EventListPage'
 import { EventDetailPage } from '../pages/EventDetailPage'
@@ -45,19 +45,35 @@ export const router = createBrowserRouter([
   },
   {
     path: '/staff/fanpages',
-    element: <StaffFanpageHubPage />,
+    element: (
+      <AuthGuard allowedRoles={STAFF_ROLES} roleRedirectPath="/">
+        <StaffFanpageHubPage />
+      </AuthGuard>
+    ),
   },
   {
     path: '/register/fanpage',
-    element: <FanpageRegistrationPage />,
+    element: (
+      <AuthGuard allowedRoles={STAFF_ROLES} roleRedirectPath="/">
+        <FanpageRegistrationPage />
+      </AuthGuard>
+    ),
   },
   {
     path: '/fanpage/admin',
-    element: <FanpageAdminPage />,
+    element: (
+      <AuthGuard allowedRoles={STAFF_ROLES} roleRedirectPath="/">
+        <FanpageAdminPage />
+      </AuthGuard>
+    ),
   },
   {
     path: '/admin/fanpage',
-    element: <FanpageAdminPage />,
+    element: (
+      <AuthGuard allowedRoles={STAFF_ROLES} roleRedirectPath="/">
+        <FanpageAdminPage />
+      </AuthGuard>
+    ),
   },
   {
     path: '/dang-nhap',
@@ -69,7 +85,11 @@ export const router = createBrowserRouter([
   },
   {
     path: '/dang-ky-fanpage',
-    element: <FanpageRegistrationPage />,
+    element: (
+      <AuthGuard allowedRoles={STAFF_ROLES} roleRedirectPath="/">
+        <FanpageRegistrationPage />
+      </AuthGuard>
+    ),
   },
 
   // 2. Application Routes (Wrapped in PageShell with Top Navbar & Main Container)
@@ -80,7 +100,7 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: (
-          <AuthGuard disallowedRoles={['ORGANIZER']} roleRedirectPath="/staff/fanpages">
+          <AuthGuard disallowedRoles={STAFF_ROLES} roleRedirectPath="/staff/fanpages">
             <HomePage />
           </AuthGuard>
         ),
@@ -136,7 +156,7 @@ export const router = createBrowserRouter([
       {
         path: 'dashboard',
         element: (
-          <AuthGuard requiredRole="ORGANIZER">
+          <AuthGuard allowedRoles={STAFF_ROLES}>
             <DashboardPage />
           </AuthGuard>
         ),

@@ -16,7 +16,7 @@ import { FanpageEventFeedCard } from './FanpageEventFeedCard'
 interface FanpageHomeViewProps {
   currentFanpage: FanpageSummary
   stats: FanpageActivityStats
-  reminder: UpcomingEventReminder
+  reminder?: UpcomingEventReminder | null
   posts: FanpageFeedPost[]
 }
 
@@ -60,7 +60,7 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Utility Widgets (370px / 4 cols) */}
         <div className="lg:col-span-4 space-y-6">
-          <FanpageQuickCreateCard reminder={reminder} />
+          <FanpageQuickCreateCard reminder={reminder || undefined} />
           <FanpageAboutCard
             fanpage={currentFanpage}
             onEditClick={() => navigate('/register/fanpage')}

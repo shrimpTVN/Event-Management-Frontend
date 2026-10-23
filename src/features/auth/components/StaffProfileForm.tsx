@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, ArrowRight, Loader2, AlertCircle, Info } from 'lucide-react'
 import { staffProfileSchema, type StaffProfileInput } from '../types/auth.schemas'
+import { RoleEnum } from '../types/auth.types'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
 
@@ -62,7 +63,7 @@ export const StaffProfileForm: React.FC = () => {
       const updatedUser = await authService.completeStaffProfile(data)
       updateUser({
         name: updatedUser.name,
-        role: 'ORGANIZER',
+        role: updatedUser.role || RoleEnum.FANPAGE_ADMIN,
         isProfileComplete: true,
       })
       navigate('/staff/fanpages', { replace: true })

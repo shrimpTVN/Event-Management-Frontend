@@ -1,20 +1,34 @@
 import React, { useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   FanpagePublicHeader,
   FanpageAboutCard,
   FanpageEventFeedCard,
-  mockFanpageDetail,
-  mockFanpageEvents,
+  fanpageService,
   type FanpagePublicEventPost,
+  type FanpageDetail,
 } from '@/features/fanpage'
 import { StudentLeftSidebar } from '@/features/events'
-import { SlidersHorizontal, CheckCircle, AlertCircle, CalendarDays } from 'lucide-react'
+import { SlidersHorizontal, CheckCircle, AlertCircle, CalendarDays, Loader2 } from 'lucide-react'
 
 export const FanpageDetailPage: React.FC = () => {
-  const { id: _id } = useParams<{ id: string }>()
-  const [fanpage, setFanpage] = useState(mockFanpageDetail)
-  const [events, setEvents] = useState<FanpagePublicEventPost[]>(mockFanpageEvents)
+  const { id } = useParams<{ id: string }>()
+  const fanpageId = id || ''
+  const queryClient = useQueryClient()
+
+  const { data: fanpage, isLoading: isLoadingFanpage } = useQuery({
+    queryKey: ['fanpage', fanpageId],
+    queryFn: () => fanpageService.getFanpageById(fanpageId),
+    enabled: Boolean(fanpageId),
+  })
+
+  const { data: events = [], isLoading: isLoadingEvents } = useQuery({
+    queryKey: ['fanpage', fanpageId, 'events'],
+    queryFn: () => fanpageService.getEventsByFanpage(fanpageId),
+    enabled: Boolean(fanpageId),
+  })
+
   const [notification, setNotification] = useState<{
     type: 'success' | 'info'
     message: string
@@ -35,8 +49,10 @@ export const FanpageDetailPage: React.FC = () => {
 
   const handleToggleSave = (post: FanpagePublicEventPost) => {
     const nextSaved = !post.isSaved
-    setEvents((prev) =>
-      prev.map((e) => (e.id === post.id ? { ...e, isSaved: nextSaved } : e))
+    queryClient.setQueryData(
+      ['fanpage', fanpageId, 'events'],
+      (old: FanpagePublicEventPost[] = []) =>
+        old.map((e) => (e.id === post.id ? { ...e, isSaved: nextSaved } : e))
     )
     showToast(
       nextSaved
@@ -47,22 +63,28 @@ export const FanpageDetailPage: React.FC = () => {
   }
 
   const handleFollowChange = (isFollowing: boolean) => {
-    setFanpage((prev) => ({
-      ...prev,
-      isFollowing,
-      followerCount: isFollowing ? prev.followerCount + 1 : prev.followerCount - 1,
-    }))
+    queryClient.setQueryData(
+      ['fanpage', fanpageId],
+      (prev?: FanpageDetail) =>
+        prev
+          ? {
+              ...prev,
+              isFollowing,
+              followerCount: isFollowing ? prev.followerCount + 1 : Math.max(0, prev.followerCount - 1),
+            }
+          : prev
+    )
     showToast(
       isFollowing
-        ? `Bạn đã theo dõi trang "${fanpage.name}".`
-        : `Bạn đã hủy theo dõi trang "${fanpage.name}".`,
+        ? `Bạn đã theo dõi trang "${fanpage?.name || ''}".`
+        : `Bạn đã hủy theo dõi trang "${fanpage?.name || ''}".`,
       'info'
     )
   }
 
   const handleMessageClick = () => {
     showToast(
-      `Liên hệ trực tiếp với Ban tổ chức qua email: ${fanpage.email} hoặc hotline: ${fanpage.phone || '0292.3832663'}`,
+      `Liên hệ trực tiếp với Ban tổ chức qua email: ${fanpage?.email || ''} hoặc hotline: ${fanpage?.phone || '0292.3832663'}`,
       'info'
     )
   }
@@ -105,65 +127,102 @@ export const FanpageDetailPage: React.FC = () => {
         {/* Center / Main Content: Fanpage Profile View */}
         <main className="flex-1 min-w-0 h-full overflow-y-auto py-5 px-1 flex justify-center custom-scrollbar">
           <div className="w-full max-w-5xl flex flex-col gap-5 pb-16">
-            {/* 1. Hero Fanpage Header Card */}
-            <FanpagePublicHeader
-              fanpage={fanpage}
-              onMessageClick={handleMessageClick}
-              onFollowChange={handleFollowChange}
-            />
-
-            {/* 2. Two-Column Layout (About Column + Event Feed Column) */}
-            <div className="w-full flex flex-col lg:flex-row items-start gap-5">
-              {/* Left Column: Giới thiệu (Figma width: 340px) */}
-              <div className="w-full lg:w-[340px] shrink-0">
-                <FanpageAboutCard fanpage={fanpage} />
+            {isLoadingFanpage ? (
+              <div className="w-full rounded-2xl border border-border bg-card p-12 flex flex-col items-center justify-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Đang tải thông tin fanpage...</p>
               </div>
+            ) : fanpage ? (
+              <>
+                {/* 1. Hero Fanpage Header Card */}
+                <FanpagePublicHeader
+                  fanpage={fanpage}
+                  onMessageClick={handleMessageClick}
+                  onFollowChange={handleFollowChange}
+                />
 
-              {/* Right Column: Sự kiện (Feed) */}
-              <div className="flex-1 min-w-0 w-full flex flex-col gap-4">
-                {/* Section Header: Title + Bộ lọc button */}
-                <div className="flex items-center justify-between gap-3 px-1">
-                  <h2 className="font-k2d font-medium text-lg text-foreground tracking-tight">
-                    Sự kiện
-                  </h2>
-
-                  <button
-                    type="button"
-                    onClick={() => showToast('Đang mở bộ lọc sự kiện...', 'info')}
-                    className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-[#374151] dark:text-foreground bg-white dark:bg-card border border-border/80 rounded-lg hover:bg-muted/60 transition-colors shadow-2xs cursor-pointer"
-                  >
-                    <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>Bộ lọc</span>
-                  </button>
-                </div>
-
-                {/* Event Feed List */}
-                {events.length > 0 ? (
-                  <div className="flex flex-col gap-4">
-                    {events.map((post) => (
-                      <FanpageEventFeedCard
-                        key={post.id}
-                        post={post}
-                        onShare={handleShare}
-                        onToggleSave={handleToggleSave}
-                      />
-                    ))}
+                {/* 2. Two-Column Layout (About Column + Event Feed Column) */}
+                <div className="w-full flex flex-col lg:flex-row items-start gap-5">
+                  {/* Left Column: Giới thiệu (Figma width: 340px) */}
+                  <div className="w-full lg:w-[340px] shrink-0">
+                    <FanpageAboutCard fanpage={fanpage} />
                   </div>
-                ) : (
-                  <div className="w-full bg-white dark:bg-card border border-dashed border-border/80 rounded-xl p-12 text-center flex flex-col items-center justify-center gap-2">
-                    <div className="p-3 rounded-full bg-muted/60 text-muted-foreground">
-                      <CalendarDays className="h-7 w-7" />
+
+                  {/* Right Column: Sự kiện (Feed) */}
+                  <div className="flex-1 min-w-0 w-full flex flex-col gap-4">
+                    {/* Section Header: Title + Bộ lọc button */}
+                    <div className="flex items-center justify-between gap-3 px-1">
+                      <h2 className="font-k2d font-medium text-lg text-foreground tracking-tight">
+                        Sự kiện
+                      </h2>
+
+                      <button
+                        type="button"
+                        onClick={() => showToast('Đang mở bộ lọc sự kiện...', 'info')}
+                        className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-[#374151] dark:text-foreground bg-white dark:bg-card border border-border/80 rounded-lg hover:bg-muted/60 transition-colors shadow-2xs cursor-pointer"
+                      >
+                        <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>Bộ lọc</span>
+                      </button>
                     </div>
-                    <h3 className="font-heading font-semibold text-sm text-foreground">
-                      Chưa có sự kiện nào
-                    </h3>
-                    <p className="text-xs text-muted-foreground max-w-sm">
-                      Fanpage hiện tại chưa đăng tải sự kiện mới. Hãy theo dõi trang để nhận thông báo sớm nhất!
-                    </p>
+
+                    {/* Event Feed List */}
+                    {isLoadingEvents ? (
+                      <div className="flex flex-col gap-4">
+                        {[1, 2].map((n) => (
+                          <div
+                            key={n}
+                            className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-4 animate-pulse"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-muted" />
+                              <div className="flex-1 space-y-2">
+                                <div className="h-4 bg-muted rounded w-1/3" />
+                                <div className="h-3 bg-muted rounded w-1/4" />
+                              </div>
+                            </div>
+                            <div className="h-5 bg-muted rounded w-3/4" />
+                            <div className="h-44 bg-muted rounded-xl w-full" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : events.length > 0 ? (
+                      <div className="flex flex-col gap-4">
+                        {events.map((post) => (
+                          <FanpageEventFeedCard
+                            key={post.id}
+                            post={post}
+                            onShare={handleShare}
+                            onToggleSave={handleToggleSave}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="w-full bg-white dark:bg-card border border-dashed border-border/80 rounded-xl p-12 text-center flex flex-col items-center justify-center gap-2">
+                        <div className="p-3 rounded-full bg-muted/60 text-muted-foreground">
+                          <CalendarDays className="h-7 w-7" />
+                        </div>
+                        <h3 className="font-heading font-semibold text-sm text-foreground">
+                          Chưa có sự kiện nào
+                        </h3>
+                        <p className="text-xs text-muted-foreground max-w-sm">
+                          Fanpage hiện tại chưa đăng tải sự kiện mới. Hãy theo dõi trang để nhận thông báo sớm nhất!
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+              </>
+            ) : (
+              <div className="w-full rounded-2xl border border-dashed border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-2">
+                <h3 className="font-semibold text-foreground text-base">
+                  Không tìm thấy thông tin Fanpage
+                </h3>
+                <p className="text-xs text-muted-foreground max-w-sm">
+                  Trang này không tồn tại hoặc đã bị khóa. Vui lòng thử lại sau.
+                </p>
               </div>
-            </div>
+            )}
           </div>
         </main>
       </div>

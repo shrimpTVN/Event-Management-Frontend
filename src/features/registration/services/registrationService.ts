@@ -3,10 +3,15 @@ import type { Registration, RegistrationFormData } from '../types/registration.t
 
 export const registrationService = {
   /**
-   * Registers attendee for an event
+   * Registers attendee for an event using canonical endpoint or alias
    */
-  async registerForEvent(eventId: string, data: RegistrationFormData): Promise<Registration> {
-    return apiClient.post(`/events/${eventId}/register`, data)
+  async registerForEvent(eventId: string, data?: Partial<RegistrationFormData>): Promise<any> {
+    try {
+      return await apiClient.post(`/registrations/me/events/${eventId}`, data)
+    } catch {
+      // Fallback for prototype endpoint
+      return await apiClient.post(`/events/${eventId}/register`, data)
+    }
   },
 
   /**

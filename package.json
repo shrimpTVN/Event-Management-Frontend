@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "mock:server": "node mock/server.cjs",
-    "dev:mock": "concurrently -n \"mock,vite\" -c \"blue,green\" \"npm run mock:server\" \"npm run dev\"",
+    "dev:mock": "concurrently -n \"mock,vite\" -c \"blue,green\" \"npm run mock:server\" \"vite --mode mock\"",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",

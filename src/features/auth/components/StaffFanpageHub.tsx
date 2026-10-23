@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Plus, Info, Check, X, CheckCircle2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { apiClient, isMockMode } from '@/shared'
 
 interface FanpageInvitation {
   id: string
@@ -64,9 +66,54 @@ const JOINED_FANPAGES: JoinedFanpage[] = [
 
 export const StaffFanpageHub: React.FC = () => {
   const navigate = useNavigate()
-  const [invitations, setInvitations] = useState<FanpageInvitation[]>(INITIAL_INVITATIONS)
-  const [selectedFanpageId, setSelectedFanpageId] = useState<string>('fp-1')
+  const [invitations, setInvitations] = useState<FanpageInvitation[]>(
+    isMockMode() ? INITIAL_INVITATIONS : []
+  )
   const [actionNotice, setActionNotice] = useState<string | null>(null)
+
+  const { data: apiFanpages = [] } = useQuery<JoinedFanpage[]>({
+    queryKey: ['staff-my-fanpages'],
+    queryFn: async () => {
+      try {
+        const res: any = await apiClient.get('/fanpages/fanpage-admin/my-fanpages')
+        const list = Array.isArray(res) ? res : res?.data || []
+        if (list.length > 0) {
+          return list.map((fp: any) => ({
+            id: String(fp.id),
+            code:
+              fp.code ||
+              (fp.name?.includes('CNTT')
+                ? 'CNTT'
+                : fp.name?.includes('Cần Thơ') || fp.name?.includes('CTU')
+                  ? 'CTU'
+                  : fp.name?.includes('CLB')
+                    ? 'CLB'
+                    : (fp.name || 'FP').substring(0, 4).toUpperCase()),
+            name: fp.name,
+            role: fp.role || 'Quản trị viên chính',
+            permissions: fp.permissions || 'Quản lý sự kiện, nội dung, đối soát',
+          }))
+        }
+        return isMockMode() ? JOINED_FANPAGES : []
+      } catch {
+        return isMockMode() ? JOINED_FANPAGES : []
+      }
+    },
+  })
+
+  const fanpagesList = apiFanpages
+
+  const [selectedFanpageId, setSelectedFanpageId] = useState<string>(
+    () => fanpagesList[0]?.id || ''
+  )
+
+  useEffect(() => {
+    if (fanpagesList.length > 0) {
+      if (!selectedFanpageId || !fanpagesList.some((fp) => fp.id === selectedFanpageId)) {
+        setSelectedFanpageId(fanpagesList[0].id)
+      }
+    }
+  }, [fanpagesList, selectedFanpageId])
 
   const handleRespondInvitation = (id: string, accept: boolean) => {
     setInvitations((prev) =>
@@ -87,7 +134,7 @@ export const StaffFanpageHub: React.FC = () => {
 
   const handleContinue = () => {
     // Navigate to event management home under selected fanpage
-    navigate('/fanpage/admin')
+    navigate('/fanpage/admin', { state: { fanpageId: selectedFanpageId } })
   }
 
   return (
@@ -209,7 +256,7 @@ export const StaffFanpageHub: React.FC = () => {
             </h2>
 
             <div className="space-y-3">
-              {JOINED_FANPAGES.map((fp) => {
+              {fanpagesList.map((fp) => {
                 const isSelected = selectedFanpageId === fp.id
                 return (
                   <div
@@ -244,6 +291,7 @@ export const StaffFanpageHub: React.FC = () => {
 
                     <Link
                       to="/fanpage/admin"
+                      state={{ fanpageId: fp.id }}
                       onClick={(e) => e.stopPropagation()}
                       className="px-4 h-9 rounded-lg border border-[#D1D5DB] dark:border-border text-foreground hover:bg-[#F9FAFB] dark:hover:bg-muted font-medium text-xs transition-colors self-end sm:self-center shrink-0 flex items-center gap-1.5"
                     >
