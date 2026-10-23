@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   HistoryStatsCards,
   HistoryFilterBar,
@@ -6,10 +7,11 @@ import {
   ProofModal,
   AbsenceModal,
   CancelConfirmModal,
-  mockRegisteredEvents,
-  mockHistoryStats,
+  historyService,
+  normalizeHistoryStatus,
   type RegisteredEventItem,
   type HistoryStatus,
+  type HistoryStats,
   type AbsenceFormData,
 } from '@/features/registration-history'
 import { StudentLeftSidebar } from '@/features/events'
@@ -23,11 +25,16 @@ import {
 import { CalendarDays, CheckCircle, AlertCircle } from 'lucide-react'
 
 export const EventHistoryPage: React.FC = () => {
-  const [events, setEvents] = useState<RegisteredEventItem[]>(mockRegisteredEvents)
+  const queryClient = useQueryClient()
   const [activeStatus, setActiveStatus] = useState<HistoryStatus>('ALL')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedYear, setSelectedYear] = useState('2026 - 2027')
   const [selectedSemester, setSelectedSemester] = useState('1')
+
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: ['registrations', 'history'],
+    queryFn: () => historyService.getMyHistory(),
+  })
 
   // Modals state
   const [proofModalEvent, setProofModalEvent] = useState<RegisteredEventItem | null>(null)
@@ -47,52 +54,57 @@ export const EventHistoryPage: React.FC = () => {
     }, 4000)
   }
 
-  // Calculate dynamic stats merged with Figma trend indicators
-  const stats = useMemo(() => {
-    const totalRegistered = events.length
-    const upcoming = events.filter((e) => e.status === 'UPCOMING').length
-    const completed = events.filter((e) => e.status === 'COMPLETED').length
-    const absent = events.filter((e) => e.status === 'ABSENT').length
+  // Calculate dynamic stats merged with trend indicators
+  const stats: HistoryStats = useMemo(() => {
+    const list = Array.isArray(events) ? events : []
+    const totalRegistered = list.length
+    const upcoming = list.filter((e) => normalizeHistoryStatus(e.status) === 'UPCOMING').length
+    const completed = list.filter((e) => normalizeHistoryStatus(e.status) === 'COMPLETED').length
+    const absent = list.filter((e) => normalizeHistoryStatus(e.status) === 'ABSENT').length
 
     return {
-      totalRegistered: mockHistoryStats.totalRegistered || totalRegistered,
-      totalTrend: mockHistoryStats.totalTrend,
-      upcoming: mockHistoryStats.upcoming || upcoming,
-      upcomingTrend: mockHistoryStats.upcomingTrend,
-      completed: mockHistoryStats.completed || completed,
-      completedTrend: mockHistoryStats.completedTrend,
-      absent: mockHistoryStats.absent || absent,
-      absentTrend: mockHistoryStats.absentTrend,
+      totalRegistered,
+      totalTrend: { value: '+12%', isUp: true, subText: 'so với kì trước' },
+      upcoming,
+      upcomingTrend: { value: '+5%', isUp: true, subText: 'sắp diễn ra' },
+      completed,
+      completedTrend: { value: '+8%', isUp: true, subText: 'hoàn thành' },
+      absent,
+      absentTrend: { value: '0%', isUp: false, subText: 'vắng mặt' },
     }
   }, [events])
 
   // Tab counts
-  const counts = useMemo(
-    () => ({
-      all: 30, // matching Figma tab badge 30
-      upcoming: 20, // matching Figma tab badge 20
-      completed: 10, // matching Figma tab badge 10
-      absent: 1, // matching Figma tab badge 1
-      cancelled: 0, // matching Figma tab badge 0
-    }),
-    []
-  )
+  const counts = useMemo(() => {
+    const list = Array.isArray(events) ? events : []
+    return {
+      all: list.length,
+      upcoming: list.filter((e) => normalizeHistoryStatus(e.status) === 'UPCOMING').length,
+      completed: list.filter((e) => normalizeHistoryStatus(e.status) === 'COMPLETED').length,
+      absent: list.filter((e) => normalizeHistoryStatus(e.status) === 'ABSENT').length,
+      cancelled: list.filter((e) => normalizeHistoryStatus(e.status) === 'CANCELLED').length,
+    }
+  }, [events])
 
   // Filtered event list
   const filteredEvents = useMemo(() => {
-    return events.filter((evt) => {
+    const list = Array.isArray(events) ? events : []
+    return list.filter((evt) => {
       // Filter by status tab
-      if (activeStatus !== 'ALL' && evt.status !== activeStatus) {
-        return false
+      if (activeStatus !== 'ALL') {
+        const itemStatus = normalizeHistoryStatus(evt.status)
+        if (itemStatus !== activeStatus) {
+          return false
+        }
       }
 
-      // Filter by search query
+      // Filter by search query with safe property access
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase()
-        const matchesTitle = evt.title.toLowerCase().includes(query)
-        const matchesOrganizer = evt.organizer.name.toLowerCase().includes(query)
-        const matchesLocation = evt.location.toLowerCase().includes(query)
-        if (!matchesTitle && !matchesOrganizer && !matchesLocation) {
+        const title = (evt.title || evt.eventName || '').toLowerCase()
+        const organizer = (evt.organizer?.name || 'Ban Tổ Chức').toLowerCase()
+        const location = (evt.location || '').toLowerCase()
+        if (!title.includes(query) && !organizer.includes(query) && !location.includes(query)) {
           return false
         }
       }
@@ -109,25 +121,28 @@ export const EventHistoryPage: React.FC = () => {
   }
 
   const handleCancelConfirm = (event: RegisteredEventItem) => {
-    setEvents((prev) =>
-      prev.map((e) =>
-        e.id === event.id
+    const targetId = event.id || String(event.eventId)
+    const title = event.title || event.eventName || 'Sự kiện'
+    queryClient.setQueryData(['registrations', 'history'], (old: RegisteredEventItem[] = []) =>
+      (Array.isArray(old) ? old : []).map((e) =>
+        (e.id === targetId || (event.eventId && String(e.eventId) === String(event.eventId)))
           ? {
               ...e,
-              status: 'CANCELLED',
+              status: 'CANCELLED' as const,
               canCancel: false,
               canRequestAbsence: false,
             }
           : e
       )
     )
-    showToast(`Đã hủy đăng ký thành công sự kiện "${event.title}".`, 'info')
+    showToast(`Đã hủy đăng ký thành công sự kiện "${title}".`, 'info')
   }
 
   const handleComplaint = (event: RegisteredEventItem) => {
     setProofModalEvent(null)
+    const title = event.title || event.eventName || 'Sự kiện'
     showToast(
-      `Đã ghi nhận yêu cầu khiếu nại minh chứng cho sự kiện "${event.title}". Ban phụ trách sẽ liên hệ lại với bạn.`,
+      `Đã ghi nhận yêu cầu khiếu nại minh chứng cho sự kiện "${title}". Ban phụ trách sẽ liên hệ lại với bạn.`,
       'info'
     )
   }
@@ -156,7 +171,7 @@ export const EventHistoryPage: React.FC = () => {
             <span>{notification.message}</span>
             <button
               onClick={() => setNotification(null)}
-              className="ml-2 text-muted-foreground hover:text-foreground text-xs"
+              className="ml-2 text-muted-foreground hover:text-foreground text-xs cursor-pointer"
             >
               ✕
             </button>
@@ -236,11 +251,24 @@ export const EventHistoryPage: React.FC = () => {
               />
 
               {/* 3-column Events Cards Grid (Frame 231) */}
-              {filteredEvents.length > 0 ? (
+              {isLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {filteredEvents.map((evt) => (
+                  {[1, 2, 3].map((n) => (
+                    <div
+                      key={n}
+                      className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3 animate-pulse h-60"
+                    >
+                      <div className="h-28 bg-muted rounded-lg w-full" />
+                      <div className="h-4 bg-muted rounded w-3/4" />
+                      <div className="h-3 bg-muted rounded w-1/2" />
+                    </div>
+                  ))}
+                </div>
+              ) : filteredEvents.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {filteredEvents.map((evt, idx) => (
                     <RegisteredEventCard
-                      key={evt.id}
+                      key={evt.id || evt.eventId || idx}
                       event={evt}
                       onOpenProofModal={(e) => setProofModalEvent(e)}
                       onOpenAbsenceModal={(e) => setAbsenceModalEvent(e)}

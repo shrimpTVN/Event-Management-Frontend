@@ -1,32 +1,17 @@
 import React from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
-import { EventDetailView, StudentLeftSidebar, type Event } from '@/features/events'
-
-const mockEvent: Event = {
-  id: 'evt-1',
-  title: 'AI & Machine Learning Global Summit 2026',
-  description:
-    'Explore state-of-the-art advances in agentic artificial intelligence, foundational models, and scalable web systems.',
-  category: 'CONFERENCE',
-  status: 'PUBLISHED',
-  startTime: '2026-11-15T09:00:00Z',
-  endTime: '2026-11-17T17:00:00Z',
-  location: { type: 'OFFLINE', city: 'San Francisco, CA', address: 'Moscone Center' },
-  capacity: 500,
-  registeredCount: 342,
-  price: 199,
-  organizerId: 'org-1',
-  organizerName: 'TechVision Foundation',
-  tags: ['AI', 'Engineering', 'Innovation'],
-  isModerationRequired: true,
-  createdAt: '2026-10-01T00:00:00Z',
-  updatedAt: '2026-10-01T00:00:00Z',
-}
+import { ArrowLeft, Loader2, CalendarDays } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { EventDetailView, StudentLeftSidebar, eventService } from '@/features/events'
 
 export const EventDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
-  const event = { ...mockEvent, id: id || mockEvent.id }
+
+  const { data: event, isLoading, error } = useQuery({
+    queryKey: ['events', id],
+    queryFn: () => eventService.getEventById(id!),
+    enabled: Boolean(id),
+  })
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
@@ -47,7 +32,32 @@ export const EventDetailPage: React.FC = () => {
               <span>Quay lại danh sách sự kiện</span>
             </Link>
 
-            <EventDetailView event={event} />
+            {isLoading ? (
+              <div className="w-full rounded-2xl border border-border bg-card p-12 flex flex-col items-center justify-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Đang tải thông tin sự kiện...</p>
+              </div>
+            ) : event ? (
+              <EventDetailView event={event} />
+            ) : (
+              <div className="w-full rounded-2xl border border-dashed border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-2">
+                <CalendarDays className="h-10 w-10 text-muted-foreground" />
+                <h3 className="font-semibold text-foreground text-base">
+                  Không tìm thấy sự kiện
+                </h3>
+                <p className="text-xs text-muted-foreground max-w-sm">
+                  {error
+                    ? 'Không thể tải chi tiết sự kiện này hoặc sự kiện đã bị xóa.'
+                    : 'Sự kiện không tồn tại hoặc bạn không có quyền xem.'}
+                </p>
+                <Link
+                  to="/events"
+                  className="mt-3 px-4 py-2 text-xs font-semibold text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  Khám phá sự kiện khác
+                </Link>
+              </div>
+            )}
           </div>
         </main>
       </div>

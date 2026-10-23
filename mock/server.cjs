@@ -74,17 +74,85 @@ function resolveUserRole(userId) {
   return role ? role.name : 'STUDENT'
 }
 
-function buildStudentProfileDto(userId) {
+function getCurrentUserIdFromRequest(req) {
+  // 1. Check Authorization Bearer header (format: Bearer mock-jwt-token-{userId}-{timestamp})
+  const authHeader = req.headers.authorization || ''
+  if (authHeader.startsWith('Bearer mock-jwt-token-')) {
+    const parts = authHeader.replace('Bearer mock-jwt-token-', '').split('-')
+    const uid = Number(parts[0])
+    if (!isNaN(uid) && uid > 0) return uid
+  }
+  // 2. Check Cookie ddd_jwt
+  const cookieHeader = req.headers.cookie || ''
+  const cookies = cookieHeader.split(';').reduce((acc, c) => {
+    const [k, v] = c.trim().split('=')
+    if (k) acc[k] = v
+    return acc
+  }, {})
+  if (cookies.ddd_jwt && cookies.ddd_jwt.startsWith('mock-jwt-token-')) {
+    const parts = cookies.ddd_jwt.replace('mock-jwt-token-', '').split('-')
+    const uid = Number(parts[0])
+    if (!isNaN(uid) && uid > 0) return uid
+  }
+  return 1
+}
+
+function buildUserProfileDto(userId) {
   const db = getDb()
   const user = db.get('users').find({ id: Number(userId) }).value()
   if (!user) return null
 
-  const profile = db.get('student_profiles').find({ userId: user.id }).value()
-  const major = profile ? db.get('majors').find({ id: profile.majorId }).value() : null
-  const school = major ? db.get('schools').find({ id: major.schoolId }).value() : null
-  const association = profile ? db.get('associations').find({ id: profile.associationId }).value() : null
+  const studentProfile = db.get('student_profiles').find({ userId: user.id }).value()
+  const staffProfile = db.get('fanpage_admin_profiles').find({ userId: user.id }).value()
   const roleName = resolveUserRole(user.id)
 
+  const fullName = `${user.lastName} ${user.firstName}`.trim()
+
+  // 1. Student Persona
+  if (studentProfile) {
+    const major = db.get('majors').find({ id: studentProfile.majorId }).value()
+    const school = major ? db.get('schools').find({ id: major.schoolId }).value() : null
+    const association = db.get('associations').find({ id: studentProfile.associationId }).value()
+    const kNum = String(studentProfile.kNumber || 49)
+    const majorName = major ? major.name : 'Kỹ thuật phần mềm'
+    const majorCode = major ? major.code : '7480103'
+    const schoolName = school ? school.name : 'Trường Công nghệ Thông tin và Truyền thông'
+    const assocName = association ? association.name : 'Đoàn Trường Đại học Cần Thơ'
+
+    return {
+      // Backend canonical fields
+      id: String(user.id),
+      email: user.email,
+      role: roleName,
+      isActive: user.isActive,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      name: fullName,
+      studentId: studentProfile.studentId || null,
+      gender: user.gender,
+      kNumber: kNum,
+      avatarUrl: user.avatarUrl,
+      associationName: assocName,
+      majorName,
+      majorCode,
+      schoolName,
+      isProfileComplete: true,
+      // UI alias fields
+      fullName,
+      status: studentProfile.status || 'Đang học',
+      classId: studentProfile.classId || null,
+      cohort: `K${kNum} (2023 - 2027)`,
+      dateOfBirth: user.dateOfBirth || null,
+      bio: studentProfile.bio || '',
+      phoneNumber: user.phoneNumber || '',
+      faculty: schoolName,
+      major: majorName,
+      academicProgram: studentProfile.academicProgram || 'Đại trà (Chương trình chuẩn)',
+      youthUnionBranch: assocName,
+    }
+  }
+
+  // 2. Staff / Fanpage Admin / System Admin Persona (Clean, no student hardcoding)
   return {
     id: String(user.id),
     email: user.email,
@@ -92,17 +160,33 @@ function buildStudentProfileDto(userId) {
     isActive: user.isActive,
     firstName: user.firstName,
     lastName: user.lastName,
-    name: `${user.lastName} ${user.firstName}`.trim(),
-    studentId: profile ? profile.studentId : 'B2303827',
+    name: fullName,
+    studentId: null,
+    staffId: staffProfile ? staffProfile.staffId : (user.id === 3 ? 'ADMIN-01' : null),
     gender: user.gender,
-    kNumber: profile ? String(profile.kNumber) : '49',
+    kNumber: null,
     avatarUrl: user.avatarUrl,
-    associationName: association ? association.name : 'Đoàn Trường Đại học Cần Thơ',
-    majorName: major ? major.name : 'Kỹ thuật phần mềm',
-    majorCode: major ? major.code : '7480103',
-    schoolName: school ? school.name : 'Trường Công nghệ Thông tin và Truyền thông',
+    associationName: staffProfile ? staffProfile.orgName : 'Trường Đại học Cần Thơ',
+    majorName: null,
+    majorCode: null,
+    schoolName: 'Trường Đại học Cần Thơ',
     isProfileComplete: true,
+    fullName,
+    status: 'Cán bộ đang công tác',
+    classId: null,
+    cohort: null,
+    dateOfBirth: (staffProfile && staffProfile.dob) || user.dateOfBirth || null,
+    bio: staffProfile ? `${staffProfile.title} - ${staffProfile.orgName}` : 'Quản trị viên hệ thống',
+    phoneNumber: (staffProfile && staffProfile.phoneNumber) || user.phoneNumber || '',
+    faculty: staffProfile ? staffProfile.orgName : 'Ban Giám hiệu / Quản trị hệ thống',
+    major: null,
+    academicProgram: null,
+    youthUnionBranch: staffProfile ? staffProfile.orgName : 'Đoàn Trường Đại học Cần Thơ',
   }
+}
+
+function buildStudentProfileDto(userId) {
+  return buildUserProfileDto(userId)
 }
 
 function buildEventResponseDto(event) {
@@ -204,7 +288,7 @@ apiRouter.post('/auth/login', (req, res) => {
   }
 
   const roleName = resolveUserRole(user.id)
-  const token = 'mock-jwt-token-' + Date.now()
+  const token = `mock-jwt-token-${user.id}-${Date.now()}`
 
   res.cookie('ddd_jwt', token, {
     httpOnly: true,
@@ -212,20 +296,22 @@ apiRouter.post('/auth/login', (req, res) => {
     sameSite: 'lax',
     path: '/',
   })
-  res.cookie('ddd_refresh', 'mock-refresh-' + Date.now(), {
+  res.cookie('ddd_refresh', `mock-refresh-${user.id}-${Date.now()}`, {
     httpOnly: true,
     maxAge: 604800000,
     sameSite: 'lax',
     path: '/',
   })
 
-  const fullUserProfile = buildStudentProfileDto(user.id)
+  const fullUserProfile = buildUserProfileDto(user.id)
+  const springRole = `ROLE_${roleName}`
 
   return res.json(
     successEnvelope({
       userId: user.id,
       email: user.email,
-      role: roleName,
+      roles: [springRole],
+      role: springRole,
       user: fullUserProfile,
       tokens: { accessToken: token },
     }, 'Đăng nhập thành công')
@@ -265,31 +351,34 @@ apiRouter.post('/auth/resend-otp', (_req, res) => {
   return res.json(successEnvelope({ success: true }, 'Mã OTP đã được gửi lại'))
 })
 
-apiRouter.get('/auth/me', (_req, res) => {
-  const profile = buildStudentProfileDto(1)
+apiRouter.get('/auth/me', (req, res) => {
+  const userId = getCurrentUserIdFromRequest(req)
+  const profile = buildUserProfileDto(userId)
   return res.json(successEnvelope(profile))
 })
 
 apiRouter.post('/auth/student-profile', (req, res) => {
-  const profile = { ...buildStudentProfileDto(1), ...req.body, isProfileComplete: true }
+  const profile = { ...buildUserProfileDto(1), ...req.body, isProfileComplete: true }
   return res.json(successEnvelope(profile, 'Cập nhật hồ sơ sinh viên thành công'))
 })
 
 apiRouter.post('/auth/staff-profile', (req, res) => {
-  const profile = { ...buildStudentProfileDto(2), ...req.body, isProfileComplete: true }
+  const profile = { ...buildUserProfileDto(2), ...req.body, isProfileComplete: true }
   return res.json(successEnvelope(profile, 'Cập nhật hồ sơ cán bộ thành công'))
 })
 
 // -------------------------------------------------------------
 // 2. Users & Profiles Endpoints (/api/users)
 // -------------------------------------------------------------
-apiRouter.get('/users/me/profile', (_req, res) => {
-  const profile = buildStudentProfileDto(1)
+apiRouter.get('/users/me/profile', (req, res) => {
+  const userId = getCurrentUserIdFromRequest(req)
+  const profile = buildUserProfileDto(userId)
   return res.json(successEnvelope(profile))
 })
 
 apiRouter.put('/users/me/profile', (req, res) => {
-  const profile = { ...buildStudentProfileDto(1), ...req.body }
+  const userId = getCurrentUserIdFromRequest(req)
+  const profile = { ...buildUserProfileDto(userId), ...req.body }
   return res.json(successEnvelope(profile, 'Cập nhật thành công'))
 })
 
@@ -408,13 +497,14 @@ apiRouter.delete('/events/fanpage-member/:id', (req, res) => {
 apiRouter.post('/registrations/me/events/:eventId', (req, res) => {
   const eventId = Number(req.params.eventId)
   const db = getDb()
-  const existing = db.get('registrations').find({ userId: 1, eventId }).value()
+  const currentUserId = getCurrentUserIdFromRequest(req)
+  const existing = db.get('registrations').find({ userId: currentUserId, eventId }).value()
   if (existing) {
     return res.status(409).json(errorEnvelope('Sinh viên đã đăng ký sự kiện này rồi', 'DUPLICATE_RESOURCE_ERROR'))
   }
 
   const newReg = {
-    userId: 1,
+    userId: currentUserId,
     eventId,
     regDate: new Date().toISOString(),
     checkInAt: null,
@@ -431,9 +521,10 @@ apiRouter.post('/registrations/me/events/:eventId', (req, res) => {
 
 apiRouter.patch('/registrations/me/events/:eventId/cancel', (req, res) => {
   const eventId = Number(req.params.eventId)
+  const currentUserId = getCurrentUserIdFromRequest(req)
   getDb()
     .get('registrations')
-    .find({ userId: 1, eventId })
+    .find({ userId: currentUserId, eventId })
     .assign({ status: 'CANCELLED', reason: req.body.reason || 'Hủy đăng ký' })
     .write()
   return res.json(successEnvelope(null, 'Hủy đăng ký thành công'))
@@ -442,34 +533,113 @@ apiRouter.patch('/registrations/me/events/:eventId/cancel', (req, res) => {
 apiRouter.get('/registrations/me/history', (req, res) => {
   const { page = 0, size = 10 } = req.query
   const db = getDb()
-  const registrations = db.get('registrations').filter({ userId: 1 }).value() || []
+  const currentUserId = getCurrentUserIdFromRequest(req)
+  const userProfile = buildUserProfileDto(currentUserId)
+  const registrations = db.get('registrations').filter({ userId: currentUserId }).value() || []
   const events = db.get('events').value() || []
+  const fanpages = db.get('fanpages').value() || []
+  const eventPoints = db.get('event_points').value() || []
+  const pointCategories = db.get('point_categories').value() || []
+  const criterias = db.get('criterias').value() || []
+
+  // Map backend status -> UI history status
+  function mapStatus(backendStatus, ev) {
+    if (backendStatus === 'COMPLETED') return 'COMPLETED'
+    if (backendStatus === 'CANCELLED') return 'CANCELLED'
+    if (backendStatus === 'REJECTED') return 'ABSENT'
+    if (backendStatus === 'CHECKED_IN') return 'UPCOMING' // still at event
+    // REGISTERED — check if event date is past
+    if (ev && ev.dateHappen) {
+      const happenDate = new Date(ev.dateHappen)
+      if (happenDate < new Date()) return 'ABSENT' // past event, never checked in
+    }
+    return 'UPCOMING'
+  }
 
   const historyDtos = registrations.map((r) => {
     const ev = events.find((e) => e.id === r.eventId) || {}
+    const fp = fanpages.find((f) => f.id === ev.fanpageId)
+    const criteria = criterias.find((c) => c.id === ev.criteriaId)
+
+    // Build benefits from event_points
+    const evPoints = eventPoints.filter((ep) => ep.eventId === r.eventId)
+    const benefits = evPoints.map((ep) => {
+      const pc = pointCategories.find((c) => c.id === ep.pointCategoryId)
+      const shortName = pc ? pc.note || pc.name : 'ĐRL'
+      return `${ep.point}đ ${shortName}`
+    })
+
+    // Format date strings for Vietnamese display
+    const happenDate = ev.dateHappen ? new Date(ev.dateHappen) : new Date()
+    const weekdays = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7']
+    const timeHappen = `${String(happenDate.getHours()).padStart(2,'0')}h${String(happenDate.getMinutes()).padStart(2,'0')}, ${String(happenDate.getDate()).padStart(2,'0')}/${String(happenDate.getMonth()+1).padStart(2,'0')}/${happenDate.getFullYear()}`
+    const dateHappen = `${weekdays[happenDate.getDay()]}, ${String(happenDate.getDate()).padStart(2,'0')}/${String(happenDate.getMonth()+1).padStart(2,'0')}/${happenDate.getFullYear()}`
+
+    const uiStatus = mapStatus(r.status, ev)
+
     return {
+      // Backend canonical fields
       eventId: r.eventId,
       regDate: r.regDate,
-      status: r.status,
-      reason: r.reason,
       checkInAt: r.checkInAt,
       checkOutAt: r.checkOutAt,
       evidenceUrl: r.checkInEvidenceUrl,
+      reason: r.reason,
       eventName: ev.name || 'Sự kiện CTU',
       location: ev.location || 'Hội trường Rùa',
-      dateOpen: ev.dateOpen || '2026-09-01T00:00:00Z',
-      dateClose: ev.dateClose || '2026-09-20T00:00:00Z',
-      dateHappen: ev.dateHappen || '2026-09-22T18:00:00Z',
+      dateOpen: ev.dateOpen,
+      dateClose: ev.dateClose,
       bannerUrl: ev.bannerUrl || '',
+      // UI RegisteredEventItem fields
+      id: `reg-${r.userId}-${r.eventId}`,
+      title: ev.name || 'Sự kiện CTU',
+      organizer: {
+        name: fp ? fp.name : 'Đoàn Trường ĐHCT',
+        avatarUrl: fp ? fp.avatarUrl : '',
+        isVerified: fp ? fp.status === 'ACTIVE' : false,
+      },
+      timeHappen,
+      dateHappen,
+      status: uiStatus,
+      pointsCategory: benefits.length > 0 ? `ĐRL: +${benefits[0]}` : '',
+      criteriaSv5t: criteria ? criteria.name : '',
+      benefits,
+      extraBenefitsCount: Math.max(0, benefits.length - 2),
+      capacity: ev.capacity || 100,
+      registeredCount: (db.get('registrations').filter({ eventId: r.eventId }).value() || []).length,
+      registrationDate: r.regDate,
+      attendanceSessions: r.checkInAt ? [
+        {
+          id: `session-${r.eventId}-1`,
+          sessionName: 'Buổi chính',
+          checkInTime: r.checkInAt,
+          checkedBy: 'Hệ thống tự động',
+          status: r.checkOutAt ? 'VALID' : (r.checkInAt ? 'VALID' : 'NOT_STARTED'),
+        },
+      ] : [
+        {
+          id: `session-${r.eventId}-1`,
+          sessionName: 'Buổi chính',
+          status: 'NOT_STARTED',
+        },
+      ],
+      canCancel: uiStatus === 'UPCOMING',
+      canRequestAbsence: uiStatus === 'UPCOMING',
+      hasProof: Boolean(r.checkInEvidenceUrl),
+      studentInfo: {
+        mssv: userProfile ? (userProfile.studentId || '') : '',
+        fullName: userProfile ? userProfile.name : (r.userId === 1 ? 'Đoàn Tài Lộc' : 'Thành viên'),
+      },
     }
   })
 
   return res.json(successEnvelope(makePageResponse(historyDtos, page, size)))
 })
 
-apiRouter.get('/registrations/me/upcoming', (_req, res) => {
+apiRouter.get('/registrations/me/upcoming', (req, res) => {
   const db = getDb()
-  const registrations = db.get('registrations').filter({ userId: 1, status: 'REGISTERED' }).value() || []
+  const currentUserId = getCurrentUserIdFromRequest(req)
+  const registrations = db.get('registrations').filter({ userId: currentUserId, status: 'REGISTERED' }).value() || []
   const events = db.get('events').value() || []
 
   const dtos = registrations.map((r) => {
@@ -489,9 +659,10 @@ apiRouter.get('/registrations/me/upcoming', (_req, res) => {
 
 apiRouter.patch('/registrations/me/events/:eventId/check-in', (req, res) => {
   const eventId = Number(req.params.eventId)
+  const currentUserId = getCurrentUserIdFromRequest(req)
   getDb()
     .get('registrations')
-    .find({ userId: 1, eventId })
+    .find({ userId: currentUserId, eventId })
     .assign({
       status: 'CHECKED_IN',
       checkInAt: new Date().toISOString(),
@@ -503,9 +674,10 @@ apiRouter.patch('/registrations/me/events/:eventId/check-in', (req, res) => {
 
 apiRouter.patch('/registrations/me/events/:eventId/check-out', (req, res) => {
   const eventId = Number(req.params.eventId)
+  const currentUserId = getCurrentUserIdFromRequest(req)
   getDb()
     .get('registrations')
-    .find({ userId: 1, eventId })
+    .find({ userId: currentUserId, eventId })
     .assign({
       status: 'COMPLETED',
       checkOutAt: new Date().toISOString(),
@@ -564,6 +736,14 @@ apiRouter.get('/fanpages/:fanpageId', (req, res) => {
     return res.status(404).json(errorEnvelope('Không tìm thấy fanpage', 'RESOURCE_NOT_FOUND'))
   }
   return res.json(successEnvelope(fanpage))
+})
+
+apiRouter.get('/fanpages/:fanpageId/events', (req, res) => {
+  const { fanpageId } = req.params
+  const { page = 0, size = 10 } = req.query
+  const events = getDb().get('events').filter({ fanpageId: Number(fanpageId) }).value() || []
+  const dtos = events.map(buildEventResponseDto)
+  return res.json(successEnvelope(makePageResponse(dtos, page, size)))
 })
 
 apiRouter.get('/fanpages/:fanpageId/members', (_req, res) => {
@@ -634,12 +814,14 @@ apiRouter.get('/criterias/:id', (req, res) => {
 // -------------------------------------------------------------
 // 8. Student Progress & Point Aggregates (/api/student & /api/student-semester-points)
 // -------------------------------------------------------------
-apiRouter.get('/student/criteria-progress', (_req, res) => {
+apiRouter.get('/student/criteria-progress', (req, res) => {
+  const currentUserId = getCurrentUserIdFromRequest(req)
   const criterias = getDb().get('criterias').filter({ level: 1 }).value() || []
-  const progressList = getDb().get('student_criteria_progress').filter({ userId: 1 }).value() || []
+  const progressList = getDb().get('student_criteria_progress').filter({ userId: currentUserId }).value() || []
 
   const tree = criterias.map((c) => {
-    const isCompleted = progressList.some((p) => p.criteriaId === c.id)
+    const progress = progressList.find((p) => p.criteriaId === c.id)
+    const isCompleted = Boolean(progress)
     return {
       criteriaId: c.id,
       name: c.name,
@@ -651,19 +833,21 @@ apiRouter.get('/student/criteria-progress', (_req, res) => {
       isCompleted,
       completedChildren: isCompleted ? 1 : 0,
       totalChildren: 1,
-      completionSource: isCompleted ? 'EVENT_CHECKOUT' : null,
+      completionSource: progress ? progress.completionSource : null,
       completedAt: isCompleted ? '2026-08-15T14:00:00Z' : null,
       children: [],
     }
   })
 
+  const completedCount = tree.filter((c) => c.isCompleted).length
+
   const progressDto = {
     academicYearId: 2,
     academicYear: '2026-2027',
-    completedLeafCriteria: 2,
-    totalLeafCriteria: 5,
-    completedMainCriteria: 2,
-    totalMainCriteria: 5,
+    completedLeafCriteria: completedCount,
+    totalLeafCriteria: tree.length,
+    completedMainCriteria: completedCount,
+    totalMainCriteria: tree.length,
     criteria: tree,
   }
 
@@ -671,13 +855,15 @@ apiRouter.get('/student/criteria-progress', (_req, res) => {
 })
 
 apiRouter.get('/student-semester-points/me/semesters/:semesterId', (req, res) => {
-  const points = getDb().get('student_semester_points').filter({ userId: 1, semesterId: Number(req.params.semesterId) }).value() || []
+  const currentUserId = getCurrentUserIdFromRequest(req)
+  const points = getDb().get('student_semester_points').filter({ userId: currentUserId, semesterId: Number(req.params.semesterId) }).value() || []
   return res.json(successEnvelope(points))
 })
 
 apiRouter.get('/point-transactions/me/semesters/:semesterId/point-categories/:pointCategoryId', (req, res) => {
+  const currentUserId = getCurrentUserIdFromRequest(req)
   const tx = getDb().get('point_transactions').filter({
-    userId: 1,
+    userId: currentUserId,
     semesterId: Number(req.params.semesterId),
     pointCategoryId: Number(req.params.pointCategoryId),
   }).value() || []
@@ -719,17 +905,25 @@ apiRouter.post('/checkin/photo-verify', (req, res) => {
   )
 })
 
-apiRouter.get('/certificates/:registrationId', (_req, res) => {
+apiRouter.get('/certificates/:registrationId', (req, res) => {
+  const { registrationId } = req.params
+  const db = getDb()
+  // registrationId can be "reg-1-1" or "1" or numeric
+  const parts = String(registrationId).split('-')
+  const eventId = parts.length >= 3 ? Number(parts[2]) : Number(registrationId) || 1
+  const event = db.get('events').find({ id: eventId }).value() || db.get('events').find({ id: 1 }).value()
+
   return res.json(
     successEnvelope({
-      id: 'cert-1',
-      registrationId: 'reg-3',
-      eventId: '4',
+      id: `cert-${registrationId}`,
+      registrationId: String(registrationId),
+      eventId: String(event ? event.id : 1),
       attendeeName: 'Đoàn Tài Lộc',
-      eventTitle: 'HỘI THẢO CHUYÊN ĐỀ: TRÍ TUỆ NHÂN TẠO & XU HƯỚNG MÔ HÌNH NGÔN NGỮ LỚN (LLM)',
-      issueDate: '2026-08-16',
-      verificationCode: 'CTU-AI-883921',
-      downloadUrl: '/api/certificates/cert-1/download',
+      studentId: 'B2303827',
+      eventTitle: event ? event.name : 'HỘI THẢO CHUYÊN ĐỀ: TRÍ TUỆ NHÂN TẠO & XU HƯỚNG MÔ HÌNH NGÔN NGỮ LỚN (LLM)',
+      issueDate: event && event.dateHappen ? event.dateHappen.substring(0, 10) : '2026-08-16',
+      verificationCode: `CTU-CERT-${eventId}-883921`,
+      downloadUrl: `/api/certificates/cert-${registrationId}/download`,
     })
   )
 })
@@ -761,7 +955,7 @@ server.use('/api', apiRouter)
 // Fallback to JSON Server router for raw collections
 server.use('/api', router)
 
-const PORT = 8080
+const PORT = process.env.PORT || 8088
 server.listen(PORT, () => {
   console.info(`🚀 Mock API Server running at http://localhost:${PORT}/api`)
 })

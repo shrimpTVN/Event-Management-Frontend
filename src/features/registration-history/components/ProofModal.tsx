@@ -17,6 +17,16 @@ export const ProofModal: React.FC<ProofModalProps> = ({
 }) => {
   if (!isOpen || !event) return null
 
+  const title = event.title || event.eventName || 'Sự kiện'
+  const sessions = Array.isArray(event.attendanceSessions) ? event.attendanceSessions : []
+  const studentName = event.studentInfo?.fullName || 'Đoàn Tài Lộc'
+  const studentMssv = event.studentInfo?.mssv || 'B2303827'
+  const points =
+    event.pointsCategory ||
+    (event.benefits && event.benefits.length > 0
+      ? `ĐRL: +${event.benefits[0]}`
+      : 'ĐRL theo quy định')
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -44,7 +54,7 @@ export const ProofModal: React.FC<ProofModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -57,20 +67,18 @@ export const ProofModal: React.FC<ProofModalProps> = ({
             <div>
               <span className="text-muted-foreground block mb-0.5">Sinh viên:</span>
               <span className="font-semibold text-foreground text-sm">
-                {event.studentInfo?.fullName || 'Đoàn Tài Lộc'} ({event.studentInfo?.mssv || 'B2110999'})
+                {studentName} ({studentMssv})
               </span>
             </div>
             <div>
               <span className="text-muted-foreground block mb-0.5">Điểm cộng rèn luyện:</span>
               <span className="font-semibold text-primary text-sm inline-flex items-center gap-1">
-                {event.pointsCategory}
+                {points}
               </span>
             </div>
             <div className="sm:col-span-2">
               <span className="text-muted-foreground block mb-0.5">Sự kiện:</span>
-              <span className="font-medium text-foreground text-sm">
-                {event.title}
-              </span>
+              <span className="font-medium text-foreground text-sm">{title}</span>
             </div>
           </div>
 
@@ -81,7 +89,7 @@ export const ProofModal: React.FC<ProofModalProps> = ({
               Lịch sử điểm danh các buổi
             </h4>
 
-            {event.attendanceSessions && event.attendanceSessions.length > 0 ? (
+            {sessions.length > 0 ? (
               <div className="overflow-x-auto rounded-xl border border-border/80">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-muted/60 text-muted-foreground font-semibold border-b border-border/80">
@@ -94,13 +102,13 @@ export const ProofModal: React.FC<ProofModalProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {event.attendanceSessions.map((session, index) => (
-                      <tr key={session.id} className="hover:bg-muted/20 transition-colors">
+                    {sessions.map((session, index) => (
+                      <tr key={session.id || `session-${index}`} className="hover:bg-muted/20 transition-colors">
                         <td className="px-3.5 py-3 text-center font-medium text-muted-foreground">
                           {index + 1}
                         </td>
                         <td className="px-3.5 py-3 font-medium text-foreground">
-                          {session.sessionName}
+                          {session.sessionName || `Buổi ${index + 1}`}
                         </td>
                         <td className="px-3.5 py-3 text-muted-foreground">
                           {session.checkInTime || '—'}
@@ -121,11 +129,17 @@ export const ProofModal: React.FC<ProofModalProps> = ({
                               Vắng
                             </span>
                           )}
-                          {session.status === 'NOT_STARTED' && (
+                          {(session.status === 'NOT_STARTED' || !session.status) && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground">
                               Chưa diễn ra
                             </span>
                           )}
+                          {session.status &&
+                            !['VALID', 'ABSENT', 'NOT_STARTED'].includes(session.status) && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground">
+                                {session.status}
+                              </span>
+                            )}
                         </td>
                       </tr>
                     ))}
@@ -153,14 +167,14 @@ export const ProofModal: React.FC<ProofModalProps> = ({
           <button
             type="button"
             onClick={() => onComplaint?.(event)}
-            className="px-4 py-2 text-xs md:text-sm font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors"
+            className="px-4 py-2 text-xs md:text-sm font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors cursor-pointer"
           >
             Khiếu nại kết quả
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 text-xs md:text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-xl transition-colors shadow-xs"
+            className="px-5 py-2 text-xs md:text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-xl transition-colors shadow-xs cursor-pointer"
           >
             Đóng
           </button>

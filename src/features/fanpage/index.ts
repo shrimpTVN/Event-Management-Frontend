@@ -1,5 +1,5 @@
 export * from './types/fanpage.types'
-export * from './services/fanpageMockData'
+export * from './services/fanpageService'
 export * from './components/FanpagePublicHeader'
 export * from './components/FanpageAboutCard'
 export * from './components/FanpageEventFeedCard'

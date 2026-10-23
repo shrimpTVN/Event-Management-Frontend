@@ -7,6 +7,8 @@ import {
   ClipboardList,
   Hand,
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { apiClient, isMockMode } from '@/shared'
 
 export interface FollowedOrg {
   id: string
@@ -22,27 +24,52 @@ interface StudentLeftSidebarProps {
 
 const DEFAULT_FOLLOWED_ORGS: FollowedOrg[] = [
   {
-    id: 'org-1',
-    name: 'Đoàn Trường CNTT...',
+    id: '1',
+    name: 'Đoàn Trường CNTT & TT',
     avatarUrl:
       'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100&auto=format&fit=crop&q=60',
     hasUnread: true,
   },
   {
-    id: 'org-2',
-    name: 'Chi hội Sinh Viên Lon...',
+    id: '2',
+    name: 'Trường Đại học Cần Thơ',
     avatarUrl:
       'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=100&auto=format&fit=crop&q=60',
     hasUnread: true,
   },
+  {
+    id: '3',
+    name: 'CLB Công nghệ phần mềm CTU',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=100&auto=format&fit=crop&q=60',
+    hasUnread: false,
+  },
 ]
 
 export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
-  followedOrgs = DEFAULT_FOLLOWED_ORGS,
+  followedOrgs,
   showHomeLink = false,
 }) => {
   const location = useLocation()
   const currentPath = location.pathname
+
+  // Fetch fanpages from backend if not provided as prop
+  const { data: apiFanpages } = useQuery<FollowedOrg[]>({
+    queryKey: ['fanpages', 'sidebar'],
+    queryFn: async () => {
+      const res: any = await apiClient.get('/fanpages', { params: { size: 6 } })
+      const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
+      return list.map((fp: any, idx: number) => ({
+        id: String(fp.id),
+        name: fp.name,
+        avatarUrl: fp.avatarUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100',
+        hasUnread: idx < 2, // Mark top 2 as having recent activity
+      }))
+    },
+    enabled: !followedOrgs,
+  })
+
+  const orgsToDisplay = followedOrgs || apiFanpages || (isMockMode() ? DEFAULT_FOLLOWED_ORGS : [])
 
   return (
     <aside className="w-full flex flex-col gap-6 text-sm">
@@ -67,9 +94,9 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
           Trang đã theo dõi
         </h3>
 
-        {followedOrgs.length > 0 ? (
+        {orgsToDisplay.length > 0 ? (
           <div className="flex flex-col gap-1.5">
-            {followedOrgs.map((org) => (
+            {orgsToDisplay.map((org) => (
               <Link
                 key={org.id}
                 to={`/fanpage/${org.id}`}
@@ -141,14 +168,14 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
         </h3>
         <nav className="flex flex-col gap-1">
           <Link
-            to="/drl"
+            to="/history"
             className="flex items-center gap-3 px-3.5 py-2 rounded-xl font-medium text-xs text-[#656565] dark:text-foreground/85 hover:bg-muted/80 hover:text-primary transition-colors"
           >
             <ClipboardList className="h-5 w-5 text-[#9CA3AF]" />
             <span>Quản lý điểm rèn luyện</span>
           </Link>
           <Link
-            to="/sv5t"
+            to="/history"
             className="flex items-center gap-3 px-3.5 py-2 rounded-xl font-medium text-xs text-[#656565] dark:text-foreground/85 hover:bg-muted/80 hover:text-primary transition-colors"
           >
             <Hand className="h-5 w-5 text-[#9CA3AF]" />

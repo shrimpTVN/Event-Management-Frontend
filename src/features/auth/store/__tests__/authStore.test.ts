@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useAuthStore } from '../authStore'
-import type { User } from '../../types/auth.types'
+import { RoleEnum, type User } from '../../types/auth.types'
 
 const mockUser: User = {
   id: 'usr-123',
-  email: 'attendee@example.com',
-  name: 'Alex Attendee',
-  role: 'ATTENDEE',
+  email: 'student@example.com',
+  name: 'Alex Student',
+  role: RoleEnum.STUDENT,
   createdAt: '2026-10-01T00:00:00.000Z',
 }
 
@@ -54,6 +54,6 @@ describe('authStore', () => {
 
     const state = useAuthStore.getState()
     expect(state.user?.name).toBe('Alex Updated')
-    expect(state.user?.email).toBe('attendee@example.com')
+    expect(state.user?.email).toBe('student@example.com')
   })
 })

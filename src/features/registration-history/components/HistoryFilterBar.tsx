@@ -7,12 +7,12 @@ interface HistoryFilterBarProps {
   onSearchChange: (value: string) => void
   activeStatus: HistoryStatus
   onStatusChange: (status: HistoryStatus) => void
-  counts: {
-    all: number
-    upcoming: number
-    completed: number
-    absent: number
-    cancelled: number
+  counts?: {
+    all?: number
+    upcoming?: number
+    completed?: number
+    absent?: number
+    cancelled?: number
   }
   onToggleFilterModal?: () => void
 }
@@ -26,11 +26,11 @@ export const HistoryFilterBar: React.FC<HistoryFilterBarProps> = ({
   onToggleFilterModal,
 }) => {
   const tabs: { id: HistoryStatus; label: string; count: number }[] = [
-    { id: 'ALL', label: 'Tất cả', count: counts.all },
-    { id: 'UPCOMING', label: 'Sắp diễn ra', count: counts.upcoming },
-    { id: 'COMPLETED', label: 'Hoàn thành', count: counts.completed },
-    { id: 'ABSENT', label: 'Vắng', count: counts.absent },
-    { id: 'CANCELLED', label: 'Đã hủy', count: counts.cancelled },
+    { id: 'ALL', label: 'Tất cả', count: counts?.all ?? 0 },
+    { id: 'UPCOMING', label: 'Sắp diễn ra', count: counts?.upcoming ?? 0 },
+    { id: 'COMPLETED', label: 'Hoàn thành', count: counts?.completed ?? 0 },
+    { id: 'ABSENT', label: 'Vắng', count: counts?.absent ?? 0 },
+    { id: 'CANCELLED', label: 'Đã hủy', count: counts?.cancelled ?? 0 },
   ]
 
   return (
@@ -45,7 +45,7 @@ export const HistoryFilterBar: React.FC<HistoryFilterBarProps> = ({
               key={tab.id}
               type="button"
               onClick={() => onStatusChange(tab.id)}
-              className="relative pb-2.5 flex items-center gap-2 group whitespace-nowrap transition-colors"
+              className="relative pb-2.5 flex items-center gap-2 group whitespace-nowrap transition-colors cursor-pointer"
             >
               <span
                 className={`text-sm ${
@@ -93,7 +93,7 @@ export const HistoryFilterBar: React.FC<HistoryFilterBarProps> = ({
             <button
               type="button"
               onClick={() => onSearchChange('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -104,7 +104,7 @@ export const HistoryFilterBar: React.FC<HistoryFilterBarProps> = ({
         <button
           type="button"
           onClick={onToggleFilterModal}
-          className="flex items-center gap-2 px-3.5 py-2 text-sm font-semibold text-[#374151] dark:text-foreground bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg hover:bg-muted/50 transition-colors shrink-0 shadow-2xs"
+          className="flex items-center gap-2 px-3.5 py-2 text-sm font-semibold text-[#374151] dark:text-foreground bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg hover:bg-muted/50 transition-colors shrink-0 shadow-2xs cursor-pointer"
         >
           <SlidersHorizontal className="h-4 w-4 text-[#374151] dark:text-foreground" />
           <span>Bộ lọc</span>

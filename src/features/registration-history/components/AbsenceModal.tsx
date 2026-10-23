@@ -23,6 +23,12 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
 
   if (!isOpen || !event) return null
 
+  const title = event.title || event.eventName || 'Sự kiện'
+  const sessions = Array.isArray(event.attendanceSessions) ? event.attendanceSessions : []
+  const studentName = event.studentInfo?.fullName || 'Đoàn Tài Lộc'
+  const studentMssv = event.studentInfo?.mssv || 'B2303827'
+  const eventId = String(event.eventId || event.id || '')
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -53,8 +59,8 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
     }
 
     onSubmit({
-      eventId: event.id,
-      sessionId: sessionId || event.attendanceSessions[0]?.id || 'all',
+      eventId: eventId || 'unknown',
+      sessionId: sessionId || sessions[0]?.id || 'all',
       reason,
       proofFile: selectedFile,
       proofPreviewUrl: previewUrl || undefined,
@@ -95,7 +101,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -109,18 +115,20 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Sinh viên:</span>
                 <span className="font-medium text-foreground">
-                  {event.studentInfo?.fullName || 'Đoàn Tài Lộc'} ({event.studentInfo?.mssv || 'B2110999'})
+                  {studentName} ({studentMssv})
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Sự kiện:</span>
                 <span className="font-semibold text-foreground text-right line-clamp-1 max-w-[320px]">
-                  {event.title}
+                  {title}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Thời gian diễn ra:</span>
-                <span className="font-medium text-foreground">{event.timeHappen}</span>
+                <span className="font-medium text-foreground">
+                  {event.timeHappen || 'Đang cập nhật'}
+                </span>
               </div>
             </div>
 
@@ -138,17 +146,15 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
               <select
                 value={sessionId}
                 onChange={(e) => setSessionId(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs md:text-sm bg-muted/40 border border-border/80 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary font-sans"
+                className="w-full px-3.5 py-2.5 text-xs md:text-sm bg-muted/40 border border-border/80 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary font-sans cursor-pointer"
               >
-                {event.attendanceSessions && event.attendanceSessions.length > 0 ? (
-                  event.attendanceSessions.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.sessionName}
+                {sessions.length > 0 ? (
+                  sessions.map((s, idx) => (
+                    <option key={s.id || idx} value={s.id || `session-${idx}`}>
+                      {s.sessionName || `Buổi ${idx + 1}`}
                     </option>
                   ))
-                ) : (
-                  <option value="all">Toàn bộ sự kiện</option>
-                )}
+                ) : null}
                 <option value="all">Toàn bộ thời gian sự kiện</option>
               </select>
             </div>
@@ -195,7 +201,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
                   <button
                     type="button"
                     onClick={handleRemoveImage}
-                    className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors"
+                    className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -225,13 +231,13 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs md:text-sm font-medium text-muted-foreground hover:bg-muted/80 rounded-xl transition-colors"
+              className="px-4 py-2 text-xs md:text-sm font-medium text-muted-foreground hover:bg-muted/80 rounded-xl transition-colors cursor-pointer"
             >
               Hủy
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-xs md:text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-xl transition-colors shadow-xs"
+              className="px-5 py-2 text-xs md:text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-xl transition-colors shadow-xs cursor-pointer"
             >
               Gửi đơn xin vắng
             </button>

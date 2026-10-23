@@ -1,7 +1,13 @@
-export type EventStatus = 'DRAFT' | 'PUBLISHED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED'
+export type EventStatus = 'DRAFT' | 'PUBLISHED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED' | 'CLOSED'
 
 export type EventCategory =
   'WORKSHOP' | 'CONFERENCE' | 'SEMINAR' | 'NETWORKING' | 'HACKATHON' | 'OTHER'
+
+export interface EventPointReward {
+  pointCategoryId: number
+  pointCategoryName: string
+  point: number
+}
 
 export interface EventLocation {
   type: 'ONLINE' | 'OFFLINE' | 'HYBRID'
@@ -27,6 +33,9 @@ export interface Event {
   organizerName: string
   organizerAvatarUrl?: string
   pointsReward?: string
+  criteriaName?: string
+  fanpageName?: string
+  eventPoints?: EventPointReward[]
   quotaText?: string
   isFollowed?: boolean
   isSaved?: boolean

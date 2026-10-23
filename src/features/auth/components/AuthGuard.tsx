@@ -2,6 +2,7 @@ import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import type { UserRole } from '../types/auth.types'
+import { isStaffRole, normalizeRole } from '../utils/authUtils'
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -29,21 +30,33 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
     return <Navigate to={targetUrl} replace />
   }
 
-  // Handle disallowed roles (e.g. ORGANIZER disallowed on student home page)
-  if (disallowedRoles && user?.role && disallowedRoles.includes(user.role)) {
-    const fallbackPath = user.role === 'ORGANIZER' ? '/staff/fanpages' : '/'
-    return <Navigate to={roleRedirectPath || fallbackPath} replace />
+  const userRoleNorm = normalizeRole(user?.role)
+
+  // Handle disallowed roles (e.g. staff disallowed on student home page)
+  if (disallowedRoles && userRoleNorm) {
+    const isDisallowed = disallowedRoles.some(
+      (r) => normalizeRole(r) === userRoleNorm
+    )
+    if (isDisallowed) {
+      const fallbackPath = isStaffRole(user?.role) ? '/staff/fanpages' : '/'
+      return <Navigate to={roleRedirectPath || fallbackPath} replace />
+    }
   }
 
   // Handle allowed roles whitelist
-  if (allowedRoles && user?.role && !allowedRoles.includes(user.role)) {
-    const fallbackPath = user.role === 'ORGANIZER' ? '/staff/fanpages' : '/'
-    return <Navigate to={roleRedirectPath || fallbackPath} replace />
+  if (allowedRoles && userRoleNorm) {
+    const isAllowed = allowedRoles.some(
+      (r) => normalizeRole(r) === userRoleNorm
+    )
+    if (!isAllowed) {
+      const fallbackPath = isStaffRole(user?.role) ? '/staff/fanpages' : '/'
+      return <Navigate to={roleRedirectPath || fallbackPath} replace />
+    }
   }
 
   // Handle single requiredRole check
-  if (requiredRole && user?.role !== requiredRole) {
-    if (user?.role === 'ORGANIZER') {
+  if (requiredRole && normalizeRole(requiredRole) !== userRoleNorm) {
+    if (isStaffRole(user?.role)) {
       return <Navigate to="/staff/fanpages" replace />
     }
     return (

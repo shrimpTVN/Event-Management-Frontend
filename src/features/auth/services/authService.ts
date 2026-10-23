@@ -1,7 +1,9 @@
-import { apiClient } from '@/shared/services/api'
-import { isStaffEmail } from '../utils/authUtils'
+import { apiClient, isMockMode } from '@/shared'
+import { isStaffEmail, normalizeRole } from '../utils/authUtils'
+import { RoleEnum } from '../types/auth.types'
 import type {
   AuthResponse,
+  AuthTokens,
   GoogleAuthPayload,
   LoginPayload,
   RegisterPayload,
@@ -18,27 +20,75 @@ export const authService = {
   async login(payload: LoginPayload): Promise<AuthResponse> {
     try {
       const response: any = await apiClient.post('/auth/login', payload)
-      return response
+      
+      // Adapt both canonical Spring Boot flat response ({ userId, email, roles, role })
+      // and nested mock server response ({ user, tokens })
+      const rawRole = response?.role || response?.roles?.[0] || response?.user?.role || RoleEnum.STUDENT
+      const normalizedRole = normalizeRole(rawRole) || RoleEnum.STUDENT
+      const emailUsername = (response?.email || payload.email).split('@')[0] || ''
+      const rolesArray = response?.roles || (response?.role ? [response.role] : [rawRole])
+
+      const user: User = response?.user
+        ? {
+            ...response.user,
+            role: normalizeRole(response.user.role) || normalizedRole,
+            roles: response.roles || response.user.roles || rolesArray,
+          }
+        : {
+            id: String(response?.userId || 'usr-1'),
+            email: response?.email || payload.email,
+            name:
+              response?.name ||
+              emailUsername
+                .replace(/[._]/g, ' ')
+                .split(' ')
+                .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+                .join(' ') ||
+              'Người dùng CTU',
+            studentId: normalizedRole === RoleEnum.STUDENT ? emailUsername.toUpperCase() : undefined,
+            role: normalizedRole,
+            roles: rolesArray,
+            createdAt: response?.createdAt || new Date().toISOString(),
+            isProfileComplete: true,
+          }
+
+      const mock = isMockMode()
+      const tokens: AuthTokens = response?.tokens || {
+        accessToken: response?.accessToken || (mock ? `mock-jwt-token-${user.id}-${Date.now()}` : undefined),
+      }
+
+      return {
+        ...response,
+        user,
+        tokens,
+      }
     } catch (err: any) {
-      // Development mock fallback if backend is offline
-      if (!err.response || err.response.status === 404 || err.code === 'ERR_NETWORK') {
+      // Mock fallback ONLY in mock mode if mock server is offline
+      if (isMockMode() && (!err.response || err.response.status === 404 || err.code === 'ERR_NETWORK')) {
         const isStaff = isStaffEmail(payload.email)
+        const emailUsername = payload.email.split('@')[0] || ''
+        const defaultName = emailUsername
+          .replace(/[._]/g, ' ')
+          .split(' ')
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ') || (isStaff ? 'Cán bộ Ban Tổ Chức' : 'Sinh viên CTU')
+
+        const assignedRole = isStaff ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT
         const mockUser: User = {
           id: isStaff ? 'usr-staff-1' : 'usr-student-1',
-          name: isStaff ? 'Nguyễn Minh Anh' : 'Đoàn Tài Lộc',
-          studentId: isStaff ? undefined : 'B2303827',
-          avatarUrl: isStaff
-            ? undefined
-            : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
+          name: defaultName,
+          studentId: isStaff ? undefined : emailUsername.toUpperCase(),
+          avatarUrl: undefined,
           email: payload.email,
-          role: isStaff ? 'ORGANIZER' : 'STUDENT',
+          role: assignedRole,
+          roles: [`ROLE_${assignedRole}`],
           createdAt: new Date().toISOString(),
           isProfileComplete: true,
         }
         return {
           user: mockUser,
           tokens: {
-            accessToken: 'mock-jwt-token-' + Date.now(),
+            accessToken: `mock-jwt-token-${isStaff ? 2 : 1}-${Date.now()}`,
           },
         }
       }
@@ -54,7 +104,7 @@ export const authService = {
       await apiClient.post('/auth/register', payload)
       return { success: true, email: payload.email }
     } catch (err: any) {
-      if (!err.response || err.response.status === 404 || err.code === 'ERR_NETWORK') {
+      if (isMockMode() && (!err.response || err.response.status === 404 || err.code === 'ERR_NETWORK')) {
         return { success: true, email: payload.email }
       }
       throw err
@@ -69,13 +119,13 @@ export const authService = {
       const response: any = await apiClient.post('/auth/verify-otp', payload)
       return response
     } catch (err: any) {
-      if (!err.response || err.response.status === 404 || err.code === 'ERR_NETWORK') {
+      if (isMockMode() && (!err.response || err.response.status === 404 || err.code === 'ERR_NETWORK')) {
         const isStaff = isStaffEmail(payload.email)
         const mockUser: User = {
           id: isStaff ? 'usr-staff-1' : 'usr-student-1',
           name: isStaff ? 'Cán bộ quản lý CTU' : 'Sinh viên CTU',
           email: payload.email,
-          role: isStaff ? 'ORGANIZER' : 'STUDENT',
+          role: isStaff ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT,
           createdAt: new Date().toISOString(),
           isProfileComplete: false,
         }
@@ -92,8 +142,9 @@ export const authService = {
     try {
       await apiClient.post('/auth/resend-otp', { email })
       return true
-    } catch {
-      return true
+    } catch (err) {
+      if (isMockMode()) return true
+      throw err
     }
   },
 
@@ -105,7 +156,7 @@ export const authService = {
       const response: any = await apiClient.post('/auth/student-profile', payload)
       return response
     } catch (err: any) {
-      if (!err.response || err.response.status === 404 || err.code === 'ERR_NETWORK') {
+      if (isMockMode() && (!err.response || err.response.status === 404 || err.code === 'ERR_NETWORK')) {
         return {
           id: 'usr-student-1',
           name: payload.fullName,
@@ -127,12 +178,12 @@ export const authService = {
       const response: any = await apiClient.post('/auth/staff-profile', payload)
       return response
     } catch (err: any) {
-      if (!err.response || err.response.status === 404 || err.code === 'ERR_NETWORK') {
+      if (isMockMode() && (!err.response || err.response.status === 404 || err.code === 'ERR_NETWORK')) {
         return {
           id: 'usr-staff-1',
           name: payload.fullName,
           email: payload.workEmail,
-          role: 'ORGANIZER',
+          role: RoleEnum.FANPAGE_ADMIN,
           createdAt: new Date().toISOString(),
           isProfileComplete: true,
         }

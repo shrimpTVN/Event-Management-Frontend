@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
-import { isStaffEmail } from '../utils/authUtils'
+import { isStaffEmail, isStaffUser } from '../utils/authUtils'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 
 export const OtpVerificationForm: React.FC = () => {
@@ -122,7 +122,7 @@ export const OtpVerificationForm: React.FC = () => {
       setAuth(res.user, 'mock-jwt-token-verified')
 
       // Route to profile setup
-      if (isStaffEmail(email) || res.user.role === 'ORGANIZER') {
+      if (isStaffUser(res.user) || isStaffEmail(email)) {
         navigate('/onboarding/staff')
       } else {
         navigate('/onboarding/student')

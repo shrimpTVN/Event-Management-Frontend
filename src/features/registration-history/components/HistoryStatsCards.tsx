@@ -2,7 +2,7 @@ import React from 'react'
 import type { HistoryStats } from '../types/history.types'
 
 interface HistoryStatsCardsProps {
-  stats: HistoryStats
+  stats?: HistoryStats
   activeFilter?: string
   onSelectFilter?: (filter: 'ALL' | 'UPCOMING' | 'COMPLETED' | 'ABSENT') => void
 }
@@ -12,12 +12,19 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({
   activeFilter,
   onSelectFilter,
 }) => {
+  const safeStats = stats || {
+    totalRegistered: 0,
+    upcoming: 0,
+    completed: 0,
+    absent: 0,
+  }
+
   const cards = [
     {
       id: 'ALL' as const,
       title: 'Tổng sự kiện đã đăng kí',
-      value: stats.totalRegistered,
-      trend: stats.totalTrend || {
+      value: safeStats.totalRegistered ?? 0,
+      trend: safeStats.totalTrend || {
         value: '20%',
         isUp: true,
         subText: 'So với HK3 NH 2025 - 2026',
@@ -27,8 +34,8 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({
     {
       id: 'UPCOMING' as const,
       title: 'Sự kiện sắp diễn ra',
-      value: stats.upcoming,
-      trend: stats.upcomingTrend || {
+      value: safeStats.upcoming ?? 0,
+      trend: safeStats.upcomingTrend || {
         value: '—%',
         isUp: true,
         subText: 'SK gần nhất: 8h 20/10',
@@ -38,8 +45,8 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({
     {
       id: 'COMPLETED' as const,
       title: 'Sự kiện đã hoàn thành',
-      value: stats.completed,
-      trend: stats.completedTrend || {
+      value: safeStats.completed ?? 0,
+      trend: safeStats.completedTrend || {
         value: '—%',
         isUp: true,
         subText: 'So với HK3 NH 2025 - 2026',
@@ -49,8 +56,8 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({
     {
       id: 'ABSENT' as const,
       title: 'Sự kiện vắng',
-      value: stats.absent,
-      trend: stats.absentTrend || {
+      value: safeStats.absent ?? 0,
+      trend: safeStats.absentTrend || {
         value: '—%',
         isUp: false,
         subText: 'So với HK3 NH 2025 - 2026',
@@ -59,7 +66,10 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({
     },
   ]
 
-  const getTrendBadge = (trend: { value: string; isUp?: boolean }, variant: 'success' | 'neutral' | 'danger') => {
+  const getTrendBadge = (
+    trend: { value: string; isUp?: boolean },
+    variant: 'success' | 'neutral' | 'danger'
+  ) => {
     const arrow = trend.isUp ? '▲' : '▼'
 
     if (variant === 'success') {
@@ -98,7 +108,7 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({
             key={card.id}
             type="button"
             onClick={() => onSelectFilter?.(card.id)}
-            className={`flex flex-col justify-between p-4 sm:p-5 rounded-lg bg-white dark:bg-card border transition-all text-left group hover:shadow-xs ${
+            className={`flex flex-col justify-between p-4 sm:p-5 rounded-lg bg-white dark:bg-card border transition-all text-left group hover:shadow-xs cursor-pointer ${
               isActive
                 ? 'border-[#1B4B8A] ring-1 ring-[#1B4B8A] bg-blue-50/10 dark:bg-blue-950/10'
                 : 'border-border/80 hover:border-[#1B4B8A]/40'

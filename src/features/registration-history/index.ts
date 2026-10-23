@@ -1,5 +1,5 @@
 export * from './types/history.types'
-export * from './services/historyMockData'
+export * from './services/historyService'
 export * from './components/HistoryStatsCards'
 export * from './components/HistoryFilterBar'
 export * from './components/RegisteredEventCard'
