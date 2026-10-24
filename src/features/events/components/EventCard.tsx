@@ -33,7 +33,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event }) => {
             <span>
               {event.location.type === 'ONLINE'
                 ? 'Online Stream'
-                : `${event.location.city || ''} (${event.location.address || ''})`}
+                : [event.location.address, event.location.city].filter(Boolean).join(', ') || 'Đang cập nhật địa điểm'}
             </span>
           </div>
         </div>

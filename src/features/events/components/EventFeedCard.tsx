@@ -152,7 +152,7 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
               <span className="font-medium text-sm leading-5 text-[#374151] dark:text-foreground truncate">
                 {event.location?.type === 'ONLINE'
                   ? 'Trực tuyến (Online stream)'
-                  : `${event.location?.address || 'Hội trường Rùa'}${
+                  : `${event.location?.address || 'Đang cập nhật'}${
                       event.location?.city ? `, ${event.location.city}` : ''
                     }`}
               </span>

@@ -8,7 +8,7 @@ import {
   Hand,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { apiClient, isMockMode } from '@/shared'
+import { apiClient } from '@/shared'
 
 export interface FollowedOrg {
   id: string
@@ -21,30 +21,6 @@ interface StudentLeftSidebarProps {
   followedOrgs?: FollowedOrg[]
   showHomeLink?: boolean
 }
-
-const DEFAULT_FOLLOWED_ORGS: FollowedOrg[] = [
-  {
-    id: '1',
-    name: 'Đoàn Trường CNTT & TT',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100&auto=format&fit=crop&q=60',
-    hasUnread: true,
-  },
-  {
-    id: '2',
-    name: 'Trường Đại học Cần Thơ',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=100&auto=format&fit=crop&q=60',
-    hasUnread: true,
-  },
-  {
-    id: '3',
-    name: 'CLB Công nghệ phần mềm CTU',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=100&auto=format&fit=crop&q=60',
-    hasUnread: false,
-  },
-]
 
 export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
   followedOrgs,
@@ -69,7 +45,7 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
     enabled: !followedOrgs,
   })
 
-  const orgsToDisplay = followedOrgs || apiFanpages || (isMockMode() ? DEFAULT_FOLLOWED_ORGS : [])
+  const orgsToDisplay = followedOrgs || apiFanpages || []
 
   return (
     <aside className="w-full flex flex-col gap-6 text-sm">

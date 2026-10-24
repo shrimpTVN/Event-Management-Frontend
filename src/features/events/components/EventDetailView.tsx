@@ -10,23 +10,30 @@ interface EventDetailViewProps {
 
 export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
   const pointsRewardText =
-    event.pointsReward || (event.eventPoints && event.eventPoints.length > 0)
-      ? event.eventPoints?.map((ep) => `+${ep.point}đ ${ep.pointCategoryName || 'ĐRL'}`).join(' • ')
-      : '+3 - 5 điểm rèn luyện'
+    event.pointsReward ||
+    (event.eventPoints && event.eventPoints.length > 0
+      ? event.eventPoints.map((ep) => `+${ep.point}đ ${ep.pointCategoryName || 'ĐRL'}`).join(' • ')
+      : 'Không áp dụng điểm rèn luyện')
 
-  const criteriaText = event.criteriaName || 'Xét tiêu chuẩn Sinh viên 5 tốt'
-  const organizerName = event.organizerName || event.fanpageName || 'Đoàn Trường Đại học Cần Thơ'
-  const organizerAvatar = event.organizerAvatarUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'
+  const criteriaText = event.criteriaName || 'Không áp dụng tiêu chí SV5T'
+  const organizerName = event.organizerName || event.fanpageName || 'Ban Tổ Chức'
+  const organizerAvatar =
+    event.organizerAvatarUrl ||
+    'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'
 
   return (
     <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-sm space-y-6 text-left">
       {/* Category & Status Pill */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-          {event.category || 'HỘI THẢO'}
+          {event.category || 'WORKSHOP'}
         </span>
         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1 text-xs font-medium">
-          {event.status === 'PUBLISHED' ? 'Đang mở đăng ký' : event.status === 'COMPLETED' || (event.status as string) === 'CLOSED' ? 'Đã đóng' : 'Sắp diễn ra'}
+          {event.status === 'PUBLISHED'
+            ? 'Đang mở đăng ký'
+            : event.status === 'COMPLETED' || (event.status as string) === 'CLOSED'
+            ? 'Đã đóng'
+            : 'Sắp diễn ra'}
         </span>
       </div>
 
@@ -104,7 +111,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
             <p className="text-sm font-semibold truncate max-w-[180px]">
               {event.location.type === 'ONLINE'
                 ? 'Trực tuyến'
-                : `${event.location.address || 'Khu II, Đại học Cần Thơ'}`}
+                : `${event.location.address || 'Đang cập nhật địa điểm'}`}
             </p>
           </div>
         </div>
