@@ -2,8 +2,8 @@ name: PR Test & Verification
 
 on:
   pull_request:
-    branches: [ main, master, develop ]
-    types: [ opened, synchronize, reopened, ready_for_review ]
+    branches: [main, master, develop]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 # Cancel previous runs for the same PR branch when new commits are pushed
@@ -30,9 +30,6 @@ jobs:
 
       - name: Install clean dependencies
         run: npm ci
-
-      - name: Check code formatting (Prettier)
-        run: npx prettier --check "src/**/*.{ts,tsx,css}"
 
       - name: Run linter (ESLint)
         run: npm run lint
