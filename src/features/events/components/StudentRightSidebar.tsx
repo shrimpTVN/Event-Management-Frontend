@@ -77,7 +77,7 @@ export const StudentRightSidebar: React.FC = () => {
     const total = list.reduce((acc, item) => acc + item.current, 0)
 
     let rank = 'Yếu'
-    let needed = 0
+    let needed = 50 - total
     if (total >= 90) {
       rank = 'Xuất sắc'
     } else if (total >= 80) {
@@ -89,9 +89,6 @@ export const StudentRightSidebar: React.FC = () => {
     } else if (total >= 50) {
       rank = 'Trung Bình'
       needed = 65 - total
-    } else {
-      rank = 'Yếu'
-      needed = 50 - total
     }
 
     return {
