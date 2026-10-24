@@ -408,7 +408,7 @@ apiRouter.get('/users/admin', (req, res) => {
 // 3. Events Endpoints (/api/events)
 // -------------------------------------------------------------
 apiRouter.get('/events', (req, res) => {
-  const { keyword, eventTypeId, fanpageId, page = 0, size = 10 } = req.query
+  const { keyword, eventTypeId, fanpageId, status, page = 0, size = 10 } = req.query
   let events = getDb().get('events').value() || []
 
   if (keyword) {
@@ -425,6 +425,9 @@ apiRouter.get('/events', (req, res) => {
   }
   if (fanpageId) {
     events = events.filter((e) => e.fanpageId === Number(fanpageId))
+  }
+  if (status) {
+    events = events.filter((e) => e.status === status)
   }
 
   const dtos = events.map(buildEventResponseDto)
@@ -478,12 +481,31 @@ apiRouter.post('/events/fanpage-member', (req, res) => {
   return res.json(successEnvelope(buildEventResponseDto(newEvent), 'Tạo sự kiện thành công'))
 })
 
+apiRouter.put('/events/fanpage-member/:id', (req, res) => {
+  const { id } = req.params
+  const db = getDb()
+  const event = db.get('events').find({ id: Number(id) }).value()
+  if (!event) {
+    return res.status(404).json(errorEnvelope('Không tìm thấy sự kiện', 'RESOURCE_NOT_FOUND'))
+  }
+  const updated = db.get('events').find({ id: Number(id) }).assign({
+    ...req.body,
+    updatedAt: new Date().toISOString(),
+  }).write()
+  return res.json(successEnvelope(buildEventResponseDto(updated), 'Cập nhật sự kiện thành công'))
+})
+
 apiRouter.patch('/events/fanpage-member/:id/status', (req, res) => {
   const { id } = req.params
   const { status } = req.query
   const db = getDb()
   const event = db.get('events').find({ id: Number(id) }).assign({ status, updatedAt: new Date().toISOString() }).write()
   return res.json(successEnvelope(event, 'Đổi trạng thái sự kiện thành công'))
+})
+
+apiRouter.delete('/events/admin/:id', (req, res) => {
+  getDb().get('events').remove({ id: Number(req.params.id) }).write()
+  return res.json(successEnvelope(null, 'Xóa sự kiện thành công'))
 })
 
 apiRouter.delete('/events/fanpage-member/:id', (req, res) => {

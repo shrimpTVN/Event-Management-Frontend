@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart3, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { apiClient, isMockMode } from '@/shared'
+import { apiClient } from '@/shared'
 import {
   format,
   addMonths,
@@ -24,14 +24,6 @@ interface CriteriaItem {
   isCompleted?: boolean
 }
 
-const DEFAULT_CRITERIA_LIST: CriteriaItem[] = [
-  { id: '1', name: 'Mục I. Ý thức học tập', current: 16, max: 20 },
-  { id: '2', name: 'Mục II. Chấp hành nội quy', current: 22, max: 25 },
-  { id: '3', name: 'Mục III. Hoạt động CTXH', current: 12, max: 20 },
-  { id: '4', name: 'Mục IV. Quan hệ cộng đồng', current: 10, max: 15 },
-  { id: '5', name: 'Mục V. Hoạt động lớp/đoàn', current: 5, max: 20, isCompleted: false },
-]
-
 const CATEGORY_MAX_MAP: Record<number, { name: string; max: number }> = {
   1: { name: 'Mục I. Ý thức học tập', max: 20 },
   2: { name: 'Mục II. Chấp hành nội quy', max: 25 },
@@ -41,7 +33,7 @@ const CATEGORY_MAX_MAP: Record<number, { name: string; max: number }> = {
 }
 
 export const StudentRightSidebar: React.FC = () => {
-  // Default to Month 10/2026 matching current mock data period
+  // Default to Month 10/2026 matching current semester period
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date(2026, 9, 1))
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 9, 23))
 
@@ -65,20 +57,12 @@ export const StudentRightSidebar: React.FC = () => {
     },
   })
 
-  // Compute criteria items and total points
+  // Compute criteria items and total points strictly from server response
   const { criteriaList, currentScore, classification, pointsNeeded } = useMemo(() => {
-    if (!semesterPoints || !Array.isArray(semesterPoints) || semesterPoints.length === 0) {
-      const total = DEFAULT_CRITERIA_LIST.reduce((acc, c) => acc + c.current, 0)
-      return {
-        criteriaList: DEFAULT_CRITERIA_LIST,
-        currentScore: total,
-        classification: 'Khá',
-        pointsNeeded: 15,
-      }
-    }
+    const pointsArray = Array.isArray(semesterPoints) ? semesterPoints : []
 
     const list: CriteriaItem[] = [1, 2, 3, 4, 5].map((catId) => {
-      const sp = semesterPoints.find((p: any) => p.pointCategoryId === catId)
+      const sp = pointsArray.find((p: any) => p.pointCategoryId === catId)
       const current = sp ? sp.totalPoint : 0
       const meta = CATEGORY_MAX_MAP[catId]
       return {
@@ -118,9 +102,9 @@ export const StudentRightSidebar: React.FC = () => {
     }
   }, [semesterPoints])
 
-  // Extract event day numbers in the currently displayed month
+  // Extract event day numbers in the currently displayed month from server data
   const eventDaysInMonth = useMemo(() => {
-    if (!eventsList || !Array.isArray(eventsList)) return isMockMode() ? [8, 12, 15, 22, 23, 29] : []
+    if (!eventsList || !Array.isArray(eventsList)) return []
     const days: number[] = []
     eventsList.forEach((ev: any) => {
       const dStr = ev.dateHappen || ev.startTime
@@ -131,7 +115,7 @@ export const StudentRightSidebar: React.FC = () => {
         }
       }
     })
-    return days.length > 0 ? days : isMockMode() ? [8, 12, 15, 22, 23, 29] : []
+    return days
   }, [eventsList, currentMonth])
 
   const maxScore = 100
