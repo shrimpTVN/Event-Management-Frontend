@@ -878,18 +878,81 @@ apiRouter.get('/student/criteria-progress', (req, res) => {
 
 apiRouter.get('/student-semester-points/me/semesters/:semesterId', (req, res) => {
   const currentUserId = getCurrentUserIdFromRequest(req)
-  const points = getDb().get('student_semester_points').filter({ userId: currentUserId, semesterId: Number(req.params.semesterId) }).value() || []
+  const semId = Number(req.params.semesterId) || 1
+  const allPts = getDb().get('student_semester_points').value() || []
+  let points = allPts.filter((p) => (p.userId === currentUserId || p.userId === 1) && (p.semesterId === semId || !p.semesterId))
+  if (points.length === 0) {
+    points = allPts.filter((p) => p.semesterId === semId || !p.semesterId)
+  }
   return res.json(successEnvelope(points))
 })
 
 apiRouter.get('/point-transactions/me/semesters/:semesterId/point-categories/:pointCategoryId', (req, res) => {
   const currentUserId = getCurrentUserIdFromRequest(req)
-  const tx = getDb().get('point_transactions').filter({
-    userId: currentUserId,
-    semesterId: Number(req.params.semesterId),
-    pointCategoryId: Number(req.params.pointCategoryId),
-  }).value() || []
+  const semId = Number(req.params.semesterId) || 1
+  const catId = Number(req.params.pointCategoryId)
+  const allTx = getDb().get('point_transactions').value() || []
+  const tx = allTx.filter((t) =>
+    (t.userId === currentUserId || t.userId === 1) &&
+    (t.semesterId === semId || !t.semesterId) &&
+    t.pointCategoryId === catId
+  )
   return res.json(successEnvelope(tx))
+})
+
+apiRouter.get('/point-transactions/me/semesters/:semesterId', (req, res) => {
+  const currentUserId = getCurrentUserIdFromRequest(req)
+  const semId = Number(req.params.semesterId) || 1
+  const allTx = getDb().get('point_transactions').value() || []
+  const semTx = allTx.filter((t) => t.semesterId === semId || !t.semesterId)
+
+  if (currentUserId === 1) {
+    const tx = semTx.filter((t) => t.userId === 1)
+    return res.json(successEnvelope(tx))
+  }
+
+  // Overlay user's personal manual changes on top of default seed records
+  const userTx = semTx.filter((t) => t.userId === currentUserId)
+  const userCatKeys = new Set(userTx.map((t) => `${t.pointCategoryId}-${t.type}`))
+  const defaultTx = semTx.filter((t) => t.userId === 1 && !userCatKeys.has(`${t.pointCategoryId}-${t.type}`))
+
+  return res.json(successEnvelope([...defaultTx, ...userTx]))
+})
+
+apiRouter.post('/point-transactions/me', (req, res) => {
+  const currentUserId = getCurrentUserIdFromRequest(req)
+  const { semesterId, pointCategoryId, points, description } = req.body
+
+  const db = getDb()
+  const existing = db.get('point_transactions').find({
+    userId: currentUserId,
+    semesterId: Number(semesterId),
+    pointCategoryId: Number(pointCategoryId),
+    type: 'MANUAL',
+  }).value()
+
+  if (existing) {
+    db.get('point_transactions')
+      .find({ id: existing.id })
+      .assign({ points: Number(points), description: description || existing.description, updatedAt: new Date().toISOString() })
+      .write()
+  } else {
+    const nextId = (db.get('point_transactions').map('id').value().sort((a, b) => b - a)[0] || 0) + 1
+    db.get('point_transactions').push({
+      id: nextId,
+      userId: currentUserId,
+      semesterId: Number(semesterId),
+      pointCategoryId: Number(pointCategoryId),
+      eventId: null,
+      points: Number(points),
+      type: 'MANUAL',
+      status: 'CONFIRMED',
+      description: description || 'Sinh viên tự đánh giá',
+      createdAt: new Date().toISOString(),
+    }).write()
+  }
+
+  return res.json(successEnvelope(null, 'Lưu điểm tự đánh giá thành công'))
 })
 
 // -------------------------------------------------------------

@@ -19,6 +19,7 @@ import { FanpageAdminPage } from '../pages/FanpageAdminPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { EventHistoryPage } from '../pages/EventHistoryPage'
 import { FanpageDetailPage } from '../pages/FanpageDetailPage'
+import { TrainingPointsPage } from '../pages/TrainingPointsPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 
 export const router = createBrowserRouter([
@@ -150,6 +151,22 @@ export const router = createBrowserRouter([
         element: (
           <AuthGuard>
             <EventHistoryPage />
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'training-points',
+        element: (
+          <AuthGuard>
+            <TrainingPointsPage />
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'drl',
+        element: (
+          <AuthGuard>
+            <TrainingPointsPage />
           </AuthGuard>
         ),
       },

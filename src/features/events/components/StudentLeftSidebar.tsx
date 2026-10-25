@@ -144,10 +144,20 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
         </h3>
         <nav className="flex flex-col gap-1">
           <Link
-            to="/history"
-            className="flex items-center gap-3 px-3.5 py-2 rounded-xl font-medium text-xs text-[#656565] dark:text-foreground/85 hover:bg-muted/80 hover:text-primary transition-colors"
+            to="/training-points"
+            className={`flex items-center gap-3 px-3.5 py-2 rounded-xl font-medium text-xs transition-colors ${
+              currentPath === '/training-points'
+                ? 'bg-[#BDD7F0]/60 dark:bg-primary/20 text-[#1B406F] dark:text-primary font-semibold'
+                : 'text-[#656565] dark:text-foreground/85 hover:bg-muted/80 hover:text-primary'
+            }`}
           >
-            <ClipboardList className="h-5 w-5 text-[#9CA3AF]" />
+            <ClipboardList
+              className={`h-5 w-5 ${
+                currentPath === '/training-points'
+                  ? 'text-[#1B406F] dark:text-primary'
+                  : 'text-[#9CA3AF]'
+              }`}
+            />
             <span>Quản lý điểm rèn luyện</span>
           </Link>
           <Link
