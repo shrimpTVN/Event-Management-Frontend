@@ -42,15 +42,16 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
         )
       case 'ABSENT':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#FEE2E2] text-[#DC2626] dark:bg-rose-950/60 dark:text-rose-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] dark:bg-rose-400" />
+
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#E3F5E9] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#15803D] dark:bg-emerald-400" />
             <span>Vắng</span>
           </span>
         )
       case 'CANCELLED':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#F3F4F6] text-[#6B7280] dark:bg-muted dark:text-muted-foreground">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#6B7280] dark:bg-muted-foreground" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#6B7281] dark:bg-muted-foreground" />
             <span>Đã hủy</span>
           </span>
         )
@@ -99,7 +100,7 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
                 alt={organizerName}
                 className="w-3.5 h-3.5 rounded-full object-cover shrink-0"
                 onError={(e) => {
-                  ;(e.currentTarget as HTMLElement).style.display = 'none'
+                  ; (e.currentTarget as HTMLElement).style.display = 'none'
                 }}
               />
             ) : null}
