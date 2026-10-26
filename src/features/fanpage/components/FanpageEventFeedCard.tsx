@@ -10,6 +10,7 @@ import {
   Bookmark,
 } from 'lucide-react'
 import type { FanpagePublicEventPost } from '../types/fanpage.types'
+import { RegisterButton } from '@/features/events'
 
 interface FanpageEventFeedCardProps {
   post: FanpagePublicEventPost
@@ -36,7 +37,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
   }
 
   return (
-    <article className="w-full bg-white dark:bg-card border border-border/80 rounded-xl shadow-2xs overflow-hidden text-left transition-all hover:border-primary/40">
+    <article className="w-full bg-white dark:bg-card border border-border/80 rounded-xl shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] text-left pt-2.5 pb-4 px-0 flex flex-col gap-2 relative">
       {/* 1. Post Header: Fanpage info + Follow pill */}
       <div className="p-4 sm:p-5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -71,7 +72,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
 
       {/* 2. Event Content: Title + Description */}
       <div className="px-4 sm:px-5 pb-3 space-y-2">
-        <h3 className="font-k2d font-semibold text-base leading-snug uppercase text-foreground hover:text-primary transition-colors">
+        <h3 className="font-k2d font-semibold text-base leading-snug text-foreground hover:text-primary transition-colors">
           <Link to={`/events/${post.eventId}`}>{post.title}</Link>
         </h3>
 
@@ -128,8 +129,13 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             <div className="text-[11px] text-muted-foreground leading-tight">
               Địa điểm
             </div>
-            <div className="text-xs sm:text-sm font-medium text-foreground mt-0.5 line-clamp-1" title={post.location}>
-              {post.location}
+            <div
+              className="text-xs sm:text-sm font-medium text-foreground mt-0.5 line-clamp-1"
+              title={typeof post.location === 'object' && post.location !== null ? ((post.location as any).address || (post.location as any).city || 'Đại học Cần Thơ') : String(post.location || 'Đại học Cần Thơ')}
+            >
+              {typeof post.location === 'object' && post.location !== null
+                ? ((post.location as any).address || (post.location as any).city || 'Đại học Cần Thơ')
+                : String(post.location || 'Đại học Cần Thơ')}
             </div>
           </div>
         </div>
@@ -202,21 +208,13 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} />
           </button>
 
-          {post.canRegister ? (
-            <Link
-              to={`/events/${post.eventId}/register`}
-              className="inline-flex items-center justify-center px-4 sm:px-5 py-2 text-xs sm:text-sm font-semibold text-white bg-[#1F5CA9] hover:bg-[#1B4B8A] rounded-lg transition-all shadow-2xs"
-            >
-              Đăng ký ngay
-            </Link>
-          ) : (
-            <Link
-              to={`/events/${post.eventId}`}
-              className="inline-flex items-center justify-center px-4 sm:px-5 py-2 text-xs sm:text-sm font-medium text-muted-foreground bg-muted rounded-lg"
-            >
-              Xem chi tiết
-            </Link>
-          )}
+          <RegisterButton
+            eventId={post.eventId}
+            eventTitle={post.title}
+            isRegistered={Boolean(post.isFollowingAuthor && false)}
+            disabled={!post.canRegister}
+            className="w-[139px]"
+          />
         </div>
       </div>
     </article>

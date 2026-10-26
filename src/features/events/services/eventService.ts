@@ -1,4 +1,4 @@
-import { apiClient } from '@/shared'
+import { apiClient, formatEventTitle } from '@/shared'
 import type {
   Event,
   EventCategory,
@@ -20,7 +20,7 @@ export function normalizeEvent(raw: Partial<EventResponseDto> & Record<string, a
     throw new Error('Dữ liệu sự kiện từ máy chủ không hợp lệ')
   }
 
-  const title = raw.title || raw.name || ''
+  const title = formatEventTitle(raw.title || raw.name || '')
   const startTime = raw.startTime || raw.dateHappen || raw.dateOpen || ''
   const endTime = raw.endTime || raw.dateClose || raw.dateHappen || startTime
 

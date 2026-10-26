@@ -1,5 +1,6 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { formatEventTitle } from '@/shared'
 import {
   type RegisteredEventItem,
   normalizeHistoryStatus,
@@ -10,15 +11,18 @@ interface RegisteredEventCardProps {
   onOpenProofModal: (event: RegisteredEventItem) => void
   onOpenAbsenceModal?: (event: RegisteredEventItem) => void
   onOpenCancelModal: (event: RegisteredEventItem) => void
+  onOpenAttendanceModal?: (event: RegisteredEventItem) => void
 }
 
 export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
   event,
   onOpenProofModal,
   onOpenCancelModal,
+  onOpenAttendanceModal,
 }) => {
+  const navigate = useNavigate()
   const normalizedStatus = normalizeHistoryStatus(event.status)
-  const title = event.title || event.eventName || 'Sự kiện'
+  const title = formatEventTitle(event.title || event.eventName || 'Sự kiện')
   const organizerName = event.organizer?.name || 'Ban Tổ Chức'
   const organizerAvatar = event.organizer?.avatarUrl
   const eventId = event.eventId || event.id || ''
@@ -75,9 +79,17 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
   const displayedBenefits = extraCount > 0 ? benefitsList.slice(0, 2) : benefitsList
 
   const canCancel = event.canCancel ?? (normalizedStatus === 'UPCOMING')
+  const isSelfAttendance = event.attendanceMethod === 'STUDENT_PROOF'
+
+  const handleCardClick = () => {
+    navigate(`/events/${eventId}`)
+  }
 
   return (
-    <div className="bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg p-4 flex flex-col justify-between transition-all hover:border-[#1B4B8A]/40 hover:shadow-xs group">
+    <div
+      onClick={handleCardClick}
+      className="bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-xl p-4 flex flex-col justify-between transition-all hover:border-[#1B4B8A]/40 hover:shadow-xs group cursor-pointer"
+    >
       <div className="space-y-3">
         {/* Top: Status pill + Event Day */}
         <div className="flex items-center justify-between gap-2">
@@ -89,8 +101,8 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
 
         {/* Title & Organizer */}
         <div className="space-y-1">
-          <h3 className="font-heading font-semibold text-[13px] leading-snug line-clamp-2 text-foreground group-hover:text-[#1B4B8A] transition-colors uppercase">
-            <Link to={`/events/${eventId}`}>{title}</Link>
+          <h3 className="font-heading font-semibold text-[13px] sm:text-sm leading-snug line-clamp-2 text-foreground group-hover:text-[#1B4B8A] transition-colors">
+            {title}
           </h3>
           <div className="flex items-center gap-1.5 text-[11px] text-[#667085] dark:text-muted-foreground">
             {organizerAvatar ? (
@@ -107,8 +119,8 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
           </div>
         </div>
 
-        {/* Gray Info Box (Thời gian, Địa điểm, Số lượng, Quyền lợi) */}
-        <div className="bg-[#F6F8FA] dark:bg-muted/40 rounded-[6px] p-3 space-y-2.5 text-left border border-border/40">
+        {/* Soft Info Box (Thời gian, Địa điểm, Số người đăng ký, Quyền lợi) */}
+        <div className="bg-[#F9FAFB] dark:bg-muted/30 rounded-lg p-2.5 sm:p-3 space-y-2 text-left border border-[#F0F2F5] dark:border-border/30">
           {/* Thời gian */}
           <div>
             <div className="text-[10px] text-[#667085] dark:text-muted-foreground leading-tight">
@@ -132,16 +144,18 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
             </div>
           </div>
 
-          {/* Số lượng */}
+          {/* Số người đăng ký */}
           <div>
             <div className="text-[10px] text-[#667085] dark:text-muted-foreground leading-tight">
-              Số lượng
+              Số người đăng ký
             </div>
             <div className="text-xs font-medium text-foreground mt-0.5">
-              {event.registeredCount
-                ? `${event.registeredCount} Sinh viên`
+              {event.registeredCount !== undefined
+                ? event.capacity
+                  ? `${event.registeredCount}/${event.capacity} sinh viên`
+                  : `${event.registeredCount} sinh viên`
                 : event.capacity
-                  ? `${event.capacity} Sinh viên`
+                  ? `${event.capacity} sinh viên`
                   : 'Không giới hạn'}
             </div>
           </div>
@@ -180,17 +194,30 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
       <div className="pt-3 mt-3 border-t border-border/40 flex items-center gap-2">
         {normalizedStatus === 'UPCOMING' && (
           <>
-            <Link
-              to={`/events/${eventId}`}
-              className="flex-1 inline-flex items-center justify-center py-2 px-3 text-xs font-semibold text-white bg-[#235B94] hover:bg-[#1B4B8A] rounded-[6px] transition-colors shadow-2xs text-center"
-            >
-              Xem chi tiết
-            </Link>
+            {isSelfAttendance ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpenAttendanceModal?.(event)
+                }}
+                className="flex-1 inline-flex items-center justify-center py-2 px-3 text-xs font-semibold text-white bg-[#1B4B8A] hover:bg-[#153a6b] rounded-[6px] transition-colors shadow-2xs text-center cursor-pointer"
+              >
+                Điểm danh
+              </button>
+            ) : (
+              <div className="flex-1 py-1.5 px-2 text-[11px] font-medium text-muted-foreground bg-muted/40 rounded-[6px] text-center truncate">
+                BTC điểm danh
+              </div>
+            )}
 
             {canCancel && (
               <button
                 type="button"
-                onClick={() => onOpenCancelModal(event)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpenCancelModal(event)
+                }}
                 className="inline-flex items-center justify-center py-2 px-3 text-xs font-medium text-[#A01F26] dark:text-rose-400 bg-white dark:bg-card border border-[#D5D5D5] dark:border-border hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-[6px] transition-colors shrink-0 cursor-pointer"
               >
                 Hủy đăng kí
@@ -202,8 +229,11 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
         {normalizedStatus === 'COMPLETED' && (
           <button
             type="button"
-            onClick={() => onOpenProofModal(event)}
-            className="w-full inline-flex items-center justify-center py-2 px-3 text-xs font-semibold text-white bg-[#235B94] hover:bg-[#1B4B8A] rounded-[6px] transition-colors shadow-2xs text-center cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenProofModal(event)
+            }}
+            className="w-full inline-flex items-center justify-center py-2 px-3 text-xs font-semibold text-[#1B4B8A] dark:text-blue-400 bg-white dark:bg-card border border-[#1B4B8A]/40 hover:border-[#1B4B8A] hover:bg-[#1B4B8A]/5 dark:hover:bg-blue-950/20 rounded-[6px] transition-all text-center cursor-pointer shadow-2xs"
           >
             Hiện thông tin minh chứng
           </button>
@@ -212,7 +242,10 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
         {normalizedStatus === 'ABSENT' && (
           <button
             type="button"
-            onClick={() => onOpenProofModal(event)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenProofModal(event)
+            }}
             className="w-full inline-flex items-center justify-center py-2 px-3 text-xs font-semibold text-[#A01F26] bg-[#FEE2E2] hover:bg-[#FCDCDC] dark:bg-rose-950/40 dark:text-rose-300 rounded-[6px] transition-colors text-center cursor-pointer"
           >
             Xem minh chứng / Khiếu nại

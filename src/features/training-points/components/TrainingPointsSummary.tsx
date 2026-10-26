@@ -19,7 +19,7 @@ export const TrainingPointsSummary: React.FC<TrainingPointsSummaryProps> = ({
   const classification = classifyScore(totalScore)
 
   return (
-    <div className="bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg p-4 sm:p-5 flex flex-col gap-3.5 shadow-2xs">
+    <div className="bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg px-4 py-3 sm:px-5 sm:py-3.5 flex flex-col gap-2.5 shadow-2xs">
       {/* Header */}
       <h2 className="text-sm font-semibold text-[#1B4B8A] dark:text-primary tracking-tight">
         {semesterLabel} Năm Học {academicYearLabel}
@@ -33,10 +33,10 @@ export const TrainingPointsSummary: React.FC<TrainingPointsSummaryProps> = ({
             Tổng điểm hiện có
           </span>
           <div className="flex items-baseline gap-1.5 font-heading">
-            <span className="text-2xl sm:text-3xl font-bold text-[#00AFF0]">
+            <span className="text-2xl sm:text-3xl font-semibold text-[#00AFF0]">
               {totalScore}
             </span>
-            <span className="text-sm font-semibold text-foreground/80">
+            <span className="text-sm font-medium text-foreground/80">
               / {maxScore}
             </span>
           </div>
@@ -47,7 +47,7 @@ export const TrainingPointsSummary: React.FC<TrainingPointsSummaryProps> = ({
           <span className="text-xs font-medium text-muted-foreground">
             Xếp loại
           </span>
-          <span className="text-xl sm:text-2xl font-bold font-heading text-foreground">
+          <span className="text-xl sm:text-2xl font-semibold font-heading text-foreground">
             {classification.label}
           </span>
         </div>
@@ -57,7 +57,7 @@ export const TrainingPointsSummary: React.FC<TrainingPointsSummaryProps> = ({
           <span className="text-xs font-medium text-muted-foreground">
             Hoạt động đã tham gia
           </span>
-          <span className="text-base sm:text-lg font-bold font-heading text-foreground/80">
+          <span className="text-base sm:text-lg font-semibold font-heading text-foreground/80">
             {activitiesCount > 0 ? activitiesCount : '—'}
           </span>
         </div>

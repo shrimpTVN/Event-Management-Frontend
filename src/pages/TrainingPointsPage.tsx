@@ -213,29 +213,35 @@ export const TrainingPointsPage: React.FC = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto py-5 px-1 flex justify-center custom-scrollbar">
-          <div className="w-full max-w-6xl flex flex-col gap-4 pb-20">
+        <main className="flex-1 min-w-0 h-full overflow-y-auto md:overflow-hidden py-3 sm:py-4 px-1 flex justify-center custom-scrollbar">
+          <div className="w-full max-w-6xl h-full flex flex-col gap-3 min-h-0">
             {/* 1. Header with title and filter selectors from mock data */}
-            <TrainingPointsHeader
-              academicYears={academicYears}
-              semesters={semesters}
-              selectedYear={selectedYear}
-              selectedSemester={selectedSemester}
-              onYearChange={setSelectedYear}
-              onSemesterChange={setSelectedSemester}
-              onSearch={handleApplyFilter}
-            />
+            <div className="shrink-0">
+              <TrainingPointsHeader
+                academicYears={academicYears}
+                semesters={semesters}
+                selectedYear={selectedYear}
+                selectedSemester={selectedSemester}
+                onYearChange={setSelectedYear}
+                onSemesterChange={setSelectedSemester}
+                onSearch={handleApplyFilter}
+              />
+            </div>
 
             {/* 2. Notice Warning Banner */}
-            <TrainingPointsNoticeBanner />
+            <div className="shrink-0">
+              <TrainingPointsNoticeBanner />
+            </div>
 
             {/* 3. Summary Overview Card with Real Computed Total Score based on applied filter */}
-            <TrainingPointsSummary
-              semesterLabel={`HK${appliedSemester || '1'}`}
-              academicYearLabel={formatYearLabel(appliedYear)}
-              totalScore={totalScore}
-              activitiesCount={activitiesCount}
-            />
+            <div className="shrink-0">
+              <TrainingPointsSummary
+                semesterLabel={`HK${appliedSemester || '1'}`}
+                academicYearLabel={formatYearLabel(appliedYear)}
+                totalScore={totalScore}
+                activitiesCount={activitiesCount}
+              />
+            </div>
 
             {/* 4. Detailed Evaluation Table */}
             <TrainingPointsTable

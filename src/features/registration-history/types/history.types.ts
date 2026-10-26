@@ -49,6 +49,12 @@ export interface RegisteredEventItem {
   hasProof?: boolean
   evidenceUrl?: string | null
   reason?: string | null
+  attendanceMethod?: 'MANUAL' | 'STUDENT_PROOF'
+  attendanceSessionType?: 'CHECK_IN' | 'CHECK_OUT' | 'BOTH'
+  checkInAt?: string | null
+  checkOutAt?: string | null
+  checkInEvidenceUrl?: string | null
+  checkOutEvidenceUrl?: string | null
   studentInfo?: {
     mssv: string
     fullName: string

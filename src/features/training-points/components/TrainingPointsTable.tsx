@@ -23,9 +23,27 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
   isLoading,
   resetKey,
 }) => {
+  const [expandedSections, setExpandedSections] = React.useState<Record<number, boolean>>({})
+
+  // Reset expanded sections when resetKey changes (e.g. year/semester change)
+  React.useEffect(() => {
+    setExpandedSections({})
+  }, [resetKey])
+
+  const hasAnyExpanded = React.useMemo(() => {
+    return Object.values(expandedSections).some(Boolean)
+  }, [expandedSections])
+
+  const handleToggleSection = (sectionId: number, isExpanded: boolean) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [sectionId]: isExpanded,
+    }))
+  }
+
   if (isLoading) {
     return (
-      <div className="bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg p-6 flex flex-col gap-4 animate-pulse shadow-2xs">
+      <div className="bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg p-6 flex flex-col gap-4 animate-pulse shadow-2xs h-auto shrink-0">
         <div className="h-9 bg-muted/60 rounded" />
         <div className="h-48 bg-muted/40 rounded" />
         <div className="h-12 bg-muted/30 rounded" />
@@ -35,12 +53,20 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
   }
 
   return (
-    <div className="bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg p-3 sm:p-4 flex flex-col shadow-2xs overflow-hidden">
-      {/* Scrollable Container for table columns */}
-      <div className="w-full overflow-x-auto custom-scrollbar">
+    <div
+      className={`bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg p-3 sm:p-4 flex flex-col shadow-2xs overflow-hidden ${
+        hasAnyExpanded ? 'flex-1 min-h-[360px] md:min-h-0' : 'h-auto shrink-0'
+      }`}
+    >
+      {/* Scrollable Container for table columns & rows */}
+      <div
+        className={`w-full overflow-x-auto custom-scrollbar ${
+          hasAnyExpanded ? 'flex-1 min-h-0 overflow-y-auto' : ''
+        }`}
+      >
         <div className="min-w-[820px] flex flex-col">
           {/* Main Dark Navy Table Header */}
-          <div className="flex items-stretch bg-[#1B406F] text-white rounded-t-md text-xs font-semibold min-h-[44px] mb-2 shadow-2xs select-none">
+          <div className="sticky top-0 z-20 flex items-stretch bg-[#1B406F] text-white rounded-t-md text-xs font-semibold min-h-[44px] mb-2 shadow-xs select-none">
             {/* 1. Tiêu chí (80px) */}
             <div className="w-20 min-w-[80px] max-w-[80px] px-1 py-2 flex items-center justify-center border-r border-white/20 text-center shrink-0">
               Tiêu chí
@@ -78,6 +104,7 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
               studentDescriptions={studentDescriptions}
               onSaveSelfScore={onSaveSelfScore}
               defaultExpanded={false}
+              onToggleExpand={(expanded) => handleToggleSection(section.id, expanded)}
             />
           ))}
         </div>

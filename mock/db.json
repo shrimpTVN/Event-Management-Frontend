@@ -313,6 +313,38 @@
       "eventsCount": 20,
       "isActive": true,
       "createdAt": "2026-02-10T08:00:00Z"
+    },
+    {
+      "id": 7,
+      "name": "CLB Tình nguyện Xanh CTU",
+      "description": "Tổ chức các chiến dịch bảo vệ môi trường, phân loại rác thải và các hoạt động xanh vì cộng đồng.",
+      "avatarUrl": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=120&auto=format&fit=crop&q=60",
+      "status": "ACTIVE",
+      "orgType": "CLUB",
+      "orgName": "CLB Tình nguyện Xanh",
+      "parentOrg": "Hội Sinh viên Trường ĐHCT",
+      "helpContact": "tinhnguyenxanh@ctu.edu.vn",
+      "helpPhone": "0912 888 999",
+      "followersCount": 1850,
+      "eventsCount": 12,
+      "isActive": true,
+      "createdAt": "2026-02-20T08:00:00Z"
+    },
+    {
+      "id": 8,
+      "name": "CLB Nghệ thuật & Âm nhạc CTU",
+      "description": "Nơi hội tụ đam mê âm nhạc, thanh nhạc, guitar và biểu diễn nghệ thuật sinh viên ĐHCT.",
+      "avatarUrl": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=60",
+      "status": "ACTIVE",
+      "orgType": "CLUB",
+      "orgName": "CLB Nghệ thuật & Âm nhạc",
+      "parentOrg": "Hội Sinh viên Trường ĐHCT",
+      "helpContact": "music.art@ctu.edu.vn",
+      "helpPhone": "0934 567 890",
+      "followersCount": 3400,
+      "eventsCount": 16,
+      "isActive": true,
+      "createdAt": "2026-03-01T08:00:00Z"
     }
   ],
   "fanpage_members": [
@@ -415,7 +447,7 @@
     {
       "id": 1,
       "name": "Danh hiệu \"Sinh viên 5 tốt\" Đại học Cần Thơ",
-      "note": "Ban hành kèm Quyết định 17/QĐ-HSV ngày 04/3/2026",
+      "note": "Ban hành kèm Quyết định 17/QĐ-HSV ngày 04/3/2026. Để xét cấp ĐHCT phải đạt danh hiệu SV5T cấp cơ sở/khoa",
       "scope": "UNIVERSITY",
       "level": 0,
       "childrenOrder": 1,
@@ -424,7 +456,7 @@
     },
     {
       "id": 10,
-      "name": "Tiêu chuẩn Đạo đức tốt",
+      "name": "Tiêu chuẩn 1: Đạo đức tốt",
       "note": "Đạt đủ 03 tiêu chuẩn (1.1), (1.2) và (1.3)",
       "scope": "UNIVERSITY",
       "level": 1,
@@ -433,49 +465,9 @@
       "isActive": true
     },
     {
-      "id": 20,
-      "name": "Tiêu chuẩn Học tập tốt",
-      "note": "Điểm trung bình cộng năm học đạt từ 3.0 trở lên, không nợ học phần",
-      "scope": "UNIVERSITY",
-      "level": 1,
-      "childrenOrder": 2,
-      "parentId": 1,
-      "isActive": true
-    },
-    {
-      "id": 30,
-      "name": "Tiêu chuẩn Thể lực tốt",
-      "note": "Đạt tiêu chuẩn rèn luyện thể lực sinh viên",
-      "scope": "UNIVERSITY",
-      "level": 1,
-      "childrenOrder": 3,
-      "parentId": 1,
-      "isActive": true
-    },
-    {
-      "id": 40,
-      "name": "Tiêu chuẩn Tình nguyện tốt",
-      "note": "Tham gia ít nhất 2 hoạt động tình nguyện trong năm học",
-      "scope": "UNIVERSITY",
-      "level": 1,
-      "childrenOrder": 4,
-      "parentId": 1,
-      "isActive": true
-    },
-    {
-      "id": 50,
-      "name": "Tiêu chuẩn Hội nhập tốt",
-      "note": "Hoàn thành chứng chỉ ngoại ngữ / tin học hoặc giao lưu quốc tế",
-      "scope": "UNIVERSITY",
-      "level": 1,
-      "childrenOrder": 5,
-      "parentId": 1,
-      "isActive": true
-    },
-    {
       "id": 101,
-      "name": "Điểm rèn luyện đạt từ 85 điểm trở lên",
-      "note": "Điểm rèn luyện TBC 3 HK trước đạt từ 85 trở lên",
+      "name": "Điểm rèn luyện trung bình cộng của học kỳ 3 năm học trước, học kỳ 1 và 2 trong năm học đạt từ 85 điểm trở lên.",
+      "note": "SV năm nhất chỉ xét HK1 và HK2",
       "scope": "UNIVERSITY",
       "level": 2,
       "childrenOrder": 1,
@@ -484,7 +476,7 @@
     },
     {
       "id": 102,
-      "name": "Không vi phạm pháp luật và nội quy",
+      "name": "Không vi phạm pháp luật và các quy chế, nội quy của nhà trường, quy định của địa phương và cộng đồng.",
       "note": null,
       "scope": "UNIVERSITY",
       "level": 2,
@@ -494,8 +486,8 @@
     },
     {
       "id": 103,
-      "name": "Đạt thêm 01 tiêu chí tư tưởng, đạo đức",
-      "note": "Đạt ít nhất 01 tiêu chí trong 05 tiêu chí bên dưới",
+      "name": "Đạt thêm 01 trong 05 tiêu chí sau:",
+      "note": "Đạt ít nhất 01 tiêu chí trong 05 tiêu chí bên dưới (1.3.1 đến 1.3.5)",
       "scope": "UNIVERSITY",
       "level": 2,
       "childrenOrder": 3,
@@ -503,9 +495,69 @@
       "isActive": true
     },
     {
-      "id": 201,
-      "name": "Điểm trung bình cộng (hệ 4) đạt từ 3.0 trở lên",
+      "id": 1031,
+      "name": "Tham gia cuộc thi tìm hiểu về các môn khoa học chính trị, tư tưởng Hồ Chí Minh do đơn vị Đoàn - Hội cấp cơ sở và tương đương trở lên tổ chức.",
       "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 1,
+      "parentId": 103,
+      "isActive": true
+    },
+    {
+      "id": 1032,
+      "name": "Tham gia các hoạt động giáo dục lòng yêu nước, tinh thần tự hào dân tộc: tham quan các di tích lịch sử, bảo tàng; thăm hỏi mẹ Việt Nam Anh hùng; lễ thắp nến tri ân các Anh hùng liệt sĩ; hội thi hát ca khúc truyền thống; hoạt động hướng về biên giới, hải đảo,…",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 2,
+      "parentId": 103,
+      "isActive": true
+    },
+    {
+      "id": 1033,
+      "name": "Tham gia hoạt động giáo dục đạo đức, lối sống văn hóa cho sinh viên.",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 3,
+      "parentId": 103,
+      "isActive": true
+    },
+    {
+      "id": 1034,
+      "name": "Là thanh niên tiêu biểu trong học tập và làm theo lời Bác",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 4,
+      "parentId": 103,
+      "isActive": true
+    },
+    {
+      "id": 1035,
+      "name": "Là Đảng viên hoàn thành tốt nhiệm vụ.",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 5,
+      "parentId": 103,
+      "isActive": true
+    },
+    {
+      "id": 20,
+      "name": "Tiêu chuẩn 2: Học tập tốt",
+      "note": "Điểm trung bình cộng năm học đạt từ 3.0 trở lên, không nợ học phần",
+      "scope": "UNIVERSITY",
+      "level": 1,
+      "childrenOrder": 2,
+      "parentId": 1,
+      "isActive": true
+    },
+    {
+      "id": 201,
+      "name": "Điểm trung bình cộng năm học xét đạt từ 3.0 trở lên.",
+      "note": "Điểm TBC HK3 năm trước, HK1 và HK2 năm xét >= 3.0",
       "scope": "UNIVERSITY",
       "level": 2,
       "childrenOrder": 1,
@@ -514,8 +566,8 @@
     },
     {
       "id": 202,
-      "name": "Không nợ học phần ở thời điểm xét",
-      "note": null,
+      "name": "Tích lũy tối thiểu 12 tín chỉ/học kỳ và không bị nợ học phần ở thời điểm xét.",
+      "note": "Số tín chỉ mỗi HK >= 12; không bị nợ học phần",
       "scope": "UNIVERSITY",
       "level": 2,
       "childrenOrder": 2,
@@ -523,8 +575,18 @@
       "isActive": true
     },
     {
+      "id": 30,
+      "name": "Tiêu chuẩn 3: Thể lực tốt",
+      "note": "Đạt 01 trong 02 tiêu chuẩn (3.1) hoặc (3.2)",
+      "scope": "UNIVERSITY",
+      "level": 1,
+      "childrenOrder": 3,
+      "parentId": 1,
+      "isActive": true
+    },
+    {
       "id": 301,
-      "name": "Đạt chuẩn thể lực hoặc tham gia giải thể thao",
+      "name": "Học ít nhất 01 học phần Giáo dục thể chất có rèn luyện thể lực đạt điểm B trở lên.",
       "note": null,
       "scope": "UNIVERSITY",
       "level": 2,
@@ -533,8 +595,28 @@
       "isActive": true
     },
     {
+      "id": 302,
+      "name": "Tham gia ít nhất 01 hoạt động rèn luyện thể lực do Đoàn - Hội cấp cơ sở trở lên tổ chức (thể dục, thể thao, dân vũ...).",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 2,
+      "childrenOrder": 2,
+      "parentId": 30,
+      "isActive": true
+    },
+    {
+      "id": 40,
+      "name": "Tiêu chuẩn 4: Tình nguyện tốt",
+      "note": "Đạt 01 trong 03 tiêu chuẩn (4.1), (4.2) hoặc (4.3)",
+      "scope": "UNIVERSITY",
+      "level": 1,
+      "childrenOrder": 4,
+      "parentId": 1,
+      "isActive": true
+    },
+    {
       "id": 401,
-      "name": "Tham gia ít nhất 02 hoạt động tình nguyện",
+      "name": "Được các cấp Đảng, Đoàn, Hội, chính quyền khen thưởng trong hoạt động tình nguyện.",
       "note": null,
       "scope": "UNIVERSITY",
       "level": 2,
@@ -543,13 +625,113 @@
       "isActive": true
     },
     {
-      "id": 501,
-      "name": "Hoàn thành chứng chỉ ngoại ngữ hoặc tin học",
+      "id": 402,
+      "name": "Tham gia ít nhất 03 ngày tình nguyện trong năm học.",
       "note": null,
+      "scope": "UNIVERSITY",
+      "level": 2,
+      "childrenOrder": 2,
+      "parentId": 40,
+      "isActive": true
+    },
+    {
+      "id": 403,
+      "name": "Tham gia ít nhất 02 lần hiến máu tình nguyện trong năm học.",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 2,
+      "childrenOrder": 3,
+      "parentId": 40,
+      "isActive": true
+    },
+    {
+      "id": 50,
+      "name": "Tiêu chuẩn 5: Hội nhập tốt",
+      "note": "Đạt 02 trong 03 tiêu chuẩn: Ngoại ngữ, Tin học, Kỹ năng hội nhập",
+      "scope": "UNIVERSITY",
+      "level": 1,
+      "childrenOrder": 5,
+      "parentId": 1,
+      "isActive": true
+    },
+    {
+      "id": 501,
+      "name": "Tiêu chuẩn 5.1: Ngoại ngữ",
+      "note": "Đạt 01 trong 05 tiêu chí ngoại ngữ",
       "scope": "UNIVERSITY",
       "level": 2,
       "childrenOrder": 1,
       "parentId": 50,
+      "isActive": true
+    },
+    {
+      "id": 5011,
+      "name": "Được khen thưởng cuộc thi ngoại ngữ cấp Đại học Cần Thơ trở lên.",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 1,
+      "parentId": 501,
+      "isActive": true
+    },
+    {
+      "id": 5012,
+      "name": "Đạt chứng chỉ ngoại ngữ theo bảng quy đổi chuẩn CEFR (IELTS 4.5+, TOEIC 450+...).",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 2,
+      "parentId": 501,
+      "isActive": true
+    },
+    {
+      "id": 502,
+      "name": "Tiêu chuẩn 5.2: Tin học",
+      "note": "Đạt 01 trong 06 tiêu chí tin học",
+      "scope": "UNIVERSITY",
+      "level": 2,
+      "childrenOrder": 2,
+      "parentId": 50,
+      "isActive": true
+    },
+    {
+      "id": 5021,
+      "name": "Đạt chứng chỉ Ứng dụng công nghệ thông tin cơ bản trở lên do Đại học Cần Thơ cấp.",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 1,
+      "parentId": 502,
+      "isActive": true
+    },
+    {
+      "id": 5022,
+      "name": "Đạt chứng chỉ tin học quốc tế IC3 hoặc MOS (Word, Excel, PowerPoint).",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 2,
+      "parentId": 502,
+      "isActive": true
+    },
+    {
+      "id": 503,
+      "name": "Tiêu chuẩn 5.3: Hoạt động phong trào kỹ năng hội nhập",
+      "note": "Đạt 01 trong 05 tiêu chí kỹ năng hội nhập",
+      "scope": "UNIVERSITY",
+      "level": 2,
+      "childrenOrder": 3,
+      "parentId": 50,
+      "isActive": true
+    },
+    {
+      "id": 5031,
+      "name": "Tham gia 02 hoạt động hội nhập do cấp Đại học Cần Thơ trở lên tổ chức.",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 1,
+      "parentId": 503,
       "isActive": true
     }
   ],
@@ -1361,7 +1543,7 @@
   "events": [
     {
       "id": 1,
-      "name": "HỘI THẢO CHUYÊN ĐỀ: TRÍ TUỆ NHÂN TẠO & XU HƯỚNG MÔ HÌNH NGÔN NGỮ LỚN (LLM)",
+      "name": "Hội thảo chuyên đề: Trí tuệ nhân tạo & Xu hướng mô hình ngôn ngữ lớn (LLM)",
       "description": "Lắng nghe các chuyên gia AI đầu ngành chia sẻ về kiến trúc transformer, generative AI và lộ trình phát triển kỹ năng cho kỹ sư trẻ.",
       "location": "Phòng Hội thảo CICT, Đại học Cần Thơ",
       "dateOpen": "2026-08-01T00:00:00Z",
@@ -1381,7 +1563,7 @@
     },
     {
       "id": 2,
-      "name": "SỰ KIỆN CHIẾU PHIM GÂY QUỸ - CHIẾN DỊCH VẦNG TRĂNG ƯƠM MƠ LẦN THỨ II NĂM 2026",
+      "name": "Sự kiện chiếu phim gây quỹ - Chiến dịch Vầng trăng ươm mơ lần thứ II năm 2026",
       "description": "Bạn đã sẵn sàng cho một buổi tối vừa xem phim, vừa làm một điều thật ý nghĩa chưa? Đoàn trường CNTT-TT mang đến đêm chiếu phim đặc biệt.",
       "location": "Hội trường Rùa, Đại học Cần Thơ",
       "dateOpen": "2026-09-15T00:00:00Z",
@@ -1401,7 +1583,7 @@
     },
     {
       "id": 3,
-      "name": "TUYỂN CỔ ĐỘNG VIÊN TRẬN TỨ KẾT GIẢI FUTSAL - VIETTEL TAMMI CUP 2026",
+      "name": "Tuyển cổ động viên trận tứ kết giải Futsal - Viettel Tammi Cup 2026",
       "description": "Hãy cùng hòa vào không khí cuồng nhiệt trên khán đài tiếp thêm sức mạnh cho các chàng trai của chúng ta!",
       "location": "Nhà Thi Đấu mới, Đại học Cần Thơ",
       "dateOpen": "2026-09-20T00:00:00Z",
@@ -1421,7 +1603,7 @@
     },
     {
       "id": 4,
-      "name": "WORKSHOP: KỸ NĂNG VIẾT CV VÀ PHỎNG VẤN THÀNH CÔNG CHO SINH VIÊN IT",
+      "name": "Workshop: Kỹ năng viết CV và phỏng vấn thành công cho sinh viên IT",
       "description": "Học cách trình bày CV ấn tượng, xây dựng portfolio GitHub, và luyện kỹ năng phỏng vấn với HR từ các công ty công nghệ.",
       "location": "Phòng Lab 3, Trường CNTT&TT",
       "dateOpen": "2026-10-01T00:00:00Z",
@@ -1441,7 +1623,7 @@
     },
     {
       "id": 5,
-      "name": "NGÀY HỘI VIỆC LÀM VÀ KẾT NỐI DOANH NGHIỆP CNTT 2026",
+      "name": "Ngày hội việc làm và kết nối doanh nghiệp CNTT 2026",
       "description": "Gặp gỡ hơn 30 doanh nghiệp công nghệ hàng đầu, phỏng vấn thử, nhận cơ hội thực tập và tuyển dụng trực tiếp.",
       "location": "Hội trường Lớn Khu II, Đại học Cần Thơ",
       "dateOpen": "2026-10-01T00:00:00Z",
@@ -1461,7 +1643,7 @@
     },
     {
       "id": 6,
-      "name": "GIẢI CHẠY BỘ \"CTU RUN 2026\" - RÈN LUYỆN SỨC KHỎE, NÂNG TẦM TINH THẦN",
+      "name": "Giải chạy bộ \"CTU Run 2026\" - Rèn luyện sức khỏe, nâng tầm tinh thần",
       "description": "Tham gia giải chạy bộ toàn trường với các cự ly 3km, 5km và 10km. Cùng rèn luyện thể chất và nhận thưởng hấp dẫn.",
       "location": "Sân vận động Đại học Cần Thơ",
       "dateOpen": "2026-10-10T00:00:00Z",
@@ -1481,7 +1663,7 @@
     },
     {
       "id": 7,
-      "name": "CHIẾN DỊCH TÌNH NGUYỆN \"XANH MÁI TRƯỜNG\" - TRỒNG CÂY KHU II",
+      "name": "Chiến dịch tình nguyện \"Xanh mái trường\" - Trồng cây khu II",
       "description": "Cùng sinh viên tình nguyện trồng 200 cây xanh tại khuôn viên Khu II, góp phần bảo vệ môi trường và làm đẹp trường học.",
       "location": "Khu II, Đại học Cần Thơ",
       "dateOpen": "2026-10-15T00:00:00Z",
@@ -1501,7 +1683,7 @@
     },
     {
       "id": 8,
-      "name": "TỌA ĐÀM: SINH VIÊN VỚI CHUYỂN ĐỔI SỐ TRONG NÔNG NGHIỆP",
+      "name": "Tọa đàm: Sinh viên với chuyển đổi số trong nông nghiệp",
       "description": "Tìm hiểu về ứng dụng IoT, AI trong nông nghiệp thông minh cùng các chuyên gia và doanh nghiệp nông nghiệp công nghệ cao.",
       "location": "Hội trường Trường Nông nghiệp, ĐHCT",
       "dateOpen": "2026-10-18T00:00:00Z",
@@ -1521,7 +1703,7 @@
     },
     {
       "id": 9,
-      "name": "ENGLISH SPEAKING CLUB - DEBATE NIGHT: \"AI VS HUMAN CREATIVITY\"",
+      "name": "English Speaking Club - Debate Night: \"AI vs Human Creativity\"",
       "description": "Rèn luyện kỹ năng tranh biện bằng tiếng Anh với chủ đề nóng: Trí tuệ nhân tạo có thể thay thế sáng tạo con người?",
       "location": "Phòng Seminar, Thư viện ĐHCT",
       "dateOpen": "2026-10-20T00:00:00Z",
@@ -1541,7 +1723,7 @@
     },
     {
       "id": 10,
-      "name": "HACKATHON CTU 2026 - XÂY DỰNG ỨNG DỤNG TRONG 24 GIỜ",
+      "name": "Hackathon CTU 2026 - Xây dựng ứng dụng trong 24 giờ",
       "description": "Cuộc thi lập trình 24 giờ dành cho sinh viên CNTT. Đội chiến thắng nhận giải thưởng 10 triệu đồng và cơ hội thực tập tại FPT Software.",
       "location": "Lab Innovation Hub, Trường CNTT&TT",
       "dateOpen": "2026-10-22T00:00:00Z",
@@ -1561,7 +1743,7 @@
     },
     {
       "id": 11,
-      "name": "ĐÊM VĂN NGHỆ \"TUỔI TRẺ CẦN THƠ\" - CHÀO MỪNG NGÀY NHÀ GIÁO VIỆT NAM",
+      "name": "Đêm văn nghệ \"Tuổi trẻ Cần Thơ\" - Chào mừng ngày Nhà giáo Việt Nam",
       "description": "Đêm văn nghệ hoành tráng với các tiết mục ca múa nhạc kịch, tri ân thầy cô nhân ngày 20/11.",
       "location": "Sân khấu ngoài trời Khu II, ĐHCT",
       "dateOpen": "2026-11-01T00:00:00Z",
@@ -1581,7 +1763,7 @@
     },
     {
       "id": 12,
-      "name": "GIẢI BÓNG CHUYỀN SINH VIÊN TRƯỜNG CNTT&TT MỞ RỘNG 2026",
+      "name": "Giải bóng chuyền sinh viên Trường CNTT&TT mở rộng 2026",
       "description": "Giải bóng chuyền quy mô trường với sự tham gia của 16 đội, thi đấu vòng bảng và trực tiếp loại.",
       "location": "Sân bóng chuyền Khu II, ĐHCT",
       "dateOpen": "2026-11-05T00:00:00Z",
@@ -1601,7 +1783,7 @@
     },
     {
       "id": 13,
-      "name": "WORKSHOP FIGMA & THIẾT KẾ UI/UX CHO NGƯỜI MỚI BẮT ĐẦU",
+      "name": "Workshop Figma & Thiết kế UI/UX cho người mới bắt đầu",
       "description": "Hướng dẫn sử dụng Figma từ cơ bản đến nâng cao, thiết kế giao diện ứng dụng di động thực tế trong 3 giờ.",
       "location": "Phòng Lab 5, Trường CNTT&TT",
       "dateOpen": "2026-10-25T00:00:00Z",
@@ -1621,7 +1803,7 @@
     },
     {
       "id": 14,
-      "name": "CHIẾN DỊCH HIẾN MÁU NHÂN ĐẠO \"GIỌT HỒNG YÊU THƯƠNG\" LẦN V",
+      "name": "Chiến dịch hiến máu nhân đạo \"Giọt hồng yêu thương\" lần V",
       "description": "Mỗi giọt máu cho đi, một cuộc đời ở lại. Tham gia hiến máu tình nguyện cùng Hội Chữ thập đỏ Cần Thơ.",
       "location": "Sảnh Thư viện Đại học Cần Thơ",
       "dateOpen": "2026-10-20T00:00:00Z",
@@ -1641,7 +1823,7 @@
     },
     {
       "id": 15,
-      "name": "SEMINAR: BLOCKCHAIN & WEB3 - CƠ HỘI NGHỀ NGHIỆP CHO SINH VIÊN",
+      "name": "Seminar: Blockchain & Web3 - Cơ hội nghề nghiệp cho sinh viên",
       "description": "Tìm hiểu công nghệ blockchain, smart contract và các cơ hội việc làm trong lĩnh vực Web3.",
       "location": "Phòng Hội thảo CICT, Đại học Cần Thơ",
       "dateOpen": "2026-10-20T00:00:00Z",
@@ -1913,38 +2095,120 @@
       "checkOutEvidenceUrl": null,
       "status": "REJECTED",
       "reason": "Vắng mặt không phép"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-25T22:58:59.566Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-25T23:04:16.491Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-25T23:17:52.095Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 10,
+      "regDate": "2026-10-25T23:24:55.436Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-25T23:30:15.140Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-25T23:33:56.385Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 9,
+      "regDate": "2026-10-25T23:34:06.147Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T01:03:28.344Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T01:03:43.426Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-26T01:23:55.657Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 11,
+      "regDate": "2026-10-26T01:39:53.574Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-26T04:51:10.709Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T04:54:25.695Z",
+      "status": "REGISTERED"
     }
   ],
   "student_criteria_progress": [
     {
       "id": 1,
       "userId": 1,
-      "criteriaId": 10,
+      "criteriaId": 101,
       "academicYearId": 2,
       "eventId": null,
       "completionSource": "MANUAL",
-      "note": "Điểm rèn luyện đạt 92/100",
-      "isActive": true
+      "note": "Điểm rèn luyện đạt 92 điểm (Xuất sắc)",
+      "isActive": true,
+      "createdAt": "2026-08-15T14:00:00Z"
     },
     {
       "id": 2,
       "userId": 1,
-      "criteriaId": 20,
+      "criteriaId": 102,
       "academicYearId": 2,
-      "eventId": 1,
-      "completionSource": "EVENT_CHECKOUT",
-      "note": "Hoàn thành Hội thảo AI & LLM",
-      "isActive": true
+      "eventId": null,
+      "completionSource": "MANUAL",
+      "note": "Không có vi phạm kỷ luật",
+      "isActive": true,
+      "createdAt": "2026-08-15T14:00:00Z",
+      "updatedAt": "2026-10-26T05:46:12.051Z"
     },
     {
       "id": 3,
       "userId": 1,
-      "criteriaId": 40,
+      "criteriaId": 1031,
       "academicYearId": 2,
-      "eventId": 2,
+      "eventId": 1,
       "completionSource": "EVENT_CHECKOUT",
-      "note": "Hoàn thành chiến dịch Vầng trăng ươm mơ",
-      "isActive": true
+      "note": "Tham gia Hội thi Ánh sáng soi đường cấp ĐHCT đạt giải Khuyến khích",
+      "isActive": true,
+      "createdAt": "2026-08-15T14:00:00Z"
     }
   ],
   "point_transactions": [

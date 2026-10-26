@@ -60,7 +60,7 @@ OVERRIDING SYSTEM VALUE VALUES
   (50, 'Tiêu chuẩn Hội nhập tốt', 'Đạt 02 trong 03 tiêu chuẩn: (5.1) Ngoại ngữ, (5.2) Tin học, (5.3) Hoạt động phong trào kỹ năng hội nhập', 'UNIVERSITY', 1, 5, 1, TRUE),
 
     -- (5.1) Ngoại ngữ
-    (501, 'Tiêu chuẩn Ngoại ngữ', 'Đạt 01 trong 05 tiêu chí bên dưới (5.1.1 đến 5.1.5)', 'UNIVERSITY', 2, 1, 50, TRUE),
+    (501, '(5.1) Ngoại ngữ: Đạt 01 trong 05 tiêu chí sau', 'Đạt 01 trong 05 tiêu chí bên dưới (5.1.1 đến 5.1.5)', 'UNIVERSITY', 2, 1, 50, TRUE),
       (5011, 'Được khen thưởng cuộc thi ngoại ngữ cấp Đại học Cần Thơ trở lên', NULL, 'UNIVERSITY', 3, 1, 501, TRUE),
       (5012, 'Đạt chứng chỉ ngoại ngữ theo bảng quy đổi chuẩn CEFR (IELTS, TOEIC, TOEFL, DELF, HSK, TOPIK, JLPT)', 'SV năm 1-2: A2 / IELTS 4.0 / TOEIC 400. SV năm 3 trở lên: B1 / IELTS 4.5 / TOEIC 450 (chứng chỉ thi trong năm học xét)', 'UNIVERSITY', 3, 2, 501, TRUE),
       (5013, 'Sinh viên năm thứ hai: Đã hoàn thành hoặc được miễn 03 học phần Ngoại ngữ căn bản', 'Mỗi sinh viên chỉ được xét 01 lần', 'UNIVERSITY', 3, 3, 501, TRUE),
@@ -68,7 +68,7 @@ OVERRIDING SYSTEM VALUE VALUES
       (5015, 'Sinh viên chuyên ngành ngoại ngữ: Điểm TBC học tập năm học xét đạt từ 3.2 trở lên', 'TBC HK3 năm trước, HK1 và HK2 năm xét >= 3.2 (SV năm nhất xét HK1, HK2); xét chứng chỉ môn ngoại ngữ 2', 'UNIVERSITY', 3, 5, 501, TRUE),
 
     -- (5.2) Tin học
-    (502, 'Tiêu chuẩn Tin học', 'Đạt 01 trong 06 tiêu chí bên dưới (5.2.1 đến 5.2.6)', 'UNIVERSITY', 2, 2, 50, TRUE),
+    (502, '(5.2) Tin học: Đạt 01 trong 06 tiêu chí sau', 'Đạt 01 trong 06 tiêu chí bên dưới (5.2.1 đến 5.2.6)', 'UNIVERSITY', 2, 2, 50, TRUE),
       (5021, 'Đạt chứng chỉ Ứng dụng công nghệ thông tin cơ bản trở lên do Đại học Cần Thơ cấp', NULL, 'UNIVERSITY', 3, 1, 502, TRUE),
       (5022, 'Đạt chứng chỉ tin học quốc tế IC3 hoặc MOS (Word, Excel, PowerPoint)', NULL, 'UNIVERSITY', 3, 2, 502, TRUE),
       (5023, 'Được cấp giấy khen hoặc giấy chứng nhận tham gia cuộc thi tin học do Đoàn cấp cơ sở trở lên tổ chức', NULL, 'UNIVERSITY', 3, 3, 502, TRUE),
@@ -77,7 +77,7 @@ OVERRIDING SYSTEM VALUE VALUES
       (5026, 'Sinh viên chuyên ngành Công nghệ thông tin: Điểm TBC học tập năm học xét đạt từ 3.2 trở lên', 'TBC HK3 năm trước, HK1 và HK2 năm xét đạt từ 3.2 trở lên (SV năm nhất xét HK1 và HK2)', 'UNIVERSITY', 3, 6, 502, TRUE),
 
     -- (5.3) Hoạt động phong trào kỹ năng hội nhập
-    (503, 'Tham gia các hoạt động, phong trào nâng cao kỹ năng hội nhập', 'Đạt 01 trong 05 tiêu chí bên dưới (5.3.1 đến 5.3.5)', 'UNIVERSITY', 2, 3, 50, TRUE),
+    (503, '(5.3) Tham gia các hoạt động, phong trào nâng cao kỹ năng hội nhập: Đạt 01 trong 05 tiêu chí sau', 'Đạt 01 trong 05 tiêu chí bên dưới (5.3.1 đến 5.3.5)', 'UNIVERSITY', 2, 3, 50, TRUE),
       (5031, 'Tham gia 02 hoạt động hội nhập do cấp Đại học Cần Thơ trở lên tổ chức', 'Giao lưu quốc tế, trao đổi SV, cuộc thi ngoại ngữ, tìm hiểu văn hóa lịch sử xã hội trong nước và thế giới...', 'UNIVERSITY', 3, 1, 503, TRUE),
       (5032, 'Được Đoàn Thanh niên, Hội Sinh viên cấp ĐHCT trở lên khen thưởng thành tích xuất sắc phong trào TN-SV', NULL, 'UNIVERSITY', 3, 2, 503, TRUE),
       (5033, 'Trực tiếp tổ chức hoặc tham gia ít nhất 01 lớp tập huấn bồi dưỡng kỹ năng do Đoàn-Hội ĐHCT trở lên tổ chức', NULL, 'UNIVERSITY', 3, 3, 503, TRUE),

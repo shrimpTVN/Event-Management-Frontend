@@ -69,6 +69,7 @@ export interface Event {
   quotaText?: string
   isFollowed?: boolean
   isSaved?: boolean
+  isRegistered?: boolean
   timeAgo?: string
   tags?: string[]
   isModerationRequired: boolean

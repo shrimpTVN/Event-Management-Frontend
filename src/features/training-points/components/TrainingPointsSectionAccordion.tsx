@@ -11,6 +11,7 @@ interface TrainingPointsSectionAccordionProps {
   studentDescriptions?: Record<number, string>
   onSaveSelfScore: (categoryId: number, score: number, description?: string) => Promise<void> | void
   defaultExpanded?: boolean
+  onToggleExpand?: (isExpanded: boolean) => void
 }
 
 export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccordionProps> = ({
@@ -21,8 +22,16 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
   studentDescriptions = {},
   onSaveSelfScore,
   defaultExpanded = false,
+  onToggleExpand,
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+  const sectionRef = React.useRef<HTMLDivElement>(null)
+
+  const handleToggle = () => {
+    const nextState = !isExpanded
+    setIsExpanded(nextState)
+    onToggleExpand?.(nextState)
+  }
 
   // Map of categoryId -> recorded points from events/system
   const recordedMap = React.useMemo(() => {
@@ -123,11 +132,14 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
     : 0
 
   return (
-    <div className="border border-[#E5E7EB] dark:border-border rounded-md overflow-hidden bg-white dark:bg-card mb-3 shadow-2xs">
+    <div
+      ref={sectionRef}
+      className="scroll-mt-4 border border-[#E5E7EB] dark:border-border rounded-md overflow-hidden bg-white dark:bg-card mb-3 shadow-2xs"
+    >
       {/* Accordion Header (Bar Mục I, II, III...) */}
       <button
         type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={handleToggle}
         className="w-full flex items-center justify-between px-3 sm:px-4 py-2.5 bg-[#EFF5FC] dark:bg-primary/10 hover:bg-[#E2EEFB] dark:hover:bg-primary/15 transition-colors cursor-pointer text-left select-none border-b border-[#E5E7EB] dark:border-border"
       >
         <div className="flex items-center gap-2.5 min-w-0 pr-2">

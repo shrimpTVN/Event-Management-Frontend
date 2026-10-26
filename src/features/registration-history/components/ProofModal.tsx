@@ -1,5 +1,6 @@
 import React from 'react'
-import { X, CheckCircle2, AlertCircle, Clock, ShieldCheck, FileText } from 'lucide-react'
+import { X, CheckCircle2, AlertCircle } from 'lucide-react'
+import { formatEventTitle } from '@/shared'
 import type { RegisteredEventItem } from '../types/history.types'
 
 interface ProofModalProps {
@@ -17,7 +18,7 @@ export const ProofModal: React.FC<ProofModalProps> = ({
 }) => {
   if (!isOpen || !event) return null
 
-  const title = event.title || event.eventName || 'Sự kiện'
+  const title = formatEventTitle(event.title || event.eventName || 'Sự kiện')
   const sessions = Array.isArray(event.attendanceSessions) ? event.attendanceSessions : []
   const studentName = event.studentInfo?.fullName || 'Đoàn Tài Lộc'
   const studentMssv = event.studentInfo?.mssv || 'B2303827'
@@ -37,24 +38,16 @@ export const ProofModal: React.FC<ProofModalProps> = ({
 
       {/* Modal Dialog */}
       <div className="relative w-full max-w-2xl bg-white dark:bg-card border border-border rounded-2xl shadow-xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150">
-        {/* Header */}
+        {/* Header: Title is event name, without icon or subtext */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-primary/10 text-primary">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="font-heading font-bold text-lg text-foreground">
-                Thông tin minh chứng
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Dữ liệu điểm danh và xác nhận tham gia sự kiện
-              </p>
-            </div>
+          <div className="min-w-0 pr-4">
+            <h3 className="font-heading font-bold text-base sm:text-lg text-foreground line-clamp-2">
+              {title}
+            </h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer shrink-0"
           >
             <X className="h-5 w-5" />
           </button>
@@ -62,8 +55,8 @@ export const ProofModal: React.FC<ProofModalProps> = ({
 
         {/* Content */}
         <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
-          {/* Metadata Card */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 rounded-xl bg-muted/30 border border-border/70 text-xs">
+          {/* Metadata Card: Student name and points vertically stacked */}
+          <div className="flex flex-col gap-3 p-4 rounded-xl bg-muted/30 border border-border/70 text-xs">
             <div>
               <span className="text-muted-foreground block mb-0.5">Sinh viên:</span>
               <span className="font-semibold text-foreground text-sm">
@@ -71,21 +64,16 @@ export const ProofModal: React.FC<ProofModalProps> = ({
               </span>
             </div>
             <div>
-              <span className="text-muted-foreground block mb-0.5">Điểm cộng rèn luyện:</span>
+              <span className="text-muted-foreground block mb-0.5">Quyền lợi:</span>
               <span className="font-semibold text-primary text-sm inline-flex items-center gap-1">
                 {points}
               </span>
             </div>
-            <div className="sm:col-span-2">
-              <span className="text-muted-foreground block mb-0.5">Sự kiện:</span>
-              <span className="font-medium text-foreground text-sm">{title}</span>
-            </div>
           </div>
 
-          {/* Attendance History Table */}
+          {/* Attendance History Table: No clock icon */}
           <div>
-            <h4 className="font-heading font-semibold text-sm text-foreground mb-2.5 flex items-center gap-2">
-              <Clock className="h-4 w-4 text-primary" />
+            <h4 className="font-heading font-semibold text-sm text-foreground mb-2.5">
               Lịch sử điểm danh các buổi
             </h4>
 
@@ -151,14 +139,6 @@ export const ProofModal: React.FC<ProofModalProps> = ({
                 Chưa có dữ liệu điểm danh cho sự kiện này.
               </div>
             )}
-          </div>
-
-          {/* Additional note */}
-          <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 text-xs text-blue-800 dark:text-blue-300 flex items-start gap-2.5">
-            <FileText className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            <p>
-              Điểm rèn luyện sẽ được tổng kết tự động vào hệ thống quản lý ĐRL sau khi ban tổ chức hoàn tất rà soát biên bản sự kiện.
-            </p>
           </div>
         </div>
 
