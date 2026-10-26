@@ -49,7 +49,7 @@ export const FanpageDetailPage: React.FC = () => {
       ['fanpage', fanpageId, 'events'],
       (old: Event[] = []) =>
         old.map((e) =>
-          e.id === eventId
+          String(e.id) === String(eventId)
             ? {
                 ...e,
                 isRegistered: true,
@@ -67,7 +67,7 @@ export const FanpageDetailPage: React.FC = () => {
     queryClient.setQueryData(
       ['fanpage', fanpageId, 'events'],
       (old: Event[] = []) =>
-        old.map((e) => (e.id === eventId ? { ...e, isSaved: !e.isSaved } : e))
+        old.map((e) => (String(e.id) === String(eventId) ? { ...e, isSaved: !e.isSaved } : e))
     )
     showToast('Đã cập nhật danh sách sự kiện lưu trữ')
   }

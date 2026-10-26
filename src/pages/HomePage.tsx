@@ -35,7 +35,7 @@ export const HomePage: React.FC = () => {
   const handleRegister = (eventId: string) => {
     queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
       old.map((evt) =>
-        evt.id === eventId
+        String(evt.id) === String(eventId)
           ? {
               ...evt,
               isRegistered: true,
@@ -53,7 +53,7 @@ export const HomePage: React.FC = () => {
   const handleToggleSave = (eventId: string) => {
     queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
       old.map((evt) =>
-        evt.id === eventId ? { ...evt, isSaved: !evt.isSaved } : evt
+        String(evt.id) === String(eventId) ? { ...evt, isSaved: !evt.isSaved } : evt
       )
     )
     setNotificationMessage('Đã cập nhật danh sách sự kiện lưu trữ')

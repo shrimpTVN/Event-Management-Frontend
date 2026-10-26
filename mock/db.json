@@ -2335,6 +2335,108 @@
       "eventId": 7,
       "regDate": "2026-10-26T06:59:26.117Z",
       "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:00:20.961Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:00:22.557Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-26T07:00:27.218Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T07:00:58.895Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T07:01:53.730Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T07:02:08.829Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:02:33.046Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:13:46.684Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:13:48.405Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 9,
+      "regDate": "2026-10-26T07:13:55.750Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 14,
+      "regDate": "2026-10-26T07:13:59.167Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:14:11.255Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:14:12.906Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 10,
+      "regDate": "2026-10-26T07:14:18.426Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 10,
+      "regDate": "2026-10-26T07:14:31.062Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 10,
+      "regDate": "2026-10-26T07:14:47.824Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-26T07:14:53.301Z",
+      "status": "REGISTERED"
     }
   ],
   "student_criteria_progress": [

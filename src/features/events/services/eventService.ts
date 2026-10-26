@@ -82,6 +82,7 @@ export function normalizeEvent(raw: Partial<EventResponseDto> & Record<string, a
     quotaText: raw.quotaText || (capacity > 0 ? `Chỉ tiêu: ${capacity} sinh viên` : undefined),
     isFollowed: Boolean(raw.isFollowed),
     isSaved: Boolean(raw.isSaved),
+    isRegistered: Boolean(raw.isRegistered || (raw.status as string) === 'REGISTERED'),
     timeAgo: raw.timeAgo || undefined,
     tags: Array.isArray(raw.tags) ? raw.tags : (raw.eventTypeName ? [raw.eventTypeName] : []),
     isModerationRequired: Boolean(raw.isModerationRequired),

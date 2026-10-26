@@ -189,7 +189,7 @@ function buildStudentProfileDto(userId) {
   return buildUserProfileDto(userId)
 }
 
-function buildEventResponseDto(event) {
+function buildEventResponseDto(event, currentUserId = 1) {
   const db = getDb()
   const eventType = db.get('event_types').find({ id: event.eventTypeId }).value()
   const criteria = db.get('criterias').find({ id: event.criteriaId }).value()
@@ -198,6 +198,9 @@ function buildEventResponseDto(event) {
   const eventPoints = db.get('event_points').filter({ eventId: event.id }).value() || []
   const pointCategories = db.get('point_categories').value() || []
   const registrations = db.get('registrations').filter({ eventId: event.id }).value() || []
+  const isRegistered = registrations.some(
+    (r) => Number(r.userId) === Number(currentUserId) && r.status !== 'CANCELLED'
+  )
 
   const mappedPoints = eventPoints.map((ep) => {
     const pc = pointCategories.find((cat) => cat.id === ep.pointCategoryId)
@@ -255,6 +258,7 @@ function buildEventResponseDto(event) {
     timeAgo: '1 ngày trước',
     isFollowed: true,
     isSaved: false,
+    isRegistered,
     updatedAt: event.updatedAt || new Date().toISOString(),
     createdAt: event.updatedAt || new Date().toISOString(),
   }
@@ -430,25 +434,28 @@ apiRouter.get('/events', (req, res) => {
     events = events.filter((e) => e.status === status)
   }
 
-  const dtos = events.map(buildEventResponseDto)
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  const dtos = events.map((e) => buildEventResponseDto(e, currentUserId))
   return res.json(successEnvelope(makePageResponse(dtos, page, size)))
 })
 
 apiRouter.get('/events/fanpage/:fanpageId', (req, res) => {
   const { fanpageId } = req.params
   const { page = 0, size = 10 } = req.query
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
   const events = getDb().get('events').filter({ fanpageId: Number(fanpageId) }).value() || []
-  const dtos = events.map(buildEventResponseDto)
+  const dtos = events.map((e) => buildEventResponseDto(e, currentUserId))
   return res.json(successEnvelope(makePageResponse(dtos, page, size)))
 })
 
 apiRouter.get('/events/:id', (req, res) => {
   const { id } = req.params
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
   const event = getDb().get('events').find({ id: Number(id) }).value()
   if (!event) {
     return res.status(404).json(errorEnvelope('Không tìm thấy sự kiện', 'RESOURCE_NOT_FOUND'))
   }
-  return res.json(successEnvelope(buildEventResponseDto(event)))
+  return res.json(successEnvelope(buildEventResponseDto(event, currentUserId)))
 })
 
 apiRouter.post('/events/fanpage-member', (req, res) => {
@@ -516,18 +523,30 @@ apiRouter.delete('/events/fanpage-member/:id', (req, res) => {
 // -------------------------------------------------------------
 // 4. Registrations & Attendance Endpoints (/api/registrations)
 // -------------------------------------------------------------
-apiRouter.post('/registrations/me/events/:eventId', (req, res) => {
-  const eventId = Number(req.params.eventId)
+// 4. Registrations & Attendance Endpoints (/api/registrations)
+// -------------------------------------------------------------
+function registerEventInDb(userId, eventId) {
   const db = getDb()
-  const currentUserId = getCurrentUserIdFromRequest(req)
-  const existing = db.get('registrations').find({ userId: currentUserId, eventId }).value()
+  const uid = Number(userId) || 1
+  const eid = Number(eventId)
+  const existing = db.get('registrations').find({ userId: uid, eventId: eid }).value()
   if (existing) {
-    return res.status(409).json(errorEnvelope('Sinh viên đã đăng ký sự kiện này rồi', 'DUPLICATE_RESOURCE_ERROR'))
+    if (existing.status === 'CANCELLED') {
+      db.get('registrations')
+        .find({ userId: uid, eventId: eid })
+        .assign({
+          status: 'REGISTERED',
+          regDate: new Date().toISOString(),
+          reason: null,
+        })
+        .write()
+    }
+    return { isNew: false, registration: existing }
   }
 
   const newReg = {
-    userId: currentUserId,
-    eventId,
+    userId: uid,
+    eventId: eid,
     regDate: new Date().toISOString(),
     checkInAt: null,
     checkInEvidenceUrl: null,
@@ -538,18 +557,69 @@ apiRouter.post('/registrations/me/events/:eventId', (req, res) => {
   }
 
   db.get('registrations').push(newReg).write()
-  return res.json(successEnvelope(null, 'Đăng ký tham gia sự kiện thành công'))
+  return { isNew: true, registration: newReg }
+}
+
+function cancelEventInDb(userId, eventId, reason = 'Hủy đăng ký từ giao diện') {
+  const db = getDb()
+  const uid = Number(userId) || 1
+  const eid = Number(eventId)
+  const existing = db.get('registrations').find({ userId: uid, eventId: eid }).value()
+  if (existing) {
+    db.get('registrations')
+      .find({ userId: uid, eventId: eid })
+      .assign({
+        status: 'CANCELLED',
+        reason,
+      })
+      .write()
+    return true
+  }
+  return false
+}
+
+apiRouter.post('/registrations/me/events/:eventId', (req, res) => {
+  const eventId = Number(req.params.eventId)
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  const result = registerEventInDb(currentUserId, eventId)
+  return res.json(
+    successEnvelope(
+      {
+        id: `reg-${eventId}`,
+        eventId,
+        registeredAt: result.registration.regDate,
+        status: 'CONFIRMED',
+      },
+      'Đăng ký tham gia sự kiện thành công'
+    )
+  )
+})
+
+apiRouter.post('/registrations', (req, res) => {
+  const eventId = Number(req.body?.eventId)
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  if (!eventId || isNaN(eventId)) {
+    return res.status(400).json(errorEnvelope('Thiếu mã sự kiện (eventId)'))
+  }
+  const result = registerEventInDb(currentUserId, eventId)
+  return res.json(
+    successEnvelope(
+      {
+        id: `reg-${eventId}`,
+        eventId,
+        registeredAt: result.registration.regDate,
+        status: 'CONFIRMED',
+      },
+      'Đăng ký tham gia sự kiện thành công'
+    )
+  )
 })
 
 apiRouter.patch('/registrations/me/events/:eventId/cancel', (req, res) => {
   const eventId = Number(req.params.eventId)
-  const currentUserId = getCurrentUserIdFromRequest(req)
-  getDb()
-    .get('registrations')
-    .find({ userId: currentUserId, eventId })
-    .assign({ status: 'CANCELLED', reason: req.body.reason || 'Hủy đăng ký' })
-    .write()
-  return res.json(successEnvelope(null, 'Hủy đăng ký thành công'))
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  cancelEventInDb(currentUserId, eventId, req.body?.reason)
+  return res.json(successEnvelope({ cancelled: true, eventId }, 'Hủy đăng ký thành công'))
 })
 
 apiRouter.get('/registrations/me/history', (req, res) => {
@@ -1200,19 +1270,25 @@ apiRouter.post('/events/:id/register', (req, res) => {
   if (id === 'fail' || id === '999999') {
     return res.status(400).json(errorEnvelope('Sự kiện đã hết số lượng đăng ký hoặc đã đóng lượt tham gia.'))
   }
+  const eventId = Number(id)
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  const result = registerEventInDb(currentUserId, eventId)
   return res.json(
     successEnvelope({
       id: `reg-${id}`,
-      eventId: Number(id),
-      registeredAt: new Date().toISOString(),
+      eventId,
+      registeredAt: result.registration.regDate,
       status: 'CONFIRMED',
-    })
+    }, 'Đăng ký tham gia sự kiện thành công')
   )
 })
 
 apiRouter.patch('/registrations/me/events/:id/cancel', (req, res) => {
   const { id } = req.params
-  return res.json(successEnvelope({ cancelled: true, eventId: id }))
+  const eventId = Number(id)
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  cancelEventInDb(currentUserId, eventId, req.body?.reason)
+  return res.json(successEnvelope({ cancelled: true, eventId }, 'Hủy đăng ký thành công'))
 })
 
 // Mount apiRouter on /api

@@ -1,12 +1,11 @@
 import React, { useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Loader2, CalendarDays } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { EventFeedCard, StudentLeftSidebar, eventService, type Event } from '@/features/events'
 
 export const EventDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
 
@@ -16,8 +15,14 @@ export const EventDetailPage: React.FC = () => {
     enabled: Boolean(id),
   })
 
-  const handleRegister = (eventId: string) => {
-    navigate(`/events/${eventId}/register`)
+  const handleRegister = (_eventId: string) => {
+    queryClient.setQueryData(['events', id], (old: Event | undefined) =>
+      old ? { ...old, isRegistered: true, registeredCount: (old.registeredCount || 0) + 1 } : old
+    )
+    queryClient.invalidateQueries({ queryKey: ['events'] })
+    queryClient.invalidateQueries({ queryKey: ['registrations'] })
+    setNotificationMessage('Đăng ký tham gia sự kiện thành công!')
+    setTimeout(() => setNotificationMessage(null), 3500)
   }
 
   const handleToggleSave = (_eventId: string) => {

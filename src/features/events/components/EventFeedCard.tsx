@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect } from 'react'
+import React, { useState, useRef, useLayoutEffect, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import {
   Calendar as CalendarIcon,
@@ -30,6 +30,15 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
   const [isExpanded, setIsExpanded] = useState(false)
   const [isFollowed, setIsFollowed] = useState(event.isFollowed ?? false)
   const [isSaved, setIsSaved] = useState(event.isSaved ?? false)
+  const [isRegistered, setIsRegistered] = useState(
+    Boolean(event.isRegistered || (event.status as string) === 'REGISTERED')
+  )
+
+  useEffect(() => {
+    setIsFollowed(event.isFollowed ?? false)
+    setIsSaved(event.isSaved ?? false)
+    setIsRegistered(Boolean(event.isRegistered || (event.status as string) === 'REGISTERED'))
+  }, [event.isFollowed, event.isSaved, event.isRegistered, event.status])
 
   const handleFollowClick = () => {
     setIsFollowed((prev) => !prev)
@@ -296,9 +305,15 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
           <RegisterButton
             eventId={event.id}
             eventTitle={event.title}
-            isRegistered={Boolean(event.isRegistered || (event.status as string) === 'REGISTERED')}
+            isRegistered={isRegistered}
             disabled={event.status === 'CLOSED'}
-            onRegisterSuccess={() => onRegister?.(event.id)}
+            onRegisterSuccess={() => {
+              setIsRegistered(true)
+              onRegister?.(event.id)
+            }}
+            onCancelSuccess={() => {
+              setIsRegistered(false)
+            }}
             className="w-[139px]"
           />
         </div>
