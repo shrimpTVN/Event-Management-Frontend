@@ -87,15 +87,10 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
       list.push({ item: node, code: parentCode, isLeaf: false })
 
       node.children.forEach((child, idx) => {
-        let childCode = ''
-        if (depth === 1) {
-          // e.g. I.a, I.b, I.c
-          const char = String.fromCharCode(97 + idx) // 'a', 'b', 'c'
-          childCode = `${parentCode}.${char}`
-        } else {
-          // e.g. I.a.1, I.a.2, I.a.2.1
-          childCode = `${parentCode}.${idx + 1}`
-        }
+        const childCode =
+          depth === 1
+            ? `${parentCode}.${String.fromCharCode(97 + idx)}`
+            : `${parentCode}.${idx + 1}`
         traverse(child, childCode, depth + 1)
       })
     }

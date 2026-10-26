@@ -8,8 +8,9 @@ export function formatEventTitle(title?: string): string {
   const trimmed = title.trim()
   if (trimmed === trimmed.toUpperCase() && trimmed.length > 3) {
     const lower = trimmed.toLowerCase()
-    return lower
-      .replace(/(^|[:\-?!."']\s*)([a-z\u00C0-\u024F\u1EA0-\u1EF9])/g, (_, p1, p2) => p1 + p2.toUpperCase())
+    const firstUpper = lower.charAt(0).toUpperCase() + lower.slice(1)
+    return firstUpper
+      .replace(/([.:!?"'-]\s+)([a-z\u00C0-\u024F\u1EA0-\u1EF9])/g, (_, p1, p2) => p1 + p2.toUpperCase())
       .replace(/\bctu\b/gi, 'CTU')
       .replace(/\bit\b/gi, 'IT')
       .replace(/\bllm\b/gi, 'LLM')
