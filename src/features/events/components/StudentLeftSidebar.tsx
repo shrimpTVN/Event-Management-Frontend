@@ -63,6 +63,7 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
   }, [currentPath, orgsToDisplay])
 
   return (
+    // add resize left size bar
     <aside className="w-full flex flex-col gap-6 text-sm">
       {/* 0. Home Link (Optional - for profile or inner pages) */}
       {showHomeLink && (

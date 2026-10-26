@@ -169,6 +169,7 @@ export const StudentRightSidebar: React.FC = () => {
   const handleNextMonth = () => setCurrentMonth((prev) => addMonths(prev, 1))
 
   return (
+    //add resize for right side bar
     <aside className="w-full flex flex-col gap-6 text-sm">
       {/* 1. Điểm rèn luyện Section Header */}
       <div className="flex flex-col gap-3.5 font-sans">
