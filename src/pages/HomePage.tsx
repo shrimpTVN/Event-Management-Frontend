@@ -44,10 +44,26 @@ export const HomePage: React.FC = () => {
           : evt
       )
     )
-    queryClient.invalidateQueries({ queryKey: ['events'] })
+    queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
     setNotificationMessage('Đăng ký tham gia sự kiện thành công!')
     setTimeout(() => setNotificationMessage(null), 3500)
+  }
+
+  const handleCancelRegister = (eventId: string) => {
+    queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
+      old.map((evt) =>
+        String(evt.id) === String(eventId)
+          ? {
+              ...evt,
+              isRegistered: false,
+              registeredCount: Math.max(0, (evt.registeredCount || 1) - 1),
+            }
+          : evt
+      )
+    )
+    queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
+    queryClient.invalidateQueries({ queryKey: ['registrations'] })
   }
 
   const handleToggleSave = (eventId: string) => {
@@ -186,6 +202,7 @@ export const HomePage: React.FC = () => {
                     key={event.id}
                     event={event}
                     onRegister={handleRegister}
+                    onCancelRegister={handleCancelRegister}
                     onToggleSave={handleToggleSave}
                     onToggleFollow={handleToggleFollow}
                   />

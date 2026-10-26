@@ -58,9 +58,27 @@ export const FanpageDetailPage: React.FC = () => {
             : e
         )
     )
-    queryClient.invalidateQueries({ queryKey: ['events'] })
+    queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
     showToast('Đăng ký tham gia sự kiện thành công!', 'success')
+  }
+
+  const handleCancelRegister = (eventId: string) => {
+    queryClient.setQueryData(
+      ['fanpage', fanpageId, 'events'],
+      (old: Event[] = []) =>
+        old.map((e) =>
+          String(e.id) === String(eventId)
+            ? {
+                ...e,
+                isRegistered: false,
+                registeredCount: Math.max(0, (e.registeredCount || 1) - 1),
+              }
+            : e
+        )
+    )
+    queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
+    queryClient.invalidateQueries({ queryKey: ['registrations'] })
   }
 
   const handleToggleSave = (eventId: string) => {
@@ -211,6 +229,7 @@ export const FanpageDetailPage: React.FC = () => {
                             key={event.id}
                             event={event}
                             onRegister={handleRegisterSuccess}
+                            onCancelRegister={handleCancelRegister}
                             onToggleSave={handleToggleSave}
                             onToggleFollow={handleToggleFollow}
                           />

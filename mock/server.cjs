@@ -197,9 +197,10 @@ function buildEventResponseDto(event, currentUserId = 1) {
   const semester = db.get('semesters').find({ id: event.semesterId }).value()
   const eventPoints = db.get('event_points').filter({ eventId: event.id }).value() || []
   const pointCategories = db.get('point_categories').value() || []
-  const registrations = db.get('registrations').filter({ eventId: event.id }).value() || []
+  const allRegs = db.get('registrations').value() || []
+  const registrations = allRegs.filter((r) => String(r.eventId) === String(event.id))
   const isRegistered = registrations.some(
-    (r) => Number(r.userId) === Number(currentUserId) && r.status !== 'CANCELLED'
+    (r) => String(r.userId) === String(currentUserId) && r.status !== 'CANCELLED'
   )
 
   const mappedPoints = eventPoints.map((ep) => {
@@ -845,10 +846,11 @@ apiRouter.get('/fanpages/:fanpageId', (req, res) => {
 apiRouter.get('/fanpages/:fanpageId/events', (req, res) => {
   const { fanpageId } = req.params
   const { page = 0, size = 10 } = req.query
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
   const events = getDb().get('events').filter({ fanpageId: Number(fanpageId) }).value() || []
   const fanpage = getDb().get('fanpages').find({ id: Number(fanpageId) }).value()
   const dtos = events.map((ev) => {
-    const base = buildEventResponseDto(ev)
+    const base = buildEventResponseDto(ev, currentUserId)
     return {
       ...base,
       eventId: String(ev.id),

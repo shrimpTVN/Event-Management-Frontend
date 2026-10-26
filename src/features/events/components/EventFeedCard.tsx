@@ -17,6 +17,7 @@ import { RegisterButton } from './RegisterButton'
 interface EventFeedCardProps {
   event: Event
   onRegister?: (eventId: string) => void
+  onCancelRegister?: (eventId: string) => void
   onToggleSave?: (eventId: string) => void
   onToggleFollow?: (organizerId: string) => void
 }
@@ -24,6 +25,7 @@ interface EventFeedCardProps {
 export const EventFeedCard: React.FC<EventFeedCardProps> = ({
   event,
   onRegister,
+  onCancelRegister,
   onToggleSave,
   onToggleFollow,
 }) => {
@@ -313,6 +315,7 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             }}
             onCancelSuccess={() => {
               setIsRegistered(false)
+              onCancelRegister?.(event.id)
             }}
             className="w-[139px]"
           />

@@ -19,10 +19,24 @@ export const EventDetailPage: React.FC = () => {
     queryClient.setQueryData(['events', id], (old: Event | undefined) =>
       old ? { ...old, isRegistered: true, registeredCount: (old.registeredCount || 0) + 1 } : old
     )
-    queryClient.invalidateQueries({ queryKey: ['events'] })
+    queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
     setNotificationMessage('Đăng ký tham gia sự kiện thành công!')
     setTimeout(() => setNotificationMessage(null), 3500)
+  }
+
+  const handleCancelRegister = (_eventId: string) => {
+    queryClient.setQueryData(['events', id], (old: Event | undefined) =>
+      old
+        ? {
+            ...old,
+            isRegistered: false,
+            registeredCount: Math.max(0, (old.registeredCount || 1) - 1),
+          }
+        : old
+    )
+    queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
+    queryClient.invalidateQueries({ queryKey: ['registrations'] })
   }
 
   const handleToggleSave = (_eventId: string) => {
@@ -74,6 +88,7 @@ export const EventDetailPage: React.FC = () => {
               <EventFeedCard
                 event={event}
                 onRegister={handleRegister}
+                onCancelRegister={handleCancelRegister}
                 onToggleSave={handleToggleSave}
                 onToggleFollow={handleToggleFollow}
               />

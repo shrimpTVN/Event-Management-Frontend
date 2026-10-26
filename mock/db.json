@@ -2437,6 +2437,60 @@
       "eventId": 15,
       "regDate": "2026-10-26T07:14:53.301Z",
       "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 11,
+      "regDate": "2026-10-26T07:15:55.278Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:16:04.604Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T07:16:57.919Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:18:11.346Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T07:18:44.052Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 9,
+      "regDate": "2026-10-26T07:19:20.434Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 10,
+      "regDate": "2026-10-26T07:20:27.532Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-26T07:21:30.575Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T07:21:43.480Z",
+      "status": "REGISTERED"
     }
   ],
   "student_criteria_progress": [

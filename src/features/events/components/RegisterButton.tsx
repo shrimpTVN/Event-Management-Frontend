@@ -136,7 +136,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
       await Promise.all([request, minDelay])
 
       setIsRegistered(true)
-      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
       queryClient.invalidateQueries({ queryKey: ['registrations'] })
       onRegisterSuccess?.()
     } catch (err: any) {
@@ -165,7 +165,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
         reason: 'Hủy đăng ký từ giao diện',
       })
       setIsRegistered(false)
-      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
       queryClient.invalidateQueries({ queryKey: ['registrations'] })
       onCancelSuccess?.()
     } catch (err) {
