@@ -13,11 +13,9 @@ import {
   EventFeedCard,
   type Event,
 } from '@/features/events'
-import { useNavigate } from 'react-router-dom'
 import { SlidersHorizontal, CheckCircle, AlertCircle, CalendarDays, Loader2 } from 'lucide-react'
 
 export const FanpageDetailPage: React.FC = () => {
-  const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const fanpageId = id || '1'
   const queryClient = useQueryClient()
@@ -44,6 +42,25 @@ export const FanpageDetailPage: React.FC = () => {
     setTimeout(() => {
       setNotification(null)
     }, 3500)
+  }
+
+  const handleRegisterSuccess = (eventId: string) => {
+    queryClient.setQueryData(
+      ['fanpage', fanpageId, 'events'],
+      (old: Event[] = []) =>
+        old.map((e) =>
+          e.id === eventId
+            ? {
+                ...e,
+                isRegistered: true,
+                registeredCount: (e.registeredCount || 0) + 1,
+              }
+            : e
+        )
+    )
+    queryClient.invalidateQueries({ queryKey: ['events'] })
+    queryClient.invalidateQueries({ queryKey: ['registrations'] })
+    showToast('Đăng ký tham gia sự kiện thành công!', 'success')
   }
 
   const handleToggleSave = (eventId: string) => {
@@ -193,7 +210,7 @@ export const FanpageDetailPage: React.FC = () => {
                           <EventFeedCard
                             key={event.id}
                             event={event}
-                            onRegister={(eventId) => navigate(`/events/${eventId}`)}
+                            onRegister={handleRegisterSuccess}
                             onToggleSave={handleToggleSave}
                             onToggleFollow={handleToggleFollow}
                           />

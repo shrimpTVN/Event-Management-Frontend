@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   StudentLeftSidebar,
@@ -12,7 +11,6 @@ import {
 } from '@/features/events'
 
 export const HomePage: React.FC = () => {
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<FeedTabType>('DISCOVER')
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
@@ -35,7 +33,21 @@ export const HomePage: React.FC = () => {
   })
 
   const handleRegister = (eventId: string) => {
-    navigate(`/events/${eventId}`)
+    queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
+      old.map((evt) =>
+        evt.id === eventId
+          ? {
+              ...evt,
+              isRegistered: true,
+              registeredCount: (evt.registeredCount || 0) + 1,
+            }
+          : evt
+      )
+    )
+    queryClient.invalidateQueries({ queryKey: ['events'] })
+    queryClient.invalidateQueries({ queryKey: ['registrations'] })
+    setNotificationMessage('Đăng ký tham gia sự kiện thành công!')
+    setTimeout(() => setNotificationMessage(null), 3500)
   }
 
   const handleToggleSave = (eventId: string) => {
