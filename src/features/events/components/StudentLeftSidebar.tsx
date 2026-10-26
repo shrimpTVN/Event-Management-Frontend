@@ -64,6 +64,7 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
 
   return (
     // add resize left size bar
+      //refactor: add maximize button
     <aside className="w-full flex flex-col gap-6 text-sm">
       {/* 0. Home Link (Optional - for profile or inner pages) */}
       {showHomeLink && (
