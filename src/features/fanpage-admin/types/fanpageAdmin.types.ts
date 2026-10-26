@@ -50,3 +50,14 @@ export interface FanpageFeedPost {
 }
 
 export type AdminNavTab = 'overview' | 'events' | 'profile' | 'settings'
+
+export interface FanpageInvitation {
+  id: string
+  fanpageId: number
+  code: string
+  name: string
+  inviter: string
+  role: string
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  createdAt?: string
+}

@@ -229,6 +229,39 @@ export function ensureSv5tHierarchy(
   localCompletedMap?: Record<number, boolean>,
   localNoteMap?: Record<number, string>
 ): CriteriaProgressNode[] {
+  // If server returns dynamic criteria tree, use it directly as primary source of truth
+  if (criteriaProgress?.criteria && criteriaProgress.criteria.length > 0) {
+    function applyLocalUpdates(node: CriteriaProgressNode): CriteriaProgressNode {
+      const updatedChildren = node.children ? node.children.map(applyLocalUpdates) : []
+      let isCompleted = node.isCompleted
+      let note = node.note
+
+      if (localCompletedMap && Object.prototype.hasOwnProperty.call(localCompletedMap, node.criteriaId)) {
+        isCompleted = Boolean(localCompletedMap[node.criteriaId])
+        if (localNoteMap?.[node.criteriaId]) {
+          note = localNoteMap[node.criteriaId]
+        }
+      } else if (updatedChildren.length > 0) {
+        const doneCount = updatedChildren.filter((c) => c.isCompleted).length
+        const req = node.requiredChildren ?? updatedChildren.length
+        isCompleted = doneCount >= req
+      }
+
+      const completedChildren = updatedChildren.filter((c) => c.isCompleted).length
+
+      return {
+        ...node,
+        isCompleted,
+        note,
+        completedChildren,
+        totalChildren: updatedChildren.length,
+        children: updatedChildren,
+      }
+    }
+
+    return criteriaProgress.criteria.map(applyLocalUpdates)
+  }
+
   // Collect completed statuses from API response
   const completedMap = new Map<number, { completionSource?: string; completedAt?: string; note?: string }>()
 

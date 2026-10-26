@@ -11,15 +11,20 @@ vi.mock('@/shared', async (importOriginal) => {
     ...actual,
     apiClient: {
       ...actual.apiClient,
-      get: vi.fn().mockResolvedValue([
-        {
-          id: '101',
-          code: 'TEST',
-          name: 'Fanpage Thử Nghiệm API',
-          role: 'Quản trị viên',
-          permissions: 'Toàn quyền',
-        },
-      ]),
+      get: vi.fn().mockImplementation((url: string) => {
+        if (url.includes('invitations')) {
+          return Promise.resolve([])
+        }
+        return Promise.resolve([
+          {
+            id: '101',
+            code: 'TEST',
+            name: 'Fanpage Thử Nghiệm API',
+            role: 'Quản trị viên',
+            permissions: 'Toàn quyền',
+          },
+        ])
+      }),
     },
   }
 })

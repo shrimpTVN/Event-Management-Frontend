@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Plus, Info, Check, X, CheckCircle2 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import { apiClient, isMockMode } from '@/shared'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiClient } from '@/shared'
 
 interface FanpageInvitation {
   id: string
@@ -21,55 +21,22 @@ interface JoinedFanpage {
   permissions: string
 }
 
-const INITIAL_INVITATIONS: FanpageInvitation[] = [
-  {
-    id: 'inv-1',
-    code: 'KHTN',
-    name: 'Fanpage Khoa Khoa học Tự nhiên',
-    inviter: 'Ban Truyền thông CTU',
-    role: 'Quản trị viên sự kiện',
-    status: 'PENDING',
-  },
-  {
-    id: 'inv-2',
-    code: 'CTSV',
-    name: 'Fanpage Trung tâm Hỗ trợ Sinh viên',
-    inviter: 'Phòng Công tác Sinh viên',
-    role: 'Biên tập viên nội dung',
-    status: 'PENDING',
-  },
-]
-
-const JOINED_FANPAGES: JoinedFanpage[] = [
-  {
-    id: 'fp-1',
-    code: 'CTU',
-    name: 'Fanpage Trường Đại học Cần Thơ',
-    role: 'Quản trị viên chính',
-    permissions: 'Quản lý sự kiện, nội dung, đối soát',
-  },
-  {
-    id: 'fp-2',
-    code: 'CNTT',
-    name: 'Fanpage Khoa CNTT',
-    role: 'Biên tập viên',
-    permissions: 'Đăng bài, duyệt nội dung, theo dõi tương tác',
-  },
-  {
-    id: 'fp-3',
-    code: 'CLB',
-    name: 'Fanpage CLB Công nghệ phần mềm CTU',
-    role: 'Người quản lý sự kiện',
-    permissions: 'Tạo sự kiện, theo dõi đăng ký, báo cáo',
-  },
-]
-
 export const StaffFanpageHub: React.FC = () => {
   const navigate = useNavigate()
-  const [invitations, setInvitations] = useState<FanpageInvitation[]>(
-    isMockMode() ? INITIAL_INVITATIONS : []
-  )
+  const queryClient = useQueryClient()
   const [actionNotice, setActionNotice] = useState<string | null>(null)
+
+  const { data: invitations = [] } = useQuery<FanpageInvitation[]>({
+    queryKey: ['staff-fanpage-invitations'],
+    queryFn: async () => {
+      try {
+        const res: any = await apiClient.get('/fanpages/fanpage-admin/invitations')
+        return Array.isArray(res) ? res : res?.data || []
+      } catch {
+        return []
+      }
+    },
+  })
 
   const { data: apiFanpages = [] } = useQuery<JoinedFanpage[]>({
     queryKey: ['staff-my-fanpages'],
@@ -77,26 +44,23 @@ export const StaffFanpageHub: React.FC = () => {
       try {
         const res: any = await apiClient.get('/fanpages/fanpage-admin/my-fanpages')
         const list = Array.isArray(res) ? res : res?.data || []
-        if (list.length > 0) {
-          return list.map((fp: any) => ({
-            id: String(fp.id),
-            code:
-              fp.code ||
-              (fp.name?.includes('CNTT')
-                ? 'CNTT'
-                : fp.name?.includes('Cần Thơ') || fp.name?.includes('CTU')
-                  ? 'CTU'
-                  : fp.name?.includes('CLB')
-                    ? 'CLB'
-                    : (fp.name || 'FP').substring(0, 4).toUpperCase()),
-            name: fp.name,
-            role: fp.role || 'Quản trị viên chính',
-            permissions: fp.permissions || 'Quản lý sự kiện, nội dung, đối soát',
-          }))
-        }
-        return isMockMode() ? JOINED_FANPAGES : []
+        return list.map((fp: any) => ({
+          id: String(fp.id),
+          code:
+            fp.code ||
+            (fp.name?.includes('CNTT')
+              ? 'CNTT'
+              : fp.name?.includes('Cần Thơ') || fp.name?.includes('CTU')
+                ? 'CTU'
+                : fp.name?.includes('CLB')
+                  ? 'CLB'
+                  : (fp.name || 'FP').substring(0, 4).toUpperCase()),
+          name: fp.name,
+          role: fp.role || 'Quản trị viên chính',
+          permissions: fp.permissions || 'Quản lý sự kiện, nội dung, đối soát',
+        }))
       } catch {
-        return isMockMode() ? JOINED_FANPAGES : []
+        return []
       }
     },
   })
@@ -115,21 +79,31 @@ export const StaffFanpageHub: React.FC = () => {
     }
   }, [fanpagesList, selectedFanpageId])
 
+  const respondMutation = useMutation({
+    mutationFn: ({ id, accept }: { id: string; accept: boolean }) =>
+      apiClient.patch(`/fanpages/fanpage-admin/invitations/${id}`, {
+        status: accept ? 'ACCEPTED' : 'REJECTED',
+      }),
+    onSuccess: (_, { id, accept }) => {
+      queryClient.setQueryData<FanpageInvitation[]>(['staff-fanpage-invitations'], (old = []) =>
+        old.map((inv) =>
+          inv.id === id ? { ...inv, status: accept ? 'ACCEPTED' : 'REJECTED' } : inv
+        )
+      )
+      const target = invitations.find((i) => i.id === id)
+      if (target) {
+        setActionNotice(
+          accept
+            ? `Đã chấp nhận lời mời tham gia quản trị "${target.name}"`
+            : `Đã từ chối lời mời "${target.name}"`
+        )
+        setTimeout(() => setActionNotice(null), 4000)
+      }
+    },
+  })
+
   const handleRespondInvitation = (id: string, accept: boolean) => {
-    setInvitations((prev) =>
-      prev.map((inv) =>
-        inv.id === id ? { ...inv, status: accept ? 'ACCEPTED' : 'REJECTED' } : inv
-      )
-    )
-    const target = invitations.find((i) => i.id === id)
-    if (target) {
-      setActionNotice(
-        accept
-          ? `Đã chấp nhận lời mời tham gia quản trị "${target.name}"`
-          : `Đã từ chối lời mời "${target.name}"`
-      )
-      setTimeout(() => setActionNotice(null), 4000)
-    }
+    respondMutation.mutate({ id, accept })
   }
 
   const handleContinue = () => {

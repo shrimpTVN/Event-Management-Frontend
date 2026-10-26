@@ -59,8 +59,8 @@ export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
       benefits: [],
       timeHappen: 'Đang cập nhật',
       dateHappen: 'Đang cập nhật',
-      location: 'Hội trường Rùa',
-      capacity: 100,
+      location: 'Đang cập nhật',
+      capacity: 0,
       registeredCount: 0,
       pointsCategory: 'ĐRL theo quy định',
       canCancel: true,
@@ -118,7 +118,7 @@ export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
     dateOpen: raw.dateOpen,
     dateClose: raw.dateClose,
     regDate: raw.regDate,
-    location: raw.location || 'Hội trường Rùa',
+    location: raw.location || 'Đang cập nhật',
     status,
     pointsCategory:
       raw.pointsCategory || (benefits.length > 0 ? `ĐRL: +${benefits[0]}` : 'ĐRL theo quy định'),
@@ -128,7 +128,7 @@ export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
       typeof raw.extraBenefitsCount === 'number'
         ? raw.extraBenefitsCount
         : Math.max(0, benefits.length - 2),
-    capacity: Number(raw.capacity || 100),
+    capacity: Number(raw.capacity || 0),
     registeredCount: Number(raw.registeredCount || 0),
     bannerUrl: raw.bannerUrl || '',
     registrationDate: raw.registrationDate || raw.regDate || '',
