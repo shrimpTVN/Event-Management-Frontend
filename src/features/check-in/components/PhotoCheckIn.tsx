@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { Camera, CheckCircle2, UploadCloud, AlertCircle, Calendar, MapPin, Loader2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { apiClient } from '@/shared'
+import { apiClient, sanitizeImageSrc } from '@/shared'
 
 export const PhotoCheckIn: React.FC = () => {
   const [searchParams] = useSearchParams()
@@ -197,10 +197,10 @@ export const PhotoCheckIn: React.FC = () => {
 
           {/* 3. Chụp / Tải ảnh minh chứng */}
           <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-6 hover:border-primary/50 transition-colors bg-muted/20">
-            {previewUrl ? (
+            {previewUrl && sanitizeImageSrc(previewUrl) ? (
               <div className="relative w-full aspect-video max-h-56 rounded-lg overflow-hidden border border-border">
                 <img
-                  src={previewUrl}
+                  src={sanitizeImageSrc(previewUrl)}
                   alt="Ảnh minh chứng điểm danh"
                   className="w-full h-full object-cover"
                 />

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { X, Camera, UploadCloud, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { sanitizeImageSrc } from '@/shared'
 import type { RegisteredEventItem } from '../types/history.types'
 import { historyService } from '../services/historyService'
 
@@ -39,6 +40,10 @@ export const StudentAttendanceModal: React.FC<StudentAttendanceModalProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        setError('Vui lòng chỉ tải lên tệp hình ảnh (PNG, JPG, JPEG)')
+        return
+      }
       if (file.size > 5 * 1024 * 1024) {
         setError('Kích thước ảnh không được vượt quá 5MB')
         return
@@ -196,10 +201,10 @@ export const StudentAttendanceModal: React.FC<StudentAttendanceModalProps> = ({
               Chụp ảnh selfie tại hội trường hoặc ảnh chụp cùng slide/sân khấu sự kiện để BTC xác minh.
             </p>
 
-            {previewUrl ? (
+            {previewUrl && sanitizeImageSrc(previewUrl) ? (
               <div className="relative rounded-xl border border-border overflow-hidden bg-muted/20">
                 <img
-                  src={previewUrl}
+                  src={sanitizeImageSrc(previewUrl)}
                   alt="Ảnh minh chứng điểm danh"
                   className="w-full h-44 object-contain"
                 />
