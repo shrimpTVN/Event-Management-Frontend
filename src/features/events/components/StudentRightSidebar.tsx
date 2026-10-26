@@ -170,6 +170,7 @@ export const StudentRightSidebar: React.FC = () => {
 
   return (
     //add resize for right side bar
+    //refactor: add maximize button
     <aside className="w-full flex flex-col gap-6 text-sm">
       {/* 1. Điểm rèn luyện Section Header */}
       <div className="flex flex-col gap-3.5 font-sans">
