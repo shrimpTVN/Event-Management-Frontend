@@ -16,6 +16,11 @@ export const FanpagePublicHeader: React.FC<FanpagePublicHeaderProps> = ({
   const [isFollowing, setIsFollowing] = useState(fanpage.isFollowing)
   const [followers, setFollowers] = useState(fanpage.followerCount)
 
+  React.useEffect(() => {
+    setIsFollowing(fanpage.isFollowing)
+    setFollowers(fanpage.followerCount)
+  }, [fanpage.id, fanpage.isFollowing, fanpage.followerCount])
+
   const handleToggleFollow = () => {
     const nextState = !isFollowing
     setIsFollowing(nextState)

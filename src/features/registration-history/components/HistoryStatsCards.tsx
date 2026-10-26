@@ -7,11 +7,7 @@ interface HistoryStatsCardsProps {
   onSelectFilter?: (filter: 'ALL' | 'UPCOMING' | 'COMPLETED' | 'ABSENT') => void
 }
 
-export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({
-  stats,
-  activeFilter,
-  onSelectFilter,
-}) => {
+export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({ stats }) => {
   const safeStats = stats || {
     totalRegistered: 0,
     upcoming: 0,
@@ -25,54 +21,84 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({
       title: 'Tổng sự kiện đã đăng kí',
       value: safeStats.totalRegistered ?? 0,
       trend: safeStats.totalTrend || {
-        value: '20%',
+        value: '+12%',
         isUp: true,
-        subText: 'So với HK3 NH 2025 - 2026',
+        subText: 'so với kì trước',
       },
-      trendVariant: 'success' as const,
+      polarity: 'positive' as const,
+      showBadge: true,
     },
     {
       id: 'UPCOMING' as const,
       title: 'Sự kiện sắp diễn ra',
       value: safeStats.upcoming ?? 0,
       trend: safeStats.upcomingTrend || {
-        value: '—%',
+        value: '',
         isUp: true,
-        subText: 'SK gần nhất: 8h 20/10',
+        subText: 'sắp diễn ra',
       },
-      trendVariant: 'neutral' as const,
+      polarity: 'neutral' as const,
+      showBadge: false, // Bỏ badge cho sự kiện sắp diễn ra theo yêu cầu
     },
     {
       id: 'COMPLETED' as const,
       title: 'Sự kiện đã hoàn thành',
       value: safeStats.completed ?? 0,
       trend: safeStats.completedTrend || {
-        value: '—%',
+        value: '+8%',
         isUp: true,
-        subText: 'So với HK3 NH 2025 - 2026',
+        subText: 'so với kì trước',
       },
-      trendVariant: 'neutral' as const,
+      polarity: 'positive' as const,
+      showBadge: true,
     },
     {
       id: 'ABSENT' as const,
       title: 'Sự kiện vắng',
       value: safeStats.absent ?? 0,
       trend: safeStats.absentTrend || {
-        value: '—%',
+        value: '0%',
         isUp: false,
-        subText: 'So với HK3 NH 2025 - 2026',
+        subText: 'so với kì trước',
       },
-      trendVariant: 'danger' as const,
+      polarity: 'negative' as const, // Tăng vắng là tiêu cực, giảm vắng là tích cực
+      showBadge: true,
     },
   ]
 
-  const getTrendBadge = (
-    trend: { value: string; isUp?: boolean },
-    variant: 'success' | 'neutral' | 'danger'
+  /**
+   * Render badge indicator:
+   * - showBadge = false: không hiển thị (ví dụ Sự kiện sắp diễn ra)
+   * - Bằng (0% / không đổi): không hiển thị ("bằng thì ko thể hiện")
+   * - Polarity 'positive' (chỉ số tích cực):
+   *     + Tăng (isUp): tích cực -> Màu xanh lá
+   *     + Giảm (!isUp): tiêu cực -> Màu đỏ
+   * - Polarity 'negative' (chỉ số tiêu cực như sự kiện vắng):
+   *     + Tăng (isUp): tiêu cực (tăng số lần vắng) -> Màu đỏ
+   *     + Giảm (!isUp): tích cực (giảm số lần vắng) -> Màu xanh lá
+   */
+  const renderTrendBadge = (
+    trend: { value?: string; isUp?: boolean } | undefined,
+    polarity: 'positive' | 'negative' | 'neutral',
+    showBadge: boolean
   ) => {
-    const arrow = trend.isUp ? '▲' : '▼'
+    if (!showBadge || !trend || !trend.value) return null
 
-    if (variant === 'success') {
+    const rawVal = trend.value.trim()
+    const cleanedNumber = parseFloat(rawVal.replace(/[^\d.-]/g, ''))
+
+    // Giá trị bằng 0% hoặc không xác định -> không thể hiện badge
+    if (isNaN(cleanedNumber) || cleanedNumber === 0) {
+      return null
+    }
+
+    const isUp = trend.isUp ?? cleanedNumber > 0
+    const arrow = isUp ? '▲' : '▼'
+
+    // Xác định kết quả tích cực hay tiêu cực
+    const isPositiveOutcome = polarity === 'positive' ? isUp : !isUp
+
+    if (isPositiveOutcome) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#DCFCE7] text-[#16A34A] dark:bg-emerald-950/60 dark:text-emerald-400">
           <span>{arrow}</span>
@@ -81,17 +107,8 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({
       )
     }
 
-    if (variant === 'danger') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#FEE2E2] text-[#DC2626] dark:bg-rose-950/60 dark:text-rose-400">
-          <span>{arrow}</span>
-          <span>{trend.value}</span>
-        </span>
-      )
-    }
-
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#F3F4F6] text-[#6B7280] dark:bg-muted dark:text-muted-foreground">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#FEE2E2] text-[#DC2626] dark:bg-rose-950/60 dark:text-rose-400">
         <span>{arrow}</span>
         <span>{trend.value}</span>
       </span>
@@ -100,40 +117,30 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map((card) => {
-        const isActive = activeFilter === card.id
+      {cards.map((card) => (
+        <div
+          key={card.id}
+          className="flex flex-col justify-between p-4 sm:p-5 rounded-xl bg-white dark:bg-card border border-[#E5E7EB] dark:border-border shadow-2xs select-none"
+        >
+          {/* Top: Indicator label */}
+          <div className="text-xs sm:text-sm font-normal text-[#667085] dark:text-muted-foreground line-clamp-1 mb-2">
+            {card.title}
+          </div>
 
-        return (
-          <button
-            key={card.id}
-            type="button"
-            onClick={() => onSelectFilter?.(card.id)}
-            className={`flex flex-col justify-between p-4 sm:p-5 rounded-lg bg-white dark:bg-card border transition-all text-left group hover:shadow-xs cursor-pointer ${
-              isActive
-                ? 'border-[#1B4B8A] ring-1 ring-[#1B4B8A] bg-blue-50/10 dark:bg-blue-950/10'
-                : 'border-border/80 hover:border-[#1B4B8A]/40'
-            }`}
-          >
-            {/* Top: Indicator label */}
-            <div className="text-xs sm:text-sm font-normal text-[#667085] dark:text-muted-foreground line-clamp-1 mb-2">
-              {card.title}
-            </div>
+          {/* Middle: Big count + Trend pill */}
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-3xl sm:text-4xl font-bold font-heading text-foreground tracking-tight leading-none">
+              {card.value}
+            </span>
+            {renderTrendBadge(card.trend, card.polarity, card.showBadge)}
+          </div>
 
-            {/* Middle: Big count + Trend pill */}
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-3xl sm:text-4xl font-bold font-heading text-foreground tracking-tight leading-none">
-                {card.value}
-              </span>
-              {getTrendBadge(card.trend, card.trendVariant)}
-            </div>
-
-            {/* Bottom: Subtext comparison */}
-            <div className="text-xs text-[#667085] dark:text-muted-foreground truncate">
-              {card.trend.subText}
-            </div>
-          </button>
-        )
-      })}
+          {/* Bottom: Subtext comparison */}
+          <div className="text-xs text-[#667085] dark:text-muted-foreground truncate">
+            {card.trend.subText}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

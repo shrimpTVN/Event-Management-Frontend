@@ -1,8 +1,8 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
 import { Calendar, MapPin, Users, Award, ShieldCheck, Clock, Building } from 'lucide-react'
 import { formatDate } from '@/shared'
 import type { Event } from '../types/event.types'
+import { RegisterButton } from './RegisterButton'
 
 interface EventDetailViewProps {
   event: Event
@@ -137,13 +137,14 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
           <span>Hạn đăng ký: Trước 1 ngày diễn ra sự kiện</span>
         </div>
 
-        <Link
-          to={`/events/${event.id}/register`}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-2.5 font-semibold text-sm text-primary-foreground shadow hover:bg-primary/90 transition-all cursor-pointer"
-        >
-          <ShieldCheck className="h-4 w-4" />
-          <span>Đăng ký tham gia ngay</span>
-        </Link>
+        <RegisterButton
+          eventId={event.id}
+          eventTitle={event.title}
+          isRegistered={Boolean(event.isRegistered || (event.status as string) === 'REGISTERED')}
+          disabled={event.status === 'CLOSED'}
+          size="lg"
+          className="min-w-[160px]"
+        />
       </div>
     </div>
   )

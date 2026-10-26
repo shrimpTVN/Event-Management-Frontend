@@ -105,7 +105,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
 
       {/* 2. Post Content (Figma: Nội dung sự kiện [750x74]) */}
       <div className="px-4 sm:px-5 py-3 space-y-1.5">
-        <h3 className="font-k2d font-bold text-base sm:text-lg text-[#0B1626] dark:text-foreground tracking-tight uppercase leading-snug">
+        <h3 className="font-k2d font-bold text-base sm:text-lg text-[#0B1626] dark:text-foreground tracking-tight leading-snug">
           {post.title}
         </h3>
         <p className="text-sm text-[#4B5563] dark:text-muted-foreground leading-relaxed">

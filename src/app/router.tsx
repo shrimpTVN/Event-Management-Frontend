@@ -1,8 +1,7 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { PageShell } from '@/shared'
 import { AuthGuard, STAFF_ROLES } from '@/features/auth'
 import { HomePage } from '../pages/HomePage'
-import { EventListPage } from '../pages/EventListPage'
 import { EventDetailPage } from '../pages/EventDetailPage'
 import { RegistrationPage } from '../pages/RegistrationPage'
 import { CheckInPage } from '../pages/CheckInPage'
@@ -20,6 +19,7 @@ import { ProfilePage } from '../pages/ProfilePage'
 import { EventHistoryPage } from '../pages/EventHistoryPage'
 import { FanpageDetailPage } from '../pages/FanpageDetailPage'
 import { TrainingPointsPage } from '../pages/TrainingPointsPage'
+import { Sv5tPage } from '../pages/Sv5tPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 
 export const router = createBrowserRouter([
@@ -116,7 +116,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'events',
-        element: <EventListPage />,
+        element: <Navigate to="/history" replace />,
       },
       {
         path: 'events/:id',
@@ -167,6 +167,22 @@ export const router = createBrowserRouter([
         element: (
           <AuthGuard>
             <TrainingPointsPage />
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'sv5t',
+        element: (
+          <AuthGuard>
+            <Sv5tPage />
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'sinh-vien-5-tot',
+        element: (
+          <AuthGuard>
+            <Sv5tPage />
           </AuthGuard>
         ),
       },

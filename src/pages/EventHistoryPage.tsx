@@ -2,11 +2,13 @@ import React, { useState, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   HistoryStatsCards,
-  HistoryFilterBar,
+  HistoryTabBar,
+  HistorySearchBar,
   RegisteredEventCard,
   ProofModal,
   AbsenceModal,
   CancelConfirmModal,
+  StudentAttendanceModal,
   historyService,
   normalizeHistoryStatus,
   type RegisteredEventItem,
@@ -40,6 +42,7 @@ export const EventHistoryPage: React.FC = () => {
   const [proofModalEvent, setProofModalEvent] = useState<RegisteredEventItem | null>(null)
   const [absenceModalEvent, setAbsenceModalEvent] = useState<RegisteredEventItem | null>(null)
   const [cancelModalEvent, setCancelModalEvent] = useState<RegisteredEventItem | null>(null)
+  const [attendanceModalEvent, setAttendanceModalEvent] = useState<RegisteredEventItem | null>(null)
 
   // Feedback notification toast
   const [notification, setNotification] = useState<{
@@ -66,11 +69,11 @@ export const EventHistoryPage: React.FC = () => {
       totalRegistered,
       totalTrend: { value: '+12%', isUp: true, subText: 'so với kì trước' },
       upcoming,
-      upcomingTrend: { value: '+5%', isUp: true, subText: 'sắp diễn ra' },
+      upcomingTrend: { value: '', isUp: true, subText: 'sắp diễn ra' },
       completed,
-      completedTrend: { value: '+8%', isUp: true, subText: 'hoàn thành' },
+      completedTrend: { value: '+8%', isUp: true, subText: 'so với kì trước' },
       absent,
-      absentTrend: { value: '0%', isUp: false, subText: 'vắng mặt' },
+      absentTrend: { value: '0%', isUp: false, subText: 'so với kì trước' },
     }
   }, [events])
 
@@ -182,7 +185,7 @@ export const EventHistoryPage: React.FC = () => {
       {/* Main Container Layout: Left sidebar flush left, content scrolling independently */}
       <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
         {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 custom-scrollbar">
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
@@ -230,25 +233,30 @@ export const EventHistoryPage: React.FC = () => {
             </div>
 
             {/* 4 Summary Stat Cards (Frame 227) */}
-            <HistoryStatsCards
-              stats={stats}
-              activeFilter={activeStatus}
-              onSelectFilter={(status) => setActiveStatus(status)}
-            />
+            <HistoryStatsCards stats={stats} />
 
-            {/* Main Content White Container (Frame 229) */}
-            <div className="bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-xl p-4 sm:p-5 flex flex-col gap-4 shadow-2xs">
-              {/* Event Filter Toolbar (Tabs on left, Search + Bộ lọc on right) */}
-              <HistoryFilterBar
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
+            {/* Main Section: Folder-style Tab Bar above White Container */}
+            <div className="flex flex-col mt-2">
+              <HistoryTabBar
                 activeStatus={activeStatus}
                 onStatusChange={setActiveStatus}
                 counts={counts}
-                onToggleFilterModal={() => {
-                  showToast('Đang mở bộ lọc nâng cao...', 'info')
-                }}
               />
+
+              {/* Main Content White Container (Frame 229) */}
+              <div
+                className={`bg-white dark:bg-card border border-[#E5E7EB] dark:border-border ${
+                  activeStatus === 'ALL' ? 'rounded-b-xl rounded-tr-xl' : 'rounded-xl'
+                } p-4 sm:p-5 flex flex-col gap-4 shadow-2xs`}
+              >
+                {/* Search & Filter Toolbar */}
+                <HistorySearchBar
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                  onToggleFilterModal={() => {
+                    showToast('Đang mở bộ lọc nâng cao...', 'info')
+                  }}
+                />
 
               {/* 3-column Events Cards Grid (Frame 231) */}
               {isLoading ? (
@@ -273,6 +281,7 @@ export const EventHistoryPage: React.FC = () => {
                       onOpenProofModal={(e) => setProofModalEvent(e)}
                       onOpenAbsenceModal={(e) => setAbsenceModalEvent(e)}
                       onOpenCancelModal={(e) => setCancelModalEvent(e)}
+                      onOpenAttendanceModal={(e) => setAttendanceModalEvent(e)}
                     />
                   ))}
                 </div>
@@ -301,8 +310,9 @@ export const EventHistoryPage: React.FC = () => {
               )}
             </div>
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
+    </div>
 
       {/* Modals */}
       <ProofModal
@@ -324,6 +334,16 @@ export const EventHistoryPage: React.FC = () => {
         onClose={() => setCancelModalEvent(null)}
         event={cancelModalEvent}
         onConfirm={handleCancelConfirm}
+      />
+
+      <StudentAttendanceModal
+        isOpen={Boolean(attendanceModalEvent)}
+        onClose={() => setAttendanceModalEvent(null)}
+        event={attendanceModalEvent}
+        onSuccess={(msg) => {
+          showToast(msg, 'success')
+          queryClient.invalidateQueries({ queryKey: ['registrations', 'history'] })
+        }}
       />
     </div>
   )

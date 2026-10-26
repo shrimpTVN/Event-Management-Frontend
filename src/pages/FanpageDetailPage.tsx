@@ -4,17 +4,20 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   FanpagePublicHeader,
   FanpageAboutCard,
-  FanpageEventFeedCard,
   fanpageService,
-  type FanpagePublicEventPost,
   type FanpageDetail,
 } from '@/features/fanpage'
-import { StudentLeftSidebar } from '@/features/events'
+import {
+  StudentLeftSidebar,
+  StudentRightSidebar,
+  EventFeedCard,
+  type Event,
+} from '@/features/events'
 import { SlidersHorizontal, CheckCircle, AlertCircle, CalendarDays, Loader2 } from 'lucide-react'
 
 export const FanpageDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
-  const fanpageId = id || ''
+  const fanpageId = id || '1'
   const queryClient = useQueryClient()
 
   const { data: fanpage, isLoading: isLoadingFanpage } = useQuery({
@@ -41,24 +44,57 @@ export const FanpageDetailPage: React.FC = () => {
     }, 3500)
   }
 
-  const handleShare = (post: FanpagePublicEventPost) => {
-    const url = `${window.location.origin}/events/${post.eventId}`
-    navigator.clipboard?.writeText(url)
-    showToast(`Đã sao chép liên kết sự kiện: "${post.title}"`, 'success')
-  }
-
-  const handleToggleSave = (post: FanpagePublicEventPost) => {
-    const nextSaved = !post.isSaved
+  const handleRegisterSuccess = (eventId: string) => {
     queryClient.setQueryData(
       ['fanpage', fanpageId, 'events'],
-      (old: FanpagePublicEventPost[] = []) =>
-        old.map((e) => (e.id === post.id ? { ...e, isSaved: nextSaved } : e))
+      (old: Event[] = []) =>
+        old.map((e) =>
+          String(e.id) === String(eventId)
+            ? {
+                ...e,
+                isRegistered: true,
+                registeredCount: (e.registeredCount || 0) + 1,
+              }
+            : e
+        )
     )
-    showToast(
-      nextSaved
-        ? `Đã lưu sự kiện "${post.title}" vào danh sách quan tâm!`
-        : `Đã bỏ lưu sự kiện "${post.title}".`,
-      'info'
+    queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
+    queryClient.invalidateQueries({ queryKey: ['registrations'] })
+    showToast('Đăng ký tham gia sự kiện thành công!', 'success')
+  }
+
+  const handleCancelRegister = (eventId: string) => {
+    queryClient.setQueryData(
+      ['fanpage', fanpageId, 'events'],
+      (old: Event[] = []) =>
+        old.map((e) =>
+          String(e.id) === String(eventId)
+            ? {
+                ...e,
+                isRegistered: false,
+                registeredCount: Math.max(0, (e.registeredCount || 1) - 1),
+              }
+            : e
+        )
+    )
+    queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
+    queryClient.invalidateQueries({ queryKey: ['registrations'] })
+  }
+
+  const handleToggleSave = (eventId: string) => {
+    queryClient.setQueryData(
+      ['fanpage', fanpageId, 'events'],
+      (old: Event[] = []) =>
+        old.map((e) => (String(e.id) === String(eventId) ? { ...e, isSaved: !e.isSaved } : e))
+    )
+    showToast('Đã cập nhật danh sách sự kiện lưu trữ')
+  }
+
+  const handleToggleFollow = (organizerId: string) => {
+    queryClient.setQueryData(
+      ['fanpage', fanpageId, 'events'],
+      (old: Event[] = []) =>
+        old.map((e) => (e.organizerId === organizerId ? { ...e, isFollowed: !e.isFollowed } : e))
     )
   }
 
@@ -120,13 +156,13 @@ export const FanpageDetailPage: React.FC = () => {
       {/* Main Container Layout: Sidebar flush left, main content centered and scrollable */}
       <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
         {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 custom-scrollbar">
-          <StudentLeftSidebar followedOrgs={[]} />
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 pb-28 sm:pb-36 sidebar-scrollbar">
+          <StudentLeftSidebar />
         </aside>
 
         {/* Center / Main Content: Fanpage Profile View */}
         <main className="flex-1 min-w-0 h-full overflow-y-auto py-5 px-1 flex justify-center custom-scrollbar">
-          <div className="w-full max-w-5xl flex flex-col gap-5 pb-16">
+          <div className="w-full max-w-5xl flex flex-col gap-5 pb-28 sm:pb-36">
             {isLoadingFanpage ? (
               <div className="w-full rounded-2xl border border-border bg-card p-12 flex flex-col items-center justify-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -187,13 +223,15 @@ export const FanpageDetailPage: React.FC = () => {
                         ))}
                       </div>
                     ) : events.length > 0 ? (
-                      <div className="flex flex-col gap-4">
-                        {events.map((post) => (
-                          <FanpageEventFeedCard
-                            key={post.id}
-                            post={post}
-                            onShare={handleShare}
+                      <div className="flex flex-col gap-2">
+                        {events.map((event) => (
+                          <EventFeedCard
+                            key={event.id}
+                            event={event}
+                            onRegister={handleRegisterSuccess}
+                            onCancelRegister={handleCancelRegister}
                             onToggleSave={handleToggleSave}
+                            onToggleFollow={handleToggleFollow}
                           />
                         ))}
                       </div>
@@ -212,6 +250,9 @@ export const FanpageDetailPage: React.FC = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Bottom spacer for generous breathing room when scrolled to the end */}
+                <div className="h-28 sm:h-36 w-full shrink-0" aria-hidden="true" />
               </>
             ) : (
               <div className="w-full rounded-2xl border border-dashed border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-2">
@@ -225,6 +266,11 @@ export const FanpageDetailPage: React.FC = () => {
             )}
           </div>
         </main>
+
+        {/* Right Column: Training Points Progress & Calendar Widget (Matching HomePage to center the main content) */}
+        <aside className="hidden lg:block w-[256px] min-w-[256px] max-w-[256px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pl-3 pr-1 ml-3 sidebar-scrollbar">
+          <StudentRightSidebar />
+        </aside>
       </div>
     </div>
   )

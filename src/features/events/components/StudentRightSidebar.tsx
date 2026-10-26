@@ -57,6 +57,26 @@ export const StudentRightSidebar: React.FC = () => {
     },
   })
 
+  // 3. Fetch active semester & academic year
+  const { data: semestersList } = useQuery<any[]>({
+    queryKey: ['semesters'],
+    queryFn: async () => {
+      const res: any = await apiClient.get('/semesters')
+      return Array.isArray(res) ? res : res?.data || []
+    },
+  })
+
+  const currentSemesterLabel = useMemo(() => {
+    if (!semestersList || !Array.isArray(semestersList) || semestersList.length === 0) {
+      return 'HK1 NH 2026 - 2027'
+    }
+    const active = semestersList.find((s: any) => s.status === 'ACTIVE') || semestersList[0]
+    if (!active) return 'HK1 NH 2026 - 2027'
+    const semNum = active.number === 3 ? 'Hè' : active.number || 1
+    const year = active.academicYear ? active.academicYear.replace('-', ' - ') : '2026 - 2027'
+    return `HK${semNum} NH ${year}`
+  }, [semestersList])
+
   // Compute criteria items and total points strictly from server response
   const { criteriaList, currentScore, classification, pointsNeeded } = useMemo(() => {
     const pointsArray = Array.isArray(semesterPoints) ? semesterPoints : []
@@ -135,11 +155,11 @@ export const StudentRightSidebar: React.FC = () => {
 
   return (
     <aside className="w-full flex flex-col gap-6 text-sm">
-      {/* 1. TIẾN ĐỘ ĐIỂM RÈN LUYỆN Section */}
+      {/* 1. Điểm rèn luyện Section Header */}
       <div className="flex flex-col gap-3.5 font-sans">
-        <div className="flex items-center gap-2 text-[#111827] dark:text-foreground font-medium text-xs tracking-wide">
-          <BarChart3 className="h-4 w-4 text-[#111827] dark:text-foreground" />
-          <span>TIẾN ĐỘ ĐIỂM RÈN LUYỆN</span>
+        <div className="flex items-center justify-center gap-1.5 text-[#111827] dark:text-foreground font-semibold text-xs tracking-wide text-center">
+          <BarChart3 className="h-4 w-4 text-primary shrink-0" />
+          <span>{currentSemesterLabel}</span>
         </div>
 
         {/* Circular Gauge + Classification */}
@@ -311,6 +331,9 @@ export const StudentRightSidebar: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* Bottom spacer for sidebar scroll breathing room */}
+      <div className="h-16 w-full shrink-0" aria-hidden="true" />
     </aside>
   )
 }

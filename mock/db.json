@@ -313,6 +313,38 @@
       "eventsCount": 20,
       "isActive": true,
       "createdAt": "2026-02-10T08:00:00Z"
+    },
+    {
+      "id": 7,
+      "name": "CLB Tình nguyện Xanh CTU",
+      "description": "Tổ chức các chiến dịch bảo vệ môi trường, phân loại rác thải và các hoạt động xanh vì cộng đồng.",
+      "avatarUrl": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=120&auto=format&fit=crop&q=60",
+      "status": "ACTIVE",
+      "orgType": "CLUB",
+      "orgName": "CLB Tình nguyện Xanh",
+      "parentOrg": "Hội Sinh viên Trường ĐHCT",
+      "helpContact": "tinhnguyenxanh@ctu.edu.vn",
+      "helpPhone": "0912 888 999",
+      "followersCount": 1850,
+      "eventsCount": 12,
+      "isActive": true,
+      "createdAt": "2026-02-20T08:00:00Z"
+    },
+    {
+      "id": 8,
+      "name": "CLB Nghệ thuật & Âm nhạc CTU",
+      "description": "Nơi hội tụ đam mê âm nhạc, thanh nhạc, guitar và biểu diễn nghệ thuật sinh viên ĐHCT.",
+      "avatarUrl": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=60",
+      "status": "ACTIVE",
+      "orgType": "CLUB",
+      "orgName": "CLB Nghệ thuật & Âm nhạc",
+      "parentOrg": "Hội Sinh viên Trường ĐHCT",
+      "helpContact": "music.art@ctu.edu.vn",
+      "helpPhone": "0934 567 890",
+      "followersCount": 3400,
+      "eventsCount": 16,
+      "isActive": true,
+      "createdAt": "2026-03-01T08:00:00Z"
     }
   ],
   "fanpage_members": [
@@ -415,7 +447,7 @@
     {
       "id": 1,
       "name": "Danh hiệu \"Sinh viên 5 tốt\" Đại học Cần Thơ",
-      "note": "Ban hành kèm Quyết định 17/QĐ-HSV ngày 04/3/2026",
+      "note": "Ban hành kèm Quyết định 17/QĐ-HSV ngày 04/3/2026. Để xét cấp ĐHCT phải đạt danh hiệu SV5T cấp cơ sở/khoa",
       "scope": "UNIVERSITY",
       "level": 0,
       "childrenOrder": 1,
@@ -424,7 +456,7 @@
     },
     {
       "id": 10,
-      "name": "Tiêu chuẩn Đạo đức tốt",
+      "name": "Tiêu chuẩn 1: Đạo đức tốt",
       "note": "Đạt đủ 03 tiêu chuẩn (1.1), (1.2) và (1.3)",
       "scope": "UNIVERSITY",
       "level": 1,
@@ -433,49 +465,9 @@
       "isActive": true
     },
     {
-      "id": 20,
-      "name": "Tiêu chuẩn Học tập tốt",
-      "note": "Điểm trung bình cộng năm học đạt từ 3.0 trở lên, không nợ học phần",
-      "scope": "UNIVERSITY",
-      "level": 1,
-      "childrenOrder": 2,
-      "parentId": 1,
-      "isActive": true
-    },
-    {
-      "id": 30,
-      "name": "Tiêu chuẩn Thể lực tốt",
-      "note": "Đạt tiêu chuẩn rèn luyện thể lực sinh viên",
-      "scope": "UNIVERSITY",
-      "level": 1,
-      "childrenOrder": 3,
-      "parentId": 1,
-      "isActive": true
-    },
-    {
-      "id": 40,
-      "name": "Tiêu chuẩn Tình nguyện tốt",
-      "note": "Tham gia ít nhất 2 hoạt động tình nguyện trong năm học",
-      "scope": "UNIVERSITY",
-      "level": 1,
-      "childrenOrder": 4,
-      "parentId": 1,
-      "isActive": true
-    },
-    {
-      "id": 50,
-      "name": "Tiêu chuẩn Hội nhập tốt",
-      "note": "Hoàn thành chứng chỉ ngoại ngữ / tin học hoặc giao lưu quốc tế",
-      "scope": "UNIVERSITY",
-      "level": 1,
-      "childrenOrder": 5,
-      "parentId": 1,
-      "isActive": true
-    },
-    {
       "id": 101,
-      "name": "Điểm rèn luyện đạt từ 85 điểm trở lên",
-      "note": "Điểm rèn luyện TBC 3 HK trước đạt từ 85 trở lên",
+      "name": "Điểm rèn luyện trung bình cộng của học kỳ 3 năm học trước, học kỳ 1 và 2 trong năm học đạt từ 85 điểm trở lên.",
+      "note": "SV năm nhất chỉ xét HK1 và HK2",
       "scope": "UNIVERSITY",
       "level": 2,
       "childrenOrder": 1,
@@ -484,7 +476,7 @@
     },
     {
       "id": 102,
-      "name": "Không vi phạm pháp luật và nội quy",
+      "name": "Không vi phạm pháp luật và các quy chế, nội quy của nhà trường, quy định của địa phương và cộng đồng.",
       "note": null,
       "scope": "UNIVERSITY",
       "level": 2,
@@ -494,8 +486,8 @@
     },
     {
       "id": 103,
-      "name": "Đạt thêm 01 tiêu chí tư tưởng, đạo đức",
-      "note": "Đạt ít nhất 01 tiêu chí trong 05 tiêu chí bên dưới",
+      "name": "Đạt thêm 01 trong 05 tiêu chí sau:",
+      "note": "Đạt ít nhất 01 tiêu chí trong 05 tiêu chí bên dưới (1.3.1 đến 1.3.5)",
       "scope": "UNIVERSITY",
       "level": 2,
       "childrenOrder": 3,
@@ -503,9 +495,69 @@
       "isActive": true
     },
     {
-      "id": 201,
-      "name": "Điểm trung bình cộng (hệ 4) đạt từ 3.0 trở lên",
+      "id": 1031,
+      "name": "Tham gia cuộc thi tìm hiểu về các môn khoa học chính trị, tư tưởng Hồ Chí Minh do đơn vị Đoàn - Hội cấp cơ sở và tương đương trở lên tổ chức.",
       "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 1,
+      "parentId": 103,
+      "isActive": true
+    },
+    {
+      "id": 1032,
+      "name": "Tham gia các hoạt động giáo dục lòng yêu nước, tinh thần tự hào dân tộc: tham quan các di tích lịch sử, bảo tàng; thăm hỏi mẹ Việt Nam Anh hùng; lễ thắp nến tri ân các Anh hùng liệt sĩ; hội thi hát ca khúc truyền thống; hoạt động hướng về biên giới, hải đảo,…",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 2,
+      "parentId": 103,
+      "isActive": true
+    },
+    {
+      "id": 1033,
+      "name": "Tham gia hoạt động giáo dục đạo đức, lối sống văn hóa cho sinh viên.",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 3,
+      "parentId": 103,
+      "isActive": true
+    },
+    {
+      "id": 1034,
+      "name": "Là thanh niên tiêu biểu trong học tập và làm theo lời Bác",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 4,
+      "parentId": 103,
+      "isActive": true
+    },
+    {
+      "id": 1035,
+      "name": "Là Đảng viên hoàn thành tốt nhiệm vụ.",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 5,
+      "parentId": 103,
+      "isActive": true
+    },
+    {
+      "id": 20,
+      "name": "Tiêu chuẩn 2: Học tập tốt",
+      "note": "Điểm trung bình cộng năm học đạt từ 3.0 trở lên, không nợ học phần",
+      "scope": "UNIVERSITY",
+      "level": 1,
+      "childrenOrder": 2,
+      "parentId": 1,
+      "isActive": true
+    },
+    {
+      "id": 201,
+      "name": "Điểm trung bình cộng năm học xét đạt từ 3.0 trở lên.",
+      "note": "Điểm TBC HK3 năm trước, HK1 và HK2 năm xét >= 3.0",
       "scope": "UNIVERSITY",
       "level": 2,
       "childrenOrder": 1,
@@ -514,8 +566,8 @@
     },
     {
       "id": 202,
-      "name": "Không nợ học phần ở thời điểm xét",
-      "note": null,
+      "name": "Tích lũy tối thiểu 12 tín chỉ/học kỳ và không bị nợ học phần ở thời điểm xét.",
+      "note": "Số tín chỉ mỗi HK >= 12; không bị nợ học phần",
       "scope": "UNIVERSITY",
       "level": 2,
       "childrenOrder": 2,
@@ -523,8 +575,18 @@
       "isActive": true
     },
     {
+      "id": 30,
+      "name": "Tiêu chuẩn 3: Thể lực tốt",
+      "note": "Đạt 01 trong 02 tiêu chuẩn (3.1) hoặc (3.2)",
+      "scope": "UNIVERSITY",
+      "level": 1,
+      "childrenOrder": 3,
+      "parentId": 1,
+      "isActive": true
+    },
+    {
       "id": 301,
-      "name": "Đạt chuẩn thể lực hoặc tham gia giải thể thao",
+      "name": "Học ít nhất 01 học phần Giáo dục thể chất có rèn luyện thể lực đạt điểm B trở lên.",
       "note": null,
       "scope": "UNIVERSITY",
       "level": 2,
@@ -533,8 +595,28 @@
       "isActive": true
     },
     {
+      "id": 302,
+      "name": "Tham gia ít nhất 01 hoạt động rèn luyện thể lực do Đoàn - Hội cấp cơ sở trở lên tổ chức (thể dục, thể thao, dân vũ...).",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 2,
+      "childrenOrder": 2,
+      "parentId": 30,
+      "isActive": true
+    },
+    {
+      "id": 40,
+      "name": "Tiêu chuẩn 4: Tình nguyện tốt",
+      "note": "Đạt 01 trong 03 tiêu chuẩn (4.1), (4.2) hoặc (4.3)",
+      "scope": "UNIVERSITY",
+      "level": 1,
+      "childrenOrder": 4,
+      "parentId": 1,
+      "isActive": true
+    },
+    {
       "id": 401,
-      "name": "Tham gia ít nhất 02 hoạt động tình nguyện",
+      "name": "Được các cấp Đảng, Đoàn, Hội, chính quyền khen thưởng trong hoạt động tình nguyện.",
       "note": null,
       "scope": "UNIVERSITY",
       "level": 2,
@@ -543,13 +625,113 @@
       "isActive": true
     },
     {
-      "id": 501,
-      "name": "Hoàn thành chứng chỉ ngoại ngữ hoặc tin học",
+      "id": 402,
+      "name": "Tham gia ít nhất 03 ngày tình nguyện trong năm học.",
       "note": null,
+      "scope": "UNIVERSITY",
+      "level": 2,
+      "childrenOrder": 2,
+      "parentId": 40,
+      "isActive": true
+    },
+    {
+      "id": 403,
+      "name": "Tham gia ít nhất 02 lần hiến máu tình nguyện trong năm học.",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 2,
+      "childrenOrder": 3,
+      "parentId": 40,
+      "isActive": true
+    },
+    {
+      "id": 50,
+      "name": "Tiêu chuẩn 5: Hội nhập tốt",
+      "note": "Đạt 02 trong 03 tiêu chuẩn: Ngoại ngữ, Tin học, Kỹ năng hội nhập",
+      "scope": "UNIVERSITY",
+      "level": 1,
+      "childrenOrder": 5,
+      "parentId": 1,
+      "isActive": true
+    },
+    {
+      "id": 501,
+      "name": "Tiêu chuẩn 5.1: Ngoại ngữ",
+      "note": "Đạt 01 trong 05 tiêu chí ngoại ngữ",
       "scope": "UNIVERSITY",
       "level": 2,
       "childrenOrder": 1,
       "parentId": 50,
+      "isActive": true
+    },
+    {
+      "id": 5011,
+      "name": "Được khen thưởng cuộc thi ngoại ngữ cấp Đại học Cần Thơ trở lên.",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 1,
+      "parentId": 501,
+      "isActive": true
+    },
+    {
+      "id": 5012,
+      "name": "Đạt chứng chỉ ngoại ngữ theo bảng quy đổi chuẩn CEFR (IELTS 4.5+, TOEIC 450+...).",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 2,
+      "parentId": 501,
+      "isActive": true
+    },
+    {
+      "id": 502,
+      "name": "Tiêu chuẩn 5.2: Tin học",
+      "note": "Đạt 01 trong 06 tiêu chí tin học",
+      "scope": "UNIVERSITY",
+      "level": 2,
+      "childrenOrder": 2,
+      "parentId": 50,
+      "isActive": true
+    },
+    {
+      "id": 5021,
+      "name": "Đạt chứng chỉ Ứng dụng công nghệ thông tin cơ bản trở lên do Đại học Cần Thơ cấp.",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 1,
+      "parentId": 502,
+      "isActive": true
+    },
+    {
+      "id": 5022,
+      "name": "Đạt chứng chỉ tin học quốc tế IC3 hoặc MOS (Word, Excel, PowerPoint).",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 2,
+      "parentId": 502,
+      "isActive": true
+    },
+    {
+      "id": 503,
+      "name": "Tiêu chuẩn 5.3: Hoạt động phong trào kỹ năng hội nhập",
+      "note": "Đạt 01 trong 05 tiêu chí kỹ năng hội nhập",
+      "scope": "UNIVERSITY",
+      "level": 2,
+      "childrenOrder": 3,
+      "parentId": 50,
+      "isActive": true
+    },
+    {
+      "id": 5031,
+      "name": "Tham gia 02 hoạt động hội nhập do cấp Đại học Cần Thơ trở lên tổ chức.",
+      "note": null,
+      "scope": "UNIVERSITY",
+      "level": 3,
+      "childrenOrder": 1,
+      "parentId": 503,
       "isActive": true
     }
   ],
@@ -1913,38 +2095,438 @@
       "checkOutEvidenceUrl": null,
       "status": "REJECTED",
       "reason": "Vắng mặt không phép"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-25T22:58:59.566Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-25T23:04:16.491Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-25T23:17:52.095Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 10,
+      "regDate": "2026-10-25T23:24:55.436Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-25T23:30:15.140Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-25T23:33:56.385Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 9,
+      "regDate": "2026-10-25T23:34:06.147Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T01:03:28.344Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T01:03:43.426Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-26T01:23:55.657Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 11,
+      "regDate": "2026-10-26T01:39:53.574Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-26T04:51:10.709Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T04:54:25.695Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:48:24.555Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:48:32.185Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:48:34.064Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:48:41.656Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:48:45.099Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:48:48.281Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 9,
+      "regDate": "2026-10-26T06:49:10.062Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 9,
+      "regDate": "2026-10-26T06:51:09.650Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-26T06:51:22.251Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-26T06:51:23.600Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:55:58.890Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 11,
+      "regDate": "2026-10-26T06:56:30.942Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:57:12.173Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T06:57:27.026Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 10,
+      "regDate": "2026-10-26T06:57:45.227Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:57:53.718Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T06:57:56.622Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:58:04.159Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:58:06.398Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T06:58:08.715Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 9,
+      "regDate": "2026-10-26T06:58:14.353Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 10,
+      "regDate": "2026-10-26T06:58:17.121Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:58:27.642Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:59:03.933Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:59:05.416Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 11,
+      "regDate": "2026-10-26T06:59:12.797Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T06:59:26.117Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:00:20.961Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:00:22.557Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-26T07:00:27.218Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T07:00:58.895Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T07:01:53.730Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T07:02:08.829Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:02:33.046Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:13:46.684Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:13:48.405Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 9,
+      "regDate": "2026-10-26T07:13:55.750Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 14,
+      "regDate": "2026-10-26T07:13:59.167Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:14:11.255Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:14:12.906Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 10,
+      "regDate": "2026-10-26T07:14:18.426Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 10,
+      "regDate": "2026-10-26T07:14:31.062Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 10,
+      "regDate": "2026-10-26T07:14:47.824Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-26T07:14:53.301Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 11,
+      "regDate": "2026-10-26T07:15:55.278Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:16:04.604Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T07:16:57.919Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 7,
+      "regDate": "2026-10-26T07:18:11.346Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T07:18:44.052Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 9,
+      "regDate": "2026-10-26T07:19:20.434Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 10,
+      "regDate": "2026-10-26T07:20:27.532Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 15,
+      "regDate": "2026-10-26T07:21:30.575Z",
+      "status": "REGISTERED"
+    },
+    {
+      "userId": 1,
+      "eventId": 8,
+      "regDate": "2026-10-26T07:21:43.480Z",
+      "status": "REGISTERED"
     }
   ],
   "student_criteria_progress": [
     {
       "id": 1,
       "userId": 1,
-      "criteriaId": 10,
+      "criteriaId": 101,
       "academicYearId": 2,
       "eventId": null,
       "completionSource": "MANUAL",
-      "note": "Điểm rèn luyện đạt 92/100",
-      "isActive": true
+      "note": "Điểm rèn luyện đạt 92 điểm (Xuất sắc)",
+      "isActive": true,
+      "createdAt": "2026-08-15T14:00:00Z"
     },
     {
       "id": 2,
       "userId": 1,
-      "criteriaId": 20,
+      "criteriaId": 102,
       "academicYearId": 2,
-      "eventId": 1,
-      "completionSource": "EVENT_CHECKOUT",
-      "note": "Hoàn thành Hội thảo AI & LLM",
-      "isActive": true
+      "eventId": null,
+      "completionSource": "MANUAL",
+      "note": "Không có vi phạm kỷ luật",
+      "isActive": true,
+      "createdAt": "2026-08-15T14:00:00Z",
+      "updatedAt": "2026-10-26T05:46:12.051Z"
     },
     {
       "id": 3,
       "userId": 1,
-      "criteriaId": 40,
+      "criteriaId": 1031,
       "academicYearId": 2,
-      "eventId": 2,
+      "eventId": 1,
       "completionSource": "EVENT_CHECKOUT",
-      "note": "Hoàn thành chiến dịch Vầng trăng ươm mơ",
-      "isActive": true
+      "note": "Tham gia Hội thi Ánh sáng soi đường cấp ĐHCT đạt giải Khuyến khích",
+      "isActive": true,
+      "createdAt": "2026-08-15T14:00:00Z"
     }
   ],
   "point_transactions": [

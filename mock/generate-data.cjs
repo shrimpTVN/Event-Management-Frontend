@@ -249,7 +249,7 @@ db.point_categories = [
 db.events = [
   // === PAST / COMPLETED events ===
   {
-    id: 1, name: 'HỘI THẢO CHUYÊN ĐỀ: TRÍ TUỆ NHÂN TẠO & XU HƯỚNG MÔ HÌNH NGÔN NGỮ LỚN (LLM)',
+    id: 1, name: 'Hội thảo chuyên đề: Trí tuệ nhân tạo & Xu hướng mô hình ngôn ngữ lớn (LLM)',
     description: 'Lắng nghe các chuyên gia AI đầu ngành chia sẻ về kiến trúc transformer, generative AI và lộ trình phát triển kỹ năng cho kỹ sư trẻ.',
     location: 'Phòng Hội thảo CICT, Đại học Cần Thơ',
     dateOpen: '2026-08-01T00:00:00Z', dateClose: '2026-08-14T17:00:00Z', dateHappen: '2026-08-15T14:00:00Z',
@@ -259,7 +259,7 @@ db.events = [
     updatedAt: '2026-08-16T08:00:00Z',
   },
   {
-    id: 2, name: 'SỰ KIỆN CHIẾU PHIM GÂY QUỸ - CHIẾN DỊCH VẦNG TRĂNG ƯƠM MƠ LẦN THỨ II NĂM 2026',
+    id: 2, name: 'Sự kiện chiếu phim gây quỹ - Chiến dịch Vầng trăng ươm mơ lần thứ II năm 2026',
     description: 'Bạn đã sẵn sàng cho một buổi tối vừa xem phim, vừa làm một điều thật ý nghĩa chưa? Đoàn trường CNTT-TT mang đến đêm chiếu phim đặc biệt.',
     location: 'Hội trường Rùa, Đại học Cần Thơ',
     dateOpen: '2026-09-15T00:00:00Z', dateClose: '2026-09-22T17:00:00Z', dateHappen: '2026-09-22T18:00:00Z',
@@ -269,7 +269,7 @@ db.events = [
     updatedAt: '2026-09-23T08:00:00Z',
   },
   {
-    id: 3, name: 'TUYỂN CỔ ĐỘNG VIÊN TRẬN TỨ KẾT GIẢI FUTSAL - VIETTEL TAMMI CUP 2026',
+    id: 3, name: 'Tuyển cổ động viên trận tứ kết giải Futsal - Viettel Tammi Cup 2026',
     description: 'Hãy cùng hòa vào không khí cuồng nhiệt trên khán đài tiếp thêm sức mạnh cho các chàng trai của chúng ta!',
     location: 'Nhà Thi Đấu mới, Đại học Cần Thơ',
     dateOpen: '2026-09-20T00:00:00Z', dateClose: '2026-09-29T18:00:00Z', dateHappen: '2026-09-29T19:30:00Z',
@@ -280,7 +280,7 @@ db.events = [
   },
   // === CURRENT / OCTOBER 2026 events ===
   {
-    id: 4, name: 'WORKSHOP: KỸ NĂNG VIẾT CV VÀ PHỎNG VẤN THÀNH CÔNG CHO SINH VIÊN IT',
+    id: 4, name: 'Workshop: Kỹ năng viết CV và phỏng vấn thành công cho sinh viên IT',
     description: 'Học cách trình bày CV ấn tượng, xây dựng portfolio GitHub, và luyện kỹ năng phỏng vấn với HR từ các công ty công nghệ.',
     location: 'Phòng Lab 3, Trường CNTT&TT',
     dateOpen: '2026-10-01T00:00:00Z', dateClose: '2026-10-07T17:00:00Z', dateHappen: '2026-10-08T14:00:00Z',
@@ -290,7 +290,7 @@ db.events = [
     updatedAt: '2026-10-09T08:00:00Z',
   },
   {
-    id: 5, name: 'NGÀY HỘI VIỆC LÀM VÀ KẾT NỐI DOANH NGHIỆP CNTT 2026',
+    id: 5, name: 'Ngày hội việc làm và kết nối doanh nghiệp CNTT 2026',
     description: 'Gặp gỡ hơn 30 doanh nghiệp công nghệ hàng đầu, phỏng vấn thử, nhận cơ hội thực tập và tuyển dụng trực tiếp.',
     location: 'Hội trường Lớn Khu II, Đại học Cần Thơ',
     dateOpen: '2026-10-01T00:00:00Z', dateClose: '2026-10-11T17:00:00Z', dateHappen: '2026-10-12T08:00:00Z',
@@ -300,7 +300,7 @@ db.events = [
     updatedAt: '2026-10-13T08:00:00Z',
   },
   {
-    id: 6, name: 'GIẢI CHẠY BỘ "CTU RUN 2026" - RÈN LUYỆN SỨC KHỎE, NÂNG TẦM TINH THẦN',
+    id: 6, name: 'Giải chạy bộ "CTU Run 2026" - Rèn luyện sức khỏe, nâng tầm tinh thần',
     description: 'Tham gia giải chạy bộ toàn trường với các cự ly 3km, 5km và 10km. Cùng rèn luyện thể chất và nhận thưởng hấp dẫn.',
     location: 'Sân vận động Đại học Cần Thơ',
     dateOpen: '2026-10-10T00:00:00Z', dateClose: '2026-10-14T17:00:00Z', dateHappen: '2026-10-15T06:00:00Z',
@@ -310,7 +310,7 @@ db.events = [
     updatedAt: '2026-10-16T08:00:00Z',
   },
   {
-    id: 7, name: 'CHIẾN DỊCH TÌNH NGUYỆN "XANH MÁI TRƯỜNG" - TRỒNG CÂY KHU II',
+    id: 7, name: 'Chiến dịch tình nguyện "Xanh mái trường" - Trồng cây khu II',
     description: 'Cùng sinh viên tình nguyện trồng 200 cây xanh tại khuôn viên Khu II, góp phần bảo vệ môi trường và làm đẹp trường học.',
     location: 'Khu II, Đại học Cần Thơ',
     dateOpen: '2026-10-15T00:00:00Z', dateClose: '2026-10-21T17:00:00Z', dateHappen: '2026-10-22T07:00:00Z',
@@ -320,7 +320,7 @@ db.events = [
     updatedAt: '2026-10-15T10:00:00Z',
   },
   {
-    id: 8, name: 'TỌA ĐÀM: SINH VIÊN VỚI CHUYỂN ĐỔI SỐ TRONG NÔNG NGHIỆP',
+    id: 8, name: 'Tọa đàm: Sinh viên với chuyển đổi số trong nông nghiệp',
     description: 'Tìm hiểu về ứng dụng IoT, AI trong nông nghiệp thông minh cùng các chuyên gia và doanh nghiệp nông nghiệp công nghệ cao.',
     location: 'Hội trường Trường Nông nghiệp, ĐHCT',
     dateOpen: '2026-10-18T00:00:00Z', dateClose: '2026-10-22T12:00:00Z', dateHappen: '2026-10-23T14:00:00Z',
@@ -330,7 +330,7 @@ db.events = [
     updatedAt: '2026-10-18T10:00:00Z',
   },
   {
-    id: 9, name: 'ENGLISH SPEAKING CLUB - DEBATE NIGHT: "AI VS HUMAN CREATIVITY"',
+    id: 9, name: 'English Speaking Club - Debate Night: "AI vs Human Creativity"',
     description: 'Rèn luyện kỹ năng tranh biện bằng tiếng Anh với chủ đề nóng: Trí tuệ nhân tạo có thể thay thế sáng tạo con người?',
     location: 'Phòng Seminar, Thư viện ĐHCT',
     dateOpen: '2026-10-20T00:00:00Z', dateClose: '2026-10-28T12:00:00Z', dateHappen: '2026-10-29T18:30:00Z',
@@ -340,7 +340,7 @@ db.events = [
     updatedAt: '2026-10-20T10:00:00Z',
   },
   {
-    id: 10, name: 'HACKATHON CTU 2026 - XÂY DỰNG ỨNG DỤNG TRONG 24 GIỜ',
+    id: 10, name: 'Hackathon CTU 2026 - Xây dựng ứng dụng trong 24 giờ',
     description: 'Cuộc thi lập trình 24 giờ dành cho sinh viên CNTT. Đội chiến thắng nhận giải thưởng 10 triệu đồng và cơ hội thực tập tại FPT Software.',
     location: 'Lab Innovation Hub, Trường CNTT&TT',
     dateOpen: '2026-10-22T00:00:00Z', dateClose: '2026-10-28T23:59:00Z', dateHappen: '2026-10-29T08:00:00Z',
@@ -351,7 +351,7 @@ db.events = [
   },
   // === UPCOMING / FUTURE events ===
   {
-    id: 11, name: 'ĐÊM VĂN NGHỆ "TUỔI TRẺ CẦN THƠ" - CHÀO MỪNG NGÀY NHÀ GIÁO VIỆT NAM',
+    id: 11, name: 'Đêm văn nghệ "Tuổi trẻ Cần Thơ" - Chào mừng ngày Nhà giáo Việt Nam',
     description: 'Đêm văn nghệ hoành tráng với các tiết mục ca múa nhạc kịch, tri ân thầy cô nhân ngày 20/11.',
     location: 'Sân khấu ngoài trời Khu II, ĐHCT',
     dateOpen: '2026-11-01T00:00:00Z', dateClose: '2026-11-18T17:00:00Z', dateHappen: '2026-11-20T19:00:00Z',
@@ -361,7 +361,7 @@ db.events = [
     updatedAt: '2026-10-20T08:00:00Z',
   },
   {
-    id: 12, name: 'GIẢI BÓNG CHUYỀN SINH VIÊN TRƯỜNG CNTT&TT MỞ RỘNG 2026',
+    id: 12, name: 'Giải bóng chuyền sinh viên Trường CNTT&TT mở rộng 2026',
     description: 'Giải bóng chuyền quy mô trường với sự tham gia của 16 đội, thi đấu vòng bảng và trực tiếp loại.',
     location: 'Sân bóng chuyền Khu II, ĐHCT',
     dateOpen: '2026-11-05T00:00:00Z', dateClose: '2026-11-14T17:00:00Z', dateHappen: '2026-11-15T07:30:00Z',
@@ -371,7 +371,7 @@ db.events = [
     updatedAt: '2026-10-21T08:00:00Z',
   },
   {
-    id: 13, name: 'WORKSHOP FIGMA & THIẾT KẾ UI/UX CHO NGƯỜI MỚI BẮT ĐẦU',
+    id: 13, name: 'Workshop Figma & Thiết kế UI/UX cho người mới bắt đầu',
     description: 'Hướng dẫn sử dụng Figma từ cơ bản đến nâng cao, thiết kế giao diện ứng dụng di động thực tế trong 3 giờ.',
     location: 'Phòng Lab 5, Trường CNTT&TT',
     dateOpen: '2026-10-25T00:00:00Z', dateClose: '2026-11-04T17:00:00Z', dateHappen: '2026-11-05T14:00:00Z',
@@ -381,7 +381,7 @@ db.events = [
     updatedAt: '2026-10-25T08:00:00Z',
   },
   {
-    id: 14, name: 'CHIẾN DỊCH HIẾN MÁU NHÂN ĐẠO "GIỌT HỒNG YÊU THƯƠNG" LẦN V',
+    id: 14, name: 'Chiến dịch hiến máu nhân đạo "Giọt hồng yêu thương" lần V',
     description: 'Mỗi giọt máu cho đi, một cuộc đời ở lại. Tham gia hiến máu tình nguyện cùng Hội Chữ thập đỏ Cần Thơ.',
     location: 'Sảnh Thư viện Đại học Cần Thơ',
     dateOpen: '2026-10-20T00:00:00Z', dateClose: '2026-10-28T17:00:00Z', dateHappen: '2026-10-29T07:30:00Z',
@@ -391,7 +391,7 @@ db.events = [
     updatedAt: '2026-10-20T08:00:00Z',
   },
   {
-    id: 15, name: 'SEMINAR: BLOCKCHAIN & WEB3 - CƠ HỘI NGHỀ NGHIỆP CHO SINH VIÊN',
+    id: 15, name: 'Seminar: Blockchain & Web3 - Cơ hội nghề nghiệp cho sinh viên',
     description: 'Tìm hiểu công nghệ blockchain, smart contract và các cơ hội việc làm trong lĩnh vực Web3.',
     location: 'Phòng Hội thảo CICT, Đại học Cần Thơ',
     dateOpen: '2026-10-20T00:00:00Z', dateClose: '2026-10-27T17:00:00Z', dateHappen: '2026-10-29T14:00:00Z',

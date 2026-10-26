@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { RouterProvider, createMemoryRouter } from 'react-router-dom'
+import { RouterProvider, createMemoryRouter, Navigate } from 'react-router-dom'
 import { AppProviders } from '../providers'
 import { PageShell } from '@/shared'
 import { HomePage } from '../../pages/HomePage'
-import { EventListPage } from '../../pages/EventListPage'
 import { NotFoundPage } from '../../pages/NotFoundPage'
 
 describe('Router and Shell Integration', () => {
@@ -30,13 +29,16 @@ describe('Router and Shell Integration', () => {
     expect(screen.getByText(/Khám phá/i)).toBeInTheDocument()
   })
 
-  it('renders EventListPage on /events path', () => {
+  it('redirects /events to /history', () => {
     const memoryRouter = createMemoryRouter(
       [
         {
           path: '/',
           element: <PageShell />,
-          children: [{ path: 'events', element: <EventListPage /> }],
+          children: [
+            { path: 'events', element: <Navigate to="/history" replace /> },
+            { path: 'history', element: <div>Mock History Page</div> },
+          ],
         },
       ],
       { initialEntries: ['/events'] }
@@ -48,8 +50,7 @@ describe('Router and Shell Integration', () => {
       </AppProviders>
     )
 
-    expect(screen.getByText(/Tất cả sự kiện/i)).toBeInTheDocument()
-    expect(screen.getByPlaceholderText(/Tìm kiếm sự kiện/i)).toBeInTheDocument()
+    expect(screen.getByText(/Mock History Page/i)).toBeInTheDocument()
   })
 
   it('renders NotFoundPage on unknown route', () => {

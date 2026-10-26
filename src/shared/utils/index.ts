@@ -1,4 +1,5 @@
 export * from './cn'
 export * from './formatDate'
 export * from './formatCurrency'
+export * from './formatText'
 export * from './env'

@@ -123,3 +123,40 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.4);
 }
+
+/* Sidebar scrollbar: hidden by default, only appears when hovered or scrolling */
+.sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s ease-in-out;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+  transition: background 0.2s ease-in-out;
+}
+
+.sidebar-scrollbar:hover,
+.sidebar-scrollbar:active,
+.sidebar-scrollbar:focus-within {
+  scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
+}
+
+.sidebar-scrollbar:hover::-webkit-scrollbar-thumb,
+.sidebar-scrollbar:active::-webkit-scrollbar-thumb,
+.sidebar-scrollbar:focus-within::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.35);
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.55);
+}

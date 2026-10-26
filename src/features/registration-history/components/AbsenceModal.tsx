@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { X, CalendarX2, UploadCloud, Trash2 } from 'lucide-react'
+import { sanitizeImageSrc } from '@/shared'
 import type { RegisteredEventItem, AbsenceFormData } from '../types/history.types'
 
 interface AbsenceModalProps {
@@ -181,11 +182,11 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
               <label className="block text-xs font-semibold text-foreground mb-1.5">
                 Hình ảnh minh chứng (nếu có)
               </label>
-              {previewUrl ? (
+              {previewUrl && sanitizeImageSrc(previewUrl) ? (
                 <div className="relative rounded-xl border border-border overflow-hidden bg-muted/20 p-2 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <img
-                      src={previewUrl}
+                      src={sanitizeImageSrc(previewUrl)}
                       alt="Minh chứng"
                       className="h-16 w-16 object-cover rounded-lg border border-border"
                     />

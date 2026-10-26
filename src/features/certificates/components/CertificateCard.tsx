@@ -51,7 +51,7 @@ export const CertificateCard: React.FC = () => {
       window.URL.revokeObjectURL(url)
     } catch {
       // Fallback direct link
-      window.open(`/api/certificates/${cert.id}/download`, '_blank')
+      window.open(`/api/certificates/${cert.id}/download`, '_blank', 'noopener,noreferrer')
     } finally {
       setIsDownloading(false)
     }

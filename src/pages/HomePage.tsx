@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   StudentLeftSidebar,
@@ -12,7 +11,6 @@ import {
 } from '@/features/events'
 
 export const HomePage: React.FC = () => {
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<FeedTabType>('DISCOVER')
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
@@ -35,13 +33,43 @@ export const HomePage: React.FC = () => {
   })
 
   const handleRegister = (eventId: string) => {
-    navigate(`/events/${eventId}`)
+    queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
+      old.map((evt) =>
+        String(evt.id) === String(eventId)
+          ? {
+              ...evt,
+              isRegistered: true,
+              registeredCount: (evt.registeredCount || 0) + 1,
+            }
+          : evt
+      )
+    )
+    queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
+    queryClient.invalidateQueries({ queryKey: ['registrations'] })
+    setNotificationMessage('Đăng ký tham gia sự kiện thành công!')
+    setTimeout(() => setNotificationMessage(null), 3500)
+  }
+
+  const handleCancelRegister = (eventId: string) => {
+    queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
+      old.map((evt) =>
+        String(evt.id) === String(eventId)
+          ? {
+              ...evt,
+              isRegistered: false,
+              registeredCount: Math.max(0, (evt.registeredCount || 1) - 1),
+            }
+          : evt
+      )
+    )
+    queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
+    queryClient.invalidateQueries({ queryKey: ['registrations'] })
   }
 
   const handleToggleSave = (eventId: string) => {
     queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
       old.map((evt) =>
-        evt.id === eventId ? { ...evt, isSaved: !evt.isSaved } : evt
+        String(evt.id) === String(eventId) ? { ...evt, isSaved: !evt.isSaved } : evt
       )
     )
     setNotificationMessage('Đã cập nhật danh sách sự kiện lưu trữ')
@@ -136,14 +164,14 @@ export const HomePage: React.FC = () => {
       {/* 3-Column Layout: Left sidebar flush left, Right sidebar flush right, Feed centered */}
       <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
         {/* Left Column: Organization Navigation & Student Tools (Figma width: 240px, pad: 16px 0 10px 0) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-2.5 px-0 custom-scrollbar">
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
         {/* Center Column: Feed (Tabs + Event Feed Cards, centered with Figma Feed width: 680px, gap: 8px) */}
         <main className="flex-1 min-w-0 h-full overflow-y-auto py-2.5 px-1 flex justify-center custom-scrollbar">
-          {/* Feed Container (Figma gap: 8px, pad: 8px 0 8px 0) */}
-          <div className="w-full max-w-[680px] flex flex-col gap-2 pb-14">
+          {/* Feed Container with bottom breathing room when scrolled to end */}
+          <div className="w-full max-w-[680px] flex flex-col gap-2 pb-28 sm:pb-36">
             {/* Feed Filter Tabs */}
             <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
@@ -174,6 +202,7 @@ export const HomePage: React.FC = () => {
                     key={event.id}
                     event={event}
                     onRegister={handleRegister}
+                    onCancelRegister={handleCancelRegister}
                     onToggleSave={handleToggleSave}
                     onToggleFollow={handleToggleFollow}
                   />
@@ -190,11 +219,14 @@ export const HomePage: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Bottom spacer for generous breathing room when scrolled to the end */}
+            <div className="h-28 sm:h-36 w-full shrink-0" aria-hidden="true" />
           </div>
         </main>
 
         {/* Right Column: Training Points Progress & Calendar Widget (Figma width: 240px, pad: 16px 10px 0 10px) */}
-        <aside className="hidden lg:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-2.5 px-0 custom-scrollbar">
+        <aside className="hidden lg:block w-[256px] min-w-[256px] max-w-[256px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pl-3 pr-1 ml-3 sidebar-scrollbar">
           <StudentRightSidebar />
         </aside>
       </div>

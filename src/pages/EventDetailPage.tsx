@@ -1,11 +1,13 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Loader2, CalendarDays } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import { EventDetailView, StudentLeftSidebar, eventService } from '@/features/events'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { EventFeedCard, StudentLeftSidebar, eventService, type Event } from '@/features/events'
 
 export const EventDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
+  const queryClient = useQueryClient()
+  const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
 
   const { data: event, isLoading, error } = useQuery({
     queryKey: ['events', id],
@@ -13,23 +15,68 @@ export const EventDetailPage: React.FC = () => {
     enabled: Boolean(id),
   })
 
+  const handleRegister = (_eventId: string) => {
+    queryClient.setQueryData(['events', id], (old: Event | undefined) =>
+      old ? { ...old, isRegistered: true, registeredCount: (old.registeredCount || 0) + 1 } : old
+    )
+    queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
+    queryClient.invalidateQueries({ queryKey: ['registrations'] })
+    setNotificationMessage('Đăng ký tham gia sự kiện thành công!')
+    setTimeout(() => setNotificationMessage(null), 3500)
+  }
+
+  const handleCancelRegister = (_eventId: string) => {
+    queryClient.setQueryData(['events', id], (old: Event | undefined) =>
+      old
+        ? {
+            ...old,
+            isRegistered: false,
+            registeredCount: Math.max(0, (old.registeredCount || 1) - 1),
+          }
+        : old
+    )
+    queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
+    queryClient.invalidateQueries({ queryKey: ['registrations'] })
+  }
+
+  const handleToggleSave = (_eventId: string) => {
+    queryClient.setQueryData(['events', id], (old: Event | undefined) =>
+      old ? { ...old, isSaved: !old.isSaved } : old
+    )
+    setNotificationMessage('Đã cập nhật danh sách sự kiện lưu trữ')
+    setTimeout(() => setNotificationMessage(null), 3000)
+  }
+
+  const handleToggleFollow = (_organizerId: string) => {
+    queryClient.setQueryData(['events', id], (old: Event | undefined) =>
+      old ? { ...old, isFollowed: !old.isFollowed } : old
+    )
+  }
+
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden">
+    <div className="w-full h-full flex flex-col overflow-hidden bg-[#F0F2F5] dark:bg-background">
+      {/* Toast Notification */}
+      {notificationMessage && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-foreground text-background px-4 py-2.5 text-xs font-semibold shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2">
+          {notificationMessage}
+        </div>
+      )}
+
       <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
         {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 custom-scrollbar">
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
         {/* Center / Main Content */}
         <main className="flex-1 min-w-0 h-full overflow-y-auto py-5 px-1 flex justify-center custom-scrollbar">
-          <div className="w-full max-w-4xl flex flex-col gap-6 pb-16">
+          <div className="w-full max-w-[680px] flex flex-col gap-4 pb-16">
             <Link
-              to="/events"
+              to="/history"
               className="inline-flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors self-start"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Quay lại danh sách sự kiện</span>
+              <span>Quay lại Lịch sử tham gia</span>
             </Link>
 
             {isLoading ? (
@@ -38,7 +85,13 @@ export const EventDetailPage: React.FC = () => {
                 <p className="text-sm text-muted-foreground">Đang tải thông tin sự kiện...</p>
               </div>
             ) : event ? (
-              <EventDetailView event={event} />
+              <EventFeedCard
+                event={event}
+                onRegister={handleRegister}
+                onCancelRegister={handleCancelRegister}
+                onToggleSave={handleToggleSave}
+                onToggleFollow={handleToggleFollow}
+              />
             ) : (
               <div className="w-full rounded-2xl border border-dashed border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-2">
                 <CalendarDays className="h-10 w-10 text-muted-foreground" />
@@ -51,10 +104,10 @@ export const EventDetailPage: React.FC = () => {
                     : 'Sự kiện không tồn tại hoặc bạn không có quyền xem.'}
                 </p>
                 <Link
-                  to="/events"
+                  to="/history"
                   className="mt-3 px-4 py-2 text-xs font-semibold text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors"
                 >
-                  Khám phá sự kiện khác
+                  Quay lại Lịch sử tham gia
                 </Link>
               </div>
             )}
@@ -64,3 +117,4 @@ export const EventDetailPage: React.FC = () => {
     </div>
   )
 }
+

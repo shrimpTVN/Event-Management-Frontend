@@ -1,28 +1,37 @@
 import { apiClient } from '@/shared'
-import type { FanpageDetail, FanpagePublicEventPost } from '../types/fanpage.types'
+import type { FanpageDetail } from '../types/fanpage.types'
+import { normalizeEvent, type Event } from '@/features/events'
 
 export const fanpageService = {
   /**
-   * Fetches public fanpage details by ID
+   * Fetches public fanpage details by ID and normalizes fields
    */
   async getFanpageById(id: string): Promise<FanpageDetail> {
-    return apiClient.get(`/fanpages/${id}`)
+    const raw: any = await apiClient.get(`/fanpages/${id}`)
+    const fp = raw?.data || raw
+    return {
+      id: String(fp.id),
+      name: fp.name,
+      avatarUrl: fp.avatarUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=120',
+      coverUrl: fp.coverUrl,
+      followerCount: fp.followerCount ?? fp.followersCount ?? 0,
+      eventCount: fp.eventCount ?? fp.eventsCount ?? 0,
+      email: fp.email ?? fp.helpContact ?? '',
+      description: fp.description ?? '',
+      isFollowing: fp.isFollowing ?? true,
+      isVerified: fp.isVerified ?? (fp.status === 'ACTIVE'),
+      phone: fp.phone ?? fp.helpPhone ?? '',
+      orgType: fp.orgType,
+      parentOrg: fp.parentOrg,
+    }
   },
 
   /**
-   * Fetches list of published events belonging to a fanpage
+   * Fetches list of published events belonging to a fanpage and normalizes to standard Event model
    */
-  async getEventsByFanpage(id: string): Promise<FanpagePublicEventPost[]> {
+  async getEventsByFanpage(id: string): Promise<Event[]> {
     const res: any = await apiClient.get(`/fanpages/${id}/events`)
-    if (res && Array.isArray(res.content)) {
-      return res.content
-    }
-    if (Array.isArray(res)) {
-      return res
-    }
-    if (res && Array.isArray(res.items)) {
-      return res.items
-    }
-    return []
+    const items = res?.content || res?.data || (Array.isArray(res) ? res : [])
+    return items.map(normalizeEvent)
   },
 }

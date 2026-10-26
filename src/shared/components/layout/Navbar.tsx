@@ -63,7 +63,7 @@ export const Navbar: React.FC = () => {
             />
             <button
               type="button"
-              onClick={() => navigate('/events')}
+              onClick={() => navigate('/history')}
               className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               title="Bộ lọc nâng cao"
             >

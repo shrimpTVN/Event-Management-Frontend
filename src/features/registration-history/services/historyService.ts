@@ -1,4 +1,4 @@
-import { apiClient } from '@/shared'
+import { apiClient, formatEventTitle } from '@/shared'
 import {
   type RegisteredEventItem,
   type AttendanceSession,
@@ -71,8 +71,9 @@ export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
 
   const eventId = String(raw.eventId ?? raw.id ?? '')
   const id = String(raw.id ?? (eventId ? `reg-${eventId}` : `reg-${Math.random()}`))
-  const title = raw.title || raw.eventName || 'Sự kiện'
-  const eventName = raw.eventName || title
+  const rawTitle = raw.title || raw.eventName || 'Sự kiện'
+  const title = formatEventTitle(rawTitle)
+  const eventName = formatEventTitle(raw.eventName || rawTitle)
   const status = normalizeHistoryStatus(raw.status)
 
   const organizer = {
@@ -141,6 +142,12 @@ export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
         : Boolean(raw.evidenceUrl || raw.checkInEvidenceUrl || raw.checkInAt),
     evidenceUrl: raw.evidenceUrl || raw.checkInEvidenceUrl || null,
     reason: raw.reason || null,
+    attendanceMethod: raw.attendanceMethod || 'STUDENT_PROOF',
+    attendanceSessionType: raw.attendanceSessionType || 'BOTH',
+    checkInAt: raw.checkInAt || null,
+    checkOutAt: raw.checkOutAt || null,
+    checkInEvidenceUrl: raw.checkInEvidenceUrl || null,
+    checkOutEvidenceUrl: raw.checkOutEvidenceUrl || null,
     studentInfo: raw.studentInfo || (raw.studentId || raw.studentName ? {
       mssv: raw.studentId || '',
       fullName: raw.studentName || raw.fullName || '',
@@ -172,5 +179,16 @@ export const historyService = {
       console.error('Failed to fetch registration history:', err)
       return []
     }
+  },
+
+  /**
+   * Submit student attendance (check-in or check-out) with proof photo
+   */
+  async submitAttendance(
+    eventId: string | number,
+    sessionType: 'check-in' | 'check-out',
+    proofUrl: string
+  ): Promise<void> {
+    await apiClient.patch(`/registrations/me/events/${eventId}/${sessionType}`, { proofUrl })
   },
 }

@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useLayoutEffect, useEffect } from 'react'
+import { cn } from '@/lib/utils'
 import {
   Calendar as CalendarIcon,
   MapPin,
@@ -11,10 +12,12 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { Event } from '../types/event.types'
+import { RegisterButton } from './RegisterButton'
 
 interface EventFeedCardProps {
   event: Event
   onRegister?: (eventId: string) => void
+  onCancelRegister?: (eventId: string) => void
   onToggleSave?: (eventId: string) => void
   onToggleFollow?: (organizerId: string) => void
 }
@@ -22,12 +25,22 @@ interface EventFeedCardProps {
 export const EventFeedCard: React.FC<EventFeedCardProps> = ({
   event,
   onRegister,
+  onCancelRegister,
   onToggleSave,
   onToggleFollow,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isFollowed, setIsFollowed] = useState(event.isFollowed ?? false)
   const [isSaved, setIsSaved] = useState(event.isSaved ?? false)
+  const [isRegistered, setIsRegistered] = useState(
+    Boolean(event.isRegistered || (event.status as string) === 'REGISTERED')
+  )
+
+  useEffect(() => {
+    setIsFollowed(event.isFollowed ?? false)
+    setIsSaved(event.isSaved ?? false)
+    setIsRegistered(Boolean(event.isRegistered || (event.status as string) === 'REGISTERED'))
+  }, [event.isFollowed, event.isSaved, event.isRegistered, event.status])
 
   const handleFollowClick = () => {
     setIsFollowed((prev) => !prev)
@@ -39,8 +52,54 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
     onToggleSave?.(event.id)
   }
 
+  const descRef = useRef<HTMLDivElement>(null)
+  const [isOverflowing, setIsOverflowing] = useState(false)
+
+  useLayoutEffect(() => {
+    const el = descRef.current
+    if (!el || !event.description) return
+
+    const checkOverflow = () => {
+      // 2 lines with leading-5 (20px line-height) is 40px. Exceeding 42px means > 2 lines.
+      setIsOverflowing(el.scrollHeight > 42)
+    }
+
+    checkOverflow()
+    window.addEventListener('resize', checkOverflow)
+    return () => window.removeEventListener('resize', checkOverflow)
+  }, [event.description])
+
+  // Helper to format ISO strings cleanly into e.g. "29/09/2026 · 19:30"
+  const formatDisplayDateTime = (startStr?: string, endStr?: string): string => {
+    if (!startStr) return 'Đang cập nhật'
+    const startDate = new Date(startStr)
+    if (isNaN(startDate.getTime())) return startStr
+
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const dateFormatted = `${pad(startDate.getDate())}/${pad(startDate.getMonth() + 1)}/${startDate.getFullYear()}`
+    const startTimeFormatted = `${pad(startDate.getHours())}:${pad(startDate.getMinutes())}`
+
+    if (endStr && endStr !== startStr) {
+      const endDate = new Date(endStr)
+      if (!isNaN(endDate.getTime())) {
+        const endTimeFormatted = `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`
+        return `${dateFormatted} · ${startTimeFormatted} - ${endTimeFormatted}`
+      }
+    }
+    return `${dateFormatted} · ${startTimeFormatted}`
+  }
+
+  const address = event.location?.address || 'Đang cập nhật'
+  const city = event.location?.city
+  const locationDisplay =
+    event.location?.type === 'ONLINE'
+      ? 'Trực tuyến (Online stream)'
+      : city && !address.includes(city)
+      ? `${address}, ${city}`
+      : address
+
   return (
-    <article className="w-full max-w-[680px] mx-auto rounded-xl bg-white dark:bg-card overflow-hidden shadow-xs hover:shadow-sm transition-shadow text-left py-2.5 px-0 flex flex-col gap-2">
+    <article className="w-full max-w-[680px] mx-auto rounded-xl bg-white dark:bg-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] dark:border dark:border-border/60 text-left pt-2.5 pb-[12px] px-0 flex flex-col gap-3 relative">
       {/* 1. Header: Organization Info & Follow CTA (Figma: FanpageInfo [680x48], pad: 4px 12px 4px 12px, gap: 12px) */}
       <div className="flex items-center justify-between gap-3 px-3 py-1 h-12">
         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -88,109 +147,132 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
         </button>
       </div>
 
-      {/* 2. Title & Description (Figma: Event Content [680x132], pad: 0 12px 0 12px, gap: 8px) */}
-      <div className="px-3 py-0 flex flex-col gap-2">
-        <h2 className="font-k2d font-semibold text-base leading-7 text-foreground uppercase hover:text-[#1F5CA9] transition-colors min-h-[56px] line-clamp-2">
+      {/* 2. Title & Description (Max 2 lines, collapses naturally for 1-line titles without blank gap) */}
+      <div className="px-3 py-0 flex flex-col gap-1.5">
+        <h2 className="font-k2d font-semibold text-base leading-snug text-foreground hover:text-[#1F5CA9] transition-colors line-clamp-2">
           <Link to={`/events/${event.id}`}>{event.title}</Link>
         </h2>
 
-        <div className="text-sm font-normal text-[#374151] dark:text-muted-foreground leading-5">
-          {isExpanded
-            ? event.description || ''
-            : `${(event.description || '').slice(0, 140)}${(event.description || '').length > 140 ? '...' : ''}`}
-        </div>
-
-        {(event.description || '').length > 100 && (
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="self-start text-sm font-medium leading-5 text-foreground hover:underline hover:text-primary cursor-pointer"
-          >
-            {isExpanded ? 'Thu gọn' : 'Xem Thêm'}
-          </button>
+        {event.description && (
+          <div className="text-sm font-normal text-[#374151] dark:text-muted-foreground leading-5">
+            {isExpanded ? (
+              <p>
+                {event.description}{' '}
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(false)}
+                  className="font-semibold text-[#1F5CA9] dark:text-blue-400 hover:underline cursor-pointer inline ml-1.5"
+                >
+                  Thu gọn
+                </button>
+              </p>
+            ) : (
+              <div
+                ref={descRef}
+                className={cn(
+                  'relative text-sm font-normal text-[#374151] dark:text-muted-foreground leading-5',
+                  isOverflowing && 'max-h-[40px] overflow-hidden'
+                )}
+              >
+                {isOverflowing && (
+                  <>
+                    {/* Spacer pushes button down to Line 2 */}
+                    <div className="float-right h-5 w-0" />
+                    {/* Inline "Xem Thêm" sitting directly at the end of line 2 */}
+                    <button
+                      type="button"
+                      onClick={() => setIsExpanded(true)}
+                      className="float-right clear-right bg-white dark:bg-card pl-1 font-semibold text-[#1F5CA9] dark:text-blue-400 hover:underline cursor-pointer inline-flex items-center"
+                    >
+                      ... <span className="ml-1">Xem Thêm</span>
+                    </button>
+                  </>
+                )}
+                <span>{event.description}</span>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
-      {/* 3. Event Poster / Media (Figma: Component 6 [680x585], fill: #010101, pad: 10px 10px 10px 10px) */}
+      {/* 3. Event Poster / Media with Compact Bottom-Right Information Badge */}
       {event.bannerUrl && (
-        <div className="relative w-full h-[585px] bg-[#010101] p-2.5 flex items-center justify-center overflow-hidden">
+        <div className="relative w-full max-h-[460px] bg-[#010101] p-1.5 flex items-center justify-center overflow-hidden">
           <Link to={`/events/${event.id}`} className="w-full h-full flex items-center justify-center">
             <img
               src={event.bannerUrl}
               alt={event.title}
-              className="max-h-[565px] w-auto max-w-full object-contain transition-transform duration-300 hover:scale-[1.01]"
+              className="max-h-[440px] w-auto max-w-full object-contain"
               loading="lazy"
             />
           </Link>
+
+          {/* Compact Important Info Badge - Bottom Right over image (transparent frosted glass, 4 uniform rows) */}
+          <div className="absolute bottom-2.5 right-2.5 z-10 max-w-[85%] sm:max-w-[260px] bg-black/65 backdrop-blur-md border border-white/15 rounded-lg px-2.5 py-2 text-white shadow-md flex flex-col gap-1.5 text-[11px] leading-tight select-none pointer-events-auto">
+            {/* Date & Time */}
+            <div className="flex items-center gap-2 min-w-0">
+              <CalendarIcon className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
+              <span className="truncate font-medium text-white/85">{formatDisplayDateTime(event.startTime, event.endTime)}</span>
+            </div>
+
+            {/* Location */}
+            <div className="flex items-center gap-2 min-w-0">
+              <MapPin className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
+              <span className="truncate font-medium text-white/85" title={locationDisplay}>{locationDisplay}</span>
+            </div>
+
+            {/* Benefits */}
+            <div className="flex items-center gap-2 min-w-0">
+              <Gift className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
+              <span className="truncate font-medium text-white/85">{event.pointsReward || 'Cộng điểm rèn luyện'}</span>
+            </div>
+
+            {/* Quota */}
+            <div className="flex items-center gap-2 min-w-0">
+              <Users className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
+              <span className="truncate font-medium text-white/85">
+                {event.quotaText || (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* 4. Event Metadata (Figma: Important_Infor [680x154], stroke: #E5E7EB, pad: 0 12px 0 12px) */}
-      <div className="px-3 py-0">
-        <div className="border-t border-[#E5E7EB] dark:border-border/60 py-2 flex flex-col gap-3 text-sm">
-          {/* Date & Time */}
-          <div className="h-[38px] flex items-center gap-3">
-            <div className="w-6 h-6 shrink-0 flex items-center justify-center text-[#0070A5] dark:text-blue-400">
-              <CalendarIcon className="h-5 w-5" />
+      {/* Fallback metadata only if event has NO poster/banner */}
+      {!event.bannerUrl && (
+        <div className="px-3 py-1">
+          <div className="border-t border-[#E5E7EB] dark:border-border/60 pt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs">
+            {/* Date & Time */}
+            <div className="flex items-center gap-2 min-w-0">
+              <CalendarIcon className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
+              <span className="truncate text-foreground font-medium">{formatDisplayDateTime(event.startTime, event.endTime)}</span>
             </div>
-            <div className="flex flex-col gap-0.5 justify-center min-w-0">
-              <span className="text-xs font-medium leading-4 text-[#9CA3AF]">Ngày tổ chức</span>
-              <span className="font-medium text-sm leading-5 text-[#374151] dark:text-foreground truncate">
-                {event.startTime}
-                {event.endTime ? ` - ${event.endTime}` : ''}
-              </span>
-            </div>
-          </div>
 
-          {/* Location */}
-          <div className="h-[38px] flex items-center gap-3">
-            <div className="w-6 h-6 shrink-0 flex items-center justify-center text-[#0070A5] dark:text-blue-400">
-              <MapPin className="h-5 w-5" />
+            {/* Location */}
+            <div className="flex items-center gap-2 min-w-0">
+              <MapPin className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
+              <span className="truncate text-foreground font-medium" title={locationDisplay}>{locationDisplay}</span>
             </div>
-            <div className="flex flex-col gap-0.5 justify-center min-w-0">
-              <span className="text-xs font-medium leading-4 text-[#9CA3AF]">Địa điểm</span>
-              <span className="font-medium text-sm leading-5 text-[#374151] dark:text-foreground truncate">
-                {event.location?.type === 'ONLINE'
-                  ? 'Trực tuyến (Online stream)'
-                  : `${event.location?.address || 'Đang cập nhật'}${
-                      event.location?.city ? `, ${event.location.city}` : ''
-                    }`}
-              </span>
-            </div>
-          </div>
 
-          {/* Benefits / Training Points */}
-          {event.pointsReward && (
-            <div className="h-[38px] flex items-center gap-3">
-              <div className="w-6 h-6 shrink-0 flex items-center justify-center text-[#0070A5] dark:text-blue-400">
-                <Gift className="h-5 w-5" />
-              </div>
-              <div className="flex flex-col gap-0.5 justify-center min-w-0">
-                <span className="text-xs font-medium leading-4 text-[#9CA3AF]">Quyền lợi</span>
-                <span className="font-medium text-sm leading-5 text-[#374151] dark:text-foreground truncate">
-                  {event.pointsReward}
-                </span>
-              </div>
+            {/* Benefits */}
+            <div className="flex items-center gap-2 min-w-0">
+              <Gift className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
+              <span className="truncate text-muted-foreground">{event.pointsReward || 'Cộng điểm rèn luyện'}</span>
             </div>
-          )}
 
-          {/* Quota / Capacity */}
-          <div className="h-[38px] flex items-center gap-3">
-            <div className="w-6 h-6 shrink-0 flex items-center justify-center text-[#0070A5] dark:text-blue-400">
-              <Users className="h-5 w-5" />
-            </div>
-            <div className="flex flex-col gap-0.5 justify-center min-w-0">
-              <span className="text-xs font-medium leading-4 text-[#9CA3AF]">Số lượng</span>
-              <span className="font-medium text-sm leading-5 text-[#374151] dark:text-foreground truncate">
-                {event.quotaText || `${event.capacity} sinh viên`}
+            {/* Quota */}
+            <div className="flex items-center gap-2 min-w-0">
+              <Users className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
+              <span className="truncate text-muted-foreground">
+                {event.quotaText || (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
               </span>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 5. Footer Actions (Figma: Action [680x40], pad: 0 12px 0 12px, height: 40px) */}
-      <div className="px-3 py-0 h-10 flex items-center justify-between">
+      <div className="px-3 pt-0 pb-0 flex items-center justify-between">
         {/* Left: Comment & Share (Figma gap: 16px) */}
         <div className="flex items-center gap-4">
           <button
@@ -222,13 +304,21 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             <Bookmark className={`h-6 w-6 ${isSaved ? 'fill-current' : ''}`} />
           </button>
 
-          <button
-            type="button"
-            onClick={() => onRegister?.(event.id)}
-            className="w-[139px] h-8 inline-flex items-center justify-center px-4 text-sm font-semibold text-white bg-[#1F5CA9] hover:bg-[#1B4B8A] rounded-[6px] transition-colors shadow-2xs cursor-pointer"
-          >
-            Đăng ký ngay
-          </button>
+          <RegisterButton
+            eventId={event.id}
+            eventTitle={event.title}
+            isRegistered={isRegistered}
+            disabled={event.status === 'CLOSED'}
+            onRegisterSuccess={() => {
+              setIsRegistered(true)
+              onRegister?.(event.id)
+            }}
+            onCancelSuccess={() => {
+              setIsRegistered(false)
+              onCancelRegister?.(event.id)
+            }}
+            className="w-[139px]"
+          />
         </div>
       </div>
     </article>

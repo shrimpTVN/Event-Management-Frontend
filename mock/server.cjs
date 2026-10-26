@@ -189,7 +189,7 @@ function buildStudentProfileDto(userId) {
   return buildUserProfileDto(userId)
 }
 
-function buildEventResponseDto(event) {
+function buildEventResponseDto(event, currentUserId = 1) {
   const db = getDb()
   const eventType = db.get('event_types').find({ id: event.eventTypeId }).value()
   const criteria = db.get('criterias').find({ id: event.criteriaId }).value()
@@ -197,7 +197,11 @@ function buildEventResponseDto(event) {
   const semester = db.get('semesters').find({ id: event.semesterId }).value()
   const eventPoints = db.get('event_points').filter({ eventId: event.id }).value() || []
   const pointCategories = db.get('point_categories').value() || []
-  const registrations = db.get('registrations').filter({ eventId: event.id }).value() || []
+  const allRegs = db.get('registrations').value() || []
+  const registrations = allRegs.filter((r) => String(r.eventId) === String(event.id))
+  const isRegistered = registrations.some(
+    (r) => String(r.userId) === String(currentUserId) && r.status !== 'CANCELLED'
+  )
 
   const mappedPoints = eventPoints.map((ep) => {
     const pc = pointCategories.find((cat) => cat.id === ep.pointCategoryId)
@@ -255,6 +259,7 @@ function buildEventResponseDto(event) {
     timeAgo: '1 ngày trước',
     isFollowed: true,
     isSaved: false,
+    isRegistered,
     updatedAt: event.updatedAt || new Date().toISOString(),
     createdAt: event.updatedAt || new Date().toISOString(),
   }
@@ -430,25 +435,28 @@ apiRouter.get('/events', (req, res) => {
     events = events.filter((e) => e.status === status)
   }
 
-  const dtos = events.map(buildEventResponseDto)
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  const dtos = events.map((e) => buildEventResponseDto(e, currentUserId))
   return res.json(successEnvelope(makePageResponse(dtos, page, size)))
 })
 
 apiRouter.get('/events/fanpage/:fanpageId', (req, res) => {
   const { fanpageId } = req.params
   const { page = 0, size = 10 } = req.query
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
   const events = getDb().get('events').filter({ fanpageId: Number(fanpageId) }).value() || []
-  const dtos = events.map(buildEventResponseDto)
+  const dtos = events.map((e) => buildEventResponseDto(e, currentUserId))
   return res.json(successEnvelope(makePageResponse(dtos, page, size)))
 })
 
 apiRouter.get('/events/:id', (req, res) => {
   const { id } = req.params
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
   const event = getDb().get('events').find({ id: Number(id) }).value()
   if (!event) {
     return res.status(404).json(errorEnvelope('Không tìm thấy sự kiện', 'RESOURCE_NOT_FOUND'))
   }
-  return res.json(successEnvelope(buildEventResponseDto(event)))
+  return res.json(successEnvelope(buildEventResponseDto(event, currentUserId)))
 })
 
 apiRouter.post('/events/fanpage-member', (req, res) => {
@@ -516,18 +524,30 @@ apiRouter.delete('/events/fanpage-member/:id', (req, res) => {
 // -------------------------------------------------------------
 // 4. Registrations & Attendance Endpoints (/api/registrations)
 // -------------------------------------------------------------
-apiRouter.post('/registrations/me/events/:eventId', (req, res) => {
-  const eventId = Number(req.params.eventId)
+// 4. Registrations & Attendance Endpoints (/api/registrations)
+// -------------------------------------------------------------
+function registerEventInDb(userId, eventId) {
   const db = getDb()
-  const currentUserId = getCurrentUserIdFromRequest(req)
-  const existing = db.get('registrations').find({ userId: currentUserId, eventId }).value()
+  const uid = Number(userId) || 1
+  const eid = Number(eventId)
+  const existing = db.get('registrations').find({ userId: uid, eventId: eid }).value()
   if (existing) {
-    return res.status(409).json(errorEnvelope('Sinh viên đã đăng ký sự kiện này rồi', 'DUPLICATE_RESOURCE_ERROR'))
+    if (existing.status === 'CANCELLED') {
+      db.get('registrations')
+        .find({ userId: uid, eventId: eid })
+        .assign({
+          status: 'REGISTERED',
+          regDate: new Date().toISOString(),
+          reason: null,
+        })
+        .write()
+    }
+    return { isNew: false, registration: existing }
   }
 
   const newReg = {
-    userId: currentUserId,
-    eventId,
+    userId: uid,
+    eventId: eid,
     regDate: new Date().toISOString(),
     checkInAt: null,
     checkInEvidenceUrl: null,
@@ -538,18 +558,69 @@ apiRouter.post('/registrations/me/events/:eventId', (req, res) => {
   }
 
   db.get('registrations').push(newReg).write()
-  return res.json(successEnvelope(null, 'Đăng ký tham gia sự kiện thành công'))
+  return { isNew: true, registration: newReg }
+}
+
+function cancelEventInDb(userId, eventId, reason = 'Hủy đăng ký từ giao diện') {
+  const db = getDb()
+  const uid = Number(userId) || 1
+  const eid = Number(eventId)
+  const existing = db.get('registrations').find({ userId: uid, eventId: eid }).value()
+  if (existing) {
+    db.get('registrations')
+      .find({ userId: uid, eventId: eid })
+      .assign({
+        status: 'CANCELLED',
+        reason,
+      })
+      .write()
+    return true
+  }
+  return false
+}
+
+apiRouter.post('/registrations/me/events/:eventId', (req, res) => {
+  const eventId = Number(req.params.eventId)
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  const result = registerEventInDb(currentUserId, eventId)
+  return res.json(
+    successEnvelope(
+      {
+        id: `reg-${eventId}`,
+        eventId,
+        registeredAt: result.registration.regDate,
+        status: 'CONFIRMED',
+      },
+      'Đăng ký tham gia sự kiện thành công'
+    )
+  )
+})
+
+apiRouter.post('/registrations', (req, res) => {
+  const eventId = Number(req.body?.eventId)
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  if (!eventId || isNaN(eventId)) {
+    return res.status(400).json(errorEnvelope('Thiếu mã sự kiện (eventId)'))
+  }
+  const result = registerEventInDb(currentUserId, eventId)
+  return res.json(
+    successEnvelope(
+      {
+        id: `reg-${eventId}`,
+        eventId,
+        registeredAt: result.registration.regDate,
+        status: 'CONFIRMED',
+      },
+      'Đăng ký tham gia sự kiện thành công'
+    )
+  )
 })
 
 apiRouter.patch('/registrations/me/events/:eventId/cancel', (req, res) => {
   const eventId = Number(req.params.eventId)
-  const currentUserId = getCurrentUserIdFromRequest(req)
-  getDb()
-    .get('registrations')
-    .find({ userId: currentUserId, eventId })
-    .assign({ status: 'CANCELLED', reason: req.body.reason || 'Hủy đăng ký' })
-    .write()
-  return res.json(successEnvelope(null, 'Hủy đăng ký thành công'))
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  cancelEventInDb(currentUserId, eventId, req.body?.reason)
+  return res.json(successEnvelope({ cancelled: true, eventId }, 'Hủy đăng ký thành công'))
 })
 
 apiRouter.get('/registrations/me/history', (req, res) => {
@@ -623,6 +694,8 @@ apiRouter.get('/registrations/me/history', (req, res) => {
       timeHappen,
       dateHappen,
       status: uiStatus,
+      attendanceMethod: ev.attendanceMethod || 'STUDENT_PROOF',
+      attendanceSessionType: ev.attendanceSessionType || 'BOTH',
       pointsCategory: benefits.length > 0 ? `ĐRL: +${benefits[0]}` : '',
       criteriaSv5t: criteria ? criteria.name : '',
       benefits,
@@ -757,14 +830,41 @@ apiRouter.get('/fanpages/:fanpageId', (req, res) => {
   if (!fanpage) {
     return res.status(404).json(errorEnvelope('Không tìm thấy fanpage', 'RESOURCE_NOT_FOUND'))
   }
-  return res.json(successEnvelope(fanpage))
+  const realEventsCount = (getDb().get('events').filter({ fanpageId: Number(fanpageId) }).value() || []).length
+  const dto = {
+    ...fanpage,
+    followerCount: fanpage.followersCount ?? fanpage.followerCount ?? 0,
+    eventCount: realEventsCount,
+    email: fanpage.helpContact ?? fanpage.email ?? '',
+    phone: fanpage.helpPhone ?? fanpage.phone ?? '',
+    description: fanpage.description ?? '',
+    isFollowing: true,
+  }
+  return res.json(successEnvelope(dto))
 })
 
 apiRouter.get('/fanpages/:fanpageId/events', (req, res) => {
   const { fanpageId } = req.params
   const { page = 0, size = 10 } = req.query
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
   const events = getDb().get('events').filter({ fanpageId: Number(fanpageId) }).value() || []
-  const dtos = events.map(buildEventResponseDto)
+  const fanpage = getDb().get('fanpages').find({ id: Number(fanpageId) }).value()
+  const dtos = events.map((ev) => {
+    const base = buildEventResponseDto(ev, currentUserId)
+    return {
+      ...base,
+      eventId: String(ev.id),
+      title: ev.name,
+      location: typeof ev.location === 'string' ? ev.location : (ev.location?.address || 'Đại học Cần Thơ'),
+      authorName: fanpage ? fanpage.name : 'Ban Tổ Chức',
+      authorAvatarUrl: fanpage ? fanpage.avatarUrl : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=120',
+      timeAgo: '1 ngày trước',
+      benefits: base.pointsReward || 'Cộng điểm rèn luyện',
+      capacityText: `${ev.capacity || 100} sinh viên`,
+      commentsCount: 12,
+      sharesCount: 5,
+    }
+  })
   return res.json(successEnvelope(makePageResponse(dtos, page, size)))
 })
 
@@ -838,42 +938,174 @@ apiRouter.get('/criterias/:id', (req, res) => {
 // -------------------------------------------------------------
 apiRouter.get('/student/criteria-progress', (req, res) => {
   const currentUserId = getCurrentUserIdFromRequest(req)
-  const criterias = getDb().get('criterias').filter({ level: 1 }).value() || []
-  const progressList = getDb().get('student_criteria_progress').filter({ userId: currentUserId }).value() || []
+  const academicYearId = Number(req.query.academicYearId) || 2
+  const allCriterias = getDb().get('criterias').value() || []
+  const allProgress = getDb().get('student_criteria_progress').value() || []
+  const progressList = allProgress.filter(
+    (p) => (p.userId === currentUserId || p.userId === 1) && (p.academicYearId === academicYearId || !p.academicYearId)
+  )
 
-  const tree = criterias.map((c) => {
-    const progress = progressList.find((p) => p.criteriaId === c.id)
-    const isCompleted = Boolean(progress)
+  const progressMap = new Map()
+  progressList.forEach((p) => {
+    progressMap.set(p.criteriaId, p)
+  })
+
+  // Build recursive node
+  function buildNode(c) {
+    const directChildren = allCriterias
+      .filter((child) => child.parentId === c.id)
+      .sort((a, b) => a.childrenOrder - b.childrenOrder)
+      .map(buildNode)
+
+    const isLeaf = directChildren.length === 0
+    let isCompleted = false
+    let completionSource = null
+    let completedAt = null
+    let note = c.note || null
+
+    if (isLeaf) {
+      const p = progressMap.get(c.id)
+      if (p) {
+        isCompleted = true
+        completionSource = p.completionSource || 'MANUAL'
+        completedAt = p.createdAt || '2026-08-15T14:00:00Z'
+        if (p.note) note = p.note
+      }
+    } else {
+      // Group evaluation logic
+      if (c.id === 103) {
+        // 1.3 requires at least 1 of 5
+        const doneCount = directChildren.filter((ch) => ch.isCompleted).length
+        isCompleted = doneCount >= 1
+      } else if (c.id === 10) {
+        // Standard 1 requires 101, 102, 103 (all 3)
+        isCompleted = directChildren.length > 0 && directChildren.every((ch) => ch.isCompleted)
+      } else if (c.id === 20) {
+        // Standard 2 requires 201, 202
+        isCompleted = directChildren.length > 0 && directChildren.every((ch) => ch.isCompleted)
+      } else if (c.id === 30 || c.id === 40) {
+        // Standard 3 & 4 require at least 1
+        isCompleted = directChildren.some((ch) => ch.isCompleted)
+      } else if (c.id === 50) {
+        // Standard 5 requires at least 2 of 3 (501, 502, 503)
+        const done = directChildren.filter((ch) => ch.isCompleted).length
+        isCompleted = done >= 2
+      } else if (c.id === 501 || c.id === 502 || c.id === 503) {
+        // Sub standards in 5 require at least 1 child
+        isCompleted = directChildren.some((ch) => ch.isCompleted)
+      } else {
+        isCompleted = directChildren.length > 0 && directChildren.every((ch) => ch.isCompleted)
+      }
+    }
+
+    const completedChildren = directChildren.filter((ch) => ch.isCompleted).length
+    let requiredChildren = null
+    if (c.id === 10) requiredChildren = 3
+    else if (c.id === 20) requiredChildren = 2
+    else if (c.id === 30) requiredChildren = 1
+    else if (c.id === 40) requiredChildren = 1
+    else if (c.id === 50) requiredChildren = 2
+    else if (c.id === 103) requiredChildren = 1
+    else if (c.id === 501 || c.id === 502 || c.id === 503) requiredChildren = 1
+    else if (directChildren.length > 0) requiredChildren = directChildren.length
+
     return {
       criteriaId: c.id,
       name: c.name,
-      note: c.note,
+      note,
       scope: c.scope,
       level: c.level,
       childrenOrder: c.childrenOrder,
-      requiredChildren: null,
+      requiredChildren,
       isCompleted,
-      completedChildren: isCompleted ? 1 : 0,
-      totalChildren: 1,
-      completionSource: progress ? progress.completionSource : null,
-      completedAt: isCompleted ? '2026-08-15T14:00:00Z' : null,
-      children: [],
+      completedChildren,
+      totalChildren: directChildren.length,
+      completionSource,
+      completedAt,
+      children: directChildren,
     }
-  })
+  }
 
-  const completedCount = tree.filter((c) => c.isCompleted).length
+  // Level 1 main standards (10, 20, 30, 40, 50)
+  const rootStandards = allCriterias
+    .filter((c) => c.level === 1)
+    .sort((a, b) => a.childrenOrder - b.childrenOrder)
+    .map(buildNode)
+
+  const completedMain = rootStandards.filter((s) => s.isCompleted).length
+
+  // Count total and completed leaves
+  let totalLeaves = 0
+  let completedLeaves = 0
+  function countLeaves(node) {
+    if (node.children.length === 0) {
+      totalLeaves++
+      if (node.isCompleted) completedLeaves++
+      return
+    }
+    node.children.forEach(countLeaves)
+  }
+  rootStandards.forEach(countLeaves)
+
+  const academicYearObj = getDb().get('academic_years').find({ id: academicYearId }).value()
+  const academicYearLabel = academicYearObj ? academicYearObj.code : '2026 - 2027'
 
   const progressDto = {
-    academicYearId: 2,
-    academicYear: '2026-2027',
-    completedLeafCriteria: completedCount,
-    totalLeafCriteria: tree.length,
-    completedMainCriteria: completedCount,
-    totalMainCriteria: tree.length,
-    criteria: tree,
+    academicYearId,
+    academicYear: academicYearLabel,
+    completedLeafCriteria: completedLeaves,
+    totalLeafCriteria: totalLeaves,
+    completedMainCriteria: completedMain,
+    totalMainCriteria: rootStandards.length,
+    criteria: rootStandards,
   }
 
   return res.json(successEnvelope(progressDto))
+})
+
+apiRouter.patch('/student/criteria/:criteriaId/progress', (req, res) => {
+  const currentUserId = getCurrentUserIdFromRequest(req)
+  const criteriaId = Number(req.params.criteriaId)
+  const { academicYearId, completed, note } = req.body
+
+  const db = getDb()
+  const existing = db.get('student_criteria_progress').find({
+    userId: currentUserId,
+    criteriaId,
+    academicYearId: Number(academicYearId) || 2,
+  }).value()
+
+  if (completed) {
+    if (existing) {
+      db.get('student_criteria_progress')
+        .find({ id: existing.id })
+        .assign({
+          completionSource: 'MANUAL',
+          note: note !== undefined ? note : existing.note,
+          updatedAt: new Date().toISOString(),
+        })
+        .write()
+    } else {
+      const nextId = (db.get('student_criteria_progress').map('id').value().sort((a, b) => b - a)[0] || 0) + 1
+      db.get('student_criteria_progress').push({
+        id: nextId,
+        userId: currentUserId,
+        criteriaId,
+        academicYearId: Number(academicYearId) || 2,
+        eventId: null,
+        completionSource: 'MANUAL',
+        note: note || 'Sinh viên tự đánh giá đạt tiêu chuẩn',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      }).write()
+    }
+  } else {
+    if (existing) {
+      db.get('student_criteria_progress').remove({ id: existing.id }).write()
+    }
+  }
+
+  return res.json(successEnvelope(null, 'Cập nhật tiến độ tiêu chí thành công'))
 })
 
 apiRouter.get('/student-semester-points/me/semesters/:semesterId', (req, res) => {
@@ -1005,7 +1237,7 @@ apiRouter.get('/certificates/:registrationId', (req, res) => {
       eventId: String(event ? event.id : 1),
       attendeeName: 'Đoàn Tài Lộc',
       studentId: 'B2303827',
-      eventTitle: event ? event.name : 'HỘI THẢO CHUYÊN ĐỀ: TRÍ TUỆ NHÂN TẠO & XU HƯỚNG MÔ HÌNH NGÔN NGỮ LỚN (LLM)',
+      eventTitle: event ? event.name : 'Hội thảo chuyên đề: Trí tuệ nhân tạo & Xu hướng mô hình ngôn ngữ lớn (LLM)',
       issueDate: event && event.dateHappen ? event.dateHappen.substring(0, 10) : '2026-08-16',
       verificationCode: `CTU-CERT-${eventId}-883921`,
       downloadUrl: `/api/certificates/cert-${registrationId}/download`,
@@ -1027,11 +1259,38 @@ apiRouter.get('/moderation/queue', (_req, res) => {
         id: '1',
         name: 'Đoàn Tài Lộc',
         email: 'student@ctu.edu.vn',
-        eventTitle: 'NGÀY HỘI VIỆC LÀM VÀ KẾT NỐI DOANH NGHIỆP CNTT 2026',
+        eventTitle: 'Ngày hội việc làm và kết nối doanh nghiệp CNTT 2026',
         step: 'STAGE_1_REVIEW',
       },
     ])
   )
+})
+
+// Event registration endpoints
+apiRouter.post('/events/:id/register', (req, res) => {
+  const { id } = req.params
+  if (id === 'fail' || id === '999999') {
+    return res.status(400).json(errorEnvelope('Sự kiện đã hết số lượng đăng ký hoặc đã đóng lượt tham gia.'))
+  }
+  const eventId = Number(id)
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  const result = registerEventInDb(currentUserId, eventId)
+  return res.json(
+    successEnvelope({
+      id: `reg-${id}`,
+      eventId,
+      registeredAt: result.registration.regDate,
+      status: 'CONFIRMED',
+    }, 'Đăng ký tham gia sự kiện thành công')
+  )
+})
+
+apiRouter.patch('/registrations/me/events/:id/cancel', (req, res) => {
+  const { id } = req.params
+  const eventId = Number(id)
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  cancelEventInDb(currentUserId, eventId, req.body?.reason)
+  return res.json(successEnvelope({ cancelled: true, eventId }, 'Hủy đăng ký thành công'))
 })
 
 // Mount apiRouter on /api
