@@ -1,9 +1,10 @@
-import { apiClient, isMockMode } from '@/shared'
+import { apiClient } from '@/shared'
 import type {
   FanpageSummary,
   FanpageActivityStats,
   UpcomingEventReminder,
   FanpageFeedPost,
+  FanpageInvitation,
 } from '../types/fanpageAdmin.types'
 
 export const EMPTY_ACTIVITY_STATS: FanpageActivityStats = {
@@ -15,181 +16,118 @@ export const EMPTY_ACTIVITY_STATS: FanpageActivityStats = {
   pendingCommentsCount: 0,
 }
 
-export const MOCK_CURRENT_FANPAGE: FanpageSummary = {
-  id: '1',
-  code: 'CNTT',
-  name: 'Đoàn Trường CNTT & TT',
-  fullName: 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông - Đại Học Cần Thơ',
-  avatarText: 'CTU',
-  role: 'Quản trị viên',
-  isVerified: true,
-  email: 'truongcntt@ctu.edu.vn',
-  phone: '0292 387 2254',
-  address: 'Khu II, Đại học Cần Thơ, Đường 3/2, Xuân Khánh, Ninh Kiều, Cần Thơ',
-  followersCount: 12480,
-  eventsCount: 18,
-  description:
-    'Kết nối sinh viên, tổ chức hoạt động học thuật và lan tỏa các chương trình bổ ích của Trường CNTT&TT.',
-}
-
-export const MOCK_AVAILABLE_FANPAGES: FanpageSummary[] = [
-  MOCK_CURRENT_FANPAGE,
-  {
-    id: '2',
-    code: 'CTU',
-    name: 'Trường Đại học Cần Thơ',
-    fullName: 'Fanpage Chính thức Trường Đại học Cần Thơ',
-    avatarText: 'CTU',
-    role: 'Quản trị viên cấp cao',
-    isVerified: true,
-    email: 'social-admin@ctu.edu.vn',
-    phone: '0292 383 2663',
-    address: 'Khu II, Đại học Cần Thơ',
-    followersCount: 58200,
-    eventsCount: 142,
-    description: 'Trang thông tin sự kiện chính thức toàn trường Đại học Cần Thơ.',
-  },
-  {
-    id: '3',
-    code: 'CLB',
-    name: 'CLB Công nghệ phần mềm CTU',
-    fullName: 'Câu lạc bộ Công nghệ Phần mềm Khoa CNTT&TT',
-    avatarText: 'SE',
-    role: 'Biên tập viên',
-    isVerified: false,
-    email: 'software.club@ctu.edu.vn',
-    phone: '0987 654 321',
-    address: 'Văn phòng Đoàn Khoa CNTT&TT, Khu II',
-    followersCount: 840,
-    eventsCount: 9,
-    description: 'Không gian học tập, chia sẻ kiến thức công nghệ và lập trình cho sinh viên.',
-  },
-]
-
-export const MOCK_ACTIVITY_STATS: FanpageActivityStats = {
-  periodLabel: '7 ngày gần nhất',
-  eventsCount: 8,
-  interactionsCount: 426,
-  newFollowersCount: 36,
-  responseRatePercent: 92,
-  pendingCommentsCount: 3,
-}
-
-export const MOCK_UPCOMING_REMINDER: UpcomingEventReminder = {
-  id: '5',
-  title: 'Ngày hội việc làm CNTT 2026',
-  monthText: 'TH10',
-  dayText: '12',
-  registrationsCount: 186,
-  dateText: '12/10/2026',
-}
-
-export const MOCK_FEED_POSTS: FanpageFeedPost[] = [
-  {
-    id: 'post-1',
-    authorName: 'Đoàn Trường CNTT & TT',
-    authorCode: 'CNTT',
-    authorAvatarText: 'CT',
-    timeAgo: '2 giờ',
-    isPublic: true,
-    title: 'NGÀY HỘI VIỆC LÀM CNTT 2026',
-    summary:
-      'Gặp gỡ doanh nghiệp công nghệ hàng đầu, khám phá cơ hội thực tập và chuẩn bị hành trang nghề nghiệp vững chắc cùng hơn 30 đơn vị tuyển dụng.',
-    bannerUrl:
-      'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80',
-    likesCount: 126,
-    commentsCount: 18,
-    sharesCount: 9,
-    isLiked: false,
-  },
-  {
-    id: 'post-2',
-    authorName: 'Đoàn Trường CNTT & TT',
-    authorCode: 'CNTT',
-    authorAvatarText: 'CT',
-    timeAgo: '1 ngày',
-    isPublic: true,
-    title: 'HỘI THẢO CHUYÊN ĐỀ: TRÍ TUỆ NHÂN TẠO & TƯƠNG LAI CÔNG NGHỆ',
-    summary:
-      'Cơ hội lắng nghe chia sẻ từ các chuyên gia AI đầu ngành về xu hướng mô hình ngôn ngữ lớn và lộ trình phát triển kỹ năng cho kỹ sư phần mềm trẻ.',
-    bannerUrl:
-      'https://images.unsplash.com/photo-1515187029135-18ee286d815b?auto=format&fit=crop&w=1200&q=80',
-    likesCount: 89,
-    commentsCount: 12,
-    sharesCount: 5,
-    isLiked: true,
-  },
-]
-
 export const fanpageAdminService = {
+  /**
+   * Retrieves the current primary fanpage for the logged-in staff member
+   */
   getCurrentFanpage: async (): Promise<FanpageSummary | null> => {
-    try {
-      const fanpages = await fanpageAdminService.getAvailableFanpages()
-      if (fanpages.length > 0) return fanpages[0]
-      return isMockMode() ? MOCK_CURRENT_FANPAGE : null
-    } catch {
-      return isMockMode() ? MOCK_CURRENT_FANPAGE : null
-    }
+    const fanpages = await fanpageAdminService.getAvailableFanpages()
+    return fanpages.length > 0 ? fanpages[0] : null
   },
+
+  /**
+   * Retrieves all managed fanpages of the authenticated fanpage admin
+   */
   getAvailableFanpages: async (): Promise<FanpageSummary[]> => {
     try {
       const res: any = await apiClient.get('/fanpages/fanpage-admin/my-fanpages')
       const list = Array.isArray(res) ? res : res?.data || []
-      if (list.length > 0) {
-        return list.map((fp: any) => ({
-          id: String(fp.id),
-          code: fp.name.includes('CNTT') ? 'CNTT' : fp.name.includes('Cần Thơ') ? 'CTU' : 'CLB',
-          name: fp.name,
-          fullName: fp.orgName || fp.name,
-          avatarText: fp.name.substring(0, 3).toUpperCase(),
-          role: 'Quản trị viên',
-          isVerified: fp.status === 'ACTIVE',
-          email: fp.helpContact || 'contact@ctu.edu.vn',
-          phone: fp.helpPhone || '0292 387 2254',
-          address: 'Khu II, Đại học Cần Thơ',
-          followersCount: fp.followersCount || 0,
-          eventsCount: fp.eventsCount || 0,
-          description: fp.description || '',
-        }))
-      }
-      return isMockMode() ? MOCK_AVAILABLE_FANPAGES : []
+      return list.map((fp: any) => ({
+        id: String(fp.id),
+        code:
+          fp.code ||
+          (fp.name?.includes('CNTT')
+            ? 'CNTT'
+            : fp.name?.includes('Cần Thơ') || fp.name?.includes('CTU')
+              ? 'CTU'
+              : 'CLB'),
+        name: fp.name,
+        fullName: fp.orgName || fp.name,
+        avatarText: (fp.code || fp.name || 'FP').substring(0, 3).toUpperCase(),
+        role: fp.role || 'Quản trị viên',
+        isVerified: fp.status === 'ACTIVE',
+        email: fp.helpContact || fp.email || '',
+        phone: fp.helpPhone || fp.phone || '',
+        address: fp.address || 'Khu II, Đại học Cần Thơ',
+        followersCount: fp.followersCount || fp.followerCount || 0,
+        eventsCount: fp.eventsCount || fp.eventCount || 0,
+        description: fp.description || '',
+      }))
     } catch {
-      return isMockMode() ? MOCK_AVAILABLE_FANPAGES : []
+      return []
     }
   },
-  getActivityStats: async (): Promise<FanpageActivityStats> => {
-    if (isMockMode()) return MOCK_ACTIVITY_STATS
-    return EMPTY_ACTIVITY_STATS
-  },
-  getUpcomingReminder: async (): Promise<UpcomingEventReminder | null> => {
-    if (isMockMode()) return MOCK_UPCOMING_REMINDER
-    return null
-  },
-  getFeedPosts: async (fanpageId?: string): Promise<FanpageFeedPost[]> => {
+
+  /**
+   * Fetches real-time activity statistics for a specific fanpage
+   */
+  getActivityStats: async (fanpageId?: string | number): Promise<FanpageActivityStats> => {
+    const targetId = fanpageId || '1'
     try {
-      const targetId = fanpageId || '1'
+      const res: any = await apiClient.get(`/fanpages/${targetId}/activity-stats`)
+      return res || EMPTY_ACTIVITY_STATS
+    } catch {
+      return EMPTY_ACTIVITY_STATS
+    }
+  },
+
+  /**
+   * Fetches the nearest upcoming event reminder for the dashboard
+   */
+  getUpcomingReminder: async (fanpageId?: string | number): Promise<UpcomingEventReminder | null> => {
+    const targetId = fanpageId || '1'
+    try {
+      const res: any = await apiClient.get(`/fanpages/${targetId}/upcoming-reminder`)
+      return res || null
+    } catch {
+      return null
+    }
+  },
+
+  /**
+   * Fetches feed of events belonging to a fanpage
+   */
+  getFeedPosts: async (fanpageId?: string | number): Promise<FanpageFeedPost[]> => {
+    const targetId = fanpageId || '1'
+    try {
       const res: any = await apiClient.get(`/fanpages/${targetId}/events`)
       const list = res?.content || (Array.isArray(res) ? res : [])
-      if (list.length > 0) {
-        return list.map((ev: any, idx: number) => ({
-          id: `post-${ev.id}`,
-          authorName: ev.fanpageName || 'Ban Tổ Chức',
-          authorCode: 'BTC',
-          authorAvatarText: 'FP',
-          timeAgo: `${idx + 1} ngày`,
-          isPublic: true,
-          title: ev.name || ev.title,
-          summary: ev.description || '',
-          bannerUrl: ev.bannerUrl || '',
-          likesCount: 0,
-          commentsCount: 0,
-          sharesCount: 0,
-          isLiked: false,
-        }))
-      }
-      return isMockMode() ? MOCK_FEED_POSTS : []
+      return list.map((ev: any, idx: number) => ({
+        id: `post-${ev.id}`,
+        authorName: ev.authorName || ev.fanpageName || 'Ban Tổ Chức',
+        authorCode: 'BTC',
+        authorAvatarText: 'FP',
+        timeAgo: ev.timeAgo || `${idx + 1} ngày trước`,
+        isPublic: true,
+        title: ev.name || ev.title,
+        summary: ev.description || '',
+        bannerUrl: ev.bannerUrl || '',
+        likesCount: ev.likesCount ?? 0,
+        commentsCount: ev.commentsCount ?? 0,
+        sharesCount: ev.sharesCount ?? 0,
+        isLiked: Boolean(ev.isLiked),
+      }))
     } catch {
-      return isMockMode() ? MOCK_FEED_POSTS : []
+      return []
     }
+  },
+
+  /**
+   * Fetches pending invitations for staff to manage fanpages
+   */
+  getInvitations: async (): Promise<FanpageInvitation[]> => {
+    try {
+      const res: any = await apiClient.get('/fanpages/fanpage-admin/invitations')
+      return Array.isArray(res) ? res : res?.data || []
+    } catch {
+      return []
+    }
+  },
+
+  /**
+   * Responds to a fanpage invitation (accept or reject)
+   */
+  respondInvitation: async (id: string, status: 'ACCEPTED' | 'REJECTED'): Promise<void> => {
+    await apiClient.patch(`/fanpages/fanpage-admin/invitations/${id}`, { status })
   },
 }

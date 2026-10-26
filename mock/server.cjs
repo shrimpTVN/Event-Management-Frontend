@@ -824,6 +824,22 @@ apiRouter.get('/fanpages/fanpage-admin/my-fanpages', (_req, res) => {
   return res.json(successEnvelope(fanpages))
 })
 
+apiRouter.get('/fanpages/fanpage-admin/invitations', (_req, res) => {
+  const invitations = getDb().get('fanpage_invitations').value() || []
+  return res.json(successEnvelope(invitations))
+})
+
+apiRouter.patch('/fanpages/fanpage-admin/invitations/:id', (req, res) => {
+  const { id } = req.params
+  const { status } = req.body || {}
+  const invitation = getDb().get('fanpage_invitations').find({ id }).value()
+  if (!invitation) {
+    return res.status(404).json(errorEnvelope('Không tìm thấy lời mời', 'RESOURCE_NOT_FOUND'))
+  }
+  getDb().get('fanpage_invitations').find({ id }).assign({ status: status || 'ACCEPTED' }).write()
+  return res.json(successEnvelope({ success: true, id, status: status || 'ACCEPTED' }, 'Cập nhật lời mời thành công'))
+})
+
 apiRouter.get('/fanpages/:fanpageId', (req, res) => {
   const { fanpageId } = req.params
   const fanpage = getDb().get('fanpages').find({ id: Number(fanpageId) }).value()
@@ -880,6 +896,46 @@ apiRouter.get('/fanpages/:fanpageId/members', (_req, res) => {
     },
   ]
   return res.json(successEnvelope(memberDto))
+})
+
+apiRouter.get('/fanpages/:fanpageId/activity-stats', (req, res) => {
+  const { fanpageId } = req.params
+  const stats = getDb().get('fanpage_statistics').find({ fanpageId: Number(fanpageId) }).value()
+  if (stats) {
+    return res.json(successEnvelope(stats))
+  }
+  const events = getDb().get('events').filter({ fanpageId: Number(fanpageId) }).value() || []
+  return res.json(successEnvelope({
+    periodLabel: '7 ngày gần nhất',
+    eventsCount: events.length,
+    interactionsCount: 120,
+    newFollowersCount: 15,
+    responseRatePercent: 95,
+    pendingCommentsCount: 0,
+  }))
+})
+
+apiRouter.get('/fanpages/:fanpageId/upcoming-reminder', (req, res) => {
+  const { fanpageId } = req.params
+  const events = getDb().get('events').filter({ fanpageId: Number(fanpageId) }).value() || []
+  const now = new Date().toISOString()
+  const upcoming = events.find((e) => e.dateHappen >= now) || events[0]
+  if (!upcoming) {
+    return res.json(successEnvelope(null))
+  }
+  const happen = new Date(upcoming.dateHappen)
+  const monthText = `TH${happen.getMonth() + 1}`
+  const dayText = String(happen.getDate()).padStart(2, '0')
+  const dateText = `${dayText}/${String(happen.getMonth() + 1).padStart(2, '0')}/${happen.getFullYear()}`
+  const registrations = (getDb().get('registrations').filter({ eventId: upcoming.id }).value() || []).length
+  return res.json(successEnvelope({
+    id: String(upcoming.id),
+    title: upcoming.name,
+    monthText,
+    dayText,
+    registrationsCount: registrations || upcoming.capacity || 100,
+    dateText,
+  }))
 })
 
 // -------------------------------------------------------------

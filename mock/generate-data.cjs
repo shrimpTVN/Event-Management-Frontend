@@ -531,6 +531,70 @@ db.student_semester_points = [
 ]
 
 // ---------------------------------------------------------------------------
+// 22. FANPAGE STATISTICS
+// ---------------------------------------------------------------------------
+db.fanpage_statistics = [
+  {
+    id: 1,
+    fanpageId: 1,
+    periodLabel: '7 ngày gần nhất',
+    eventsCount: 8,
+    interactionsCount: 426,
+    newFollowersCount: 36,
+    responseRatePercent: 92,
+    pendingCommentsCount: 3,
+  },
+  {
+    id: 2,
+    fanpageId: 2,
+    periodLabel: '7 ngày gần nhất',
+    eventsCount: 24,
+    interactionsCount: 1580,
+    newFollowersCount: 120,
+    responseRatePercent: 98,
+    pendingCommentsCount: 5,
+  },
+  {
+    id: 3,
+    fanpageId: 3,
+    periodLabel: '7 ngày gần nhất',
+    eventsCount: 3,
+    interactionsCount: 95,
+    newFollowersCount: 12,
+    responseRatePercent: 88,
+    pendingCommentsCount: 1,
+  },
+]
+
+// ---------------------------------------------------------------------------
+// 23. FANPAGE INVITATIONS (for staff)
+// ---------------------------------------------------------------------------
+db.fanpage_invitations = [
+  {
+    id: 'inv-1',
+    userId: 2,
+    fanpageId: 4,
+    code: 'KHTN',
+    name: 'Fanpage Khoa Khoa học Tự nhiên',
+    inviter: 'Ban Truyền thông CTU',
+    role: 'Quản trị viên sự kiện',
+    status: 'PENDING',
+    createdAt: '2026-10-20T08:00:00Z',
+  },
+  {
+    id: 'inv-2',
+    userId: 2,
+    fanpageId: 5,
+    code: 'CTSV',
+    name: 'Fanpage Trung tâm Hỗ trợ Sinh viên',
+    inviter: 'Phòng Công tác Sinh viên',
+    role: 'Biên tập viên nội dung',
+    status: 'PENDING',
+    createdAt: '2026-10-21T09:30:00Z',
+  },
+]
+
+// ---------------------------------------------------------------------------
 // WRITE TO FILE
 // ---------------------------------------------------------------------------
 const outputPath = path.join(__dirname, 'db.json')

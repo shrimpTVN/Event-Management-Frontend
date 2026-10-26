@@ -1,15 +1,11 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { isMockMode } from '@/shared'
 import {
   FanpageAdminLayout,
   FanpageHomeView,
   fanpageAdminService,
   EMPTY_ACTIVITY_STATS,
-  MOCK_CURRENT_FANPAGE,
-  MOCK_ACTIVITY_STATS,
-  MOCK_UPCOMING_REMINDER,
 } from '@/features/fanpage-admin'
 import type { FanpageSummary, AdminNavTab } from '@/features/fanpage-admin'
 
@@ -27,12 +23,23 @@ export const FanpageAdminPage: React.FC = () => {
   const currentFanpage: FanpageSummary | undefined =
     selectedFanpage ||
     (initialFanpageId ? availableFanpages.find((fp) => fp.id === initialFanpageId) : undefined) ||
-    availableFanpages[0] ||
-    (isMockMode() ? MOCK_CURRENT_FANPAGE : undefined)
+    availableFanpages[0]
 
   const { data: posts = [] } = useQuery({
     queryKey: ['admin-feed-posts', currentFanpage?.id],
     queryFn: () => fanpageAdminService.getFeedPosts(currentFanpage?.id),
+    enabled: Boolean(currentFanpage?.id),
+  })
+
+  const { data: stats = EMPTY_ACTIVITY_STATS } = useQuery({
+    queryKey: ['admin-activity-stats', currentFanpage?.id],
+    queryFn: () => fanpageAdminService.getActivityStats(currentFanpage?.id),
+    enabled: Boolean(currentFanpage?.id),
+  })
+
+  const { data: reminder = null } = useQuery({
+    queryKey: ['admin-upcoming-reminder', currentFanpage?.id],
+    queryFn: () => fanpageAdminService.getUpcomingReminder(currentFanpage?.id),
     enabled: Boolean(currentFanpage?.id),
   })
 
@@ -70,8 +77,8 @@ export const FanpageAdminPage: React.FC = () => {
       {activeTab === null && (
         <FanpageHomeView
           currentFanpage={currentFanpage}
-          stats={isMockMode() ? MOCK_ACTIVITY_STATS : EMPTY_ACTIVITY_STATS}
-          reminder={isMockMode() ? MOCK_UPCOMING_REMINDER : null}
+          stats={stats}
+          reminder={reminder}
           posts={posts}
         />
       )}

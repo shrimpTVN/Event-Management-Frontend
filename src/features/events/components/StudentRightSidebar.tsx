@@ -24,29 +24,47 @@ interface CriteriaItem {
   isCompleted?: boolean
 }
 
-const CATEGORY_MAX_MAP: Record<number, { name: string; max: number }> = {
-  1: { name: 'Mục I. Ý thức học tập', max: 20 },
-  2: { name: 'Mục II. Chấp hành nội quy', max: 25 },
-  3: { name: 'Mục III. Hoạt động CTXH', max: 20 },
-  4: { name: 'Mục IV. Quan hệ cộng đồng', max: 15 },
-  5: { name: 'Mục V. Hoạt động lớp/đoàn', max: 20 },
-}
-
 export const StudentRightSidebar: React.FC = () => {
   // Default to Month 10/2026 matching current semester period
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date(2026, 9, 1))
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 9, 23))
 
-  // 1. Fetch training semester points
-  const { data: semesterPoints } = useQuery<any[]>({
-    queryKey: ['student-semester-points', 'current'],
+  // 1. Fetch active semester & academic year
+  const { data: semestersList } = useQuery<any[]>({
+    queryKey: ['semesters'],
     queryFn: async () => {
-      const res: any = await apiClient.get('/student-semester-points/me/semesters/1')
+      const res: any = await apiClient.get('/semesters')
       return Array.isArray(res) ? res : res?.data || []
     },
   })
 
-  // 2. Fetch events to dynamically pinpoint event days on calendar
+  const activeSemester = useMemo(() => {
+    if (!semestersList || !Array.isArray(semestersList) || semestersList.length === 0) return null
+    return semestersList.find((s: any) => s.status === 'ACTIVE') || semestersList[0]
+  }, [semestersList])
+
+  const activeSemesterId = activeSemester?.id || 1
+
+  // 2. Fetch training semester points dynamically based on active semester
+  const { data: semesterPoints } = useQuery<any[]>({
+    queryKey: ['student-semester-points', activeSemesterId],
+    queryFn: async () => {
+      const res: any = await apiClient.get(`/student-semester-points/me/semesters/${activeSemesterId}`)
+      return Array.isArray(res) ? res : res?.data || []
+    },
+    enabled: Boolean(activeSemesterId),
+  })
+
+  // 3. Fetch point categories from server dynamically
+  const { data: pointCategories = [] } = useQuery<any[]>({
+    queryKey: ['point-categories'],
+    queryFn: async () => {
+      const res: any = await apiClient.get('/point-categories')
+      return Array.isArray(res) ? res : res?.data || []
+    },
+  })
+
+  // 4. Fetch events to dynamically pinpoint event days on calendar
   const { data: eventsList } = useQuery<any[]>({
     queryKey: ['events', 'calendar'],
     queryFn: async () => {
@@ -57,40 +75,37 @@ export const StudentRightSidebar: React.FC = () => {
     },
   })
 
-  // 3. Fetch active semester & academic year
-  const { data: semestersList } = useQuery<any[]>({
-    queryKey: ['semesters'],
-    queryFn: async () => {
-      const res: any = await apiClient.get('/semesters')
-      return Array.isArray(res) ? res : res?.data || []
-    },
-  })
-
   const currentSemesterLabel = useMemo(() => {
     if (!semestersList || !Array.isArray(semestersList) || semestersList.length === 0) {
       return 'HK1 NH 2026 - 2027'
     }
-    const active = semestersList.find((s: any) => s.status === 'ACTIVE') || semestersList[0]
+    const active = activeSemester
     if (!active) return 'HK1 NH 2026 - 2027'
     const semNum = active.number === 3 ? 'Hè' : active.number || 1
     const year = active.academicYear ? active.academicYear.replace('-', ' - ') : '2026 - 2027'
     return `HK${semNum} NH ${year}`
-  }, [semestersList])
+  }, [semestersList, activeSemester])
+
+  // Filter root point categories (level 0 or without parent)
+  const rootCategories = useMemo(() => {
+    const roots = pointCategories.filter((c: any) => c.level === 0 || !c.parentCategoryId)
+    return roots.sort((a: any, b: any) => (a.childrenOrder || 0) - (b.childrenOrder || 0))
+  }, [pointCategories])
 
   // Compute criteria items and total points strictly from server response
   const { criteriaList, currentScore, classification, pointsNeeded } = useMemo(() => {
     const pointsArray = Array.isArray(semesterPoints) ? semesterPoints : []
 
-    const list: CriteriaItem[] = [1, 2, 3, 4, 5].map((catId) => {
-      const sp = pointsArray.find((p: any) => p.pointCategoryId === catId)
+    const list: CriteriaItem[] = rootCategories.map((cat: any) => {
+      const sp = pointsArray.find((p: any) => p.pointCategoryId === cat.id)
       const current = sp ? sp.totalPoint : 0
-      const meta = CATEGORY_MAX_MAP[catId]
+      const max = cat.maximum || 20
       return {
-        id: String(catId),
-        name: meta.name,
+        id: String(cat.id),
+        name: cat.name,
         current,
-        max: meta.max,
-        isCompleted: current >= meta.max,
+        max,
+        isCompleted: current >= max,
       }
     })
 
@@ -117,7 +132,7 @@ export const StudentRightSidebar: React.FC = () => {
       classification: rank,
       pointsNeeded: needed,
     }
-  }, [semesterPoints])
+  }, [rootCategories, semesterPoints])
 
   // Extract event day numbers in the currently displayed month from server data
   const eventDaysInMonth = useMemo(() => {
