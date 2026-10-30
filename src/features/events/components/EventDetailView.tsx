@@ -3,6 +3,7 @@ import { Calendar, MapPin, Users, Award, ShieldCheck, Clock, Building } from 'lu
 import { formatDate } from '@/shared'
 import type { Event } from '../types/event.types'
 import { RegisterButton } from './RegisterButton'
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
 
 interface EventDetailViewProps {
   event: Event
@@ -59,7 +60,10 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
             <Building className="h-3.5 w-3.5" />
             Đơn vị tổ chức
           </span>
-          <p className="font-semibold text-sm text-foreground truncate">{organizerName}</p>
+          <div className="flex items-center gap-1 min-w-0 mt-0.5">
+            <p className="font-semibold text-sm text-foreground truncate">{organizerName}</p>
+            <VerifiedBadge className="h-4 w-4 shrink-0" />
+          </div>
         </div>
       </div>
 

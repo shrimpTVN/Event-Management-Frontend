@@ -142,7 +142,7 @@ export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
         : Boolean(raw.evidenceUrl || raw.checkInEvidenceUrl || raw.checkInAt),
     evidenceUrl: raw.evidenceUrl || raw.checkInEvidenceUrl || null,
     reason: raw.reason || null,
-    attendanceMethod: raw.attendanceMethod || 'STUDENT_PROOF',
+    attendanceMethod: raw.attendanceMethod || 'MANUAL',
     attendanceSessionType: raw.attendanceSessionType || 'BOTH',
     checkInAt: raw.checkInAt || null,
     checkOutAt: raw.checkOutAt || null,

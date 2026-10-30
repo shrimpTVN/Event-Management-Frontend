@@ -205,9 +205,11 @@ function buildEventResponseDto(event, currentUserId = 1) {
 
   const mappedPoints = eventPoints.map((ep) => {
     const pc = pointCategories.find((cat) => cat.id === ep.pointCategoryId)
+    const code = pc && pc.note ? pc.note.replace(/^Mã tiêu chí:\s*/i, '').trim() : ''
     return {
       pointCategoryId: ep.pointCategoryId,
       pointCategoryName: pc ? pc.name : 'Điểm rèn luyện',
+      pointCategoryCode: code,
       point: ep.point,
     }
   })
@@ -243,6 +245,8 @@ function buildEventResponseDto(event, currentUserId = 1) {
     organizerAvatarUrl: fanpage ? fanpage.avatarUrl : '', // Frontend UI alias
     isActive: event.isActive,
     isModerationRequired: event.capacity < 400,
+    attendanceMethod: event.attendanceMethod || 'MANUAL',
+    attendanceSessionType: event.attendanceSessionType || 'BOTH',
     semester: semester
       ? {
           id: semester.id,
@@ -254,7 +258,21 @@ function buildEventResponseDto(event, currentUserId = 1) {
         }
       : null,
     eventPoints: mappedPoints,
-    pointsReward: mappedPoints.length > 0 ? `Cộng 0${mappedPoints[0].point} điểm rèn luyện` : '',
+    trainingPoints: mappedPoints.reduce((sum, ep) => sum + (ep.point || 0), 0),
+    trainingPointCategoryId: mappedPoints[0]?.pointCategoryId || null,
+    trainingPointCategoryName: mappedPoints.map((ep) => ep.pointCategoryName).join('; '),
+    trainingPointCategoryCode: mappedPoints.map((ep) => ep.pointCategoryCode).filter(Boolean).join(', '),
+    pointsReward: (() => {
+      const parts = []
+      mappedPoints.forEach((ep) => {
+        const catCode = ep.pointCategoryCode ? `mục ${ep.pointCategoryCode}` : ''
+        parts.push(`+${ep.point} ĐRL ${catCode}`.trim())
+      })
+      if (criteria && criteria.name) {
+        parts.push(`SV5T: ${criteria.name.replace(/^Tiêu chuẩn\s+/i, '')}`)
+      }
+      return parts.join(' · ') || 'Cộng điểm rèn luyện'
+    })(),
     quotaText: `${event.capacity} sinh viên`,
     timeAgo: '1 ngày trước',
     isFollowed: true,
@@ -449,6 +467,15 @@ apiRouter.get('/events/fanpage/:fanpageId', (req, res) => {
   return res.json(successEnvelope(makePageResponse(dtos, page, size)))
 })
 
+apiRouter.get('/fanpages/:fanpageId/events', (req, res) => {
+  const { fanpageId } = req.params
+  const { page = 0, size = 10 } = req.query
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  const events = getDb().get('events').filter({ fanpageId: Number(fanpageId) }).value() || []
+  const dtos = events.map((e) => buildEventResponseDto(e, currentUserId))
+  return res.json(successEnvelope(makePageResponse(dtos, page, size)))
+})
+
 apiRouter.get('/events/:id', (req, res) => {
   const { id } = req.params
   const currentUserId = getCurrentUserIdFromRequest(req) || 1
@@ -473,19 +500,36 @@ apiRouter.post('/events/fanpage-member', (req, res) => {
     dateClose: req.body.dateClose || new Date().toISOString(),
     dateHappen: req.body.dateHappen || new Date().toISOString(),
     capacity: Number(req.body.capacity) || 100,
-    maleQuantity: Number(req.body.maleQuantity) || 50,
-    femaleQuantity: Number(req.body.femaleQuantity) || 50,
+    maleQuantity: req.body.maleQuantity !== undefined && req.body.maleQuantity !== '' ? Number(req.body.maleQuantity) : null,
+    femaleQuantity: req.body.femaleQuantity !== undefined && req.body.femaleQuantity !== '' ? Number(req.body.femaleQuantity) : null,
     bannerUrl: req.body.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200',
     status: 'PUBLISHED',
     eventTypeId: Number(req.body.eventTypeId) || 1,
     criteriaId: Number(req.body.criteriaId) || 10,
     fanpageId: Number(req.body.fanpageId) || 1,
     semesterId: Number(req.body.semesterId) || 1,
+    attendanceMethod: req.body.attendanceMethod || 'MANUAL',
+    attendanceSessionType: req.body.attendanceSessionType || 'BOTH',
     isActive: true,
     updatedAt: new Date().toISOString(),
   }
 
   db.get('events').push(newEvent).write()
+
+  // Save event points if provided
+  if (Array.isArray(req.body.eventPoints) && req.body.eventPoints.length > 0) {
+    const epList = db.get('event_points').value() || []
+    let nextEpId = epList.length > 0 ? Math.max(...epList.map((ep) => ep.id)) + 1 : 1
+    req.body.eventPoints.forEach((ep) => {
+      db.get('event_points').push({
+        id: nextEpId++,
+        eventId: newEvent.id,
+        pointCategoryId: Number(ep.pointCategoryId),
+        point: Number(ep.point) || 5,
+      }).write()
+    })
+  }
+
   return res.json(successEnvelope(buildEventResponseDto(newEvent), 'Tạo sự kiện thành công'))
 })
 
@@ -496,6 +540,21 @@ apiRouter.put('/events/fanpage-member/:id', (req, res) => {
   if (!event) {
     return res.status(404).json(errorEnvelope('Không tìm thấy sự kiện', 'RESOURCE_NOT_FOUND'))
   }
+  const eventIdNum = Number(id)
+  if (Array.isArray(req.body.eventPoints)) {
+    db.get('event_points').remove({ eventId: eventIdNum }).write()
+    const epList = db.get('event_points').value() || []
+    let nextEpId = epList.length > 0 ? Math.max(...epList.map((ep) => ep.id)) + 1 : 1
+    req.body.eventPoints.forEach((ep) => {
+      db.get('event_points').push({
+        id: nextEpId++,
+        eventId: eventIdNum,
+        pointCategoryId: Number(ep.pointCategoryId),
+        point: Number(ep.point) || 5,
+      }).write()
+    })
+  }
+
   const updated = db.get('events').find({ id: Number(id) }).assign({
     ...req.body,
     updatedAt: new Date().toISOString(),
@@ -661,6 +720,9 @@ apiRouter.get('/registrations/me/history', (req, res) => {
       const shortName = pc ? pc.note || pc.name : 'ĐRL'
       return `${ep.point}đ ${shortName}`
     })
+    if (criteria && criteria.name) {
+      benefits.push(`SV5T: ${criteria.name.replace('Tiêu chuẩn ', '')}`)
+    }
 
     // Format date strings for Vietnamese display
     const happenDate = ev.dateHappen ? new Date(ev.dateHappen) : new Date()
@@ -694,7 +756,7 @@ apiRouter.get('/registrations/me/history', (req, res) => {
       timeHappen,
       dateHappen,
       status: uiStatus,
-      attendanceMethod: ev.attendanceMethod || 'STUDENT_PROOF',
+      attendanceMethod: ev.attendanceMethod || 'MANUAL',
       attendanceSessionType: ev.attendanceSessionType || 'BOTH',
       pointsCategory: benefits.length > 0 ? `ĐRL: +${benefits[0]}` : '',
       criteriaSv5t: criteria ? criteria.name : '',
@@ -784,25 +846,99 @@ apiRouter.patch('/registrations/me/events/:eventId/check-out', (req, res) => {
 
 apiRouter.get('/registrations/fanpage-member/fanpages/:fanpageId/events/:eventId/attendees', (req, res) => {
   const eventId = Number(req.params.eventId)
-  const registrations = getDb().get('registrations').filter({ eventId }).value() || []
-  const users = getDb().get('users').value() || []
+  const db = getDb()
+  let registrations = db.get('registrations').filter({ eventId }).value() || []
 
-  const attendees = registrations.map((r) => {
+  // If this event has no registrations yet in mock/db.json, fallback to event 2 registrations for demo display
+  if (registrations.length === 0) {
+    registrations = db.get('registrations').filter({ eventId: 2 }).value() || []
+  }
+
+  const users = db.get('users').value() || []
+  const studentProfiles = db.get('student_profiles').value() || []
+  const majors = db.get('majors').value() || []
+
+  const attendees = registrations.map((r, idx) => {
     const user = users.find((u) => u.id === r.userId) || {}
+    const profile = studentProfiles.find((sp) => sp.userId === r.userId) || {}
+    const major = majors.find((m) => m.id === profile.majorId) || {}
+
+    // Synchronize check-in status:
+    let status = r.status || 'APPROVED'
+    if (status === 'REGISTERED') {
+      if (r.checkInAt && r.checkOutAt) {
+        status = 'COMPLETED'
+      } else if (r.checkInAt) {
+        status = 'ENTRY_CHECKED'
+      } else {
+        status = 'APPROVED'
+      }
+    }
+
+    const regDateFormatted = r.regDate ? r.regDate.replace('T', ' ').substring(0, 16) : '2026-10-02 09:15'
+    const entryTime = r.checkInAt ? r.checkInAt.split('T')[1]?.substring(0, 5) : undefined
+    const exitTime = r.checkOutAt ? r.checkOutAt.split('T')[1]?.substring(0, 5) : undefined
+
     return {
-      userId: r.userId,
-      status: r.status,
-      regDate: r.regDate,
-      email: user.email || 'student@ctu.edu.vn',
-      firstName: user.firstName || 'Tài Lộc',
-      lastName: user.lastName || 'Đoàn',
-      gender: user.gender || 'MALE',
+      id: `reg-${r.userId}-${eventId}`,
+      userId: String(r.userId),
+      studentId: profile.studentId || `B2${idx}00${r.userId}`,
+      fullName: user.firstName && user.lastName ? `${user.lastName} ${user.firstName}` : (user.firstName || 'Sinh viên'),
+      major: major.name || 'Công nghệ Thông tin',
+      kNumber: profile.kNumber || 47,
+      email: user.email || `student${r.userId}@ctu.edu.vn`,
+      phone: user.phoneNumber || '0901 234 567',
       avatarUrl: user.avatarUrl,
+      registeredAt: regDateFormatted,
+      status: status,
+      entryCheckInTime: entryTime,
+      checkOutTime: exitTime,
+      evidenceUrl: r.checkInEvidenceUrl || r.checkOutEvidenceUrl || undefined,
+      startEvidenceUrl: r.checkInEvidenceUrl || undefined,
+      endEvidenceUrl: r.checkOutEvidenceUrl || undefined,
     }
   })
 
   return res.json(successEnvelope(attendees))
 })
+
+apiRouter.post('/registrations/fanpage-member/fanpages/:fanpageId/events/:eventId/finalize', (req, res) => {
+  const eventId = Number(req.params.eventId)
+  const { attendees } = req.body || {}
+  const db = getDb()
+
+  // Update registrations in db if attendees array is provided
+  if (Array.isArray(attendees)) {
+    attendees.forEach((att) => {
+      const uId = Number(att.userId)
+      const existing = db.get('registrations').find({ eventId, userId: uId }).value()
+      if (existing) {
+        db.get('registrations')
+          .find({ eventId, userId: uId })
+          .assign({
+            status: att.status === 'COMPLETED' ? 'COMPLETED' : 'ABSENTED',
+            checkInAt: att.entryCheckInTime ? `2026-10-12T${att.entryCheckInTime}:00Z` : existing.checkInAt,
+            checkOutAt: att.checkOutTime ? `2026-10-12T${att.checkOutTime}:00Z` : existing.checkOutAt,
+          })
+          .write()
+      }
+    })
+  }
+
+  // Update event status to CLOSED in db
+  const event = db.get('events').find({ id: eventId }).value()
+  if (event) {
+    db.get('events').find({ id: eventId }).assign({ status: 'CLOSED' }).write()
+  }
+
+  return res.json(
+    successEnvelope(
+      { eventId, status: 'CLOSED' },
+      'Cập nhật danh sách điểm danh và hoàn thành sự kiện thành công'
+    )
+  )
+})
+
 
 // -------------------------------------------------------------
 // 5. Fanpages Endpoints (/api/fanpages)
@@ -826,7 +962,15 @@ apiRouter.get('/fanpages/fanpage-admin/my-fanpages', (_req, res) => {
 
 apiRouter.get('/fanpages/fanpage-admin/invitations', (_req, res) => {
   const invitations = getDb().get('fanpage_invitations').value() || []
-  return res.json(successEnvelope(invitations))
+  const fanpages = getDb().get('fanpages').value() || []
+  const enriched = invitations.map((inv) => {
+    const fp = fanpages.find((f) => f.id === inv.fanpageId)
+    return {
+      ...inv,
+      avatarUrl: inv.avatarUrl || fp?.avatarUrl || null,
+    }
+  })
+  return res.json(successEnvelope(enriched))
 })
 
 apiRouter.patch('/fanpages/fanpage-admin/invitations/:id', (req, res) => {
@@ -839,6 +983,31 @@ apiRouter.patch('/fanpages/fanpage-admin/invitations/:id', (req, res) => {
   getDb().get('fanpage_invitations').find({ id }).assign({ status: status || 'ACCEPTED' }).write()
   return res.json(successEnvelope({ success: true, id, status: status || 'ACCEPTED' }, 'Cập nhật lời mời thành công'))
 })
+
+apiRouter.post('/fanpages/fanpage-admin/register', (req, res) => {
+  const { name, description, avatarUrl, orgType, orgName, parentOrg, helpContact, helpPhone } = req.body || {}
+  const db = getDb()
+  const nextId = (db.get('fanpages').map('id').value().sort((a, b) => b - a)[0] || 0) + 1
+  const newFanpage = {
+    id: nextId,
+    name: name || 'Fanpage mới',
+    description: description || '',
+    avatarUrl: avatarUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=120&auto=format&fit=crop&q=60',
+    status: 'PENDING',
+    orgType: orgType || 'CLUB',
+    orgName: orgName || name,
+    parentOrg: parentOrg || 'Trường Đại học Cần Thơ',
+    helpContact: helpContact || '',
+    helpPhone: helpPhone || '',
+    followersCount: 0,
+    eventsCount: 0,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  }
+  db.get('fanpages').push(newFanpage).write()
+  return res.json(successEnvelope(newFanpage, 'Gửi yêu cầu đăng ký fanpage thành công. Hồ sơ đang chờ phê duyệt.'))
+})
+
 
 apiRouter.get('/fanpages/:fanpageId', (req, res) => {
   const { fanpageId } = req.params
@@ -884,18 +1053,85 @@ apiRouter.get('/fanpages/:fanpageId/events', (req, res) => {
   return res.json(successEnvelope(makePageResponse(dtos, page, size)))
 })
 
-apiRouter.get('/fanpages/:fanpageId/members', (_req, res) => {
-  const memberDto = [
-    {
-      userId: 2,
-      email: 'organizer@ctu.edu.vn',
-      firstName: 'Minh Anh',
-      lastName: 'Nguyễn',
-      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
-      role: 'ADMIN',
-    },
-  ]
-  return res.json(successEnvelope(memberDto))
+apiRouter.get('/fanpages/:fanpageId/members', (req, res) => {
+  const { fanpageId } = req.params
+  const db = getDb()
+  const members = db.get('fanpage_members').filter({ fanpageId: Number(fanpageId), isActive: true }).value() || []
+  const dtos = members.map((m) => {
+    const user = db.get('users').find({ id: Number(m.userId) }).value() || {}
+    const studentProfile = db.get('student_profiles').find({ userId: Number(m.userId) }).value()
+    const staffProfile = db.get('fanpage_admin_profiles').find({ userId: Number(m.userId) }).value()
+    const fullName = `${user.lastName || ''} ${user.firstName || ''}`.trim() || 'Thành viên'
+    return {
+      id: `mem-${m.userId}`,
+      userId: String(m.userId),
+      staffId: studentProfile ? studentProfile.studentCode : (staffProfile ? staffProfile.staffId : `TV-${m.userId}`),
+      fullName,
+      email: user.email || '',
+      avatarText: fullName.substring(0, 2).toUpperCase(),
+      avatarUrl: user.avatarUrl || '',
+      role: m.role || 'COLLABORATOR',
+      title: m.role === 'ADMIN' ? 'Quản trị viên (Trưởng ban)' : 'Cộng tác viên ban tổ chức',
+      phone: user.phoneNumber || '0901234567',
+      joinedAt: m.createdAt ? m.createdAt.split('T')[0] : '2026-09-01',
+      isActive: m.isActive !== false,
+    }
+  })
+  return res.json(successEnvelope(dtos))
+})
+
+apiRouter.post('/fanpages/fanpage-admin/:fanpageId/add-member/:userId', (req, res) => {
+  const { fanpageId, userId } = req.params
+  const role = req.body?.role || 'COLLABORATOR'
+  const db = getDb()
+  const existing = db.get('fanpage_members').find({ fanpageId: Number(fanpageId), userId: Number(userId) }).value()
+  if (existing) {
+    db.get('fanpage_members').find({ fanpageId: Number(fanpageId), userId: Number(userId) }).assign({ isActive: true, role }).write()
+  } else {
+    db.get('fanpage_members').push({
+      fanpageId: Number(fanpageId),
+      userId: Number(userId),
+      role,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    }).write()
+  }
+  return res.json(successEnvelope(null, 'Thêm thành viên thành công'))
+})
+
+apiRouter.post('/fanpages/fanpage-admin/:fanpageId/remove-member/:userId', (req, res) => {
+  const { fanpageId, userId } = req.params
+  const db = getDb()
+  db.get('fanpage_members').remove({ fanpageId: Number(fanpageId), userId: Number(userId) }).write()
+  return res.json(successEnvelope(null, 'Xóa thành viên khỏi fanpage thành công'))
+})
+
+apiRouter.put('/fanpages/fanpage-admin/:fanpageId', (req, res) => {
+  const { fanpageId } = req.params
+  const db = getDb()
+  const fanpage = db.get('fanpages').find({ id: Number(fanpageId) }).value()
+  if (!fanpage) {
+    return res.status(404).json(errorEnvelope('Không tìm thấy fanpage', 'RESOURCE_NOT_FOUND'))
+  }
+  const updates = req.body || {}
+  const updatedFanpage = {
+    ...fanpage,
+    ...(updates.name && { name: updates.name }),
+    ...(updates.fullName && { orgName: updates.fullName }),
+    ...(updates.code && { code: updates.code }),
+    ...(updates.description !== undefined && { description: updates.description }),
+    ...(updates.avatarUrl !== undefined && { avatarUrl: updates.avatarUrl }),
+    ...(updates.helpContact !== undefined && { helpContact: updates.helpContact }),
+    ...(updates.email !== undefined && { helpContact: updates.email, email: updates.email }),
+    ...(updates.helpPhone !== undefined && { helpPhone: updates.helpPhone }),
+    ...(updates.phone !== undefined && { helpPhone: updates.phone, phone: updates.phone }),
+    ...(updates.address !== undefined && { address: updates.address }),
+    ...(updates.parentOrg !== undefined && { parentOrg: updates.parentOrg }),
+    ...(updates.orgType !== undefined && { orgType: updates.orgType }),
+    updatedAt: new Date().toISOString(),
+  }
+  db.get('fanpages').find({ id: Number(fanpageId) }).assign(updatedFanpage).write()
+  return res.json(successEnvelope(updatedFanpage, 'Cập nhật thông tin fanpage thành công'))
 })
 
 apiRouter.get('/fanpages/:fanpageId/activity-stats', (req, res) => {
@@ -970,6 +1206,10 @@ apiRouter.get('/academic-years/current', (_req, res) => {
 // 7. Training Point Categories & Criteria (/api/point-categories & /api/criterias)
 // -------------------------------------------------------------
 apiRouter.get('/point-categories', (_req, res) => {
+  const categories = getDb().get('point_categories').value() || []
+  return res.json(successEnvelope(categories))
+})
+apiRouter.get('/point_categories', (_req, res) => {
   const categories = getDb().get('point_categories').value() || []
   return res.json(successEnvelope(categories))
 })

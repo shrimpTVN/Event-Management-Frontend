@@ -156,13 +156,13 @@ export const FanpageDetailPage: React.FC = () => {
       {/* Main Container Layout: Sidebar flush left, main content centered and scrollable */}
       <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
         {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 pb-28 sm:pb-36 sidebar-scrollbar">
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pr-1 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
         {/* Center / Main Content: Fanpage Profile View */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto py-5 px-1 flex justify-center custom-scrollbar">
-          <div className="w-full max-w-5xl flex flex-col gap-5 pb-28 sm:pb-36">
+        <main className="flex-1 min-w-0 h-full overflow-y-auto pt-4 pb-5 px-1 flex justify-center custom-scrollbar">
+          <div className="w-full max-w-5xl flex flex-col gap-3.5 pb-28 sm:pb-36">
             {isLoadingFanpage ? (
               <div className="w-full rounded-2xl border border-border bg-card p-12 flex flex-col items-center justify-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -178,14 +178,14 @@ export const FanpageDetailPage: React.FC = () => {
                 />
 
                 {/* 2. Two-Column Layout (About Column + Event Feed Column) */}
-                <div className="w-full flex flex-col lg:flex-row items-start gap-5">
-                  {/* Left Column: Giới thiệu (Figma width: 340px) */}
-                  <div className="w-full lg:w-[340px] shrink-0">
+                <div className="w-full flex flex-col lg:flex-row items-start gap-4">
+                  {/* Left Column: Giới thiệu (Figma width: 340px) - Sticky on scroll, aligned horizontally with sidebars */}
+                  <div className="w-full lg:w-[340px] shrink-0 lg:sticky lg:top-0 self-start">
                     <FanpageAboutCard fanpage={fanpage} />
                   </div>
 
                   {/* Right Column: Sự kiện (Feed) */}
-                  <div className="flex-1 min-w-0 w-full flex flex-col gap-4">
+                  <div className="flex-1 min-w-0 w-full flex flex-col gap-3.5">
                     {/* Section Header: Title + Bộ lọc button */}
                     <div className="flex items-center justify-between gap-3 px-1">
                       <h2 className="font-k2d font-medium text-lg text-foreground tracking-tight">

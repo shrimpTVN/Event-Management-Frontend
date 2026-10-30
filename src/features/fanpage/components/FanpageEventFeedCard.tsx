@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import type { FanpagePublicEventPost } from '../types/fanpage.types'
 import { RegisterButton } from '@/features/events'
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
 
 interface FanpageEventFeedCardProps {
   post: FanpagePublicEventPost
@@ -47,9 +48,12 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             className="h-10 w-10 rounded-full object-cover border border-border/80 shrink-0"
           />
           <div className="min-w-0">
-            <h4 className="font-semibold text-sm text-foreground line-clamp-1 hover:text-primary transition-colors cursor-pointer">
-              {post.authorName}
-            </h4>
+            <div className="flex items-center gap-1 min-w-0">
+              <h4 className="font-semibold text-sm text-foreground line-clamp-1 hover:text-primary transition-colors cursor-pointer">
+                {post.authorName}
+              </h4>
+              <VerifiedBadge className="h-4 w-4 shrink-0" />
+            </div>
             <div className="text-xs text-muted-foreground mt-0.5">
               {post.timeAgo}
             </div>
@@ -213,7 +217,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             eventTitle={post.title}
             isRegistered={Boolean(post.isFollowingAuthor && false)}
             disabled={!post.canRegister}
-            className="w-[139px]"
+            className="min-w-[120px] whitespace-nowrap"
           />
         </div>
       </div>

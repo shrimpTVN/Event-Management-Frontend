@@ -5,11 +5,12 @@ import type { UpcomingEventReminder } from '../types/fanpageAdmin.types'
 
 interface FanpageQuickCreateCardProps {
   reminder?: UpcomingEventReminder
+  onCreateEvent?: () => void
 }
 
-export const FanpageQuickCreateCard: React.FC<FanpageQuickCreateCardProps> = ({ reminder }) => {
+export const FanpageQuickCreateCard: React.FC<FanpageQuickCreateCardProps> = ({ reminder, onCreateEvent }) => {
   return (
-    <div className="w-full bg-white dark:bg-card rounded-2xl border border-[#E5E7EB] dark:border-border p-5 shadow-xs space-y-4 text-left">
+    <div className="w-full bg-white dark:bg-card rounded-xl border border-border/50 dark:border-border/60 p-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] space-y-4 text-left">
       {/* Header */}
       <div className="space-y-0.5">
         <h3 className="font-k2d font-bold text-base text-[#0B1626] dark:text-foreground">
@@ -46,13 +47,24 @@ export const FanpageQuickCreateCard: React.FC<FanpageQuickCreateCardProps> = ({ 
       )}
 
       {/* CTA Button */}
-      <Link
-        to="/events/create"
-        className="w-full h-10 rounded-xl bg-[#1B4B8A] hover:bg-[#1E40AF] text-white font-semibold text-xs transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-      >
-        <Plus className="h-4 w-4" />
-        <span>Tạo sự kiện</span>
-      </Link>
+      {onCreateEvent ? (
+        <button
+          type="button"
+          onClick={onCreateEvent}
+          className="w-full h-10 rounded-xl bg-[#1B4B8A] hover:bg-[#1E40AF] text-white font-semibold text-xs transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Tạo sự kiện</span>
+        </button>
+      ) : (
+        <Link
+          to="/fanpage/admin?tab=create-event"
+          className="w-full h-10 rounded-xl bg-[#1B4B8A] hover:bg-[#1E40AF] text-white font-semibold text-xs transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Tạo sự kiện</span>
+        </Link>
+      )}
     </div>
   )
 }

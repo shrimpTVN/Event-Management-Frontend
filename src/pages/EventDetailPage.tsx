@@ -1,13 +1,32 @@
 import React, { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Loader2, CalendarDays } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { EventFeedCard, StudentLeftSidebar, eventService, type Event } from '@/features/events'
+import {
+  EventFeedCard,
+  StudentLeftSidebar,
+  StudentRightSidebar,
+  eventService,
+  type Event,
+} from '@/features/events'
 
 export const EventDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
+
+  const handleGoBack = () => {
+    const from = (location.state as { from?: string } | undefined)?.from
+    if (from) {
+      navigate(from)
+    } else if (window.history.length > 1) {
+      navigate(-1)
+    } else {
+      navigate('/')
+    }
+  }
 
   const { data: event, isLoading, error } = useQuery({
     queryKey: ['events', id],
@@ -64,20 +83,21 @@ export const EventDetailPage: React.FC = () => {
 
       <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
         {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 sidebar-scrollbar">
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pr-1 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
         {/* Center / Main Content */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto py-5 px-1 flex justify-center custom-scrollbar">
+        <main className="flex-1 min-w-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-1 flex justify-center custom-scrollbar">
           <div className="w-full max-w-[680px] flex flex-col gap-4 pb-16">
-            <Link
-              to="/history"
-              className="inline-flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors self-start"
+            <button
+              type="button"
+              onClick={handleGoBack}
+              className="inline-flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors self-start cursor-pointer group"
             >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Quay lại Lịch sử tham gia</span>
-            </Link>
+              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+              <span>Quay lại</span>
+            </button>
 
             {isLoading ? (
               <div className="w-full rounded-2xl border border-border bg-card p-12 flex flex-col items-center justify-center gap-3">
@@ -103,16 +123,22 @@ export const EventDetailPage: React.FC = () => {
                     ? 'Không thể tải chi tiết sự kiện này hoặc sự kiện đã bị xóa.'
                     : 'Sự kiện không tồn tại hoặc bạn không có quyền xem.'}
                 </p>
-                <Link
-                  to="/history"
-                  className="mt-3 px-4 py-2 text-xs font-semibold text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors"
+                <button
+                  type="button"
+                  onClick={handleGoBack}
+                  className="mt-3 px-4 py-2 text-xs font-semibold text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
                 >
-                  Quay lại Lịch sử tham gia
-                </Link>
+                  Quay lại
+                </button>
               </div>
             )}
           </div>
         </main>
+
+        {/* Right Column: Training Points Progress & Calendar Widget (Matching HomePage & FanpageDetail to center the main content) */}
+        <aside className="hidden lg:block w-[256px] min-w-[256px] max-w-[256px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pl-3 pr-1 ml-3 sidebar-scrollbar">
+          <StudentRightSidebar />
+        </aside>
       </div>
     </div>
   )

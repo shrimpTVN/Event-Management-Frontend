@@ -273,7 +273,10 @@ export const EventHistoryPage: React.FC = () => {
                   ))}
                 </div>
               ) : filteredEvents.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div
+                  key={activeStatus}
+                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-in fade-in-50 slide-in-from-bottom-1 duration-200 ease-out"
+                >
                   {filteredEvents.map((evt, idx) => (
                     <RegisteredEventCard
                       key={evt.id || evt.eventId || idx}

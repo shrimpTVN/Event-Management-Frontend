@@ -37,7 +37,7 @@ export const HistoryTabBar: React.FC<HistoryTabBarProps> = ({
             key={tab.id}
             type="button"
             onClick={() => onStatusChange(tab.id)}
-            className={`px-5 py-2.5 text-sm transition-all cursor-pointer whitespace-nowrap select-none flex items-center gap-1.5 ${
+            className={`px-5 py-2.5 text-sm transition-all duration-200 ease-out cursor-pointer whitespace-nowrap select-none flex items-center gap-1.5 ${
               isActive
                 ? 'bg-white dark:bg-card text-foreground font-semibold rounded-t-xl border-t border-x border-[#E5E7EB] dark:border-border shadow-2xs pb-3'
                 : 'text-muted-foreground hover:text-foreground font-medium bg-transparent hover:bg-black/5 dark:hover:bg-white/5 rounded-t-lg'

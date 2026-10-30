@@ -1,7 +1,18 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, UploadCloud, Info, CheckCircle2, FileText, Trash2, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, UploadCloud, CheckCircle2, FileText, Trash2, Camera, Upload } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 const UNIT_TYPES = [
   'Khoa / Viện đào tạo',
@@ -12,31 +23,49 @@ const UNIT_TYPES = [
 ]
 
 const MANAGING_FACULTIES = [
-  'Khoa Môi trường và Tài nguyên Thiên nhiên',
   'Trường Công nghệ Thông tin và Truyền thông',
   'Trường Bách Khoa',
   'Trường Kinh tế',
   'Trường Nông nghiệp',
+  'Trường Sư phạm',
   'Khoa Khoa học Tự nhiên',
+  'Khoa Môi trường và Tài nguyên Thiên nhiên',
   'Phòng Công tác Sinh viên (CTSV)',
   'Đoàn Thanh niên - Hội Sinh viên CTU',
+  'Trường Đại học Cần Thơ',
 ]
 
 export const FanpageRegistrationForm: React.FC = () => {
   const navigate = useNavigate()
   const { user } = useAuthStore()
 
-  const [fanpageName, setFanpageName] = useState(
-    'Fanpage Khoa Môi trường và Tài nguyên Thiên nhiên'
-  )
-  const [unitType, setUnitType] = useState('Khoa / Viện đào tạo')
-  const [managingUnit, setManagingUnit] = useState('Khoa Môi trường và Tài nguyên Thiên nhiên')
-  const [description, setDescription] = useState(
-    'Kênh thông tin chính thức của Khoa Môi trường và Tài nguyên Thiên nhiên, cập nhật hoạt động học thuật, nghiên cứu, tuyển sinh và các sự kiện dành cho sinh viên CTU.'
-  )
+  // Form states mapping directly to schema.sql & API DTO
+  const [fanpageName, setFanpageName] = useState('')
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string>('')
+  const [unitType, setUnitType] = useState('Câu lạc bộ / Đội / Nhóm')
+  const [parentOrg, setParentOrg] = useState('Trường Công nghệ Thông tin và Truyền thông')
+  const [orgName, setOrgName] = useState('')
+  const [helpEmail, setHelpEmail] = useState('')
+  const [helpPhone, setHelpPhone] = useState('')
+  const [description, setDescription] = useState('')
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setAvatarFile(file)
+      const preview = URL.createObjectURL(file)
+      setAvatarPreview(preview)
+    }
+  }
+
+  const handleRemoveAvatar = () => {
+    setAvatarFile(null)
+    setAvatarPreview('')
+  }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -52,6 +81,9 @@ export const FanpageRegistrationForm: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    if (avatarFile) {
+      void avatarFile.name
+    }
     setTimeout(() => {
       setIsSubmitting(false)
       setIsSuccess(true)
@@ -69,18 +101,18 @@ export const FanpageRegistrationForm: React.FC = () => {
             Đã gửi yêu cầu đăng ký fanpage!
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Hồ sơ thành lập <span className="font-semibold text-foreground">"{fanpageName}"</span> đã
-            được gửi đến Ban Truyền thông CTU để thẩm định trong 03 ngày làm việc. Kết quả sẽ được
-            thông báo qua email của bạn.
+            Hồ sơ thành lập <span className="font-semibold text-foreground">"{fanpageName || 'Fanpage mới'}"</span> đã
+            được gửi đến Ban Quản trị hệ thống CTU để thẩm định trong 03 ngày làm việc. Kết quả sẽ được
+            thông báo qua email <span className="font-medium text-foreground">{user?.email || helpEmail || 'của bạn'}</span>.
           </p>
           <div className="pt-2">
-            <button
+            <Button
               type="button"
               onClick={() => navigate('/staff/fanpages')}
-              className="px-6 h-11 rounded-lg bg-[#1B4B8A] text-white font-semibold text-sm hover:bg-[#1E40AF] transition-colors"
+              className="px-6 h-10"
             >
-              Về trung tâm quản lý fanpage
-            </button>
+              Về danh sách fanpage
+            </Button>
           </div>
         </div>
       </div>
@@ -90,7 +122,7 @@ export const FanpageRegistrationForm: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#F0F2F5] dark:bg-background py-8 px-4 sm:px-6 lg:px-8 flex flex-col justify-between">
       <div className="max-w-[1200px] mx-auto w-full space-y-4">
-        {/* Top Back Navigation (Figma: Điều hướng bước [1200x20]) */}
+        {/* Top Back Navigation */}
         <div>
           <button
             type="button"
@@ -98,164 +130,231 @@ export const FanpageRegistrationForm: React.FC = () => {
             className="inline-flex items-center gap-2 text-sm font-medium text-[#4B5563] dark:text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span>Quay lại chọn fanpage</span>
+            <span>Quay lại danh sách fanpage</span>
           </button>
         </div>
 
-        {/* Lưu ý xét duyệt banner (Figma: Lưu ý xét duyệt [1200x76]) */}
-        <div className="flex items-start gap-3.5 p-4 sm:p-5 rounded-2xl bg-white dark:bg-card border border-[#E5E7EB] dark:border-border shadow-xs text-left">
-          <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
-            <Info className="h-5 w-5" />
-          </div>
-          <div className="space-y-0.5">
-            <h3 className="font-bold text-sm text-[#0B1626] dark:text-foreground">
-              Fanpage chỉ được kích hoạt sau khi hồ sơ được phê duyệt
-            </h3>
-            <p className="text-xs text-[#4B5563] dark:text-muted-foreground leading-relaxed">
-              Ban Truyền thông & Quản trị hệ thống CTU sẽ thẩm định thông tin, đơn vị quản lý và minh chứng trong 03 ngày làm việc.
-            </p>
-          </div>
-        </div>
-
-        {/* Main Form Card (Figma: Phiếu đăng ký [1200x1372]) */}
+        {/* Main Form Card */}
         <div className="w-full bg-white dark:bg-card rounded-2xl border border-[#E5E7EB] dark:border-border p-6 sm:p-10 shadow-sm space-y-8 text-left">
-          {/* Header Title & Subtitle */}
+          {/* Card Header */}
           <div className="pb-6 border-b border-[#F3F4F6] dark:border-border">
             <h1 className="font-k2d font-bold text-2xl sm:text-3xl text-[#0B1626] dark:text-foreground tracking-tight">
               Đăng ký thành lập fanpage mới
             </h1>
-            <p className="font-sans text-sm text-[#4B5563] dark:text-muted-foreground mt-2 leading-relaxed">
-              Cung cấp thông tin chính xác để fanpage được định danh trên Cổng sự kiện CTU và sẵn sàng quản lý sự kiện sau khi phê duyệt.
+            <p className="font-sans text-sm text-[#4B5563] dark:text-muted-foreground mt-1.5 leading-relaxed">
+              Cung cấp thông tin để gửi hồ sơ thành lập fanpage trên Cổng sự kiện CTU. Ban Quản trị hệ thống sẽ thẩm định hồ sơ trong 03 ngày làm việc.
             </p>
           </div>
 
-          {/* Quy trình xét duyệt (Steppers: 01, 02, 03) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl bg-[#F9FAFB] dark:bg-background border border-[#E5E7EB] dark:border-border">
-            {/* Step 1 */}
-            <div className="flex items-center gap-3">
-              <span className="font-k2d font-bold text-xl text-primary shrink-0">01</span>
-              <div>
-                <p className="text-xs font-bold text-foreground">Tiếp nhận hồ sơ</p>
-                <p className="text-[11px] text-muted-foreground">Ngay sau khi gửi</p>
+          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+            {/* THÔNG TIN NGƯỜI ĐĂNG KÝ HỒ SƠ */}
+            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-muted/40 border border-[#E5E7EB] dark:border-border text-xs">
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt=""
+                  className="h-9 w-9 rounded-full object-cover border border-[#E5E7EB] shrink-0"
+                />
+              ) : (
+                <div className="h-9 w-9 rounded-full bg-primary text-white font-bold text-xs flex items-center justify-center shrink-0">
+                  {(user?.name || 'CB').substring(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-foreground text-sm truncate">{user?.name || 'Nguyễn Minh Anh'}</span>
+                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold shrink-0">
+                    Người đăng ký
+                  </span>
+                </div>
+                <p className="text-muted-foreground truncate">{user?.email || 'canbo@ctu.edu.vn'}</p>
               </div>
             </div>
 
-            {/* Step 2 */}
-            <div className="flex items-center gap-3 md:border-l md:border-[#E5E7EB] md:dark:border-border md:pl-4">
-              <span className="font-k2d font-bold text-xl text-primary shrink-0">02</span>
-              <div>
-                <p className="text-xs font-bold text-foreground">Thẩm định thông tin</p>
-                <p className="text-[11px] text-muted-foreground">Trong 03 ngày làm việc</p>
+            {/* KHU VỰC LOGO / ẢNH ĐẠI DIỆN FANPAGE (THIẾT KẾ GỌN GÀNG, KHÔNG DÙNG HỘP DOTTED TO TRỐNG) */}
+            <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-xl border border-[#E5E7EB] dark:border-border bg-white dark:bg-card">
+              <div className="relative shrink-0">
+                <div className="h-20 w-20 rounded-full border border-[#D1D5DB] dark:border-border bg-[#F9FAFB] dark:bg-muted overflow-hidden flex items-center justify-center shadow-xs">
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="Logo fanpage" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-muted-foreground/70">
+                      <Camera className="h-6 w-6 mb-1 text-primary/70" />
+                      <span className="text-[10px] font-medium">Logo</span>
+                    </div>
+                  )}
+                </div>
+                <label
+                  title="Tải ảnh lên"
+                  className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-[#1B4B8A] hover:bg-[#1E40AF] text-white shadow-md cursor-pointer transition-transform hover:scale-110 flex items-center justify-center"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    onChange={handleAvatarFileChange}
+                    className="hidden"
+                  />
+                </label>
               </div>
-            </div>
 
-            {/* Step 3 */}
-            <div className="flex items-center gap-3 md:border-l md:border-[#E5E7EB] md:dark:border-border md:pl-4">
-              <span className="font-k2d font-bold text-xl text-primary shrink-0">03</span>
-              <div>
-                <p className="text-xs font-bold text-foreground">Phê duyệt & kích hoạt</p>
-                <p className="text-[11px] text-muted-foreground">Thông báo qua email CTU</p>
-              </div>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-8" noValidate>
-            {/* NHÓM I: THÔNG TIN FANPAGE */}
-            <div className="space-y-5">
-              <div className="flex items-center gap-2 border-b border-[#F3F4F6] dark:border-border pb-3">
-                <span className="font-k2d font-bold text-base text-primary">I</span>
-                <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-[#0B1626] dark:text-foreground">
-                    Thông tin fanpage
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    Thông tin này sẽ hiển thị trên danh sách fanpage và hồ sơ sự kiện công khai.
-                  </p>
+              <div className="space-y-1 text-center sm:text-left flex-1 min-w-0">
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                  <span className="font-semibold text-sm text-foreground">Ảnh đại diện / Logo fanpage</span>
+                  <span className="text-xs text-muted-foreground">(Không bắt buộc)</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Định dạng hỗ trợ: PNG, JPG, WEBP • Kích thước tối đa 5 MB.
+                </p>
+                <div className="pt-1 flex items-center justify-center sm:justify-start gap-2">
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-[#D1D5DB] dark:border-border bg-white dark:bg-background hover:bg-muted text-xs font-semibold text-foreground cursor-pointer shadow-2xs transition-colors">
+                    <Upload className="h-3.5 w-3.5 text-primary" />
+                    <span>{avatarPreview ? 'Đổi ảnh khác' : 'Chọn ảnh từ thiết bị'}</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg,image/webp"
+                      onChange={handleAvatarFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                  {avatarPreview && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      className="px-2.5 py-1 rounded-md text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                    >
+                      Xóa ảnh
+                    </button>
+                  )}
                 </div>
               </div>
+            </div>
 
+            {/* LƯỚI CÁC TRƯỜNG NHẬP LIỆU (2 CỘT CÂN XỨNG) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Tên fanpage */}
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-foreground">
+              <div className="space-y-2">
+                <Label htmlFor="fanpageName">
                   Tên fanpage <span className="text-destructive">*</span>
-                </label>
-                <input
-                  type="text"
+                </Label>
+                <Input
+                  id="fanpageName"
                   required
                   value={fanpageName}
                   onChange={(e) => setFanpageName(e.target.value)}
-                  placeholder="Nhập tên fanpage chính thức"
-                  className="w-full h-11 px-3.5 rounded-lg border border-[#D1D5DB] dark:border-border bg-[#F9FAFB] dark:bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  placeholder="Ví dụ: CLB Sáng tạo Trẻ CTU, Đoàn Khoa KHTN..."
                 />
-                <p className="text-xs text-muted-foreground">
-                  Nên dùng tên chính thức của khoa, đơn vị hoặc tổ chức trực thuộc CTU.
-                </p>
               </div>
 
-              {/* Hàng 2 cột: Loại hình & Khoa quản lý */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
-                    Loại hình đơn vị <span className="text-destructive">*</span>
-                  </label>
-                  <select
-                    value={unitType}
-                    onChange={(e) => setUnitType(e.target.value)}
-                    className="w-full h-11 px-3.5 rounded-lg border border-[#D1D5DB] dark:border-border bg-[#F9FAFB] dark:bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  >
+              {/* Loại hình tổ chức */}
+              <div className="space-y-2">
+                <Label>
+                  Loại hình tổ chức <span className="text-destructive">*</span>
+                </Label>
+                <Select value={unitType} onValueChange={setUnitType}>
+                  <SelectTrigger className="h-10 border-[#D1D5DB] dark:border-border bg-white dark:bg-background">
+                    <SelectValue placeholder="Chọn loại hình" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-card border border-[#E5E7EB] dark:border-border shadow-md">
                     {UNIT_TYPES.map((t) => (
-                      <option key={t} value={t}>
+                      <SelectItem key={t} value={t}>
                         {t}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
-                </div>
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
-                    Khoa / đơn vị quản lý <span className="text-destructive">*</span>
-                  </label>
-                  <select
-                    value={managingUnit}
-                    onChange={(e) => setManagingUnit(e.target.value)}
-                    className="w-full h-11 px-3.5 rounded-lg border border-[#D1D5DB] dark:border-border bg-[#F9FAFB] dark:bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  >
+              {/* Tên đơn vị trực tiếp */}
+              <div className="space-y-2">
+                <Label htmlFor="orgName">
+                  Tên đơn vị trực tiếp <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="orgName"
+                  required
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                  placeholder="Ví dụ: Ban Chủ nhiệm CLB Sáng tạo Trẻ, Liên chi đoàn..."
+                />
+              </div>
+
+              {/* Đơn vị chủ quản cấp trên */}
+              <div className="space-y-2">
+                <Label>
+                  Đơn vị chủ quản cấp trên <span className="text-destructive">*</span>
+                </Label>
+                <Select value={parentOrg} onValueChange={setParentOrg}>
+                  <SelectTrigger className="h-10 border-[#D1D5DB] dark:border-border bg-white dark:bg-background">
+                    <SelectValue placeholder="Chọn đơn vị chủ quản" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-card border border-[#E5E7EB] dark:border-border shadow-md">
                     {MANAGING_FACULTIES.map((u) => (
-                      <option key={u} value={u}>
+                      <SelectItem key={u} value={u}>
                         {u}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
-                </div>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Email liên hệ */}
+              <div className="space-y-2">
+                <Label htmlFor="helpEmail">
+                  Email liên hệ chính thức <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="helpEmail"
+                  type="email"
+                  required
+                  value={helpEmail}
+                  onChange={(e) => setHelpEmail(e.target.value)}
+                  placeholder="Ví dụ: clb.sangtaotre@ctu.edu.vn"
+                />
+              </div>
+
+              {/* Số điện thoại hỗ trợ */}
+              <div className="space-y-2">
+                <Label htmlFor="helpPhone">
+                  Số điện thoại liên hệ <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="helpPhone"
+                  type="tel"
+                  required
+                  value={helpPhone}
+                  onChange={(e) => setHelpPhone(e.target.value)}
+                  placeholder="Ví dụ: 0292 387 2254 hoặc 0912 345 678"
+                />
               </div>
 
               {/* Mô tả fanpage */}
-              <div className="space-y-1.5">
+              <div className="space-y-2 md:col-span-2">
                 <div className="flex items-center justify-between">
-                  <label className="block text-sm font-medium text-foreground">
-                    Mô tả fanpage <span className="text-destructive">*</span>
-                  </label>
+                  <Label htmlFor="description">
+                    Mô tả hoạt động fanpage <span className="text-destructive">*</span>
+                  </Label>
                   <span className="text-xs text-muted-foreground font-mono">
                     {description.length} / 500 ký tự
                   </span>
                 </div>
-                <textarea
+                <Textarea
+                  id="description"
                   required
-                  rows={4}
+                  rows={3}
                   maxLength={500}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Mô tả mục đích hoạt động của fanpage..."
-                  className="w-full p-3.5 rounded-lg border border-[#D1D5DB] dark:border-border bg-[#F9FAFB] dark:bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                  placeholder="Mô tả mục đích hoạt động, đối tượng hướng tới và các chương trình sự kiện chính..."
                 />
               </div>
 
-              {/* Minh chứng thành lập / văn bản ủy quyền */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-foreground">
-                  Minh chứng thành lập / văn bản ủy quyền <span className="text-destructive">*</span>
-                </label>
-                <div className="relative border-2 border-dashed border-[#D1D5DB] dark:border-border rounded-xl p-6 text-center hover:bg-muted/30 transition-colors flex flex-col items-center justify-center cursor-pointer">
+              {/* Minh chứng thành lập */}
+              <div className="space-y-2 md:col-span-2">
+                <Label>
+                  Minh chứng thành lập / quyết định ủy quyền <span className="text-destructive">*</span>
+                </Label>
+                <div className="relative border-2 border-dashed border-[#D1D5DB] dark:border-border rounded-xl p-5 text-center hover:bg-muted/30 transition-colors flex flex-col items-center justify-center cursor-pointer">
                   <input
                     type="file"
                     multiple
@@ -263,18 +362,18 @@ export const FanpageRegistrationForm: React.FC = () => {
                     onChange={handleFileUpload}
                     className="absolute inset-0 opacity-0 cursor-pointer"
                   />
-                  <UploadCloud className="h-8 w-8 text-primary mb-2" />
+                  <UploadCloud className="h-7 w-7 text-primary mb-1.5" />
                   <p className="text-sm font-semibold text-foreground">
-                    Kéo thả tệp vào đây hoặc chọn tệp từ máy tính
+                    Kéo thả tệp vào đây hoặc chọn tệp từ thiết bị
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    PDF, DOCX, JPG hoặc PNG • Tối đa 10 MB • Tối đa 05 tệp
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Định dạng: PDF, DOCX, JPG, PNG • Tối đa 10 MB/tệp (tối đa 5 tệp)
                   </p>
                 </div>
 
-                {/* Uploaded files preview */}
+                {/* Danh sách tệp đã tải lên */}
                 {uploadedFiles.length > 0 && (
-                  <div className="space-y-2 pt-2">
+                  <div className="space-y-2 pt-1">
                     {uploadedFiles.map((f, i) => (
                       <div
                         key={i}
@@ -290,7 +389,7 @@ export const FanpageRegistrationForm: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleRemoveFile(i)}
-                          className="text-muted-foreground hover:text-destructive p-1"
+                          className="text-muted-foreground hover:text-destructive p-1 cursor-pointer"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -301,99 +400,28 @@ export const FanpageRegistrationForm: React.FC = () => {
               </div>
             </div>
 
-            {/* NHÓM II: NGƯỜI ĐẠI DIỆN CHỊU TRÁCH NHIỆM */}
-            <div className="space-y-5">
-              <div className="flex items-center gap-2 border-b border-[#F3F4F6] dark:border-border pb-3">
-                <span className="font-k2d font-bold text-base text-primary">II</span>
-                <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-[#0B1626] dark:text-foreground">
-                    Người đại diện chịu trách nhiệm
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    Thông tin dùng để xác minh hồ sơ và liên hệ khi cần bổ sung nội dung.
-                  </p>
-                </div>
-              </div>
-
-              {/* Tóm tắt người đại diện Card */}
-              <div className="p-5 rounded-xl border border-[#E5E7EB] dark:border-border bg-[#F9FAFB] dark:bg-background/60 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3.5">
-                    <div className="h-12 w-12 rounded-full bg-primary text-primary-foreground font-k2d font-bold text-base flex items-center justify-center shadow-xs shrink-0">
-                      NMA
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-base text-foreground">
-                          {user?.name || 'Nguyễn Minh Anh'}
-                        </h4>
-                        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold">
-                          Tài khoản đang đăng ký
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Vai trò hệ thống: <span className="font-medium text-foreground">Cán bộ</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="hidden sm:flex items-center gap-3 text-xs font-semibold">
-                    <button type="button" className="text-primary hover:underline">
-                      Xem hồ sơ
-                    </button>
-                    <span className="text-muted-foreground">•</span>
-                    <button type="button" className="text-primary hover:underline">
-                      Cập nhật hồ sơ
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-[#E5E7EB] dark:border-border text-xs">
-                  <div>
-                    <span className="text-muted-foreground">Loại tài khoản:</span>{' '}
-                    <span className="font-medium text-foreground">Cán bộ</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Email:</span>{' '}
-                    <span className="font-medium text-foreground">{user?.email || 'minhanh@ctu.edu.vn'}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Đơn vị / lớp:</span>{' '}
-                    <span className="font-medium text-foreground">Khoa Môi trường và Tài nguyên Thiên nhiên</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Thông báo vai trò mặc định */}
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs">
-                <ShieldCheck className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                <p className="text-amber-900 dark:text-amber-200 leading-relaxed font-medium">
-                  <span className="font-bold">Admin mặc định:</span> Người tạo fanpage sẽ được mặc định là Admin và có toàn quyền quản lý fanpage sau khi hồ sơ được phê duyệt.
-                </p>
-              </div>
-            </div>
-
             {/* Bottom Actions Row */}
-            <div className="pt-6 border-t border-[#E5E7EB] dark:border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="pt-6 border-t border-[#F3F4F6] dark:border-border flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-xs text-[#6B7280] dark:text-muted-foreground">
-                Thông tin chỉ được lưu khi bạn gửi yêu cầu đăng ký.
+                Hồ sơ sẽ được chuyển đến Ban Quản trị hệ thống CTU để xét duyệt.
               </p>
 
               <div className="flex items-center gap-3 w-full sm:w-auto">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => navigate('/staff/fanpages')}
-                  className="w-full sm:w-auto px-6 h-11 rounded-lg border border-[#D1D5DB] dark:border-border text-foreground hover:bg-[#F9FAFB] dark:hover:bg-muted font-medium text-sm transition-colors cursor-pointer"
+                  className="w-full sm:w-auto px-6 h-10"
                 >
                   Hủy
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full sm:w-auto px-7 h-11 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white font-semibold text-sm transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shrink-0"
+                  className="w-full sm:w-auto px-6 h-10"
                 >
                   {isSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu đăng ký'}
-                </button>
+                </Button>
               </div>
             </div>
           </form>
