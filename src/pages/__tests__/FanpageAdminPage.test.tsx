@@ -59,7 +59,8 @@ describe('FanpageAdminPage', () => {
     )
 
     // Check that dynamic fanpage and post are loaded
-    expect(await screen.findByText('Fanpage Quản Trị Hệ Thống Mock Test')).toBeInTheDocument()
+    const matchedNames = await screen.findAllByText('Fanpage Quản Trị Hệ Thống Mock Test')
+    expect(matchedNames[0]).toBeInTheDocument()
     expect(await screen.findByText('SỰ KIỆN TEST HOÀN CHỈNH')).toBeInTheDocument()
   })
 })

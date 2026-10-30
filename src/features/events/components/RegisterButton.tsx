@@ -183,21 +183,21 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
     e.stopPropagation()
     e.preventDefault()
 
-    if (disabled || isLoading) return
+    if (isLoading) return
 
     if (isRegistered) {
-      // Toggle dropdown overlay
+      // Toggle dropdown overlay (always allowed for registered users)
       setIsOpen((prev) => !prev)
-    } else {
+    } else if (!disabled) {
       handleRegister()
     }
   }
 
   // Sizing styles
   const sizeClasses = {
-    sm: 'h-7 px-3 text-xs',
-    md: 'h-8 px-4 text-xs sm:text-sm',
-    lg: 'h-9 sm:h-10 px-5 text-sm font-semibold',
+    sm: 'h-7 px-2.5 text-xs whitespace-nowrap',
+    md: 'h-8 px-3 text-xs whitespace-nowrap',
+    lg: 'h-9 sm:h-10 px-4 text-sm font-semibold whitespace-nowrap',
   }[size]
 
   return (
@@ -207,20 +207,20 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
         ref={buttonRef}
         type="button"
         onClick={handleButtonClick}
-        disabled={disabled || isLoading}
-        className={`inline-flex items-center justify-center gap-2 rounded-[6px] font-semibold font-heading transition-all duration-150 shadow-2xs cursor-pointer focus:outline-none ${sizeClasses} ${
-          disabled
-            ? 'bg-[#E5E7EB] dark:bg-muted text-[#9CA3AF] cursor-not-allowed shadow-none'
-            : isLoading
+        disabled={isLoading || (!isRegistered && disabled)}
+        className={`inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold font-heading transition-all duration-150 shadow-2xs whitespace-nowrap focus:outline-none ${sizeClasses} ${
+          isLoading
             ? 'bg-[#72A8DE] hover:bg-[#72A8DE] text-white cursor-wait'
             : isRegistered
-            ? 'bg-[#16834A] hover:bg-[#137240] active:bg-[#0f5c33] text-white focus:ring-2 focus:ring-[#16834A]/40'
-            : 'bg-[#1F5CA9] hover:bg-[#1B4B8A] active:bg-[#1B406F] text-white focus:ring-2 focus:ring-[#00AFF0]'
+            ? 'bg-[#16A34A] hover:bg-[#15803D] active:bg-[#166534] text-white cursor-pointer shadow-xs focus:ring-2 focus:ring-[#16A34A]/40'
+            : disabled
+            ? 'bg-[#F3F4F6] dark:bg-muted text-[#6B7280] dark:text-muted-foreground border border-[#E5E7EB] dark:border-border cursor-not-allowed shadow-none'
+            : 'bg-[#1F5CA9] hover:bg-[#1B4B8A] active:bg-[#1B406F] text-white cursor-pointer focus:ring-2 focus:ring-[#00AFF0]'
         } ${className}`}
       >
         {isLoading ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin shrink-0 text-white" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-white" />
             <span>Đang xử lý</span>
           </>
         ) : isRegistered ? (
@@ -232,6 +232,8 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
               <ChevronDown className="h-3.5 w-3.5 shrink-0 stroke-[2.5]" />
             )}
           </>
+        ) : disabled ? (
+          <span>Hết lượt đăng ký</span>
         ) : (
           <span>Đăng ký ngay</span>
         )}
@@ -245,7 +247,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
           <div
             ref={menuRef}
             style={dropdownStyle}
-            className="min-w-[155px] w-max bg-white dark:bg-card border border-[#D1D5DB] dark:border-border rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.15)] py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-150 select-none pointer-events-auto"
+            className="min-w-[140px] w-max bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg shadow-md py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-150 select-none pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Item 1: Quản lý sự kiện */}
@@ -256,9 +258,9 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
                 setIsOpen(false)
                 navigate('/history')
               }}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs sm:text-sm font-medium text-[#374151] dark:text-foreground hover:bg-muted/70 transition-colors text-left cursor-pointer"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#374151] dark:text-foreground hover:bg-muted/70 transition-colors text-left cursor-pointer"
             >
-              <CalendarCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+              <CalendarCheck className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <span>Quản lý sự kiện</span>
             </button>
 
@@ -273,9 +275,9 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
                 setIsOpen(false)
                 setShowCancelConfirm(true)
               }}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs sm:text-sm font-medium text-[#C7212B] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left cursor-pointer"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#C7212B] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left cursor-pointer"
             >
-              <Ban className="h-4 w-4 text-[#C7212B] dark:text-red-400 shrink-0" />
+              <Ban className="h-3.5 w-3.5 text-[#C7212B] dark:text-red-400 shrink-0" />
               <span>Hủy đăng ký</span>
             </button>
           </div>,

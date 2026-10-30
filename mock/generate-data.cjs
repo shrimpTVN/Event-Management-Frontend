@@ -408,7 +408,6 @@ db.events = [
 db.event_points = [
   { id: 1, eventId: 1, pointCategoryId: 1, point: 4, isActive: true },
   { id: 2, eventId: 2, pointCategoryId: 5, point: 3, isActive: true },
-  { id: 3, eventId: 2, pointCategoryId: 3, point: 2, isActive: true },
   { id: 4, eventId: 3, pointCategoryId: 3, point: 2, isActive: true },
   { id: 5, eventId: 4, pointCategoryId: 1, point: 3, isActive: true },
   { id: 6, eventId: 5, pointCategoryId: 1, point: 5, isActive: true },

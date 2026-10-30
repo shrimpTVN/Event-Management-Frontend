@@ -8,11 +8,12 @@ import {
   MessageSquare,
   Share2,
   Bookmark,
-  Check,
+  BellRing,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import type { Event } from '../types/event.types'
 import { RegisterButton } from './RegisterButton'
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
 
 interface EventFeedCardProps {
   event: Event
@@ -29,6 +30,7 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
   onToggleSave,
   onToggleFollow,
 }) => {
+  const location = useLocation()
   const [isExpanded, setIsExpanded] = useState(false)
   const [isFollowed, setIsFollowed] = useState(event.isFollowed ?? false)
   const [isSaved, setIsSaved] = useState(event.isSaved ?? false)
@@ -115,12 +117,15 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             </div>
           )}
           <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-            <span
-              className="font-medium text-sm leading-5 text-foreground truncate"
-              title={event.organizerName || event.fanpageName || 'Ban Tổ Chức'}
-            >
-              {event.organizerName || event.fanpageName || 'Ban Tổ Chức'}
-            </span>
+            <div className="flex items-center gap-1 min-w-0">
+              <span
+                className="font-medium text-sm leading-5 text-foreground truncate"
+                title={event.organizerName || event.fanpageName || 'Ban Tổ Chức'}
+              >
+                {event.organizerName || event.fanpageName || 'Ban Tổ Chức'}
+              </span>
+              <VerifiedBadge className="h-4 w-4 shrink-0" />
+            </div>
             <span className="text-xs font-medium leading-4 text-[#4B5563] dark:text-muted-foreground">
               {event.timeAgo || 'Vừa xong'}
             </span>
@@ -138,7 +143,7 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
         >
           {isFollowed ? (
             <>
-              <Check className="h-3 w-3 shrink-0" />
+              <BellRing className="h-3 w-3 shrink-0 text-primary" />
               <span>Đã theo dõi</span>
             </>
           ) : (
@@ -150,7 +155,12 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
       {/* 2. Title & Description (Max 2 lines, collapses naturally for 1-line titles without blank gap) */}
       <div className="px-3 py-0 flex flex-col gap-1.5">
         <h2 className="font-k2d font-semibold text-base leading-snug text-foreground hover:text-[#1F5CA9] transition-colors line-clamp-2">
-          <Link to={`/events/${event.id}`}>{event.title}</Link>
+          <Link
+            to={`/events/${event.id}`}
+            state={{ from: `${location.pathname}${location.search}` }}
+          >
+            {event.title}
+          </Link>
         </h2>
 
         {event.description && (
@@ -198,7 +208,11 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
       {/* 3. Event Poster / Media with Compact Bottom-Right Information Badge */}
       {event.bannerUrl && (
         <div className="relative w-full max-h-[460px] bg-[#010101] p-1.5 flex items-center justify-center overflow-hidden">
-          <Link to={`/events/${event.id}`} className="w-full h-full flex items-center justify-center">
+          <Link
+            to={`/events/${event.id}`}
+            state={{ from: `${location.pathname}${location.search}` }}
+            className="w-full h-full flex items-center justify-center"
+          >
             <img
               src={event.bannerUrl}
               alt={event.title}
@@ -222,9 +236,19 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             </div>
 
             {/* Benefits */}
-            <div className="flex items-center gap-2 min-w-0">
-              <Gift className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
-              <span className="truncate font-medium text-white/85">{event.pointsReward || 'Cộng điểm rèn luyện'}</span>
+            <div className="flex items-start gap-2 min-w-0">
+              <Gift className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2] mt-0.5" />
+              <div className="flex flex-col gap-0.5 min-w-0">
+                {event.pointsReward ? (
+                  event.pointsReward.split(' · ').map((benefit, i) => (
+                    <span key={i} className="truncate font-medium text-white/85" title={benefit}>
+                      {benefit}
+                    </span>
+                  ))
+                ) : (
+                  <span className="truncate font-medium text-white/85">Cộng điểm rèn luyện</span>
+                )}
+              </div>
             </div>
 
             {/* Quota */}
@@ -255,9 +279,19 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             </div>
 
             {/* Benefits */}
-            <div className="flex items-center gap-2 min-w-0">
-              <Gift className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
-              <span className="truncate text-muted-foreground">{event.pointsReward || 'Cộng điểm rèn luyện'}</span>
+            <div className="flex items-start gap-2 min-w-0">
+              <Gift className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0 mt-0.5" />
+              <div className="flex flex-col gap-0.5 min-w-0">
+                {event.pointsReward ? (
+                  event.pointsReward.split(' · ').map((benefit, i) => (
+                    <span key={i} className="truncate text-muted-foreground" title={benefit}>
+                      {benefit}
+                    </span>
+                  ))
+                ) : (
+                  <span className="truncate text-muted-foreground">Cộng điểm rèn luyện</span>
+                )}
+              </div>
             </div>
 
             {/* Quota */}
@@ -317,7 +351,7 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
               setIsRegistered(false)
               onCancelRegister?.(event.id)
             }}
-            className="w-[139px]"
+            className="min-w-[120px] whitespace-nowrap"
           />
         </div>
       </div>

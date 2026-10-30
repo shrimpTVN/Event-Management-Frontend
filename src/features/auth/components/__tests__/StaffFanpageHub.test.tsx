@@ -40,7 +40,7 @@ describe('StaffFanpageHub', () => {
     )
 
     expect(screen.getByText(/Chọn fanpage để quản lý sự kiện/i)).toBeInTheDocument()
-    expect(screen.getByText(/II. DANH SÁCH FANPAGE ĐÃ THAM GIA/i)).toBeInTheDocument()
+    expect(screen.getByText(/Fanpage đang quản trị/i)).toBeInTheDocument()
     expect(await screen.findByText('Fanpage Thử Nghiệm API')).toBeInTheDocument()
   })
 })

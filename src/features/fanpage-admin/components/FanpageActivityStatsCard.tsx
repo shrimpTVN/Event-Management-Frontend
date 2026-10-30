@@ -6,19 +6,19 @@ interface FanpageActivityStatsCardProps {
 
 export const FanpageActivityStatsCard: React.FC<FanpageActivityStatsCardProps> = ({ stats }) => {
   return (
-    <div className="w-full bg-white dark:bg-card rounded-2xl border border-[#E5E7EB] dark:border-border p-5 shadow-xs space-y-4 text-left">
-      {/* Header */}
-      <div className="space-y-0.5">
+    <div className="w-full bg-white dark:bg-card rounded-xl border border-border/50 dark:border-border/60 p-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] space-y-4 text-left">
+      {/* Header with Title and Period Label on the same row */}
+      <div className="flex items-center justify-between">
         <h3 className="font-k2d font-bold text-base text-[#0B1626] dark:text-foreground">
           Trạng thái hoạt động
         </h3>
-        <p className="text-xs text-[#5B6675] dark:text-muted-foreground">
+        <span className="text-xs text-[#5B6675] dark:text-muted-foreground font-normal">
           {stats.periodLabel}
-        </p>
+        </span>
       </div>
 
       {/* 3 Metric Columns (Figma: Số liệu hoạt động [338x60]) */}
-      <div className="grid grid-cols-3 gap-2 py-1">
+      <div className="grid grid-cols-3 gap-2 py-0.5">
         {/* Metric 1 */}
         <div className="p-2.5 rounded-xl bg-[#F9FAFB] dark:bg-background/80 border border-[#E5E7EB] dark:border-border text-center">
           <p className="font-k2d font-bold text-lg text-primary">
@@ -48,14 +48,6 @@ export const FanpageActivityStatsCard: React.FC<FanpageActivityStatsCardProps> =
             Theo dõi mới
           </p>
         </div>
-      </div>
-
-      {/* Divider & Hint Text (Figma: Gợi ý [338x17]) */}
-      <div className="pt-3 border-t border-[#F3F4F6] dark:border-border">
-        <p className="text-xs text-[#5B6675] dark:text-muted-foreground leading-relaxed">
-          Mức phản hồi tin nhắn đạt <strong className="text-foreground">{stats.responseRatePercent}%</strong>. Có{' '}
-          <strong className="text-primary">{stats.pendingCommentsCount}</strong> bình luận đang chờ trả lời.
-        </p>
       </div>
     </div>
   )

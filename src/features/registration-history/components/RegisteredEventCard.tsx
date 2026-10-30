@@ -5,6 +5,8 @@ import {
   type RegisteredEventItem,
   normalizeHistoryStatus,
 } from '../types/history.types'
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
+import { cn } from '@/lib/utils'
 
 interface RegisteredEventCardProps {
   event: RegisteredEventItem
@@ -104,7 +106,7 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
           <h3 className="font-heading font-semibold text-[13px] sm:text-sm leading-snug line-clamp-2 text-foreground group-hover:text-[#1B4B8A] transition-colors">
             {title}
           </h3>
-          <div className="flex items-center gap-1.5 text-[11px] text-[#667085] dark:text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-[11px] text-[#667085] dark:text-muted-foreground min-w-0">
             {organizerAvatar ? (
               <img
                 src={organizerAvatar}
@@ -116,6 +118,7 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
               />
             ) : null}
             <p className="truncate">{organizerName}</p>
+            <VerifiedBadge className="h-3 w-3 shrink-0" />
           </div>
         </div>
 
@@ -194,7 +197,7 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
       <div className="pt-3 mt-3 border-t border-border/40 flex items-center gap-2">
         {normalizedStatus === 'UPCOMING' && (
           <>
-            {isSelfAttendance ? (
+            {isSelfAttendance && (
               <button
                 type="button"
                 onClick={(e) => {
@@ -205,10 +208,6 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
               >
                 Điểm danh
               </button>
-            ) : (
-              <div className="flex-1 py-1.5 px-2 text-[11px] font-medium text-muted-foreground bg-muted/40 rounded-[6px] text-center truncate">
-                BTC điểm danh
-              </div>
             )}
 
             {canCancel && (
@@ -218,10 +217,19 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
                   e.stopPropagation()
                   onOpenCancelModal(event)
                 }}
-                className="inline-flex items-center justify-center py-2 px-3 text-xs font-medium text-[#A01F26] dark:text-rose-400 bg-white dark:bg-card border border-[#D5D5D5] dark:border-border hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-[6px] transition-colors shrink-0 cursor-pointer"
+                className={cn(
+                  'inline-flex items-center justify-center py-2 px-3 text-xs font-medium text-[#A01F26] dark:text-rose-400 bg-white dark:bg-card border border-[#D5D5D5] dark:border-border hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-[6px] transition-colors cursor-pointer',
+                  isSelfAttendance ? 'shrink-0' : 'w-full'
+                )}
               >
                 Hủy đăng kí
               </button>
+            )}
+
+            {!isSelfAttendance && !canCancel && (
+              <div className="w-full py-1.5 px-2 text-[11px] font-medium text-muted-foreground bg-muted/40 rounded-[6px] text-center">
+                Đã đăng ký tham gia
+              </div>
             )}
           </>
         )}

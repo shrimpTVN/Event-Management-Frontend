@@ -1,14 +1,17 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useLayoutEffect } from 'react'
 import {
-  Globe,
-  MoreHorizontal,
-  ThumbsUp,
-  MessageCircle,
+  Calendar as CalendarIcon,
+  MapPin,
+  Gift,
+  Users,
+  MessageSquare,
   Share2,
   BarChart3,
-  Image as ImageIcon,
+  MoreHorizontal,
   Check,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
 import type { FanpageFeedPost } from '../types/fanpageAdmin.types'
 
 interface FanpageEventFeedCardProps {
@@ -20,181 +23,299 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
   post,
   onViewAnalytics,
 }) => {
-  const [isLiked, setIsLiked] = useState(post.isLiked || false)
-  const [likesCount, setLikesCount] = useState(post.likesCount)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [copiedShare, setCopiedShare] = useState(false)
 
-  const handleToggleLike = () => {
-    setIsLiked((prev) => {
-      const next = !prev
-      setLikesCount((c) => (next ? c + 1 : c - 1))
-      return next
-    })
-  }
+  const descRef = useRef<HTMLDivElement>(null)
+  const [isOverflowing, setIsOverflowing] = useState(false)
+
+  useLayoutEffect(() => {
+    const el = descRef.current
+    if (!el || !post.summary) return
+
+    const checkOverflow = () => {
+      // 2 lines with leading-5 (20px line-height) is 40px. Exceeding 42px means > 2 lines.
+      setIsOverflowing(el.scrollHeight > 42)
+    }
+
+    checkOverflow()
+    window.addEventListener('resize', checkOverflow)
+    return () => window.removeEventListener('resize', checkOverflow)
+  }, [post.summary])
+
+  const eventId = post.eventId || post.id.replace('post-', '')
+  const locationDisplay = post.location || 'Khu II, Đại học Cần Thơ'
 
   const handleShare = () => {
-    navigator.clipboard?.writeText(window.location.href)
+    const shareUrl = `${window.location.origin}/events/${eventId}`
+    navigator.clipboard?.writeText(shareUrl)
     setCopiedShare(true)
     setTimeout(() => setCopiedShare(false), 2500)
   }
 
-  return (
-    <article className="w-full bg-white dark:bg-card rounded-2xl border border-[#E5E7EB] dark:border-border shadow-xs overflow-hidden text-left">
-      {/* 1. Post Header (Figma: Đầu sự kiện [750x74]) */}
-      <div className="p-4 sm:p-5 flex items-center justify-between gap-3 border-b border-[#F9FAFB] dark:border-border/50">
-        <div className="flex items-center gap-3">
-          {/* Fanpage Avatar */}
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#1B4B8A] to-[#2563EB] text-white font-k2d font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs">
-            {post.authorAvatarText || 'CT'}
-          </div>
+  // Format date time helper matching student card: "29/09/2026 · 19:30"
+  const formatDisplayDateTime = (startStr?: string, endStr?: string): string => {
+    if (!startStr) return 'Đang cập nhật'
+    const startDate = new Date(startStr)
+    if (isNaN(startDate.getTime())) return startStr
 
-          <div>
-            <h4 className="font-semibold text-sm text-foreground hover:text-primary transition-colors cursor-pointer">
-              {post.authorName}
-            </h4>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-              <span>{post.timeAgo}</span>
-              <span>·</span>
-              <span className="flex items-center gap-1">
-                <Globe className="h-3 w-3 text-muted-foreground" />
-                <span>{post.isPublic ? 'Công khai' : 'Nội bộ'}</span>
-              </span>
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const dateFormatted = `${pad(startDate.getDate())}/${pad(startDate.getMonth() + 1)}/${startDate.getFullYear()}`
+    const startTimeFormatted = `${pad(startDate.getHours())}:${pad(startDate.getMinutes())}`
+
+    if (endStr && endStr !== startStr) {
+      const endDate = new Date(endStr)
+      if (!isNaN(endDate.getTime())) {
+        const endTimeFormatted = `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`
+        return `${dateFormatted} · ${startTimeFormatted} - ${endTimeFormatted}`
+      }
+    }
+    return `${dateFormatted} · ${startTimeFormatted}`
+  }
+
+  return (
+    <article className="w-full max-w-[680px] mx-auto rounded-xl bg-white dark:bg-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] dark:border dark:border-border/60 text-left pt-2.5 pb-[12px] px-0 flex flex-col gap-3 relative">
+      {/* 1. Header: Fanpage Info & Admin More Actions */}
+      <div className="flex items-center justify-between gap-3 px-3 py-1 h-12">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {post.authorAvatarUrl ? (
+            <img
+              src={post.authorAvatarUrl}
+              alt={post.authorName}
+              className="h-10 w-10 rounded-full object-cover shrink-0 border border-border/40"
+            />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1B4B8A] text-white font-bold text-sm shrink-0">
+              {post.authorName.charAt(0)}
             </div>
+          )}
+          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+            <div className="flex items-center gap-1 min-w-0">
+              <span
+                className="font-medium text-sm leading-5 text-foreground truncate"
+                title={post.authorName}
+              >
+                {post.authorName}
+              </span>
+              <VerifiedBadge className="h-4 w-4 shrink-0" />
+            </div>
+            <span className="text-xs font-medium leading-4 text-[#4B5563] dark:text-muted-foreground">
+              {post.timeAgo || 'Vừa xong'}
+            </span>
           </div>
         </div>
 
-        {/* More Actions Dropdown */}
+        {/* More Actions Menu */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setShowMenu(!showMenu)}
             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-            aria-label="Thao tác bài viết"
+            aria-label="Thao tác sự kiện"
           >
             <MoreHorizontal className="h-5 w-5" />
           </button>
 
           {showMenu && (
-            <div className="absolute right-0 mt-1 w-44 rounded-xl border border-border bg-white dark:bg-card shadow-md p-1.5 z-30 space-y-0.5 text-xs">
+            <div className="absolute right-0 mt-1 w-48 rounded-xl border border-border bg-white dark:bg-card shadow-lg p-1.5 z-30 space-y-0.5 text-xs">
               <button
                 type="button"
-                onClick={() => setShowMenu(false)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-muted text-foreground cursor-pointer"
+                onClick={() => {
+                  setShowMenu(false)
+                  onViewAnalytics?.(post)
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-muted text-foreground flex items-center gap-2 cursor-pointer transition-colors"
               >
-                Chỉnh sửa bài viết
+                <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>Xem số liệu thống kê</span>
               </button>
               <button
                 type="button"
-                onClick={() => setShowMenu(false)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-muted text-foreground cursor-pointer"
+                onClick={() => {
+                  setShowMenu(false)
+                  handleShare()
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-muted text-foreground flex items-center gap-2 cursor-pointer transition-colors"
               >
-                Ghim lên đầu trang
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowMenu(false)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-destructive/10 text-destructive cursor-pointer"
-              >
-                Xóa bài viết
+                <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>Sao chép liên kết</span>
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* 2. Post Content (Figma: Nội dung sự kiện [750x74]) */}
-      <div className="px-4 sm:px-5 py-3 space-y-1.5">
-        <h3 className="font-k2d font-bold text-base sm:text-lg text-[#0B1626] dark:text-foreground tracking-tight leading-snug">
+      {/* 2. Title & Description (Max 2 lines, inline expandable like student card) */}
+      <div className="px-3 py-0 flex flex-col gap-1.5">
+        <h2 className="font-k2d font-semibold text-base leading-snug text-foreground line-clamp-2">
           {post.title}
-        </h3>
-        <p className="text-sm text-[#4B5563] dark:text-muted-foreground leading-relaxed">
-          {post.summary}
-        </p>
-      </div>
+        </h2>
 
-      {/* 3. Event Banner / Media (Figma: Ảnh placeholder [750x214]) */}
-      <div className="relative w-full aspect-[21/9] sm:h-72 bg-slate-100 dark:bg-muted/40 overflow-hidden">
-        {post.bannerUrl ? (
-          <img
-            src={post.bannerUrl}
-            alt={post.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
-            <ImageIcon className="h-8 w-8 text-muted-foreground/60" />
-            <span className="text-xs font-medium">Ảnh sự kiện / ảnh bìa sự kiện</span>
+        {post.summary && (
+          <div className="text-sm font-normal text-[#374151] dark:text-muted-foreground leading-5">
+            {isExpanded ? (
+              <p>
+                {post.summary}{' '}
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(false)}
+                  className="font-semibold text-[#1F5CA9] dark:text-blue-400 hover:underline cursor-pointer inline ml-1.5"
+                >
+                  Thu gọn
+                </button>
+              </p>
+            ) : (
+              <div
+                ref={descRef}
+                className={cn(
+                  'relative text-sm font-normal text-[#374151] dark:text-muted-foreground leading-5',
+                  isOverflowing && 'max-h-[40px] overflow-hidden'
+                )}
+              >
+                {isOverflowing && (
+                  <>
+                    <div className="float-right h-5 w-0" />
+                    <button
+                      type="button"
+                      onClick={() => setIsExpanded(true)}
+                      className="float-right clear-right bg-white dark:bg-card pl-1 font-semibold text-[#1F5CA9] dark:text-blue-400 hover:underline cursor-pointer inline-flex items-center"
+                    >
+                      ... <span className="ml-1">Xem Thêm</span>
+                    </button>
+                  </>
+                )}
+                <span>{post.summary}</span>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* 4. Engagement Stats (Figma: Thống kê tương tác [750x34]) */}
-      <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between text-xs text-[#6B7280] dark:text-muted-foreground border-b border-[#F3F4F6] dark:border-border">
-        <span className="font-medium text-foreground/80">
-          {likesCount} lượt thích
-        </span>
-        <div className="flex items-center gap-2">
-          <span>{post.commentsCount} bình luận</span>
-          <span>·</span>
-          <span>{post.sharesCount} lượt chia sẻ</span>
+      {/* 3. Event Poster / Media with Compact Frosted-Glass Bottom-Right Information Badge */}
+      {post.bannerUrl && (
+        <div className="relative w-full max-h-[460px] bg-[#010101] p-1.5 flex items-center justify-center overflow-hidden">
+          <img
+            src={post.bannerUrl}
+            alt={post.title}
+            className="max-h-[440px] w-auto max-w-full object-contain"
+            loading="lazy"
+          />
+
+          {/* Frosted Glass Info Badge - Bottom Right over poster */}
+          <div className="absolute bottom-2.5 right-2.5 z-10 max-w-[85%] sm:max-w-[260px] bg-black/65 backdrop-blur-md border border-white/15 rounded-lg px-2.5 py-2 text-white shadow-md flex flex-col gap-1.5 text-[11px] leading-tight select-none pointer-events-auto">
+            {/* Date & Time */}
+            <div className="flex items-center gap-2 min-w-0">
+              <CalendarIcon className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
+              <span className="truncate font-medium text-white/85">
+                {formatDisplayDateTime(post.startTime, post.endTime)}
+              </span>
+            </div>
+
+            {/* Location */}
+            <div className="flex items-center gap-2 min-w-0">
+              <MapPin className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
+              <span className="truncate font-medium text-white/85" title={locationDisplay}>
+                {locationDisplay}
+              </span>
+            </div>
+
+            {/* Benefits */}
+            <div className="flex items-start gap-2 min-w-0">
+              <Gift className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2] mt-0.5" />
+              <div className="flex flex-col gap-0.5 min-w-0">
+                {post.pointsReward ? (
+                  post.pointsReward.split(' · ').map((benefit, i) => (
+                    <span key={i} className="truncate font-medium text-white/85" title={benefit}>
+                      {benefit}
+                    </span>
+                  ))
+                ) : (
+                  <span className="truncate font-medium text-white/85">Cộng điểm rèn luyện</span>
+                )}
+              </div>
+            </div>
+
+            {/* Quota */}
+            <div className="flex items-center gap-2 min-w-0">
+              <Users className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
+              <span className="truncate font-medium text-white/85">
+                {post.quotaText || (post.capacity ? `${post.capacity} sinh viên` : 'Không giới hạn')}
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* 5. Post Actions Row (Figma: Hành động sự kiện [750x44]) */}
-      <div className="px-2 sm:px-4 py-2 flex items-center justify-between gap-1">
-        {/* Like Button */}
-        <button
-          type="button"
-          onClick={handleToggleLike}
-          className={`flex-1 h-9 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold transition-colors cursor-pointer ${
-            isLiked
-              ? 'text-primary bg-primary/10'
-              : 'text-[#4B5563] dark:text-muted-foreground hover:bg-[#F9FAFB] dark:hover:bg-muted hover:text-foreground'
-          }`}
-        >
-          <ThumbsUp className={`h-4 w-4 ${isLiked ? 'fill-primary' : ''}`} />
-          <span>Thích</span>
-        </button>
+      {/* Fallback metadata if event has NO poster/banner */}
+      {!post.bannerUrl && (
+        <div className="px-3 py-1">
+          <div className="border-t border-[#E5E7EB] dark:border-border/60 pt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <CalendarIcon className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
+              <span className="truncate text-foreground font-medium">
+                {formatDisplayDateTime(post.startTime, post.endTime)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <MapPin className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
+              <span className="truncate text-foreground font-medium" title={locationDisplay}>
+                {locationDisplay}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <Gift className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
+              <span className="truncate text-muted-foreground">
+                {post.pointsReward || 'Cộng điểm rèn luyện'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <Users className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
+              <span className="truncate text-muted-foreground">
+                {post.quotaText || (post.capacity ? `${post.capacity} sinh viên` : 'Không giới hạn')}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* Comment Button */}
-        <button
-          type="button"
-          className="flex-1 h-9 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold text-[#4B5563] dark:text-muted-foreground hover:bg-[#F9FAFB] dark:hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-        >
-          <MessageCircle className="h-4 w-4" />
-          <span>Bình luận</span>
-        </button>
+      {/* 4. Footer Actions: NO Like button ("bỏ thích"), Keep Comment, Share, and View Analytics ("giữ lại xem số liệu") */}
+      <div className="px-3 pt-0 pb-0 flex items-center justify-between">
+        {/* Left: Comment & Share */}
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            className="flex items-center justify-center text-[#6B7280] hover:text-foreground transition-colors cursor-pointer"
+            title="Bình luận"
+          >
+            <MessageSquare className="h-6 w-6" />
+          </button>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="flex items-center justify-center text-[#6B7280] hover:text-foreground transition-colors cursor-pointer"
+            title="Chia sẻ"
+          >
+            {copiedShare ? (
+              <Check className="h-6 w-6 text-emerald-600" />
+            ) : (
+              <Share2 className="h-6 w-6" />
+            )}
+          </button>
+        </div>
 
-        {/* Share Button */}
-        <button
-          type="button"
-          onClick={handleShare}
-          className="flex-1 h-9 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold text-[#4B5563] dark:text-muted-foreground hover:bg-[#F9FAFB] dark:hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-        >
-          {copiedShare ? (
-            <>
-              <Check className="h-4 w-4 text-emerald-600" />
-              <span className="text-emerald-600">Đã chép link</span>
-            </>
-          ) : (
-            <>
-              <Share2 className="h-4 w-4" />
-              <span>Chia sẻ</span>
-            </>
-          )}
-        </button>
-
-        {/* View Analytics Button (Direct organizer insight) */}
-        <button
-          type="button"
-          onClick={() => onViewAnalytics && onViewAnalytics(post)}
-          className="flex-1 h-9 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-        >
-          <BarChart3 className="h-4 w-4" />
-          <span className="hidden sm:inline">Xem số liệu</span>
-          <span className="sm:hidden">Số liệu</span>
-        </button>
+        {/* Right: "Xem số liệu" (No Like button, removed Chi tiết button) */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onViewAnalytics?.(post)}
+            className="h-8 px-3 rounded-lg border border-[#1B4B8A]/30 text-[#1B4B8A] dark:text-blue-400 hover:bg-[#1B4B8A]/10 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            title="Xem số liệu thống kê sự kiện"
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>Xem số liệu</span>
+          </button>
+        </div>
       </div>
     </article>
   )

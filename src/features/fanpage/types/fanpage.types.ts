@@ -10,7 +10,9 @@ export interface FanpageDetail {
   isFollowing: boolean
   isVerified?: boolean
   phone?: string
+  address?: string
   orgType?: string
+  orgName?: string
   parentOrg?: string
 }
 

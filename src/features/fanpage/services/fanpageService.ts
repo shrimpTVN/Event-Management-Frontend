@@ -21,8 +21,10 @@ export const fanpageService = {
       isFollowing: fp.isFollowing ?? true,
       isVerified: fp.isVerified ?? (fp.status === 'ACTIVE'),
       phone: fp.phone ?? fp.helpPhone ?? '',
-      orgType: fp.orgType,
-      parentOrg: fp.parentOrg,
+      address: fp.address || 'Khu II, Đường 3/2, Q. Ninh Kiều, TP. Cần Thơ',
+      orgType: fp.orgType || 'YOUTH_UNION',
+      orgName: fp.orgName || fp.name,
+      parentOrg: fp.parentOrg || 'Trường Đại học Cần Thơ',
     }
   },
 

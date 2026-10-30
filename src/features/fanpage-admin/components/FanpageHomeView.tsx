@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ExternalLink, Pencil, X, Users } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Pencil, X, Users, SlidersHorizontal } from 'lucide-react'
 import type {
   FanpageSummary,
   FanpageActivityStats,
@@ -18,6 +18,9 @@ interface FanpageHomeViewProps {
   stats: FanpageActivityStats
   reminder?: UpcomingEventReminder | null
   posts: FanpageFeedPost[]
+  onOpenEventsTab?: () => void
+  onCreateEventClick?: () => void
+  onEditProfileClick?: () => void
 }
 
 export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
@@ -25,58 +28,76 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
   stats,
   reminder,
   posts,
+  onOpenEventsTab,
+  onCreateEventClick,
+  onEditProfileClick,
 }) => {
   const navigate = useNavigate()
   const [selectedPostForAnalytics, setSelectedPostForAnalytics] = useState<FanpageFeedPost | null>(null)
 
   return (
-    <div className="w-full space-y-6 text-left">
-      {/* 1. Fanpage Profile Header Card with Actions */}
+    <div className="w-full space-y-3.5 text-left">
+      {/* 1. Fanpage Profile Header Card with Single 'Chỉnh sửa' Action */}
       <FanpageProfileHeader
         fanpage={currentFanpage}
         actions={
-          <div className="flex flex-col gap-2 w-full sm:w-44">
-            <Link
-              to="/events"
-              className="w-full h-9 px-3 rounded-xl border border-[#D1D5DB] dark:border-border text-foreground hover:bg-[#F9FAFB] dark:hover:bg-muted font-medium text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
-            >
-              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-              <span>Xem trang công khai</span>
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => navigate('/register/fanpage')}
-              className="w-full h-9 px-3 rounded-xl bg-[#1B4B8A] hover:bg-[#1E40AF] text-white font-semibold text-xs transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              <span>Chỉnh sửa thông tin</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onEditProfileClick ? onEditProfileClick : () => navigate('/fanpage/admin?tab=profile')}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold bg-[#1B4B8A] hover:bg-[#153a6b] text-white rounded-lg transition-all shadow-2xs cursor-pointer"
+          >
+            <Pencil className="h-4 w-4" />
+            <span>Chỉnh sửa</span>
+          </button>
         }
       />
 
-      {/* 3. 2-Column Content Layout (Figma: Bố cục bảng tin [1136x741]) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Utility Widgets (370px / 4 cols) */}
-        <div className="lg:col-span-4 space-y-6">
-          <FanpageQuickCreateCard reminder={reminder || undefined} />
+      {/* 2. 2-Column Content Layout: Left = Card thông tin & Card tạo sự kiện (Cố định khi lướt như Facebook), Right = Feed bài viết */}
+      <div className="w-full flex flex-col lg:flex-row items-start gap-3.5">
+        {/* Left Column: Card thông tin (Giới thiệu) cố định khi chạm header như trang fanpage theo dõi */}
+        <div className="w-full lg:w-[340px] shrink-0 lg:sticky lg:top-20 self-start space-y-3.5">
+          {/* Card thông tin (Giới thiệu) */}
           <FanpageAboutCard
             fanpage={currentFanpage}
-            onEditClick={() => navigate('/register/fanpage')}
+            onEditClick={onEditProfileClick ? onEditProfileClick : () => navigate('/fanpage/admin?tab=profile')}
+          />
+          <FanpageQuickCreateCard
+            reminder={reminder || undefined}
+            onCreateEvent={onCreateEventClick ? onCreateEventClick : () => navigate('/fanpage/admin?tab=create-event')}
           />
           <FanpageActivityStatsCard stats={stats} />
         </div>
 
-        {/* Right Column: Feed of Event Posts (750px / 8 cols) */}
-        <div className="lg:col-span-8 space-y-6">
-          {posts.map((post) => (
-            <FanpageEventFeedCard
-              key={post.id}
-              post={post}
-              onViewAnalytics={(p) => setSelectedPostForAnalytics(p)}
-            />
-          ))}
+        {/* Right Column: Sự kiện Feed */}
+        <div className="flex-1 min-w-0 w-full flex flex-col gap-3.5">
+          {/* Section Header: Title + Button to open Events Manager */}
+          <div className="flex items-center justify-between gap-3 px-1">
+            <h2 className="font-k2d font-medium text-lg text-foreground tracking-tight">
+              Sự kiện đã đăng
+            </h2>
+
+            {onOpenEventsTab && (
+              <button
+                type="button"
+                onClick={onOpenEventsTab}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-[#374151] dark:text-foreground bg-white dark:bg-card border border-border/80 rounded-lg hover:bg-muted/60 transition-colors shadow-2xs cursor-pointer"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>Quản lý sự kiện</span>
+              </button>
+            )}
+          </div>
+
+          {/* Event Feed Posts */}
+          <div className="flex flex-col gap-3.5">
+            {posts.map((post) => (
+              <FanpageEventFeedCard
+                key={post.id}
+                post={post}
+                onViewAnalytics={(p) => setSelectedPostForAnalytics(p)}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -139,7 +160,11 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
                 type="button"
                 onClick={() => {
                   setSelectedPostForAnalytics(null)
-                  navigate('/dashboard')
+                  if (onOpenEventsTab) {
+                    onOpenEventsTab()
+                  } else {
+                    navigate('/dashboard')
+                  }
                 }}
                 className="px-4 h-9 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold cursor-pointer flex items-center gap-1.5"
               >

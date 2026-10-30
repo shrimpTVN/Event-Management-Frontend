@@ -9,6 +9,8 @@ interface FanpageAdminLayoutProps {
   onSelectFanpage: (fanpage: FanpageSummary) => void
   activeTab?: AdminNavTab | null
   onSelectTab?: (tab: AdminNavTab) => void
+  onLogoClick?: () => void
+  onCreateEventClick?: () => void
   children: React.ReactNode
 }
 
@@ -18,6 +20,8 @@ export const FanpageAdminLayout: React.FC<FanpageAdminLayoutProps> = ({
   onSelectFanpage,
   activeTab = null,
   onSelectTab,
+  onLogoClick,
+  onCreateEventClick,
   children,
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -28,6 +32,9 @@ export const FanpageAdminLayout: React.FC<FanpageAdminLayoutProps> = ({
       <FanpageAdminTopNav
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         isSidebarOpen={isSidebarOpen}
+        currentFanpageId={currentFanpage?.id}
+        onLogoClick={onLogoClick}
+        onCreateEventClick={onCreateEventClick}
       />
 
       {/* 2. Admin Workspace (Sidebar + Main Content) */}
@@ -72,8 +79,8 @@ export const FanpageAdminLayout: React.FC<FanpageAdminLayoutProps> = ({
         )}
 
         {/* Main Content Area */}
-        <main className="flex-1 w-full min-w-0 p-4 sm:p-6 lg:p-8">
-          <div className="max-w-[1140px] mx-auto w-full">
+        <main className="flex-1 w-full min-w-0 p-4 sm:p-6 lg:py-6 lg:px-8">
+          <div className={`w-full ${activeTab === null ? 'max-w-7xl' : 'w-full'}`}>
             {children}
           </div>
         </main>
