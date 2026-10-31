@@ -7,7 +7,7 @@ import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
 import { loginSchema, type LoginInput } from '../types/auth.schemas'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
-import { isStaffUser, isStudentRole } from '../utils/authUtils'
+import { isStaffUser } from '../utils/authUtils'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 import { GoogleAuthButton } from './GoogleAuthButton'
 
@@ -63,8 +63,8 @@ export const LoginForm: React.FC = () => {
       const isStaff = isStaffUser(res.user)
       if (isStaff) {
         navigate('/staff/fanpages', { replace: true })
-      } else if (isStudentRole(res.user.role) && !res.user.isProfileComplete) {
-        navigate('/onboarding/student', { replace: true })
+      } else if (false) {
+        /* no forced onboarding */
       } else {
         // Sinh viên chuyển về trang chủ hoặc trang mong muốn
         const target = redirectUrl === '/staff/fanpages' ? '/' : redirectUrl
@@ -96,8 +96,8 @@ export const LoginForm: React.FC = () => {
       const isStaff = isStaffUser(res.user)
       if (isStaff) {
         navigate('/staff/fanpages', { replace: true })
-      } else if (isStudentRole(res.user.role) && !res.user.isProfileComplete) {
-        navigate('/onboarding/student', { replace: true })
+      } else if (false) {
+        /* no forced onboarding */
       } else {
         const target = redirectUrl === '/staff/fanpages' ? '/' : redirectUrl
         navigate(target, { replace: true })
