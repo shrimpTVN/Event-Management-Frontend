@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
-import { isStaffEmail } from '../utils/authUtils'
+import { isStaffEmail, isStaffUser } from '../utils/authUtils'
 import { RoleEnum, type User } from '../types/auth.types'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 
@@ -122,27 +122,33 @@ export const OtpVerificationForm: React.FC = () => {
       const res = await authService.verifyOtp({ email, otp: otpCode })
 
       const emailUsername = email.split('@')[0] || ''
+      const isStaff = isStaffUser(res?.user) || isStaffEmail(email)
       const defaultUser: User = res?.user || {
         id: 'usr-' + Date.now(),
         email,
-        name: emailUsername.replace(/[._]/g, ' ') || 'Sinh viên CTU',
-        studentId: emailUsername.toUpperCase(),
-        role: isStaffEmail(email) ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT,
+        name: emailUsername.replace(/[._]/g, ' ') || (isStaff ? 'Cán bộ CTU' : 'Sinh viên CTU'),
+        studentId: !isStaff ? emailUsername.toUpperCase() : undefined,
+        role: isStaff ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT,
         createdAt: new Date().toISOString(),
         isProfileComplete: false,
       }
 
-      // Đánh dấu chưa hoàn thiện hồ sơ để yêu cầu nhập thông tin khi đăng ký sự kiện
       setAuth(
         {
           ...defaultUser,
+          role: isStaff ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT,
           isProfileComplete: false,
         },
         'mock-jwt-token-verified'
       )
 
-      // Chuyển thẳng vào trang chủ sau khi xác thực OTP thành công (chưa cần nhập thông tin ngay)
-      navigate('/', { replace: true })
+      if (isStaff) {
+        // Staff phải yêu cầu nhập thông tin cán bộ trước, rồi mới sang trang quản lý fanpage
+        navigate('/onboarding/staff', { replace: true })
+      } else {
+        // Sinh viên vào thẳng trang chủ liền, chưa cần nhập thông tin ngay
+        navigate('/', { replace: true })
+      }
     } catch (err: any) {
       setApiError(err.response?.data?.message || 'Mã OTP không chính xác hoặc đã hết hạn.')
     } finally {
