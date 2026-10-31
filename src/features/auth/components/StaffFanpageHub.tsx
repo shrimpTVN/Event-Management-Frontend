@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Plus, Check, X, CheckCircle2, Mail } from 'lucide-react'
+import { ArrowRight, Plus, Check, X, CheckCircle2, Mail, Building2, LogOut } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/shared'
+import { authService } from '../services/authService'
+import { useAuthStore } from '../store/authStore'
 
 interface FanpageInvitation {
   id: string
@@ -27,7 +29,20 @@ interface JoinedFanpage {
 export const StaffFanpageHub: React.FC = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user, clearAuth } = useAuthStore()
   const [actionNotice, setActionNotice] = useState<string | null>(null)
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout()
+    } catch {
+      // Proceed even if network request fails
+    } finally {
+      queryClient.clear()
+      clearAuth()
+      navigate('/login', { replace: true })
+    }
+  }
 
   const { data: invitations = [] } = useQuery<FanpageInvitation[]>({
     queryKey: ['staff-fanpage-invitations'],
@@ -120,6 +135,24 @@ export const StaffFanpageHub: React.FC = () => {
           </div>
         )}
 
+        {/* Top bar with user info & quick logout */}
+        {user && (
+          <div className="flex items-center justify-between px-1 text-xs text-[#6B7280] dark:text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-foreground">{user.name || user.email}</span>
+              {user.email && <span className="hidden sm:inline text-muted-foreground">({user.email})</span>}
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#6B7280] dark:text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Đăng xuất</span>
+            </button>
+          </div>
+        )}
+
         {/* Main Content Card */}
         <div className="w-full bg-white dark:bg-card rounded-2xl border border-[#E5E7EB] dark:border-border p-6 sm:p-10 shadow-sm space-y-8 text-left">
           {/* Card Header */}
@@ -133,13 +166,24 @@ export const StaffFanpageHub: React.FC = () => {
               </p>
             </div>
 
-            <Link
-              to="/register/fanpage"
-              className="self-start sm:self-center px-4 h-9 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white font-semibold text-xs transition-all shadow-xs flex items-center gap-1.5 shrink-0"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Đăng ký fanpage mới</span>
-            </Link>
+            <div className="flex items-center gap-2.5 self-start sm:self-center shrink-0">
+              <Link
+                to="/register/fanpage"
+                className="px-4 h-9 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white font-semibold text-xs transition-all shadow-xs flex items-center gap-1.5 shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Đăng ký fanpage mới</span>
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="px-3.5 h-9 rounded-lg border border-[#E5E7EB] dark:border-border hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-950/30 dark:hover:text-red-400 text-[#4B5563] dark:text-muted-foreground font-medium text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="Đăng xuất khỏi hệ thống"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span>Đăng xuất</span>
+              </button>
+            </div>
           </div>
 
           {/* LỜI MỜI THAM GIA (Chỉ hiển thị khi có lời mời đang chờ - PENDING) */}
@@ -214,62 +258,87 @@ export const StaffFanpageHub: React.FC = () => {
               <h2 className="text-sm font-bold uppercase tracking-wider text-[#0B1626] dark:text-foreground">
                 Fanpage đang quản trị ({fanpagesList.length})
               </h2>
-              <span className="text-xs text-muted-foreground">
-                Rê chuột vào fanpage để mở trang quản lý
-              </span>
+              {fanpagesList.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  Rê chuột vào fanpage để mở trang quản lý
+                </span>
+              )}
             </div>
 
-            <div className="space-y-3">
-              {fanpagesList.map((fp) => (
-                <div
-                  key={fp.id}
-                  onClick={() => handleGoToFanpage(fp.id)}
-                  className="group relative p-4 rounded-xl border border-[#E5E7EB] dark:border-border bg-white dark:bg-card hover:border-[#1B4B8A] dark:hover:border-primary hover:shadow-md hover:bg-primary/[0.02] transition-all duration-200 cursor-pointer flex items-center justify-between gap-4"
+            {fanpagesList.length === 0 ? (
+              <div className="p-8 sm:p-12 rounded-2xl border border-dashed border-[#D1D5DB] dark:border-border bg-[#F9FAFB]/70 dark:bg-card/50 text-center flex flex-col items-center justify-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#1B4B8A] dark:text-primary flex items-center justify-center shadow-2xs">
+                  <Building2 className="h-8 w-8 stroke-[1.75]" />
+                </div>
+                <div className="max-w-md space-y-1.5">
+                  <h3 className="font-k2d font-bold text-lg text-foreground">
+                    Hiện tại bạn chưa có fanpage nào
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Tài khoản cán bộ của bạn hiện chưa tham gia hoặc sở hữu fanpage nào. Vui lòng đăng ký để tạo fanpage và bắt đầu tổ chức sự kiện nhé!
+                  </p>
+                </div>
+                <Link
+                  to="/register/fanpage"
+                  className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1B4B8A] hover:bg-[#1E40AF] text-white font-semibold text-sm shadow-sm transition-all cursor-pointer"
                 >
-                  <div className="flex items-center gap-4 min-w-0">
-                    {fp.avatarUrl ? (
-                      <img
-                        src={fp.avatarUrl}
-                        alt={fp.name}
-                        className="h-12 w-12 rounded-full object-cover border border-[#E5E7EB] dark:border-border shrink-0 shadow-2xs group-hover:scale-105 transition-transform duration-200"
-                      />
-                    ) : (
-                      <div className="h-12 w-12 rounded-full bg-slate-800 text-white font-k2d font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-[#1B4B8A] transition-colors">
-                        {fp.code}
-                      </div>
-                    )}
-                    <div className="min-w-0 space-y-1">
-                      <h4 className="font-semibold text-sm sm:text-base text-foreground group-hover:text-[#1B4B8A] dark:group-hover:text-primary transition-colors truncate">
-                        {fp.name}
-                      </h4>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        {fp.orgName && <span className="truncate">{fp.orgName}</span>}
-                        {typeof fp.followersCount === 'number' && fp.followersCount > 0 && (
-                          <>
-                            <span>•</span>
-                            <span>{fp.followersCount.toLocaleString()} người theo dõi</span>
-                          </>
-                        )}
-                        {typeof fp.eventsCount === 'number' && fp.eventsCount > 0 && (
-                          <>
-                            <span>•</span>
-                            <span>{fp.eventsCount} sự kiện</span>
-                          </>
-                        )}
+                  <Plus className="h-4 w-4" />
+                  <span>Đăng ký tạo fanpage ngay</span>
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {fanpagesList.map((fp) => (
+                  <div
+                    key={fp.id}
+                    onClick={() => handleGoToFanpage(fp.id)}
+                    className="group relative p-4 rounded-xl border border-[#E5E7EB] dark:border-border bg-white dark:bg-card hover:border-[#1B4B8A] dark:hover:border-primary hover:shadow-md hover:bg-primary/[0.02] transition-all duration-200 cursor-pointer flex items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      {fp.avatarUrl ? (
+                        <img
+                          src={fp.avatarUrl}
+                          alt={fp.name}
+                          className="h-12 w-12 rounded-full object-cover border border-[#E5E7EB] dark:border-border shrink-0 shadow-2xs group-hover:scale-105 transition-transform duration-200"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded-full bg-slate-800 text-white font-k2d font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-[#1B4B8A] transition-colors">
+                          {fp.code}
+                        </div>
+                      )}
+                      <div className="min-w-0 space-y-1">
+                        <h4 className="font-semibold text-sm sm:text-base text-foreground group-hover:text-[#1B4B8A] dark:group-hover:text-primary transition-colors truncate">
+                          {fp.name}
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          {fp.orgName && <span className="truncate">{fp.orgName}</span>}
+                          {typeof fp.followersCount === 'number' && fp.followersCount > 0 && (
+                            <>
+                              <span>•</span>
+                              <span>{fp.followersCount.toLocaleString()} người theo dõi</span>
+                            </>
+                          )}
+                          {typeof fp.eventsCount === 'number' && fp.eventsCount > 0 && (
+                            <>
+                              <span>•</span>
+                              <span>{fp.eventsCount} sự kiện</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Nút hành động hiện khi hover */}
-                  <div className="opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all duration-200 shrink-0">
-                    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white text-xs font-semibold shadow-xs">
-                      <span>Đi tới trang này</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </span>
+                    {/* Nút hành động hiện khi hover */}
+                    <div className="opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all duration-200 shrink-0">
+                      <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white text-xs font-semibold shadow-xs">
+                        <span>Đi tới trang này</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
