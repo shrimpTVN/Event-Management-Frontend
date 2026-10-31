@@ -85,32 +85,32 @@ export const EventGridCard: React.FC<EventGridCardProps> = ({
       : address
 
   return (
-    <article className="w-full rounded-xl bg-white dark:bg-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] dark:border dark:border-border/60 text-left pt-2.5 pb-2.5 px-0 flex flex-col justify-between gap-2.5 relative transition-all duration-200 hover:shadow-md hover:border-primary/40 group">
-      {/* 1. Header: Fanpage Info & Follow CTA (Đồng bộ 100% màu sắc và style của bài viết) */}
-      <div className="flex items-center justify-between gap-2 px-3 py-0.5 min-h-[38px]">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+    <article className="w-full rounded-xl bg-white dark:bg-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] dark:border dark:border-border/60 text-left pt-2 pb-2 px-0 flex flex-col justify-between gap-2 relative transition-all duration-200 hover:shadow-md hover:border-primary/40 group">
+      {/* 1. Header: Fanpage Info & Follow CTA (Tinh gọn chiều cao) */}
+      <div className="flex items-center justify-between gap-1.5 px-2.5 py-0 min-h-[28px]">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
           {event.organizerAvatarUrl ? (
             <img
               src={event.organizerAvatarUrl}
               alt={event.organizerName || event.fanpageName || 'Ban Tổ Chức'}
-              className="h-8 w-8 rounded-full object-cover shrink-0"
+              className="h-6 w-6 rounded-full object-cover shrink-0"
             />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs shrink-0">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-[10px] shrink-0">
               {(event.organizerName || event.fanpageName || 'C').charAt(0)}
             </div>
           )}
           <div className="flex flex-col min-w-0 flex-1">
             <div className="flex items-center gap-1 min-w-0">
               <span
-                className="font-medium text-xs sm:text-sm leading-tight text-foreground truncate"
+                className="font-medium text-xs leading-none text-foreground truncate"
                 title={event.organizerName || event.fanpageName || 'Ban Tổ Chức'}
               >
                 {event.organizerName || event.fanpageName || 'Ban Tổ Chức'}
               </span>
-              <VerifiedBadge className="h-3.5 w-3.5 shrink-0" />
+              <VerifiedBadge className="h-3 w-3 shrink-0" />
             </div>
-            <span className="text-[10px] sm:text-[11px] font-medium leading-tight text-[#4B5563] dark:text-muted-foreground">
+            <span className="text-[10px] font-medium leading-tight text-[#4B5563] dark:text-muted-foreground mt-0.5">
               {event.timeAgo || 'Vừa xong'}
             </span>
           </div>
@@ -119,15 +119,15 @@ export const EventGridCard: React.FC<EventGridCardProps> = ({
         <button
           type="button"
           onClick={handleFollowClick}
-          className={`h-6 shrink-0 whitespace-nowrap inline-flex items-center justify-center rounded-[5px] text-[11px] font-medium transition-colors cursor-pointer ${
+          className={`h-5 shrink-0 whitespace-nowrap inline-flex items-center justify-center rounded text-[10px] font-medium transition-colors cursor-pointer ${
             isFollowed
-              ? 'px-2 gap-1 bg-muted text-muted-foreground hover:bg-muted/80'
-              : 'px-2 bg-[#EFF5FC] hover:bg-[#EFF5FC]/80 text-[#065C85] dark:bg-blue-950/40 dark:text-blue-300'
+              ? 'px-1.5 gap-1 bg-muted text-muted-foreground hover:bg-muted/80'
+              : 'px-1.5 bg-[#EFF5FC] hover:bg-[#EFF5FC]/80 text-[#065C85] dark:bg-blue-950/40 dark:text-blue-300'
           }`}
         >
           {isFollowed ? (
             <>
-              <BellRing className="h-3 w-3 shrink-0 text-primary" />
+              <BellRing className="h-2.5 w-2.5 shrink-0 text-primary" />
               <span>Đã theo dõi</span>
             </>
           ) : (
@@ -137,8 +137,8 @@ export const EventGridCard: React.FC<EventGridCardProps> = ({
       </div>
 
       {/* 2. Tiêu đề sự kiện (font K2D, hover xanh, tối đa 2 dòng) */}
-      <div className="px-3 py-0">
-        <h3 className="font-k2d font-semibold text-sm sm:text-base leading-snug text-foreground hover:text-[#1F5CA9] transition-colors line-clamp-2">
+      <div className="px-2.5 py-0">
+        <h3 className="font-k2d font-semibold text-xs sm:text-[13px] leading-snug text-foreground hover:text-[#1F5CA9] transition-colors line-clamp-2 min-h-[2.2rem]">
           <Link
             to={`/events/${event.id}`}
             state={{ from: `${location.pathname}${location.search}` }}
@@ -148,8 +148,8 @@ export const EventGridCard: React.FC<EventGridCardProps> = ({
         </h3>
       </div>
 
-      {/* 3. Event Poster với Badge thông tin kính mờ chuẩn phong cách bài viết */}
-      <div className="relative w-full aspect-[16/10] bg-[#010101] p-1 flex items-center justify-center overflow-hidden shrink-0">
+      {/* 3. Event Poster với Badge thông tin kính mờ tỉ lệ 16:9 gọn gàng */}
+      <div className="relative w-full aspect-[16/9] bg-[#010101] p-0.5 flex items-center justify-center overflow-hidden shrink-0">
         <Link
           to={`/events/${event.id}`}
           state={{ from: `${location.pathname}${location.search}` }}
@@ -169,27 +169,27 @@ export const EventGridCard: React.FC<EventGridCardProps> = ({
           )}
         </Link>
 
-        {/* Khung thông tin kính mờ (Frosted Glass Badge) góc dưới bên phải chuẩn bài viết */}
-        <div className="absolute bottom-2 right-2 z-10 max-w-[92%] bg-black/65 backdrop-blur-md border border-white/15 rounded-lg px-2 py-1.5 text-white shadow-md flex flex-col gap-1 text-[10px] leading-tight select-none pointer-events-auto">
+        {/* Khung thông tin kính mờ (Frosted Glass Badge) góc dưới bên phải */}
+        <div className="absolute bottom-1.5 right-1.5 z-10 max-w-[92%] bg-black/70 backdrop-blur-md border border-white/15 rounded-md px-1.5 py-1 text-white shadow-md flex flex-col gap-0.5 text-[9px] leading-tight select-none pointer-events-auto">
           {/* Thời gian */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <CalendarIcon className="h-3 w-3 text-white shrink-0 stroke-[2.2]" />
+          <div className="flex items-center gap-1 min-w-0">
+            <CalendarIcon className="h-2.5 w-2.5 text-white shrink-0 stroke-[2.2]" />
             <span className="truncate font-medium text-white/90">
               {formatDisplayDateTime(event.startTime, event.endTime)}
             </span>
           </div>
 
           {/* Địa điểm */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <MapPin className="h-3 w-3 text-white shrink-0 stroke-[2.2]" />
+          <div className="flex items-center gap-1 min-w-0">
+            <MapPin className="h-2.5 w-2.5 text-white shrink-0 stroke-[2.2]" />
             <span className="truncate font-medium text-white/90" title={locationDisplay}>
               {locationDisplay}
             </span>
           </div>
 
           {/* Quyền lợi (ĐRL / SV5T) */}
-          <div className="flex items-start gap-1.5 min-w-0">
-            <Gift className="h-3 w-3 text-white shrink-0 stroke-[2.2] mt-0.5" />
+          <div className="flex items-start gap-1 min-w-0">
+            <Gift className="h-2.5 w-2.5 text-white shrink-0 stroke-[2.2] mt-0.5" />
             <div className="flex flex-col gap-0.5 min-w-0">
               {event.pointsReward ? (
                 event.pointsReward.split(' · ').map((benefit, i) => (
@@ -204,36 +204,36 @@ export const EventGridCard: React.FC<EventGridCardProps> = ({
           </div>
 
           {/* Chỉ tiêu sinh viên */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Users className="h-3 w-3 text-white shrink-0 stroke-[2.2]" />
+          <div className="flex items-center gap-1 min-w-0">
+            <Users className="h-2.5 w-2.5 text-white shrink-0 stroke-[2.2]" />
             <span className="truncate font-medium text-white/90">
-              {event.quotaText || (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
+              {event.quotaText || (event.capacity ? `${event.capacity} SV` : 'Không giới hạn')}
             </span>
           </div>
         </div>
       </div>
 
-      {/* 4. Footer Actions (Đồng bộ icon Bookmark, Share và nút Đăng ký xanh chuẩn CTU) */}
-      <div className="px-3 pt-0.5 flex items-center justify-between">
+      {/* 4. Footer Actions (Nút Bookmark, Share và Đăng ký) */}
+      <div className="px-2.5 pt-0 flex items-center justify-between">
         {/* Nút Bookmark & Share */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={handleSaveClick}
-            className={`flex h-7 w-7 items-center justify-center text-[#6B7280] hover:text-foreground transition-colors cursor-pointer ${
+            className={`flex h-6 w-6 items-center justify-center text-[#6B7280] hover:text-foreground transition-colors cursor-pointer ${
               isSaved ? 'text-primary' : ''
             }`}
             title={isSaved ? 'Đã lưu' : 'Lưu sự kiện'}
           >
-            <Bookmark className={`h-4.5 w-4.5 ${isSaved ? 'fill-current text-primary' : ''}`} />
+            <Bookmark className={`h-3.5 w-3.5 ${isSaved ? 'fill-current text-primary' : ''}`} />
           </button>
 
           <button
             type="button"
-            className="flex h-7 w-7 items-center justify-center text-[#6B7280] hover:text-foreground transition-colors cursor-pointer"
+            className="flex h-6 w-6 items-center justify-center text-[#6B7280] hover:text-foreground transition-colors cursor-pointer"
             title="Chia sẻ"
           >
-            <Share2 className="h-4.5 w-4.5" />
+            <Share2 className="h-3.5 w-3.5" />
           </button>
         </div>
 
@@ -253,7 +253,7 @@ export const EventGridCard: React.FC<EventGridCardProps> = ({
               setIsRegistered(false)
               onCancelRegister?.(event.id)
             }}
-            className="min-w-[110px] whitespace-nowrap text-xs h-8"
+            className="min-w-[95px] whitespace-nowrap text-xs h-7 px-2.5"
           />
         </div>
       </div>

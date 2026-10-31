@@ -194,7 +194,7 @@ export const HomePage: React.FC = () => {
           {/* Feed Container: Dynamically scales max-w based on viewMode */}
           <div
             className={`w-full flex flex-col gap-3 pb-28 sm:pb-36 transition-all duration-200 ${
-              viewMode === 'GRID' ? 'max-w-[840px]' : 'max-w-[680px]'
+              viewMode === 'GRID' ? 'max-w-[1120px]' : 'max-w-[680px]'
             }`}
           >
             {/* Feed Filter Tabs with View Mode Switcher */}
@@ -209,8 +209,8 @@ export const HomePage: React.FC = () => {
             <div>
               {isLoading ? (
                 viewMode === 'GRID' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    {[1, 2, 3, 4].map((n) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
                       <div
                         key={n}
                         className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 animate-pulse"
@@ -244,7 +244,7 @@ export const HomePage: React.FC = () => {
                 )
               ) : filteredEvents.length > 0 ? (
                 viewMode === 'GRID' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 animate-in fade-in duration-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 animate-in fade-in duration-200">
                     {filteredEvents.map((event) => (
                       <EventGridCard
                         key={event.id}
