@@ -6,6 +6,7 @@ import {
   normalizeHistoryStatus,
 } from '../types/history.types'
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
+import { Calendar, MapPin, Gift } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface RegisteredEventCardProps {
@@ -83,6 +84,14 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
   const canCancel = event.canCancel ?? (normalizedStatus === 'UPCOMING')
   const isSelfAttendance = event.attendanceMethod === 'STUDENT_PROOF'
 
+  // Tinh gọn quyền lợi: Bỏ các từ schema dài dòng như "Mã tiêu chí:"
+  const cleanBenefitText = (text: string): string => {
+    return text
+      .replace(/Mã tiêu chí:\s*/gi, 'Điều ')
+      .replace(/Tiêu chí\s*/gi, '')
+      .trim()
+  }
+
   const handleCardClick = () => {
     navigate(`/events/${eventId}`)
   }
@@ -97,98 +106,88 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
         <div className="flex items-center justify-between gap-2">
           {getStatusBadge()}
           <span className="text-[11px] text-[#667085] dark:text-muted-foreground font-normal">
-            {event.dateHappen || 'Đang cập nhật'}
+            {event.dateHappen || ''}
           </span>
         </div>
 
-        {/* Title & Organizer */}
-        <div className="space-y-1">
-          <h3 className="font-heading font-semibold text-[13px] sm:text-sm leading-snug line-clamp-2 text-foreground group-hover:text-[#1B4B8A] transition-colors">
-            {title}
-          </h3>
-          <div className="flex items-center gap-1.5 text-[11px] text-[#667085] dark:text-muted-foreground min-w-0">
-            {organizerAvatar ? (
-              <img
-                src={organizerAvatar}
-                alt={organizerName}
-                className="w-3.5 h-3.5 rounded-full object-cover shrink-0"
-                onError={(e) => {
-                  ;(e.currentTarget as HTMLElement).style.display = 'none'
-                }}
-              />
-            ) : null}
-            <p className="truncate">{organizerName}</p>
-            <VerifiedBadge className="h-3 w-3 shrink-0" />
+        {/* Title & Organizer (+ Poster thumbnail if available) */}
+        <div className="flex items-start gap-3">
+          {event.bannerUrl && (
+            <img
+              src={event.bannerUrl}
+              alt={title}
+              className="w-16 h-16 sm:w-18 sm:h-18 rounded-xl object-cover shrink-0 border border-border/60 shadow-2xs"
+              loading="lazy"
+            />
+          )}
+          <div className="space-y-1 min-w-0 flex-1">
+            <h3 className="font-heading font-semibold text-[13px] sm:text-sm leading-snug line-clamp-2 text-foreground group-hover:text-[#1B4B8A] transition-colors">
+              {title}
+            </h3>
+            <div className="flex items-center gap-1.5 text-[11px] text-[#667085] dark:text-muted-foreground min-w-0">
+              {organizerAvatar ? (
+                <img
+                  src={organizerAvatar}
+                  alt={organizerName}
+                  className="w-3.5 h-3.5 rounded-full object-cover shrink-0"
+                  onError={(e) => {
+                    ;(e.currentTarget as HTMLElement).style.display = 'none'
+                  }}
+                />
+              ) : null}
+              <p className="truncate">{organizerName}</p>
+              <VerifiedBadge className="h-3 w-3 shrink-0" />
+            </div>
           </div>
         </div>
 
-        {/* Soft Info Box (Thời gian, Địa điểm, Số người đăng ký, Quyền lợi) */}
-        <div className="bg-[#F9FAFB] dark:bg-muted/30 rounded-lg p-2.5 sm:p-3 space-y-2 text-left border border-[#F0F2F5] dark:border-border/30">
+        {/* Info List (Thời gian, Địa điểm, Quyền lợi) - Tinh gọn, trực quan với Icon */}
+        <div className="space-y-2 pt-1 text-left">
           {/* Thời gian */}
-          <div>
-            <div className="text-[10px] text-[#667085] dark:text-muted-foreground leading-tight">
-              Thời gian
-            </div>
-            <div className="text-xs font-medium text-foreground mt-0.5 truncate">
-              {event.timeHappen || 'Đang cập nhật'}
-            </div>
+          <div className="flex items-center gap-2 text-xs text-foreground min-w-0">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className="truncate">
+              {event.timeHappen || event.dateHappen || 'Đang cập nhật'}
+            </span>
           </div>
 
           {/* Địa điểm */}
-          <div>
-            <div className="text-[10px] text-[#667085] dark:text-muted-foreground leading-tight">
-              Địa điểm
-            </div>
-            <div
-              className="text-xs font-medium text-foreground mt-0.5 line-clamp-1"
+          <div className="flex items-center gap-2 text-xs text-foreground min-w-0">
+            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span
+              className="truncate"
               title={event.location || 'Hội trường Rùa'}
             >
               {event.location || 'Hội trường Rùa'}
-            </div>
-          </div>
-
-          {/* Số người đăng ký */}
-          <div>
-            <div className="text-[10px] text-[#667085] dark:text-muted-foreground leading-tight">
-              Số người đăng ký
-            </div>
-            <div className="text-xs font-medium text-foreground mt-0.5">
-              {event.registeredCount !== undefined
-                ? event.capacity
-                  ? `${event.registeredCount}/${event.capacity} sinh viên`
-                  : `${event.registeredCount} sinh viên`
-                : event.capacity
-                  ? `${event.capacity} sinh viên`
-                  : 'Không giới hạn'}
-            </div>
+            </span>
           </div>
 
           {/* Quyền lợi */}
-          <div>
-            <div className="text-[10px] text-[#667085] dark:text-muted-foreground leading-tight mb-1">
-              Quyền lợi
+          <div className="flex items-start gap-2 text-xs min-w-0 pt-0.5">
+            <Gift className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+            <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+              {displayedBenefits.length > 0 ? (
+                <>
+                  {displayedBenefits.map((benefit, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium bg-[#EFF5FC] text-[#065C85] dark:bg-blue-950/60 dark:text-blue-300"
+                    >
+                      {cleanBenefitText(benefit)}
+                    </span>
+                  ))}
+                  {extraCount > 0 ? (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[11px] font-medium bg-[#E5E7EB] text-[#6B7280] dark:bg-muted dark:text-muted-foreground">
+                      +{extraCount}
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">
+                  Theo thông báo của ban tổ chức
+                </span>
+              )}
             </div>
-            {displayedBenefits.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-1.5">
-                {displayedBenefits.map((benefit, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium bg-[#D5F6FF] text-[#0B4C6E] dark:bg-cyan-950/60 dark:text-cyan-200"
-                  >
-                    {benefit}
-                  </span>
-                ))}
-                {extraCount > 0 ? (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[11px] font-medium bg-[#E5E7EB] text-[#6B7280] dark:bg-muted dark:text-muted-foreground">
-                    +{extraCount}
-                  </span>
-                ) : null}
-              </div>
-            ) : (
-              <span className="text-xs text-muted-foreground italic">
-                Theo thông báo của ban tổ chức
-              </span>
-            )}
           </div>
         </div>
       </div>
@@ -243,7 +242,7 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
             }}
             className="w-full inline-flex items-center justify-center py-2 px-3 text-xs font-semibold text-[#1B4B8A] dark:text-blue-400 bg-white dark:bg-card border border-[#1B4B8A]/40 hover:border-[#1B4B8A] hover:bg-[#1B4B8A]/5 dark:hover:bg-blue-950/20 rounded-[6px] transition-all text-center cursor-pointer shadow-2xs"
           >
-            Hiện thông tin minh chứng
+            Xem minh chứng
           </button>
         )}
 
@@ -256,7 +255,7 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
             }}
             className="w-full inline-flex items-center justify-center py-2 px-3 text-xs font-semibold text-[#A01F26] bg-[#FEE2E2] hover:bg-[#FCDCDC] dark:bg-rose-950/40 dark:text-rose-300 rounded-[6px] transition-colors text-center cursor-pointer"
           >
-            Xem minh chứng / Khiếu nại
+            Khiếu nại / Minh chứng
           </button>
         )}
 

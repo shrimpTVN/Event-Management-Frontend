@@ -86,6 +86,9 @@
   html {
     scrollbar-gutter: stable;
   }
+  html:has(.auth-layout) {
+    scrollbar-gutter: auto;
+  }
   * {
     @apply border-border;
   }

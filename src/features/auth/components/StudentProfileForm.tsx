@@ -133,7 +133,7 @@ export const StudentProfileForm: React.FC = () => {
                     type="text"
                     {...register('fullName')}
                     placeholder="Nguyễn Văn A"
-                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
                       errors.fullName
                         ? 'border-destructive focus:border-destructive'
                         : 'border-[#D1D5DB] dark:border-border focus:border-primary'
@@ -153,7 +153,7 @@ export const StudentProfileForm: React.FC = () => {
                     type="text"
                     {...register('studentId')}
                     placeholder="B21DCCN001"
-                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
                       errors.studentId
                         ? 'border-destructive focus:border-destructive'
                         : 'border-[#D1D5DB] dark:border-border focus:border-primary'
@@ -250,7 +250,7 @@ export const StudentProfileForm: React.FC = () => {
                     type="text"
                     {...register('major')}
                     placeholder="Công nghệ thông tin (Mã ngành: 7480201)"
-                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
                       errors.major
                         ? 'border-destructive focus:border-destructive'
                         : 'border-[#D1D5DB] dark:border-border focus:border-primary'
@@ -272,7 +272,7 @@ export const StudentProfileForm: React.FC = () => {
                       type="text"
                       {...register('className')}
                       placeholder="DI2496A1"
-                      className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                      className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
                         errors.className
                           ? 'border-destructive focus:border-destructive'
                           : 'border-[#D1D5DB] dark:border-border focus:border-primary'
