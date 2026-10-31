@@ -81,6 +81,7 @@ function getCurrentUserIdFromRequest(req) {
     const parts = authHeader.replace('Bearer mock-jwt-token-', '').split('-')
     const uid = Number(parts[0])
     if (!isNaN(uid) && uid > 0) return uid
+    return 999999
   }
   // 2. Check Cookie ddd_jwt
   const cookieHeader = req.headers.cookie || ''
@@ -93,6 +94,7 @@ function getCurrentUserIdFromRequest(req) {
     const parts = cookies.ddd_jwt.replace('mock-jwt-token-', '').split('-')
     const uid = Number(parts[0])
     if (!isNaN(uid) && uid > 0) return uid
+    return 999999
   }
   return 1
 }
@@ -955,14 +957,21 @@ apiRouter.get('/fanpages', (req, res) => {
   return res.json(successEnvelope(makePageResponse(fanpages, page, size)))
 })
 
-apiRouter.get('/fanpages/fanpage-admin/my-fanpages', (_req, res) => {
-  const fanpages = getDb().get('fanpages').value() || []
-  return res.json(successEnvelope(fanpages))
+apiRouter.get('/fanpages/fanpage-admin/my-fanpages', (req, res) => {
+  const currentUserId = getCurrentUserIdFromRequest(req)
+  const db = getDb()
+  const memberEntries = db.get('fanpage_members').filter({ userId: Number(currentUserId), isActive: true }).value() || []
+  const myFanpageIds = memberEntries.map((m) => m.fanpageId)
+  const allFanpages = db.get('fanpages').value() || []
+  const myFanpages = allFanpages.filter((fp) => myFanpageIds.includes(fp.id))
+  return res.json(successEnvelope(myFanpages))
 })
 
-apiRouter.get('/fanpages/fanpage-admin/invitations', (_req, res) => {
-  const invitations = getDb().get('fanpage_invitations').value() || []
-  const fanpages = getDb().get('fanpages').value() || []
+apiRouter.get('/fanpages/fanpage-admin/invitations', (req, res) => {
+  const currentUserId = getCurrentUserIdFromRequest(req)
+  const db = getDb()
+  const invitations = db.get('fanpage_invitations').filter({ userId: Number(currentUserId) }).value() || []
+  const fanpages = db.get('fanpages').value() || []
   const enriched = invitations.map((inv) => {
     const fp = fanpages.find((f) => f.id === inv.fanpageId)
     return {
@@ -1005,6 +1014,14 @@ apiRouter.post('/fanpages/fanpage-admin/register', (req, res) => {
     createdAt: new Date().toISOString(),
   }
   db.get('fanpages').push(newFanpage).write()
+  const currentUserId = getCurrentUserIdFromRequest(req)
+  db.get('fanpage_members').push({
+    fanpageId: nextId,
+    userId: currentUserId,
+    role: 'ADMIN',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  }).write()
   return res.json(successEnvelope(newFanpage, 'Gửi yêu cầu đăng ký fanpage thành công. Hồ sơ đang chờ phê duyệt.'))
 })
 

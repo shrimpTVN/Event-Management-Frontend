@@ -123,8 +123,9 @@ export const OtpVerificationForm: React.FC = () => {
 
       const emailUsername = email.split('@')[0] || ''
       const isStaff = isStaffUser(res?.user) || isStaffEmail(email)
+      const newUserId = Date.now()
       const defaultUser: User = res?.user || {
-        id: 'usr-' + Date.now(),
+        id: 'usr-' + newUserId,
         email,
         name: emailUsername.replace(/[._]/g, ' ') || (isStaff ? 'Cán bộ CTU' : 'Sinh viên CTU'),
         studentId: !isStaff ? emailUsername.toUpperCase() : undefined,
@@ -133,13 +134,16 @@ export const OtpVerificationForm: React.FC = () => {
         isProfileComplete: false,
       }
 
+      const verifiedToken =
+        (res as any)?.tokens?.accessToken || `mock-jwt-token-${newUserId}-${Date.now()}`
+
       setAuth(
         {
           ...defaultUser,
           role: isStaff ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT,
           isProfileComplete: false,
         },
-        'mock-jwt-token-verified'
+        verifiedToken
       )
 
       if (isStaff) {
