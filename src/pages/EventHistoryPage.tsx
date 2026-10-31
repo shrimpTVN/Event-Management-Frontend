@@ -5,6 +5,7 @@ import {
   HistoryTabBar,
   HistorySearchBar,
   RegisteredEventCard,
+  RegisteredEventTable,
   ProofModal,
   AbsenceModal,
   CancelConfirmModal,
@@ -32,6 +33,26 @@ export const EventHistoryPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedYear, setSelectedYear] = useState('2026 - 2027')
   const [selectedSemester, setSelectedSemester] = useState('1')
+
+  // View mode switcher: 'TABLE' (Mặc định dạng bảng tinh gọn) | 'GRID' (Dạng lưới thẻ)
+  const [viewMode, setViewMode] = useState<'GRID' | 'TABLE'>(() => {
+    try {
+      const saved = localStorage.getItem('ctu_history_view_mode')
+      if (saved === 'GRID' || saved === 'TABLE') return saved
+    } catch {
+      // Ignore
+    }
+    return 'TABLE'
+  })
+
+  const handleViewModeChange = (mode: 'GRID' | 'TABLE') => {
+    setViewMode(mode)
+    try {
+      localStorage.setItem('ctu_history_view_mode', mode)
+    } catch {
+      // Ignore
+    }
+  }
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ['registrations', 'history'],
@@ -182,16 +203,16 @@ export const EventHistoryPage: React.FC = () => {
         </div>
       )}
 
-      {/* Main Container Layout: Left sidebar flush left, content scrolling independently */}
-      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
+      {/* Main Container Layout: Left sidebar with padding, Main content extends flush to right edge */}
+      <div className="w-full flex-1 min-h-0 flex items-start pl-4 sm:pl-6 pr-0 gap-6 overflow-hidden">
         {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
         <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
-        {/* Center / Main Content: History Management View */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto py-5 px-1 flex justify-center custom-scrollbar">
-          <div className="w-full max-w-6xl flex flex-col gap-4 pb-16">
+        {/* Center / Main Content: History Management View (Thanh scroll sát mép phải màn hình) */}
+        <main className="flex-1 min-w-0 h-full overflow-y-auto py-5 pl-1 pr-4 sm:pr-6 custom-scrollbar">
+          <div className="w-full max-w-full flex flex-col gap-4 pb-16">
             {/* Top Bar: Title + Năm học, Học kì, Tìm (Tiêu đề và bộ lọc) */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h1 className="text-xl sm:text-2xl font-bold font-heading text-foreground tracking-tight">
@@ -249,45 +270,70 @@ export const EventHistoryPage: React.FC = () => {
                   activeStatus === 'ALL' ? 'rounded-b-xl rounded-tr-xl' : 'rounded-xl'
                 } p-4 sm:p-5 flex flex-col gap-4 shadow-2xs`}
               >
-                {/* Search & Filter Toolbar */}
+                {/* Search & Filter Toolbar with View Mode Switcher */}
                 <HistorySearchBar
                   searchTerm={searchTerm}
                   onSearchChange={setSearchTerm}
+                  viewMode={viewMode}
+                  onViewModeChange={handleViewModeChange}
                   onToggleFilterModal={() => {
                     showToast('Đang mở bộ lọc nâng cao...', 'info')
                   }}
                 />
 
-              {/* 3-column Events Cards Grid (Frame 231) */}
+              {/* Responsive Events View (Table or Grid Cards) */}
               {isLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {[1, 2, 3].map((n) => (
-                    <div
-                      key={n}
-                      className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3 animate-pulse h-60"
-                    >
-                      <div className="h-28 bg-muted rounded-lg w-full" />
-                      <div className="h-4 bg-muted rounded w-3/4" />
-                      <div className="h-3 bg-muted rounded w-1/2" />
-                    </div>
-                  ))}
-                </div>
+                viewMode === 'TABLE' ? (
+                  <div className="rounded-xl border border-border bg-card p-6 flex flex-col gap-3 animate-pulse">
+                    {[1, 2, 3, 4].map((n) => (
+                      <div key={n} className="h-12 bg-muted rounded-lg w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map((n) => (
+                      <div
+                        key={n}
+                        className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3 animate-pulse h-60"
+                      >
+                        <div className="h-28 bg-muted rounded-lg w-full" />
+                        <div className="h-4 bg-muted rounded w-3/4" />
+                        <div className="h-3 bg-muted rounded w-1/2" />
+                      </div>
+                    ))}
+                  </div>
+                )
               ) : filteredEvents.length > 0 ? (
-                <div
-                  key={activeStatus}
-                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-in fade-in-50 slide-in-from-bottom-1 duration-200 ease-out"
-                >
-                  {filteredEvents.map((evt, idx) => (
-                    <RegisteredEventCard
-                      key={evt.id || evt.eventId || idx}
-                      event={evt}
+                viewMode === 'TABLE' ? (
+                  <div
+                    key={activeStatus}
+                    className="animate-in fade-in-50 slide-in-from-bottom-1 duration-200 ease-out"
+                  >
+                    <RegisteredEventTable
+                      events={filteredEvents}
                       onOpenProofModal={(e) => setProofModalEvent(e)}
                       onOpenAbsenceModal={(e) => setAbsenceModalEvent(e)}
                       onOpenCancelModal={(e) => setCancelModalEvent(e)}
                       onOpenAttendanceModal={(e) => setAttendanceModalEvent(e)}
                     />
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  <div
+                    key={activeStatus}
+                    className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 animate-in fade-in-50 slide-in-from-bottom-1 duration-200 ease-out"
+                  >
+                    {filteredEvents.map((evt, idx) => (
+                      <RegisteredEventCard
+                        key={evt.id || evt.eventId || idx}
+                        event={evt}
+                        onOpenProofModal={(e) => setProofModalEvent(e)}
+                        onOpenAbsenceModal={(e) => setAbsenceModalEvent(e)}
+                        onOpenCancelModal={(e) => setCancelModalEvent(e)}
+                        onOpenAttendanceModal={(e) => setAttendanceModalEvent(e)}
+                      />
+                    ))}
+                  </div>
+                )
               ) : (
                 <div className="rounded-lg border border-dashed border-border/80 p-12 text-center flex flex-col items-center justify-center gap-2">
                   <div className="p-3 rounded-full bg-muted/60 text-muted-foreground">

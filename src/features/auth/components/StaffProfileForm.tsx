@@ -128,7 +128,7 @@ export const StaffProfileForm: React.FC = () => {
                     type="text"
                     {...register('fullName')}
                     placeholder="Nhập họ tên đầy đủ"
-                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
                       errors.fullName
                         ? 'border-destructive focus:border-destructive'
                         : 'border-[#D1D5DB] dark:border-border focus:border-primary'
@@ -148,7 +148,7 @@ export const StaffProfileForm: React.FC = () => {
                     type="text"
                     {...register('staffId')}
                     placeholder="Nhập mã cán bộ"
-                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
                       errors.staffId
                         ? 'border-destructive focus:border-destructive'
                         : 'border-[#D1D5DB] dark:border-border focus:border-primary'
@@ -231,7 +231,7 @@ export const StaffProfileForm: React.FC = () => {
                     type="tel"
                     {...register('phoneNumber')}
                     placeholder="Nhập số điện thoại"
-                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
                       errors.phoneNumber
                         ? 'border-destructive focus:border-destructive'
                         : 'border-[#D1D5DB] dark:border-border focus:border-primary'

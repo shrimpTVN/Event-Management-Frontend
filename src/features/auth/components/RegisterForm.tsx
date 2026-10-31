@@ -81,9 +81,9 @@ export const RegisterForm: React.FC = () => {
             <input
               type="email"
               {...register('email')}
-              placeholder="Tên đăng nhập@ctu.edu.vn"
+              placeholder="example@student.ctu.edu.vn hoặc @ctu.edu.vn"
               autoComplete="email"
-              className={`w-full h-11 pl-10 pr-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+              className={`w-full h-11 pl-10 pr-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
                 errors.email
                   ? 'border-destructive focus:border-destructive'
                   : 'border-[#D1D5DB] dark:border-border focus:border-primary'
@@ -107,7 +107,7 @@ export const RegisterForm: React.FC = () => {
               {...register('password')}
               placeholder="Nhập mật khẩu"
               autoComplete="new-password"
-              className={`w-full h-11 pl-10 pr-10 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+              className={`w-full h-11 pl-10 pr-10 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
                 errors.password
                   ? 'border-destructive focus:border-destructive'
                   : 'border-[#D1D5DB] dark:border-border focus:border-primary'
@@ -139,7 +139,7 @@ export const RegisterForm: React.FC = () => {
               {...register('confirmPassword')}
               placeholder="Nhập lại mật khẩu"
               autoComplete="new-password"
-              className={`w-full h-11 pl-10 pr-10 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+              className={`w-full h-11 pl-10 pr-10 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
                 errors.confirmPassword
                   ? 'border-destructive focus:border-destructive'
                   : 'border-[#D1D5DB] dark:border-border focus:border-primary'

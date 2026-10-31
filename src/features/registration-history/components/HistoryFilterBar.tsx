@@ -1,6 +1,7 @@
 import React from 'react'
-import { Search, SlidersHorizontal, X } from 'lucide-react'
+import { Search, SlidersHorizontal, X, LayoutGrid, List } from 'lucide-react'
 import type { HistoryStatus } from '../types/history.types'
+import { cn } from '@/lib/utils'
 
 export interface HistoryTabBarProps {
   activeStatus: HistoryStatus
@@ -66,20 +67,61 @@ export interface HistorySearchBarProps {
   searchTerm: string
   onSearchChange: (value: string) => void
   onToggleFilterModal?: () => void
+  viewMode?: 'GRID' | 'TABLE'
+  onViewModeChange?: (mode: 'GRID' | 'TABLE') => void
 }
 
 export const HistorySearchBar: React.FC<HistorySearchBarProps> = ({
   searchTerm,
   onSearchChange,
   onToggleFilterModal,
+  viewMode = 'TABLE',
+  onViewModeChange,
 }) => {
   return (
-    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
-      <div className="text-sm font-semibold text-foreground tracking-tight">
-        Danh sách sự kiện
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-border/60">
+      <div>
+        <h2 className="font-k2d font-bold text-base sm:text-lg text-foreground">
+          Danh sách sự kiện
+        </h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Quản lý, theo dõi minh chứng và lịch sử tham gia sự kiện của bạn.
+        </p>
       </div>
 
       <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* View Mode Switcher (Bảng ↔ Thẻ) */}
+        {onViewModeChange && (
+          <div className="flex items-center gap-0.5 p-0.5 rounded-lg border border-border/80 bg-muted/40 shrink-0">
+            <button
+              type="button"
+              onClick={() => onViewModeChange('TABLE')}
+              title="Dạng bảng (Chi tiết & Tinh gọn)"
+              className={cn(
+                'p-1.5 rounded-md transition-colors cursor-pointer',
+                viewMode === 'TABLE'
+                  ? 'bg-white dark:bg-card text-primary shadow-2xs font-medium'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewModeChange('GRID')}
+              title="Dạng thẻ (Lưới)"
+              className={cn(
+                'p-1.5 rounded-md transition-colors cursor-pointer',
+                viewMode === 'GRID'
+                  ? 'bg-white dark:bg-card text-primary shadow-2xs font-medium'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         {/* Search input field */}
         <div className="relative flex-1 sm:w-72 lg:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF] pointer-events-none" />
