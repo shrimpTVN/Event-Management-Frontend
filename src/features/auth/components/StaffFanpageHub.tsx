@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Plus, Check, X, CheckCircle2, Mail, Building2 } from 'lucide-react'
+import { ArrowRight, Plus, Check, X, CheckCircle2, Mail, Building2, LogOut } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/shared'
+import { authService } from '../services/authService'
+import { useAuthStore } from '../store/authStore'
 
 interface FanpageInvitation {
   id: string
@@ -27,7 +29,20 @@ interface JoinedFanpage {
 export const StaffFanpageHub: React.FC = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user, clearAuth } = useAuthStore()
   const [actionNotice, setActionNotice] = useState<string | null>(null)
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout()
+    } catch {
+      // Proceed even if network request fails
+    } finally {
+      queryClient.clear()
+      clearAuth()
+      navigate('/login', { replace: true })
+    }
+  }
 
   const { data: invitations = [] } = useQuery<FanpageInvitation[]>({
     queryKey: ['staff-fanpage-invitations'],
@@ -120,6 +135,24 @@ export const StaffFanpageHub: React.FC = () => {
           </div>
         )}
 
+        {/* Top bar with user info & quick logout */}
+        {user && (
+          <div className="flex items-center justify-between px-1 text-xs text-[#6B7280] dark:text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-foreground">{user.name || user.email}</span>
+              {user.email && <span className="hidden sm:inline text-muted-foreground">({user.email})</span>}
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#6B7280] dark:text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Đăng xuất</span>
+            </button>
+          </div>
+        )}
+
         {/* Main Content Card */}
         <div className="w-full bg-white dark:bg-card rounded-2xl border border-[#E5E7EB] dark:border-border p-6 sm:p-10 shadow-sm space-y-8 text-left">
           {/* Card Header */}
@@ -133,13 +166,24 @@ export const StaffFanpageHub: React.FC = () => {
               </p>
             </div>
 
-            <Link
-              to="/register/fanpage"
-              className="self-start sm:self-center px-4 h-9 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white font-semibold text-xs transition-all shadow-xs flex items-center gap-1.5 shrink-0"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Đăng ký fanpage mới</span>
-            </Link>
+            <div className="flex items-center gap-2.5 self-start sm:self-center shrink-0">
+              <Link
+                to="/register/fanpage"
+                className="px-4 h-9 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white font-semibold text-xs transition-all shadow-xs flex items-center gap-1.5 shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Đăng ký fanpage mới</span>
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="px-3.5 h-9 rounded-lg border border-[#E5E7EB] dark:border-border hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-950/30 dark:hover:text-red-400 text-[#4B5563] dark:text-muted-foreground font-medium text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="Đăng xuất khỏi hệ thống"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span>Đăng xuất</span>
+              </button>
+            </div>
           </div>
 
           {/* LỜI MỜI THAM GIA (Chỉ hiển thị khi có lời mời đang chờ - PENDING) */}

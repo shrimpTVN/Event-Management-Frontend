@@ -1,39 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { AppProviders } from '@/app/providers'
+import { apiClient } from '@/shared/services/api'
+import { authService } from '../../services/authService'
+import { useAuthStore } from '../../store/authStore'
+import { RoleEnum } from '../../types/auth.types'
 import { StaffFanpageHub } from '../StaffFanpageHub'
 
-const mockGet = vi.fn()
-
-// Mock apiClient
-vi.mock('@/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/shared')>()
-  return {
-    ...actual,
-    apiClient: {
-      ...actual.apiClient,
-      get: (...args: any[]) => mockGet(...args),
+// Mock apiClient at source
+vi.mock('@/shared/services/api', () => ({
+  apiClient: {
+    get: vi.fn(),
+    post: vi.fn().mockResolvedValue({}),
+    patch: vi.fn().mockResolvedValue({}),
+    interceptors: {
+      request: { use: vi.fn() },
+      response: { use: vi.fn() },
     },
-  }
-})
+  },
+  setAuthTokenGetter: vi.fn(),
+  setOnUnauthorized: vi.fn(),
+}))
 
 describe('StaffFanpageHub', () => {
-  let queryClient: QueryClient
-
   beforeEach(() => {
-    mockGet.mockReset()
-    queryClient = new QueryClient({
-      defaultOptions: {
-        queries: {
-          retry: false,
-        },
-      },
-    })
+    vi.clearAllMocks()
+    useAuthStore.getState().clearAuth()
   })
 
   it('renders correctly with loaded fanpages', async () => {
-    mockGet.mockImplementation((url: string) => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
       if (url.includes('invitations')) {
         return Promise.resolve([])
       }
@@ -49,27 +46,28 @@ describe('StaffFanpageHub', () => {
     })
 
     render(
-      <QueryClientProvider client={queryClient}>
+      <AppProviders>
         <MemoryRouter>
           <StaffFanpageHub />
         </MemoryRouter>
-      </QueryClientProvider>
+      </AppProviders>
     )
 
     expect(screen.getByText(/Chọn fanpage để quản lý sự kiện/i)).toBeInTheDocument()
     expect(await screen.findByText('Fanpage Thử Nghiệm API')).toBeInTheDocument()
     expect(screen.getByText(/Fanpage đang quản trị \(1\)/i)).toBeInTheDocument()
+    expect(screen.getByTitle(/Đăng xuất khỏi hệ thống/i)).toBeInTheDocument()
   })
 
   it('renders empty state when staff has no fanpages yet', async () => {
-    mockGet.mockImplementation(() => Promise.resolve([]))
+    vi.mocked(apiClient.get).mockImplementation(() => Promise.resolve([]))
 
     render(
-      <QueryClientProvider client={queryClient}>
+      <AppProviders>
         <MemoryRouter>
           <StaffFanpageHub />
         </MemoryRouter>
-      </QueryClientProvider>
+      </AppProviders>
     )
 
     expect(await screen.findByText(/Hiện tại bạn chưa có fanpage nào/i)).toBeInTheDocument()
@@ -79,5 +77,36 @@ describe('StaffFanpageHub', () => {
       )
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Đăng ký tạo fanpage ngay/i })).toBeInTheDocument()
+  })
+
+  it('handles logout when clicking logout button', async () => {
+    vi.mocked(apiClient.get).mockImplementation(() => Promise.resolve([]))
+    const logoutSpy = vi.spyOn(authService, 'logout').mockResolvedValue()
+    useAuthStore.getState().setAuth(
+      {
+        id: 'usr-staff-1',
+        email: 'staff@ctu.edu.vn',
+        name: 'Cán bộ mẫu',
+        role: RoleEnum.FANPAGE_ADMIN,
+        createdAt: new Date().toISOString(),
+      },
+      'mock-jwt-token'
+    )
+
+    render(
+      <AppProviders>
+        <MemoryRouter>
+          <StaffFanpageHub />
+        </MemoryRouter>
+      </AppProviders>
+    )
+
+    const logoutBtn = screen.getByTitle(/Đăng xuất khỏi hệ thống/i)
+    fireEvent.click(logoutBtn)
+
+    await waitFor(() => {
+      expect(logoutSpy).toHaveBeenCalled()
+      expect(useAuthStore.getState().isAuthenticated).toBe(false)
+    })
   })
 })
