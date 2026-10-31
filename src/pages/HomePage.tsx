@@ -5,8 +5,10 @@ import {
   StudentRightSidebar,
   FeedTabs,
   EventFeedCard,
+  EventGridCard,
   eventService,
   type FeedTabType,
+  type ViewMode,
   type Event,
 } from '@/features/events'
 
@@ -14,6 +16,25 @@ export const HomePage: React.FC = () => {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<FeedTabType>('DISCOVER')
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
+
+  // Persist view mode (Option A: FEED vs GRID)
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    try {
+      const saved = localStorage.getItem('ctu_event_view_mode')
+      return saved === 'GRID' || saved === 'FEED' ? saved : 'FEED'
+    } catch {
+      return 'FEED'
+    }
+  })
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode)
+    try {
+      localStorage.setItem('ctu_event_view_mode', mode)
+    } catch {
+      // ignore
+    }
+  }
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ['events', 'feed'],
@@ -168,45 +189,86 @@ export const HomePage: React.FC = () => {
           <StudentLeftSidebar />
         </aside>
 
-        {/* Center Column: Feed (Tabs + Event Feed Cards, centered with Figma Feed width: 680px, gap: 8px) */}
+        {/* Center Column: Feed (Tabs + Event Feed Cards / Grid Cards) */}
         <main className="flex-1 min-w-0 h-full overflow-y-auto py-2.5 px-1 flex justify-center custom-scrollbar">
-          {/* Feed Container with bottom breathing room when scrolled to end */}
-          <div className="w-full max-w-[680px] flex flex-col gap-2 pb-28 sm:pb-36">
-            {/* Feed Filter Tabs */}
-            <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          {/* Feed Container: Dynamically scales max-w based on viewMode */}
+          <div
+            className={`w-full flex flex-col gap-3 pb-28 sm:pb-36 transition-all duration-200 ${
+              viewMode === 'GRID' ? 'max-w-[840px]' : 'max-w-[680px]'
+            }`}
+          >
+            {/* Feed Filter Tabs with View Mode Switcher */}
+            <FeedTabs
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              viewMode={viewMode}
+              onViewModeChange={handleViewModeChange}
+            />
 
-            {/* Feed List (Figma gap: 8px between consecutive cards) */}
-            <div className="flex flex-col gap-2">
+            {/* Event List Rendering */}
+            <div>
               {isLoading ? (
-                <div className="flex flex-col gap-4">
-                  {[1, 2, 3].map((n) => (
-                    <div
-                      key={n}
-                      className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-4 animate-pulse"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-muted" />
-                        <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-muted rounded w-1/3" />
-                          <div className="h-3 bg-muted rounded w-1/4" />
-                        </div>
+                viewMode === 'GRID' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {[1, 2, 3, 4].map((n) => (
+                      <div
+                        key={n}
+                        className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 animate-pulse"
+                      >
+                        <div className="aspect-video bg-muted rounded-xl w-full" />
+                        <div className="h-4 bg-muted rounded w-2/3" />
+                        <div className="h-3 bg-muted rounded w-1/2" />
+                        <div className="h-8 bg-muted rounded-lg w-full mt-2" />
                       </div>
-                      <div className="h-5 bg-muted rounded w-3/4" />
-                      <div className="h-48 bg-muted rounded-xl w-full" />
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {[1, 2, 3].map((n) => (
+                      <div
+                        key={n}
+                        className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-4 animate-pulse"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-muted" />
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 bg-muted rounded w-1/3" />
+                            <div className="h-3 bg-muted rounded w-1/4" />
+                          </div>
+                        </div>
+                        <div className="h-5 bg-muted rounded w-3/4" />
+                        <div className="h-48 bg-muted rounded-xl w-full" />
+                      </div>
+                    ))}
+                  </div>
+                )
               ) : filteredEvents.length > 0 ? (
-                filteredEvents.map((event) => (
-                  <EventFeedCard
-                    key={event.id}
-                    event={event}
-                    onRegister={handleRegister}
-                    onCancelRegister={handleCancelRegister}
-                    onToggleSave={handleToggleSave}
-                    onToggleFollow={handleToggleFollow}
-                  />
-                ))
+                viewMode === 'GRID' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 animate-in fade-in duration-200">
+                    {filteredEvents.map((event) => (
+                      <EventGridCard
+                        key={event.id}
+                        event={event}
+                        onRegister={handleRegister}
+                        onCancelRegister={handleCancelRegister}
+                        onToggleSave={handleToggleSave}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 animate-in fade-in duration-200">
+                    {filteredEvents.map((event) => (
+                      <EventFeedCard
+                        key={event.id}
+                        event={event}
+                        onRegister={handleRegister}
+                        onCancelRegister={handleCancelRegister}
+                        onToggleSave={handleToggleSave}
+                        onToggleFollow={handleToggleFollow}
+                      />
+                    ))}
+                  </div>
+                )
               ) : (
                 <div className="rounded-2xl border border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-2">
                   <span className="text-3xl">🎉</span>
