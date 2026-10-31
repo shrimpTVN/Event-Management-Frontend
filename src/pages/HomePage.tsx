@@ -252,6 +252,7 @@ export const HomePage: React.FC = () => {
                         onRegister={handleRegister}
                         onCancelRegister={handleCancelRegister}
                         onToggleSave={handleToggleSave}
+                        onToggleFollow={handleToggleFollow}
                       />
                     ))}
                   </div>
