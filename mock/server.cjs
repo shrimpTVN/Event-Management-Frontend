@@ -289,27 +289,56 @@ function buildEventResponseDto(event, currentUserId = 1) {
 // 1. Authentication Endpoints (/api/auth)
 // -------------------------------------------------------------
 apiRouter.post('/auth/login', (req, res) => {
-  const { email, password } = req.body
+  const { email, password } = req.body || {}
   const db = getDb()
   const users = db.get('users').value() || []
-  const normalizedEmail = (email || '').toLowerCase()
+  const normalizedEmail = (email || '').trim().toLowerCase()
 
-  let user = null
-  if (normalizedEmail.includes('admin')) {
-    user = users.find((u) => u.id === 3) || users[2]
-  } else if (
-    normalizedEmail.includes('organizer') ||
-    normalizedEmail.includes('staff') ||
-    normalizedEmail.includes('canbo')
-  ) {
-    user = users.find((u) => u.id === 2) || users[1]
-  } else {
-    user = users.find((u) => u.id === 1) || users[0]
+  // 1. Exact match by email
+  let user = users.find((u) => (u.email || '').toLowerCase() === normalizedEmail)
+
+  // 2. Convenience aliases for dev demo accounts if typed without full domain
+  if (!user) {
+    if (normalizedEmail === 'admin' || normalizedEmail === 'admin@ctu.edu.vn') {
+      user = users.find((u) => u.id === 3)
+    } else if (
+      normalizedEmail === 'organizer' ||
+      normalizedEmail === 'staff' ||
+      normalizedEmail === 'canbo' ||
+      normalizedEmail === 'organizer@ctu.edu.vn'
+    ) {
+      user = users.find((u) => u.id === 2)
+    } else if (
+      normalizedEmail === 'student' ||
+      normalizedEmail === 'loc' ||
+      normalizedEmail === 'loc@student.ctu.edu.vn'
+    ) {
+      user = users.find((u) => u.id === 1)
+    }
   }
 
-  // Validate password: must match '123123'
+  // If user does not exist in db, reject with 401
+  if (!user) {
+    return res
+      .status(401)
+      .json(
+        errorEnvelope(
+          'Email hoặc tài khoản không tồn tại trên hệ thống. Vui lòng kiểm tra lại hoặc đăng ký tài khoản mới.',
+          'AUTH_USER_NOT_FOUND'
+        )
+      )
+  }
+
+  // Validate password: must match user.password or '123123'
   if (password && password !== '123123' && user.password !== password) {
-    return res.status(401).json(errorEnvelope('Mật khẩu không chính xác. Mật khẩu mặc định là 123123', 'AUTH_INVALID_CREDENTIALS'))
+    return res
+      .status(401)
+      .json(
+        errorEnvelope(
+          'Mật khẩu không chính xác. Mật khẩu mặc định là 123123.',
+          'AUTH_INVALID_CREDENTIALS'
+        )
+      )
   }
 
   const roleName = resolveUserRole(user.id)
@@ -332,23 +361,112 @@ apiRouter.post('/auth/login', (req, res) => {
   const springRole = `ROLE_${roleName}`
 
   return res.json(
-    successEnvelope({
-      userId: user.id,
-      email: user.email,
-      roles: [springRole],
-      role: springRole,
-      user: fullUserProfile,
-      tokens: { accessToken: token },
-    }, 'Đăng nhập thành công')
+    successEnvelope(
+      {
+        userId: user.id,
+        email: user.email,
+        roles: [springRole],
+        role: springRole,
+        user: fullUserProfile,
+        tokens: { accessToken: token },
+      },
+      'Đăng nhập thành công'
+    )
   )
 })
 
 apiRouter.post('/auth/register', (req, res) => {
-  return res.json(successEnvelope({ success: true, email: req.body.email }, 'Đăng ký thành công'))
+  const { email, password } = req.body || {}
+  const db = getDb()
+  const users = db.get('users').value() || []
+  const normalizedEmail = (email || '').trim().toLowerCase()
+
+  if (!normalizedEmail) {
+    return res.status(400).json(errorEnvelope('Email không được để trống.', 'VALIDATION_ERROR'))
+  }
+
+  const existing = users.find((u) => (u.email || '').toLowerCase() === normalizedEmail)
+  if (existing) {
+    return res.status(400).json(errorEnvelope('Email này đã được đăng ký trên hệ thống.', 'AUTH_EMAIL_EXISTS'))
+  }
+
+  const isStaff = normalizedEmail.includes('@ctu.edu.vn') && !normalizedEmail.includes('@student.ctu.edu.vn')
+  const nextId = (users.map((u) => u.id).sort((a, b) => b - a)[0] || 0) + 1
+  const username = normalizedEmail.split('@')[0]
+
+  const newUser = {
+    id: nextId,
+    email: normalizedEmail,
+    password: password || '123123',
+    firstName: isStaff ? 'Cán bộ' : 'Sinh viên',
+    lastName: username.charAt(0).toUpperCase() + username.slice(1),
+    gender: 'OTHER',
+    isActive: true,
+    avatarUrl: null,
+    createdAt: new Date().toISOString(),
+  }
+
+  db.get('users').push(newUser).write()
+
+  // Assign role: 3 for staff/fanpage-admin, 2 for student
+  const roleId = isStaff ? 3 : 2
+  db.get('user_roles').push({
+    userId: nextId,
+    roleId,
+    isActive: true,
+  }).write()
+
+  return res.json(
+    successEnvelope(
+      { success: true, email: normalizedEmail, userId: nextId },
+      'Đăng ký tài khoản thành công. Mã OTP đã được gửi đến email.'
+    )
+  )
 })
 
 apiRouter.post('/auth/register/fanpage-admin', (req, res) => {
-  return res.json(successEnvelope(null, 'Đăng ký quản trị viên fanpage thành công'))
+  const { email, password } = req.body || {}
+  const db = getDb()
+  const users = db.get('users').value() || []
+  const normalizedEmail = (email || '').trim().toLowerCase()
+
+  if (!normalizedEmail) {
+    return res.status(400).json(errorEnvelope('Email không được để trống.', 'VALIDATION_ERROR'))
+  }
+
+  const existing = users.find((u) => (u.email || '').toLowerCase() === normalizedEmail)
+  if (existing) {
+    return res.status(400).json(errorEnvelope('Email này đã được đăng ký trên hệ thống.', 'AUTH_EMAIL_EXISTS'))
+  }
+
+  const nextId = (users.map((u) => u.id).sort((a, b) => b - a)[0] || 0) + 1
+  const username = normalizedEmail.split('@')[0]
+
+  const newUser = {
+    id: nextId,
+    email: normalizedEmail,
+    password: password || '123123',
+    firstName: 'Cán bộ',
+    lastName: username.charAt(0).toUpperCase() + username.slice(1),
+    gender: 'OTHER',
+    isActive: true,
+    avatarUrl: null,
+    createdAt: new Date().toISOString(),
+  }
+
+  db.get('users').push(newUser).write()
+  db.get('user_roles').push({
+    userId: nextId,
+    roleId: 3,
+    isActive: true,
+  }).write()
+
+  return res.json(
+    successEnvelope(
+      { success: true, email: normalizedEmail, userId: nextId },
+      'Đăng ký quản trị viên fanpage thành công. Mã OTP đã được gửi đến email.'
+    )
+  )
 })
 
 apiRouter.post('/auth/refresh-token', (_req, res) => {
@@ -368,8 +486,58 @@ apiRouter.post('/auth/google', (req, res) => {
   return res.json(successEnvelope({ user, tokens: { accessToken: token } }, 'Google auth success'))
 })
 
-apiRouter.post('/auth/verify-otp', (_req, res) => {
-  return res.json(successEnvelope({ success: true }, 'Xác thực OTP thành công'))
+apiRouter.post('/auth/verify-otp', (req, res) => {
+  const { email } = req.body || {}
+  const db = getDb()
+  const users = db.get('users').value() || []
+  const normalizedEmail = (email || '').trim().toLowerCase()
+  let user = users.find((u) => (u.email || '').toLowerCase() === normalizedEmail)
+
+  if (!user && normalizedEmail) {
+    const isStaff = normalizedEmail.includes('@ctu.edu.vn') && !normalizedEmail.includes('@student.ctu.edu.vn')
+    const nextId = (users.map((u) => u.id).sort((a, b) => b - a)[0] || 0) + 1
+    const username = normalizedEmail.split('@')[0]
+    user = {
+      id: nextId,
+      email: normalizedEmail,
+      password: '123123',
+      firstName: isStaff ? 'Cán bộ' : 'Sinh viên',
+      lastName: username.charAt(0).toUpperCase() + username.slice(1),
+      gender: 'OTHER',
+      isActive: true,
+      avatarUrl: null,
+      createdAt: new Date().toISOString(),
+    }
+    db.get('users').push(user).write()
+    db.get('user_roles').push({
+      userId: nextId,
+      roleId: isStaff ? 3 : 2,
+      isActive: true,
+    }).write()
+  }
+
+  const userId = user ? user.id : 999999
+  const token = `mock-jwt-token-${userId}-${Date.now()}`
+
+  res.cookie('ddd_jwt', token, {
+    httpOnly: true,
+    maxAge: 86400000,
+    sameSite: 'lax',
+    path: '/',
+  })
+
+  const fullUserProfile = user ? buildUserProfileDto(user.id) : null
+
+  return res.json(
+    successEnvelope(
+      {
+        success: true,
+        user: fullUserProfile,
+        tokens: { accessToken: token },
+      },
+      'Xác thực OTP thành công'
+    )
+  )
 })
 
 apiRouter.post('/auth/resend-otp', (_req, res) => {
@@ -383,12 +551,76 @@ apiRouter.get('/auth/me', (req, res) => {
 })
 
 apiRouter.post('/auth/student-profile', (req, res) => {
-  const profile = { ...buildUserProfileDto(1), ...req.body, isProfileComplete: true }
+  const userId = getCurrentUserIdFromRequest(req)
+  const db = getDb()
+  const { firstName, lastName, studentId, gender, kNumber, majorId, associationId, dateOfBirth, phoneNumber } = req.body || {}
+
+  db.get('users').find({ id: Number(userId) }).assign({
+    firstName: firstName || '',
+    lastName: lastName || '',
+    gender: gender || 'OTHER',
+    dateOfBirth: dateOfBirth || null,
+    phoneNumber: phoneNumber || '',
+  }).write()
+
+  const existingProfile = db.get('student_profiles').find({ userId: Number(userId) }).value()
+  if (existingProfile) {
+    db.get('student_profiles').find({ userId: Number(userId) }).assign({
+      studentId: studentId || existingProfile.studentId,
+      kNumber: kNumber || existingProfile.kNumber,
+      majorId: majorId || existingProfile.majorId,
+      associationId: associationId || existingProfile.associationId,
+    }).write()
+  } else {
+    db.get('student_profiles').push({
+      id: Date.now(),
+      userId: Number(userId),
+      studentId: studentId || '',
+      kNumber: kNumber || 49,
+      majorId: majorId || 1,
+      associationId: associationId || 1,
+      academicProgram: 'Đại trà (Chương trình chuẩn)',
+      status: 'Đang học',
+    }).write()
+  }
+
+  const profile = buildUserProfileDto(userId)
   return res.json(successEnvelope(profile, 'Cập nhật hồ sơ sinh viên thành công'))
 })
 
 apiRouter.post('/auth/staff-profile', (req, res) => {
-  const profile = { ...buildUserProfileDto(2), ...req.body, isProfileComplete: true }
+  const userId = getCurrentUserIdFromRequest(req)
+  const db = getDb()
+  const { firstName, lastName, phoneNumber, gender, staffCode, position, department } = req.body || {}
+
+  db.get('users').find({ id: Number(userId) }).assign({
+    firstName: firstName || '',
+    lastName: lastName || '',
+    phoneNumber: phoneNumber || '',
+    gender: gender || 'OTHER',
+  }).write()
+
+  const existingProfile = db.get('fanpage_admin_profiles').find({ userId: Number(userId) }).value()
+  if (existingProfile) {
+    db.get('fanpage_admin_profiles').find({ userId: Number(userId) }).assign({
+      staffId: staffCode || existingProfile.staffId,
+      title: position || existingProfile.title,
+      orgName: department || existingProfile.orgName,
+      phoneNumber: phoneNumber || existingProfile.phoneNumber,
+    }).write()
+  } else {
+    db.get('fanpage_admin_profiles').push({
+      id: Date.now(),
+      userId: Number(userId),
+      staffId: staffCode || `CB-${userId}`,
+      title: position || 'Cán bộ',
+      orgName: department || 'Trường Đại học Cần Thơ',
+      phoneNumber: phoneNumber || '',
+      isActive: true,
+    }).write()
+  }
+
+  const profile = buildUserProfileDto(userId)
   return res.json(successEnvelope(profile, 'Cập nhật hồ sơ cán bộ thành công'))
 })
 

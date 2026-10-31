@@ -1,20 +1,23 @@
-# Deferred Student Onboarding & Event Registration Flow (Tài liệu Tách Luồng Đăng Ký và Hoàn Thiện Hồ Sơ)
+# Registration & Onboarding Flow Specification (Tài liệu Quy trình Đăng ký & Hoàn thiện Hồ sơ)
 
 > **Mục đích tài liệu:**  
-> Giải thích chi tiết cho đội ngũ **Backend (Spring Boot DDD)** về kiến trúc và luồng nghiệp vụ mới từ **Frontend**: Tối ưu hóa trải nghiệm đăng ký (Frictionless Onboarding), cho phép sinh viên vào trang chủ ngay sau khi xác thực OTP, và chỉ yêu cầu điền thông tin chi tiết sinh viên khi bấm đăng ký sự kiện.
+> Đặc tả chi tiết cho toàn bộ đội ngũ phát triển (**Frontend React** và **Backend Spring Boot DDD**) về quy trình đăng ký tài khoản, phân nhánh nghiệp vụ theo vai trò người dùng (**Sinh viên** vs **Cán bộ / Quản trị Fanpage**), luồng hoàn thiện hồ sơ sinh viên theo ngữ cảnh (Just-In-Time) và trung tâm quản lý fanpage dành cho cán bộ.
 
 ---
 
-## 1. Bối cảnh & Vấn đề giải quyết
+## 1. Tổng quan & So sánh hai phân hệ người dùng
 
-### 1.1. Luồng cũ (Tạo ma sát lớn - High Friction)
-- Người dùng đăng ký phải nhập cùng lúc: `email`, `password`, `studentId`, `firstName`, `lastName`, `gender`, `kNumber`, `majorId`, `associationId`, `providerId`.
-- Nếu thiếu bất kỳ trường nào, Backend từ chối với lỗi `400 Bad Request`.
-- Người dùng chưa kịp nhìn thấy sự kiện nào trên web đã phải điền quá nhiều thông tin ➔ Dẫn đến tỷ lệ bỏ dở đăng ký cao (High Drop-off rate).
+Hệ thống phân tách luồng đăng ký dựa trên tiền tố/hậu tố email và vai trò định danh:
 
-### 1.2. Luồng mới (Just-In-Time / Lazy Onboarding)
-- **Giai đoạn 1 (Đăng ký nhanh):** Người dùng chỉ cần cung cấp `email` + `password` và xác thực mã `OTP` gửi về email. Sau khi xác thực xong, hệ thống đăng nhập và chuyển thẳng vào **Trang chủ (`/`)** để lướt xem các sự kiện và bài viết.
-- **Giai đoạn 2 (Hoàn thiện hồ sơ theo ngữ cảnh):** Chỉ khi người dùng bấm nút **"Đăng ký ngay"** ở một sự kiện, hệ thống mới kiểm tra và yêu cầu người dùng bổ sung thông tin sinh viên (MSSV, ngành, khóa,...) để phục vụ tính điểm rèn luyện.
+| Tiêu chí | Phân hệ Sinh viên (`ROLE_STUDENT`) | Phân hệ Cán bộ (`ROLE_FANPAGE_ADMIN`) |
+|:---|:---|:---|
+| **Định dạng Email** | `*@student.ctu.edu.vn` (hoặc email cá nhân) | `*@ctu.edu.vn` (hoặc email cán bộ) |
+| **Giai đoạn 1: Đăng ký** | Nhập `email` + `mật khẩu` ➔ Nhận mã OTP qua email | Nhập `email` + `mật khẩu` ➔ Nhận mã OTP qua email |
+| **Sau khi xác thực OTP** | **Vào thẳng Trang chủ (`/`) ngay lập tức** (chưa cần điền thông tin chi tiết) | **Bắt buộc điền thông tin định danh cán bộ trước** tại `/onboarding/staff` |
+| **Thời điểm hoàn thiện hồ sơ** | **Hoãn lại (Deferred / Lazy):** Chỉ yêu cầu khi bấm nút "Đăng ký ngay" ở sự kiện | **Ngay sau khi OTP:** Hoàn thành trước khi vào hệ thống quản lý fanpage |
+| **Trang chuyển tiếp sau hồ sơ** | Tự động quay lại sự kiện đang chọn và hoàn tất đăng ký | Chuyển đến **Hub Fanpage Cán bộ (`/staff/fanpages`)** |
+| **Trạng thái tài khoản mới** | `isProfileComplete: false`, xem sự kiện bình thường | Chưa có fanpage nào ➔ Hiển thị **Empty State** hướng dẫn tạo fanpage |
+| **Đăng xuất (Logout)** | Nút đăng xuất tại Navbar / Menu người dùng | Nút đăng xuất trực tiếp trên Hub Fanpage & Menu tài khoản |
 
 ---
 
@@ -22,174 +25,279 @@
 
 ```mermaid
 flowchart TD
-    subgraph GiaiDoan1["GIAI ĐOẠN 1: ĐĂNG KÝ NHANH"]
-        A["1. Form Đăng ký (Email + Password)"] --> B["2. Gửi mã OTP về Email"]
-        B --> C["3. Nhập 6 số OTP (POST /api/auth/verify-otp)"]
-        C --> D["4. Xác thực thành công ➔ Cấp Session JWT"]
-    end
+    Start["Người dùng truy cập trang Đăng ký (/register)"] --> InputCreds["Nhập Email & Mật khẩu"]
+    InputCreds --> SendOTP["Backend gửi mã OTP (6 chữ số) qua email"]
+    SendOTP --> VerifyOTP["Nhập mã OTP tại /verify-otp"]
+    VerifyOTP --> CheckRole{"Phân loại vai trò người dùng"}
 
-    subgraph GiaiDoan2["GIAI ĐOẠN 2: TRẢI NGHIỆM TRANG CHỦ"]
-        D --> E["5. Vào thẳng Trang Chủ (/)"]
-        E --> F["6. Xem danh sách sự kiện, chi tiết bài viết, fanpage"]
-    end
+    %% Nhánh Sinh viên
+    CheckRole -- "Sinh viên (@student.ctu.edu.vn)" --> HomeDirect["Vào thẳng Trang Chủ (/) ngay lập tức"]
+    HomeDirect --> BrowseEvents["Khám phá danh sách sự kiện, bài viết, fanpage"]
+    BrowseEvents --> ClickRegister{"Bấm 'Đăng ký ngay' một sự kiện"}
+    ClickRegister -- "Hồ sơ sinh viên đã hoàn thiện" --> CallRegisterApi["Gọi POST /api/events/{id}/register ➔ Đăng ký thành công"]
+    ClickRegister -- "Chưa có thông tin sinh viên" --> PromptProfile["Hiện Modal: Yêu cầu bổ sung thông tin sinh viên"]
+    PromptProfile --> FillStudentForm["Nhập MSSV, Lớp, Ngành, Khóa (/onboarding/student)"]
+    FillStudentForm --> SaveStudentProfile["Gọi POST /api/users/me/student-profile"]
+    SaveStudentProfile --> ReturnAndRegister["Tự động quay lại sự kiện & Hoàn tất đăng ký"]
 
-    subgraph GiaiDoan3["GIAI ĐOẠN 3: ĐĂNG KÝ SỰ KIỆN"]
-        F --> G{"7. Bấm 'Đăng ký ngay' sự kiện"}
-        G -- "Đã có đủ hồ sơ sinh viên" --> H["8. Gọi POST /events/{id}/register ➔ Thành công"]
-        G -- "Chưa có thông tin sinh viên" --> I["9. Hiển thị Popup: Yêu cầu thông tin sinh viên"]
-        I --> J["10. Điền MSSV, Lớp, Ngành (POST /api/users/me/student-profile)"]
-        J --> K["11. Lưu hồ sơ ➔ Tự động quay lại đăng ký sự kiện"]
-    end
+    %% Nhánh Cán bộ
+    CheckRole -- "Cán bộ (@ctu.edu.vn)" --> RequireStaffProfile["Bắt buộc vào trang /onboarding/staff"]
+    RequireStaffProfile --> FillStaffForm["Điền: Họ tên, Chức vụ, Đơn vị/Khoa, SĐT"]
+    FillStaffForm --> SaveStaffProfile["Gọi POST /api/users/me/staff-profile"]
+    SaveStaffProfile --> GoStaffHub["Chuyển hướng đến Hub Fanpage (/staff/fanpages)"]
+    
+    GoStaffHub --> QueryMyFanpages{"Kiểm tra số lượng Fanpage quản lý"}
+    QueryMyFanpages -- "Chưa có Fanpage nào (0 fanpage)" --> EmptyStateHub["Hiển thị Empty State: 'Hiện tại bạn chưa có fanpage nào'"]
+    EmptyStateHub --> BtnCreateFP["Nút: 'Đăng ký tạo fanpage ngay' (/register/fanpage)"]
+    QueryMyFanpages -- "Đã có Fanpage (>= 1 fanpage)" --> ListFanpages["Hiển thị danh sách Fanpage quản trị ➔ Chọn fanpage để quản lý"]
+    
+    GoStaffHub --> LogoutOption["Nút 'Đăng xuất' tại Header & Thanh tài khoản"]
+    LogoutOption --> ExecLogout["Gọi POST /api/auth/logout ➔ Chuyển về /login"]
 
-    style GiaiDoan1 fill:#e0f2fe,stroke:#0284c7
-    style GiaiDoan2 fill:#f0fdf4,stroke:#16a34a
-    style GiaiDoan3 fill:#fef3c7,stroke:#d97706
+    style HomeDirect fill:#f0fdf4,stroke:#16a34a
+    style RequireStaffProfile fill:#e0f2fe,stroke:#0284c7
+    style EmptyStateHub fill:#fffbeb,stroke:#d97706
 ```
 
 ---
 
-## 3. Sơ đồ tuần tự chi tiết (Sequence Diagrams)
+## 3. Luồng chi tiết: Sinh viên (Frictionless Student Flow)
 
-### 3.1. Giai đoạn 1: Đăng ký & Xác thực OTP nhanh
+### 3.1. Sơ đồ tuần tự (Sequence Diagram)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Sinh viên
+    actor Student as Sinh viên
     participant FE as Frontend (React)
-    participant Auth as AuthController (/api/auth)
-    participant Service as AuthService
+    participant AuthCtrl as AuthController
+    participant EventCtrl as EventController
+    participant UserCtrl as UserController
     participant DB as PostgreSQL
 
-    User->>FE: Nhập Email trường + Mật khẩu
-    FE->>Auth: POST /api/auth/register {email, password}
-    Auth->>Service: createQuickUser(email, password)
-    Service->>DB: INSERT INTO users (role=STUDENT, is_active=true)
-    Note over Service,DB: Chưa cần tạo student_profiles ở bước này
-    Auth-->>FE: 200 OK + Tự động gửi OTP qua mail
+    Student->>FE: Nhập Email trường + Mật khẩu
+    FE->>AuthCtrl: POST /api/auth/register {email, password}
+    AuthCtrl->>DB: INSERT INTO users (role='ROLE_STUDENT', is_active=true)
+    AuthCtrl-->>FE: 200 OK + Gửi mã OTP qua mail
     FE->>FE: Chuyển sang màn hình /verify-otp
 
-    User->>FE: Nhập 6 số OTP
-    FE->>Auth: POST /api/auth/verify-otp {email, otpCode}
-    Auth->>Service: verifyOtp(email, otpCode)
-    Service->>DB: Kiểm tra OTP hợp lệ
-    Auth-->>FE: 200 OK + Set-Cookie: ddd_jwt, ddd_refresh
-    FE->>FE: Lưu trạng thái: isAuthenticated=true, isProfileComplete=false
-    FE->>User: Điều hướng thẳng về Trang Chủ (/)
+    Student->>FE: Nhập 6 chữ số OTP
+    FE->>AuthCtrl: POST /api/auth/verify-otp {email, otp}
+    AuthCtrl->>DB: Xác thực mã OTP
+    AuthCtrl-->>FE: 200 OK + Cấp Session Cookie (ddd_jwt)
+    FE->>FE: Lưu AuthState: isProfileComplete=false
+    FE->>Student: Điều hướng thẳng vào Trang Chủ (/)
+
+    Note over Student,FE: Sinh viên tự do lướt xem các sự kiện, không bị chặn
+
+    Student->>FE: Bấm nút "Đăng ký ngay" tại Sự kiện #25
+    FE->>FE: Kiểm tra user.isProfileComplete == false
+    FE->>Student: Mở Modal yêu cầu hoàn tất thông tin sinh viên
+    Student->>FE: Bấm "Bổ sung ngay" ➔ Đến /onboarding/student?redirect=/events/25
+    Student->>FE: Nhập MSSV, Giới tính, Khoa, Ngành học, Khóa
+    FE->>UserCtrl: POST /api/users/me/student-profile {studentId, majorId, ...}
+    UserCtrl->>DB: INSERT INTO student_profiles ...
+    UserCtrl-->>FE: 200 OK
+    FE->>FE: Cập nhật isProfileComplete=true
+    FE->>FE: Tự động điều hướng ngược lại /events/25
+    FE->>EventCtrl: POST /api/events/25/register
+    EventCtrl->>DB: INSERT INTO registrations ...
+    EventCtrl-->>FE: 200 OK { message: "Đăng ký thành công" }
+    FE->>Student: Đổi nút sang trạng thái "Đã đăng ký" (Màu xanh)
 ```
 
 ---
 
-### 3.2. Giai đoạn 2 & 3: Đăng ký sự kiện & Hoàn thiện hồ sơ
+## 4. Luồng chi tiết: Cán bộ / Quản trị Fanpage (Staff Flow)
+
+### 4.1. Sơ đồ tuần tự (Sequence Diagram)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Sinh viên
-    participant FE as Frontend (RegisterButton)
-    participant Event as Event/RegistrationController
-    participant UserCtrl as UserController / AuthController
+    actor Staff as Cán bộ CTU
+    participant FE as Frontend (React)
+    participant AuthCtrl as AuthController
+    participant FanpageCtrl as FanpageController
     participant DB as PostgreSQL
 
-    User->>FE: Bấm "Đăng ký ngay" sự kiện #10
-    
-    alt Frontend kiểm tra cục bộ (Fast-check)
-        FE->>FE: Kiểm tra user.isProfileComplete == false
-        FE->>User: Mở Popup "Yêu cầu thông tin sinh viên"
-    else Trường hợp gửi trực tiếp lên Backend
-        FE->>Event: POST /api/events/10/register
-        Event->>DB: Kiểm tra student_profiles của user
-        DB-->>Event: Không tìm thấy hồ sơ sinh viên
-        Event-->>FE: 403 Forbidden { exceptionCode: "STUDENT_PROFILE_REQUIRED" }
-        FE->>User: Mở Popup "Yêu cầu thông tin sinh viên"
-    end
+    Staff->>FE: Đăng ký Email cán bộ (*@ctu.edu.vn)
+    FE->>AuthCtrl: POST /api/auth/register {email, password}
+    AuthCtrl->>DB: INSERT INTO users (role='ROLE_FANPAGE_ADMIN', is_active=true)
+    AuthCtrl-->>FE: 200 OK + Gửi mã OTP
+    FE->>FE: Chuyển sang /verify-otp
 
-    User->>FE: Bấm "Cập nhật ngay"
-    FE->>FE: Chuyển tới /onboarding/student?redirect=/events/10
-    User->>FE: Nhập MSSV, Giới tính, Khoa, Ngành học, Lớp, Khóa
-    FE->>UserCtrl: POST /api/users/me/student-profile {studentId, firstName, lastName, gender, majorId, ...}
-    UserCtrl->>DB: INSERT INTO student_profiles (user_id, student_id, major_id, ...)
-    UserCtrl-->>FE: 200 OK (Cập nhật thành công)
-    
-    FE->>FE: Cập nhật state: isProfileComplete=true
-    FE->>User: Điều hướng ngược lại trang sự kiện #10
-    FE->>Event: POST /api/events/10/register (Đăng ký lại)
-    Event->>DB: INSERT INTO registrations ...
-    Event-->>FE: 200 OK { message: "Đăng ký thành công" }
-    FE->>User: Đổi nút sang "Đã đăng ký" (Màu xanh)
+    Staff->>FE: Nhập mã OTP
+    FE->>AuthCtrl: POST /api/auth/verify-otp {email, otp}
+    AuthCtrl-->>FE: 200 OK + Session Cookie
+    Note over FE: Phát hiện email/vai trò Cán bộ (Staff)
+    FE->>Staff: Bắt buộc chuyển đến /onboarding/staff (StaffProfileForm)
+
+    Staff->>FE: Nhập Họ tên, Đơn vị công tác, Chức vụ, SĐT
+    FE->>AuthCtrl: POST /api/users/me/staff-profile (hoặc /api/auth/staff-profile)
+    AuthCtrl->>DB: INSERT INTO fanpage_admin_profiles ...
+    AuthCtrl-->>FE: 200 OK { isProfileComplete: true }
+    FE->>Staff: Chuyển hướng đến Hub Fanpage (/staff/fanpages)
+
+    %% Tải Hub Fanpage
+    FE->>FanpageCtrl: GET /api/fanpages/fanpage-admin/my-fanpages
+    FanpageCtrl->>DB: Lấy fanpage liên kết với userId trong fanpage_members
+    DB-->>FanpageCtrl: [] (Mới đăng ký nên chưa có fanpage nào)
+    FanpageCtrl-->>FE: 200 OK { data: [] }
+
+    FE->>FanpageCtrl: GET /api/fanpages/fanpage-admin/invitations
+    FanpageCtrl->>DB: Lấy lời mời của userId trong fanpage_invitations
+    DB-->>FanpageCtrl: []
+    FanpageCtrl-->>FE: 200 OK { data: [] }
+
+    FE->>Staff: Hiển thị Empty State ("Hiện tại bạn chưa có fanpage nào") + Nút "Đăng ký tạo fanpage ngay"
+
+    alt Cán bộ muốn Đăng xuất
+        Staff->>FE: Bấm nút "Đăng xuất" (tại Header hoặc Thanh tài khoản)
+        FE->>AuthCtrl: POST /api/auth/logout
+        AuthCtrl-->>FE: 200 OK (Xóa cookie)
+        FE->>FE: clearAuth() + queryClient.clear()
+        FE->>Staff: Chuyển về màn hình /login
+    else Cán bộ đăng ký tạo Fanpage mới
+        Staff->>FE: Bấm "Đăng ký tạo fanpage ngay" ➔ Vào /register/fanpage
+        Staff->>FE: Điền thông tin CLB/Đoàn Hội
+        FE->>FanpageCtrl: POST /api/fanpages/fanpage-admin/register
+        FanpageCtrl->>DB: Tạo Fanpage + Gán quyền ADMIN cho cán bộ
+        FanpageCtrl-->>FE: 200 OK
+        FE->>Staff: Fanpage xuất hiện trong danh sách quản lý
+    end
 ```
 
 ---
 
-## 4. Đề xuất điều chỉnh Backend (Backend Action Items)
+## 5. Đặc tả Giao diện & Trạng thái Hub Fanpage (`/staff/fanpages`)
 
-Để hỗ trợ hoàn hảo luồng này, phía Backend (Spring Boot DDD) cần điều chỉnh hoặc bổ sung các điểm sau:
+### 5.1. Khi tài khoản cán bộ mới đăng ký (0 Fanpage)
+- **Khu vực Lời mời (`pendingInvitations.length === 0`):** Ẩn hoàn toàn, không hiển thị thẻ lời mời thừa.
+- **Khu vực Fanpage (`fanpagesList.length === 0`):** Hiển thị khối giao diện Empty State thân thiện:
+  - Icon tòa nhà `Building2`.
+  - Tiêu đề: **"Hiện tại bạn chưa có fanpage nào"**.
+  - Mô tả: *"Tài khoản cán bộ của bạn hiện chưa tham gia hoặc sở hữu fanpage nào. Vui lòng đăng ký để tạo fanpage và bắt đầu tổ chức sự kiện nhé!"*.
+  - Nút hành động chính: **[+] Đăng ký tạo fanpage ngay** (dẫn tới `/register/fanpage`).
 
-### 4.1. Cho phép Đăng ký nhanh chỉ với Email + Password
-- **Endpoint:** `POST /api/auth/register` (hoặc tạo thêm `POST /api/auth/register-quick`)
-- **Request Body tối thiểu:**
-  ```json
-  {
-    "email": "student123@student.ctu.edu.vn",
-    "password": "Password123!"
-  }
-  ```
-- **Xử lý:**
-  - Tạo bản ghi trong bảng `users` với role `ROLE_STUDENT`.
-  - Chưa bắt buộc phải có `student_profiles` ngay, hoặc cho phép các trường profile nhận `null` tạm thời.
+### 5.2. Tính năng Đăng xuất (Logout) trên Hub Fanpage
+Cán bộ có thể chủ động đăng xuất khỏi hệ thống ngay tại trang Hub thông qua:
+1. **Nút "Đăng xuất" ở Card Header:** Nằm song song với nút *"Đăng ký fanpage mới"*, viền mỏng, icon `LogOut`, hover hiệu ứng đỏ nhạt.
+2. **Thanh thông tin tài khoản (Top bar):** Nằm trên cùng của trang, hiển thị họ tên, email đang đăng nhập kèm liên kết đăng xuất nhanh.
+3. **Quy trình xử lý khi nhấn Đăng xuất:**
+   - Gửi yêu cầu `POST /api/auth/logout` để backend hủy phiên làm việc.
+   - Xóa toàn bộ bộ nhớ đệm TanStack Query (`queryClient.clear()`).
+   - Xóa sạch state người dùng và token trong bộ nhớ cục bộ (`clearAuth()`).
+   - Điều hướng người dùng về trang đăng nhập `/login`.
 
 ---
 
-### 4.2. Bổ sung Endpoint Lưu/Hoàn thiện hồ sơ sinh viên
-- **Endpoint:** `POST /api/users/me/student-profile` hoặc `POST /api/auth/student-profile`
-- **Security:** Yêu cầu đăng nhập (`Authenticated` qua JWT cookie).
+## 6. Đặc tả Kỹ thuật API (API Contracts)
+
+### 6.1. Đăng ký tài khoản nhanh
+- **Endpoint:** `POST /api/auth/register`
+- **Quyền hạn:** Công khai (`PermitAll`)
 - **Request Body:**
   ```json
   {
-    "firstName": "Văn A",
-    "lastName": "Nguyễn",
+    "email": "canbo.cntt@ctu.edu.vn",
+    "password": "Password123!"
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "data": {
+      "success": true,
+      "email": "canbo.cntt@ctu.edu.vn"
+    },
+    "message": "Đăng ký tài khoản thành công. Mã OTP đã được gửi đến email.",
+    "exceptionCode": null
+  }
+  ```
+
+### 6.2. Xác thực mã OTP
+- **Endpoint:** `POST /api/auth/verify-otp`
+- **Request Body:**
+  ```json
+  {
+    "email": "canbo.cntt@ctu.edu.vn",
+    "otp": "123456"
+  }
+  ```
+- **Response (200 OK):** Thiết lập `Set-Cookie: ddd_jwt=...; HttpOnly; Path=/` và trả về thông tin người dùng ban đầu.
+
+### 6.3. Hoàn thiện hồ sơ sinh viên (Chỉ gọi khi sinh viên đăng ký sự kiện)
+- **Endpoint:** `POST /api/users/me/student-profile` (hoặc `POST /api/auth/student-profile`)
+- **Quyền hạn:** `ROLE_STUDENT` (Yêu cầu đăng nhập)
+- **Request Body:**
+  ```json
+  {
+    "firstName": "Tài Lộc",
+    "lastName": "Đoàn",
     "studentId": "B2101234",
     "gender": "MALE",
     "kNumber": 49,
     "majorId": 1,
-    "associationId": 1
+    "associationId": 2
   }
   ```
-- **Xử lý:**
-  - Lấy `userId` từ token đang đăng nhập (`SecurityContextHolder`).
-  - Lưu bản ghi vào bảng `student_profiles` liên kết với `userId`.
-  - Trả về `BaseResponse.ok()`.
+- **Response (200 OK):** Cập nhật `isProfileComplete: true`.
+
+### 6.4. Hoàn thiện hồ sơ cán bộ (Gọi ngay sau khi cán bộ xác thực OTP)
+- **Endpoint:** `POST /api/users/me/staff-profile` (hoặc `POST /api/auth/staff-profile`)
+- **Quyền hạn:** `ROLE_FANPAGE_ADMIN` (Yêu cầu đăng nhập)
+- **Request Body:**
+  ```json
+  {
+    "firstName": "Hoàng",
+    "lastName": "Lê Văn",
+    "phoneNumber": "02923832663",
+    "gender": "MALE",
+    "staffCode": "CB04921",
+    "position": "Phó Bí thư Đoàn Trường",
+    "department": "Trường CNTT & TT"
+  }
+  ```
+- **Response (200 OK):** Cập nhật thông tin cán bộ, trả về `isProfileComplete: true`.
+
+### 6.5. Lấy danh sách Fanpage đang quản lý
+- **Endpoint:** `GET /api/fanpages/fanpage-admin/my-fanpages`
+- **Quyền hạn:** `ROLE_FANPAGE_ADMIN`
+- **Xử lý phía Backend:**
+  - Lấy `email` hoặc `userId` từ token (`SecurityContextHolder`).
+  - Truy vấn các fanpage mà người dùng có quan hệ hoạt động (`isActive = true`) trong bảng `fanpage_members`.
+  - **Với tài khoản cán bộ mới:** Trả về danh sách rỗng `[]` (Tuyệt đối không trả về toàn bộ fanpage hệ thống).
+- **Response (200 OK):**
+  ```json
+  {
+    "data": [],
+    "message": "Success",
+    "exceptionCode": null
+  }
+  ```
+
+### 6.6. Đăng xuất khỏi hệ thống
+- **Endpoint:** `POST /api/auth/logout`
+- **Quyền hạn:** Yêu cầu đăng nhập
+- **Response (200 OK):** Xoá cookie phiên `ddd_jwt`, `ddd_refresh`.
 
 ---
 
-### 4.3. Kiểm tra điều kiện khi Đăng ký sự kiện
-- **Endpoint:** `POST /api/events/{id}/register` hoặc `POST /api/registrations`
-- **Xử lý:**
-  - Trước khi ghi nhận vào bảng `registrations`, kiểm tra xem tài khoản sinh viên đã có `student_profiles` hợp lệ hay chưa.
-  - **Nếu chưa có:** Trả về lỗi có mã định danh rõ ràng:
-    ```json
-    {
-      "data": null,
-      "message": "Vui lòng hoàn thiện thông tin sinh viên trước khi đăng ký sự kiện.",
-      "exceptionCode": "STUDENT_PROFILE_REQUIRED"
-    }
-    ```
-    *HTTP Status:* `400 Bad Request` hoặc `403 Forbidden`.
+## 7. Bảng mã lỗi quy ước (Exception Codes)
 
----
-
-## 5. Danh mục mã lỗi (Exception Codes quy ước)
-
-| HTTP Status | Exception Code | Ý nghĩa | Frontend xử lý |
+| HTTP Status | Exception Code | Tình huống phát sinh | Cách xử lý phía Frontend |
 |:---|:---|:---|:---|
-| **403 / 400** | `STUDENT_PROFILE_REQUIRED` | Người dùng chưa có thông tin sinh viên khi đăng ký sự kiện | Mở modal chuyển hướng sang form hoàn thiện hồ sơ sinh viên |
-| **401** | `UNAUTHORIZED` | Chưa đăng nhập | Chuyển hướng sang `/login?redirect=...` |
-| **409** | `DUPLICATE_REGISTRATION` | Sinh viên đã đăng ký sự kiện này rồi | Hiển thị nút "Đã đăng ký" |
-| **400** | `EVENT_FULL` | Sự kiện đã hết số lượng đăng ký | Vô hiệu hóa nút đăng ký |
+| **403 / 400** | `STUDENT_PROFILE_REQUIRED` | Sinh viên chưa có hồ sơ khi gửi `POST /api/events/{id}/register` | Mở popup yêu cầu bổ sung thông tin sinh viên |
+| **401** | `UNAUTHORIZED` | Phiên làm việc hết hạn hoặc chưa đăng nhập | Điều hướng về `/login?redirect=...` |
+| **409** | `DUPLICATE_REGISTRATION` | Đã đăng ký sự kiện này trước đó | Hiển thị trạng thái "Đã đăng ký" |
+| **400** | `EVENT_FULL` | Sự kiện đã đủ số lượng đăng ký | Vô hiệu hóa nút đăng ký |
+| **404** | `FANPAGE_NOT_FOUND` | Không tìm thấy fanpage yêu cầu | Hiển thị thông báo không tìm thấy fanpage |
 
 ---
 
-## 6. Lợi ích của luồng mới
-1. **Tăng tỷ lệ chuyển đổi (Conversion Rate):** Sinh viên tạo tài khoản chỉ mất dưới 30 giây để bắt đầu khám phá hệ thống.
-2. **Đúng ngữ cảnh (Contextual Need):** Chỉ yêu cầu nhập MSSV, chi hội, ngành học khi thực sự cần thiết (lúc đăng ký sự kiện để cấp chứng nhận và điểm rèn luyện).
-3. **Trải nghiệm mượt mà:** Sau khi nhập thông tin ở sự kiện A, hệ thống tự động đưa sinh viên trở lại sự kiện A và tiếp tục đăng ký mà không cần tìm lại sự kiện.
+## 8. Tóm tắt lợi ích đạt được
+
+1. **Sinh viên:** Trải nghiệm tức thì, không bị rào cản form biểu mẫu dài dòng làm nản lòng; chỉ nhập thông tin khi có nhu cầu tham gia nhận điểm rèn luyện.
+2. **Cán bộ:** Quản lý tập trung, quy trình chặt chẽ với form định danh ban đầu, giao diện quản lý fanpage rõ ràng, có trạng thái khởi tạo hỗ trợ tạo fanpage mới và chức năng đăng xuất thuận tiện.
+3. **Hệ thống & Dữ liệu:** Đảm bảo toàn vẹn dữ liệu cho từng fanpage, tính riêng tư và phân quyền chính xác giữa các tài khoản cán bộ.
