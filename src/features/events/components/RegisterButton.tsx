@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { Loader2, ChevronDown, ChevronUp, AlertCircle, CalendarCheck, Ban } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronUp, AlertCircle, CalendarCheck, Ban, GraduationCap } from 'lucide-react'
 import { apiClient } from '@/shared'
 import { useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '@/features/auth'
 
 export interface RegisterButtonProps {
   eventId: string | number
@@ -33,6 +34,8 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
 }) => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { isAuthenticated, user } = useAuthStore()
+  const [showProfilePrompt, setShowProfilePrompt] = useState(false)
   const [isRegistered, setIsRegistered] = useState(initialRegistered)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -119,6 +122,19 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
   // Handle register action (Quick register)
   const handleRegister = async () => {
     if (disabled || isLoading) return
+
+    // 1. Kiểm tra đăng nhập
+    if (!isAuthenticated || !user) {
+      navigate(`/login?redirect=${encodeURIComponent(window.location.pathname)}`)
+      return
+    }
+
+    // 2. Kiểm tra thông tin sinh viên - chỉ yêu cầu khi đăng ký sự kiện
+    if (!user.isProfileComplete) {
+      setShowProfilePrompt(true)
+      return
+    }
+
     setIsLoading(true)
 
     try {
@@ -356,6 +372,57 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
                   className="px-4 py-1.5 bg-[#1F5CA9] hover:bg-[#1B4B8A] text-white text-xs sm:text-sm font-semibold rounded-md transition-colors cursor-pointer"
                 >
                   Đã hiểu
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* 5. Modal yêu cầu hoàn thiện thông tin sinh viên trước khi đăng ký sự kiện */}
+      {showProfilePrompt &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+            onClick={() => setShowProfilePrompt(false)}
+          >
+            <div
+              className="bg-card text-card-foreground border border-border w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col gap-5 animate-in zoom-in-95 duration-150"
+              role="dialog"
+              aria-modal="true"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-950/40 text-primary flex items-center justify-center shrink-0">
+                  <GraduationCap className="h-6 w-6" />
+                </div>
+                <div className="space-y-1.5 text-left flex-1">
+                  <h3 className="font-bold text-lg text-foreground font-heading">
+                    Yêu cầu thông tin sinh viên
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Để đăng ký tham gia sự kiện và được ghi nhận điểm rèn luyện, bạn cần cập nhật thông tin cá nhân (MSSV, lớp, ngành học).
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setShowProfilePrompt(false)}
+                  className="px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                >
+                  Để sau
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowProfilePrompt(false)
+                    navigate(`/onboarding/student?redirect=${encodeURIComponent(window.location.pathname)}`)
+                  }}
+                  className="px-5 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
+                >
+                  Cập nhật ngay
                 </button>
               </div>
             </div>

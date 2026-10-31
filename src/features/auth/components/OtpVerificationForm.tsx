@@ -3,7 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
-import { isStaffEmail, isStaffUser } from '../utils/authUtils'
+import { isStaffEmail } from '../utils/authUtils'
+import { RoleEnum, type User } from '../types/auth.types'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 
 export const OtpVerificationForm: React.FC = () => {
@@ -119,14 +120,29 @@ export const OtpVerificationForm: React.FC = () => {
       setIsSubmitting(true)
       setApiError(null)
       const res = await authService.verifyOtp({ email, otp: otpCode })
-      setAuth(res.user, 'mock-jwt-token-verified')
 
-      // Route to profile setup
-      if (isStaffUser(res.user) || isStaffEmail(email)) {
-        navigate('/onboarding/staff')
-      } else {
-        navigate('/onboarding/student')
+      const emailUsername = email.split('@')[0] || ''
+      const defaultUser: User = res?.user || {
+        id: 'usr-' + Date.now(),
+        email,
+        name: emailUsername.replace(/[._]/g, ' ') || 'Sinh viên CTU',
+        studentId: emailUsername.toUpperCase(),
+        role: isStaffEmail(email) ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT,
+        createdAt: new Date().toISOString(),
+        isProfileComplete: false,
       }
+
+      // Đánh dấu chưa hoàn thiện hồ sơ để yêu cầu nhập thông tin khi đăng ký sự kiện
+      setAuth(
+        {
+          ...defaultUser,
+          isProfileComplete: false,
+        },
+        'mock-jwt-token-verified'
+      )
+
+      // Chuyển thẳng vào trang chủ sau khi xác thực OTP thành công (chưa cần nhập thông tin ngay)
+      navigate('/', { replace: true })
     } catch (err: any) {
       setApiError(err.response?.data?.message || 'Mã OTP không chính xác hoặc đã hết hạn.')
     } finally {

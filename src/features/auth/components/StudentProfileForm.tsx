@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
@@ -31,6 +31,7 @@ const CTU_ACADEMIC_YEARS = [
 
 export const StudentProfileForm: React.FC = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user, updateUser } = useAuthStore()
 
   const defaultEmail = user?.email || 'nguyenvana@student.ctu.edu.vn'
@@ -70,7 +71,7 @@ export const StudentProfileForm: React.FC = () => {
         name: updatedUser.name,
         isProfileComplete: true,
       })
-      navigate('/', { replace: true })
+      navigate(searchParams.get('redirect') || '/', { replace: true })
     } catch (err: any) {
       setApiError(
         err.response?.data?.message || 'Không thể lưu hồ sơ sinh viên. Vui lòng thử lại.'
