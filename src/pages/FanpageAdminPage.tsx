@@ -10,8 +10,10 @@ import {
   FanpageMembersView,
   FanpageProfileEditView,
   FanpageDashboardView,
+  FanpageRightSidebar,
   fanpageAdminService,
   EMPTY_ACTIVITY_STATS,
+  type FanpageFeedPost,
 } from '@/features/fanpage-admin'
 import type { FanpageSummary, AdminNavTab, AdminEvent } from '@/features/fanpage-admin'
 
@@ -28,10 +30,29 @@ export const FanpageAdminPage: React.FC = () => {
 
   const [selectedFanpage, setSelectedFanpage] = useState<FanpageSummary | null>(null)
 
-  const currentFanpage: FanpageSummary | undefined =
+  const fallbackFanpage: FanpageSummary = {
+    id: '1',
+    code: 'CNTT',
+    name: 'Đoàn Trường CNTT & TT',
+    fullName: 'Đoàn Trường CNTT & TT',
+    avatarText: 'CNT',
+    avatarUrl: '',
+    role: 'Quản trị viên',
+    isVerified: true,
+    email: 'doanit@ctu.edu.vn',
+    phone: '0292.3832.663',
+    address: 'Khu II, Đại học Cần Thơ',
+    followersCount: 1200,
+    eventsCount: 1,
+    description: 'Trang thông tin chính thức của Đoàn TNCS Hồ Chí Minh Khoa CNTT & TT - Trường Đại học Cần Thơ',
+    parentOrg: 'Đoàn Thanh niên - Hội Sinh viên ĐH Cần Thơ',
+  }
+
+  const currentFanpage: FanpageSummary =
     selectedFanpage ||
     (initialFanpageId ? availableFanpages.find((fp) => fp.id === initialFanpageId) : undefined) ||
-    availableFanpages[0]
+    availableFanpages[0] ||
+    fallbackFanpage
 
   const { data: posts = [] } = useQuery({
     queryKey: ['admin-feed-posts', currentFanpage?.id],
@@ -44,6 +65,18 @@ export const FanpageAdminPage: React.FC = () => {
     queryFn: () => fanpageAdminService.getAdminEvents(currentFanpage?.id),
     enabled: Boolean(currentFanpage?.id),
   })
+
+  const { data: followerCount = 0 } = useQuery({
+    queryKey: ['admin-follower-count', currentFanpage?.id],
+    queryFn: () => fanpageAdminService.getFanpageFollowerCount(currentFanpage?.id),
+    enabled: Boolean(currentFanpage?.id),
+  })
+
+  const enrichedFanpage: FanpageSummary = {
+    ...currentFanpage,
+    eventsCount: adminEvents.length,
+    followersCount: followerCount > 0 ? followerCount : (currentFanpage.followersCount || 0),
+  }
 
   const { data: stats = EMPTY_ACTIVITY_STATS } = useQuery({
     queryKey: ['admin-activity-stats', currentFanpage?.id],
@@ -121,6 +154,23 @@ export const FanpageAdminPage: React.FC = () => {
     })
   }
 
+  const handleEditFeedPost = (post: FanpageFeedPost) => {
+    const rawId = post.eventId || post.id.replace('post-', '')
+    const targetEvent = adminEvents.find((e) => String(e.id) === String(rawId))
+    if (targetEvent) {
+      handleEditEventClick(targetEvent)
+    } else {
+      setSelectedEventId(String(rawId))
+      setActiveTab('create-event')
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('tab', 'create-event')
+        next.set('eventId', String(rawId))
+        return next
+      })
+    }
+  }
+
   const handleEditProfileClick = () => {
     setActiveTab('profile')
     setSearchParams((prev) => {
@@ -154,6 +204,11 @@ export const FanpageAdminPage: React.FC = () => {
   }
 
   const handleSaveFanpageProfile = (_updatedProfile: Partial<FanpageSummary>) => {
+    queryClient.invalidateQueries({ queryKey: ['admin-available-fanpages'] })
+    queryClient.invalidateQueries({ queryKey: ['fanpage-detail'] })
+    queryClient.invalidateQueries({ queryKey: ['admin-feed-posts'] })
+    queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+    queryClient.invalidateQueries({ queryKey: ['admin-follower-count'] })
     setActiveTab(null)
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
@@ -181,7 +236,7 @@ export const FanpageAdminPage: React.FC = () => {
 
   return (
     <FanpageAdminLayout
-      currentFanpage={currentFanpage}
+      currentFanpage={enrichedFanpage}
       availableFanpages={availableFanpages}
       onSelectFanpage={(fp) => {
         setSelectedFanpage(fp)
@@ -204,11 +259,20 @@ export const FanpageAdminPage: React.FC = () => {
         })
         navigate('/fanpage/admin', { state: { fanpageId: currentFanpage.id } })
       }}
+      rightSidebar={
+        activeTab === null ? (
+          <FanpageRightSidebar
+            currentFanpage={enrichedFanpage}
+            stats={stats}
+            onManageMembersClick={() => handleSelectTab('members')}
+          />
+        ) : undefined
+      }
     >
       {/* 1. Trang chủ fanpage — quản trị (Mặc định khi activeTab === null) */}
       {activeTab === null && (
         <FanpageHomeView
-          currentFanpage={currentFanpage}
+          currentFanpage={enrichedFanpage}
           stats={stats}
           reminder={reminder}
           posts={posts}
@@ -222,6 +286,7 @@ export const FanpageAdminPage: React.FC = () => {
           }}
           onCreateEventClick={handleCreateEventClick}
           onEditProfileClick={handleEditProfileClick}
+          onEditEvent={handleEditFeedPost}
         />
       )}
 
@@ -239,7 +304,7 @@ export const FanpageAdminPage: React.FC = () => {
       {activeTab === 'create-event' && (
         <FanpageCreateEventView
           key={editingEvent ? `edit-${editingEvent.id}` : 'create-new'}
-          currentFanpage={currentFanpage}
+          currentFanpage={enrichedFanpage}
           initialEvent={editingEvent}
           onBack={() => {
             setSelectedEventId(null)
@@ -275,19 +340,19 @@ export const FanpageAdminPage: React.FC = () => {
       {/* 5. Dashboard tổng quan fanpage */}
       {activeTab === 'overview' && (
         <FanpageDashboardView
-          currentFanpage={currentFanpage}
+          currentFanpage={enrichedFanpage}
           onCreateEventClick={handleCreateEventClick}
           onEventClick={handleEventClick}
         />
       )}
 
       {/* 6. Quản lý thành viên fanpage */}
-      {activeTab === 'members' && <FanpageMembersView currentFanpage={currentFanpage} />}
+      {activeTab === 'members' && <FanpageMembersView currentFanpage={enrichedFanpage} />}
 
       {/* 7. Chỉnh sửa thông tin fanpage */}
       {activeTab === 'profile' && (
         <FanpageProfileEditView
-          currentFanpage={currentFanpage}
+          currentFanpage={enrichedFanpage}
           onSave={handleSaveFanpageProfile}
           onCancel={() => setActiveTab(null)}
         />

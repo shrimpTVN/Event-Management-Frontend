@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/select'
 import type { FanpageSummary } from '../types/fanpageAdmin.types'
 import { fanpageAdminService } from '../services/fanpageAdminService'
+import { mediaService } from '@/shared'
+import { Loader2 } from 'lucide-react'
 
 interface FanpageProfileEditViewProps {
   currentFanpage: FanpageSummary
@@ -64,6 +66,8 @@ export const FanpageProfileEditView: React.FC<FanpageProfileEditViewProps> = ({
   const [address, setAddress] = useState(effectiveFanpage.address || 'Khu II, Đại học Cần Thơ')
   const [description, setDescription] = useState(effectiveFanpage.description || '')
   const [avatarUrl, setAvatarUrl] = useState(effectiveFanpage.avatarUrl || '')
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
 
   // Reset helper
   const resetFormValues = (src: FanpageSummary) => {
@@ -121,22 +125,38 @@ export const FanpageProfileEditView: React.FC<FanpageProfileEditViewProps> = ({
     const file = e.target.files?.[0]
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setAvatarUrl(reader.result)
-      }
-    }
-    reader.readAsDataURL(file)
+    setAvatarFile(file)
+    const previewUrl = URL.createObjectURL(file)
+    setAvatarUrl(previewUrl)
   }
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isEditing) return
 
     if (!name.trim()) {
       setFeedback({ type: 'error', message: 'Tên fanpage không được để trống' })
       return
+    }
+
+    let finalAvatarUrl = avatarUrl
+
+    if (avatarFile) {
+      setIsUploadingAvatar(true)
+      try {
+        finalAvatarUrl = await mediaService.uploadImage(avatarFile, 'FANPAGE')
+        setAvatarUrl(finalAvatarUrl)
+        setAvatarFile(null)
+      } catch (uploadErr: any) {
+        console.error('Lỗi upload avatar fanpage lên Cloudinary:', uploadErr)
+        setFeedback({
+          type: 'error',
+          message: uploadErr?.message || 'Tải ảnh đại diện lên Cloudinary thất bại. Vui lòng thử lại!',
+        })
+        setIsUploadingAvatar(false)
+        return
+      }
+      setIsUploadingAvatar(false)
     }
 
     updateMutation.mutate({
@@ -149,7 +169,7 @@ export const FanpageProfileEditView: React.FC<FanpageProfileEditViewProps> = ({
       phone,
       address,
       description,
-      avatarUrl,
+      avatarUrl: finalAvatarUrl,
     })
   }
 
@@ -204,11 +224,19 @@ export const FanpageProfileEditView: React.FC<FanpageProfileEditViewProps> = ({
               <Button
                 type="submit"
                 size="sm"
-                disabled={updateMutation.isPending}
+                disabled={updateMutation.isPending || isUploadingAvatar}
                 className="h-9 rounded-lg gap-2 cursor-pointer"
               >
-                {updateMutation.isPending ? (
-                  <span>Đang lưu...</span>
+                {isUploadingAvatar ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Đang tải ảnh...</span>
+                  </>
+                ) : updateMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Đang lưu...</span>
+                  </>
                 ) : (
                   <>
                     <Save className="h-3.5 w-3.5" />
@@ -267,7 +295,7 @@ export const FanpageProfileEditView: React.FC<FanpageProfileEditViewProps> = ({
 
           {/* Logo Circular Upload with Live Preview */}
           <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/30 border border-border">
-            <div className="h-20 w-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+            <div className="relative h-20 w-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
@@ -277,6 +305,11 @@ export const FanpageProfileEditView: React.FC<FanpageProfileEditViewProps> = ({
               ) : (
                 <div className="h-full w-full rounded-full bg-primary text-white font-k2d font-bold text-lg flex items-center justify-center">
                   {code || 'FP'}
+                </div>
+              )}
+              {isUploadingAvatar && (
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-2xs flex items-center justify-center text-white">
+                  <Loader2 className="h-6 w-6 animate-spin text-white" />
                 </div>
               )}
             </div>

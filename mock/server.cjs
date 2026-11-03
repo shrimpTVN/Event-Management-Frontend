@@ -540,6 +540,10 @@ apiRouter.post('/auth/verify-otp', (req, res) => {
   )
 })
 
+apiRouter.post('/auth/send-otp', (_req, res) => {
+  return res.json(successEnvelope({ success: true }, 'Mã OTP đã được gửi'))
+})
+
 apiRouter.post('/auth/resend-otp', (_req, res) => {
   return res.json(successEnvelope({ success: true }, 'Mã OTP đã được gửi lại'))
 })
@@ -1177,6 +1181,16 @@ apiRouter.post('/registrations/fanpage-member/fanpages/:fanpageId/events/:eventI
 // -------------------------------------------------------------
 // 5. Fanpages Endpoints (/api/fanpages)
 // -------------------------------------------------------------
+apiRouter.get('/fanpages/following', (req, res) => {
+  const currentUserId = getCurrentUserIdFromRequest(req) || 1
+  const { page = 0, size = 10 } = req.query
+  const db = getDb()
+  const followings = db.get('followings').filter({ userId: Number(currentUserId) }).value() || []
+  const fanpageIds = new Set(followings.map((f) => f.fanpageId))
+  const fanpages = db.get('fanpages').filter((fp) => fanpageIds.has(fp.id) && fp.status === 'ACTIVE').value() || []
+  return res.json(successEnvelope(makePageResponse(fanpages, page, size)))
+})
+
 apiRouter.get('/fanpages', (req, res) => {
   const { page = 0, size = 10, keyword } = req.query
   let fanpages = getDb().get('fanpages').filter({ status: 'ACTIVE' }).value() || []

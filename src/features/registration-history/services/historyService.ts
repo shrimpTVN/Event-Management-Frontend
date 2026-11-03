@@ -1,89 +1,78 @@
-import { apiClient, formatEventTitle } from '@/shared'
-import {
-  type RegisteredEventItem,
-  type AttendanceSession,
-  normalizeHistoryStatus,
-} from '../types/history.types'
+import { apiClient } from '@/shared'
+import type { RegisteredEventItem, AttendanceSession, EventStatus } from '../types/history.types'
 
 /**
- * Format raw ISO string to Vietnamese human-readable weekday and date:
- * e.g. "Thứ 2, 14/09/2026"
+ * Normalizes backend date strings to human-friendly display
  */
-function formatHappenDate(dateStr?: string): string {
-  if (!dateStr) return 'Đang cập nhật'
+export function formatHappenDate(rawDate?: string): string {
+  if (!rawDate) return 'Đang cập nhật'
   try {
-    const d = new Date(dateStr)
-    if (isNaN(d.getTime())) return dateStr
-    const weekdays = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7']
+    const d = new Date(rawDate)
+    if (isNaN(d.getTime())) return rawDate
+
+    const dayOfWeek = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][d.getDay()]
     const day = String(d.getDate()).padStart(2, '0')
     const month = String(d.getMonth() + 1).padStart(2, '0')
-    return `${weekdays[d.getDay()]}, ${day}/${month}/${d.getFullYear()}`
+    const year = d.getFullYear()
+
+    return `${dayOfWeek}, ${day}/${month}/${year}`
   } catch {
-    return dateStr
+    return rawDate
   }
 }
 
-/**
- * Format raw ISO string to Vietnamese human-readable time:
- * e.g. "18h30, 16/09/2026"
- */
-function formatHappenTime(dateStr?: string): string {
-  if (!dateStr) return 'Đang cập nhật'
+export function formatHappenTime(rawDate?: string): string {
+  if (!rawDate) return ''
   try {
-    const d = new Date(dateStr)
-    if (isNaN(d.getTime())) return dateStr
+    const d = new Date(rawDate)
+    if (isNaN(d.getTime())) return ''
+
     const hours = String(d.getHours()).padStart(2, '0')
     const mins = String(d.getMinutes()).padStart(2, '0')
     const day = String(d.getDate()).padStart(2, '0')
     const month = String(d.getMonth() + 1).padStart(2, '0')
-    return `${hours}h${mins}, ${day}/${month}/${d.getFullYear()}`
+    const year = d.getFullYear()
+
+    return `${hours}h${mins}, ${day}/${month}/${year}`
   } catch {
-    return dateStr
+    return ''
   }
 }
 
 /**
- * Normalizes backend / mock registration history item to RegisteredEventItem
- * with defensive fallbacks for missing properties.
+ * Maps raw backend registration entity to UI model RegisteredEventItem
  */
 export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
-  if (!raw || typeof raw !== 'object') {
-    return {
-      id: `reg-${Math.random()}`,
-      eventId: '',
-      title: 'Sự kiện',
-      eventName: 'Sự kiện',
-      organizer: { name: 'Ban Tổ Chức', avatarUrl: '', isVerified: false },
-      status: 'UPCOMING',
-      attendanceSessions: [],
-      benefits: [],
-      timeHappen: 'Đang cập nhật',
-      dateHappen: 'Đang cập nhật',
-      location: 'Đang cập nhật',
-      capacity: 0,
-      registeredCount: 0,
-      pointsCategory: 'ĐRL theo quy định',
-      canCancel: true,
-      canRequestAbsence: true,
-      hasProof: false,
-    }
+  const eventId = raw.eventId || raw.id || '0'
+  const id = String(raw.id || eventId)
+  const title = raw.eventName || raw.title || 'Sự kiện chưa đặt tên'
+  const eventName = title
+
+  const organizer = raw.organizer || {
+    name: raw.organizerName || raw.fanpageName || 'Đoàn trường ĐHCT',
+    avatarUrl: raw.organizerAvatar || raw.fanpageAvatar || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150',
+    isVerified: true,
   }
 
-  const eventId = String(raw.eventId ?? raw.id ?? '')
-  const id = String(raw.id ?? (eventId ? `reg-${eventId}` : `reg-${Math.random()}`))
-  const rawTitle = raw.title || raw.eventName || 'Sự kiện'
-  const title = formatEventTitle(rawTitle)
-  const eventName = formatEventTitle(raw.eventName || rawTitle)
-  const status = normalizeHistoryStatus(raw.status)
-
-  const organizer = {
-    name: raw.organizer?.name || 'Ban Tổ Chức',
-    avatarUrl: raw.organizer?.avatarUrl || '',
-    isVerified: Boolean(raw.organizer?.isVerified),
+  // Map status
+  let status: EventStatus = 'UPCOMING'
+  const rawStatus = String(raw.status || '').toUpperCase()
+  if (rawStatus === 'COMPLETED') {
+    status = 'COMPLETED'
+  } else if (rawStatus === 'ABSENT' || rawStatus === 'REJECTED') {
+    status = 'ABSENT'
+  } else if (rawStatus === 'CANCELLED') {
+    status = 'CANCELLED'
+  } else if (
+    rawStatus === 'UPCOMING' ||
+    rawStatus === 'REGISTERED' ||
+    rawStatus === 'CHECKED_IN' ||
+    rawStatus === 'APPROVED'
+  ) {
+    status = 'UPCOMING'
   }
 
-  // Format date/time if not already pre-formatted
-  const rawDate = raw.dateHappen || raw.dateOpen || raw.regDate
+  const rawDate = raw.dateHappen || raw.startDate || raw.dateOpen || raw.regDate
   const dateHappen = raw.dateHappen && !raw.dateHappen.includes('T')
     ? raw.dateHappen
     : formatHappenDate(rawDate)
@@ -161,7 +150,9 @@ export const historyService = {
    */
   async getMyHistory(): Promise<RegisteredEventItem[]> {
     try {
-      const res: any = await apiClient.get('/registrations/me/history')
+      const res: any = await apiClient.get('/registrations/me/history', {
+        params: { page: 0, size: 100 },
+      })
       let rawList: any[] = []
       if (Array.isArray(res)) {
         rawList = res

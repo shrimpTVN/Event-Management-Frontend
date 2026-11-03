@@ -107,13 +107,13 @@ export const Sv5tPage: React.FC = () => {
     <div className="w-full h-full flex flex-col overflow-hidden bg-[#F0F2F5] dark:bg-background">
       <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
         {/* Left Sidebar */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 custom-scrollbar">
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto md:overflow-hidden py-3 sm:py-4 px-1 flex justify-center custom-scrollbar">
-          <div className="w-full max-w-6xl h-full flex flex-col gap-3 min-h-0">
+        <main className="flex-1 min-w-0 h-full overflow-y-auto py-5 pl-1 pr-4 sm:pr-6 custom-scrollbar">
+          <div className="w-full max-w-full flex flex-col gap-4 pb-16">
             {/* 1. Header with title, filter and regulation modal trigger */}
             <div className="shrink-0">
               <Sv5tHeader

@@ -10,6 +10,7 @@ interface TrainingPointsTableProps {
   onSaveSelfScore: (categoryId: number, score: number, description?: string) => Promise<void> | void
   isLoading?: boolean
   resetKey?: string | number
+  aggregateScores?: Record<number, number>
 }
 
 const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V']
@@ -22,6 +23,7 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
   onSaveSelfScore,
   isLoading,
   resetKey,
+  aggregateScores,
 }) => {
   const [expandedSections, setExpandedSections] = React.useState<Record<number, boolean>>({})
 
@@ -53,18 +55,10 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
   }
 
   return (
-    <div
-      className={`bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg p-3 sm:p-4 flex flex-col shadow-2xs overflow-hidden ${
-        hasAnyExpanded ? 'flex-1 min-h-[360px] md:min-h-0' : 'h-auto shrink-0'
-      }`}
-    >
+    <div className="w-full bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg p-3 sm:p-4 flex flex-col shadow-2xs overflow-hidden h-auto">
       {/* Scrollable Container for table columns & rows */}
-      <div
-        className={`w-full overflow-x-auto custom-scrollbar ${
-          hasAnyExpanded ? 'flex-1 min-h-0 overflow-y-auto' : ''
-        }`}
-      >
-        <div className="min-w-[820px] flex flex-col">
+      <div className="w-full overflow-x-auto custom-scrollbar">
+        <div className="w-full min-w-[820px] flex flex-col">
           {/* Main Dark Navy Table Header */}
           <div className="sticky top-0 z-20 flex items-stretch bg-[#1B406F] text-white rounded-t-md text-xs font-semibold min-h-[44px] mb-2 shadow-xs select-none">
             {/* 1. Tiêu chí (80px) */}
@@ -105,6 +99,7 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
               onSaveSelfScore={onSaveSelfScore}
               defaultExpanded={false}
               onToggleExpand={(expanded) => handleToggleSection(section.id, expanded)}
+              aggregateScore={aggregateScores?.[section.id]}
             />
           ))}
         </div>

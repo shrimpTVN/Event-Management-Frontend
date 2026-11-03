@@ -11,6 +11,7 @@ import {
   StudentLeftSidebar,
   StudentRightSidebar,
   EventFeedCard,
+  eventService,
   type Event,
 } from '@/features/events'
 import { SlidersHorizontal, CheckCircle, AlertCircle, CalendarDays, Loader2 } from 'lucide-react'
@@ -81,41 +82,83 @@ export const FanpageDetailPage: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
   }
 
-  const handleToggleSave = (eventId: string) => {
+  const handleToggleSave = async (eventId: string) => {
+    const target = events.find((e) => String(e.id) === String(eventId))
+    const nextSavedState = !target?.isSaved
+
     queryClient.setQueryData(
       ['fanpage', fanpageId, 'events'],
       (old: Event[] = []) =>
-        old.map((e) => (String(e.id) === String(eventId) ? { ...e, isSaved: !e.isSaved } : e))
+        old.map((e) => (String(e.id) === String(eventId) ? { ...e, isSaved: nextSavedState } : e))
     )
-    showToast('Đã cập nhật danh sách sự kiện lưu trữ')
+
+    try {
+      if (nextSavedState) {
+        await eventService.storeEvent(eventId)
+        showToast('Đã lưu sự kiện vào danh sách đã lưu')
+      } else {
+        await eventService.unstoreEvent(eventId)
+        showToast('Đã bỏ lưu sự kiện')
+      }
+      queryClient.invalidateQueries({ queryKey: ['events', 'stored'] })
+    } catch {
+      queryClient.invalidateQueries({ queryKey: ['fanpage', fanpageId, 'events'] })
+      queryClient.invalidateQueries({ queryKey: ['events', 'stored'] })
+    }
   }
 
-  const handleToggleFollow = (organizerId: string) => {
+  const handleToggleFollow = async (organizerId: string) => {
+    const target = events.find((e) => e.organizerId === organizerId)
+    const nextState = !target?.isFollowed
+
     queryClient.setQueryData(
       ['fanpage', fanpageId, 'events'],
       (old: Event[] = []) =>
-        old.map((e) => (e.organizerId === organizerId ? { ...e, isFollowed: !e.isFollowed } : e))
+        old.map((e) => (e.organizerId === organizerId ? { ...e, isFollowed: nextState } : e))
     )
+
+    try {
+      if (nextState) {
+        await fanpageService.followFanpage(organizerId)
+      } else {
+        await fanpageService.unfollowFanpage(organizerId)
+      }
+      queryClient.invalidateQueries({ queryKey: ['fanpages', 'sidebar'] })
+      queryClient.invalidateQueries({ queryKey: ['fanpage', fanpageId] })
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+    } catch {
+      queryClient.invalidateQueries({ queryKey: ['fanpage', fanpageId, 'events'] })
+    }
   }
 
-  const handleFollowChange = (isFollowing: boolean) => {
+  const handleFollowChange = async (nextState: boolean) => {
     queryClient.setQueryData(
       ['fanpage', fanpageId],
       (prev?: FanpageDetail) =>
         prev
           ? {
               ...prev,
-              isFollowing,
-              followerCount: isFollowing ? prev.followerCount + 1 : Math.max(0, prev.followerCount - 1),
+              isFollowing: nextState,
+              followerCount: nextState ? prev.followerCount + 1 : Math.max(0, prev.followerCount - 1),
             }
           : prev
     )
-    showToast(
-      isFollowing
-        ? `Bạn đã theo dõi trang "${fanpage?.name || ''}".`
-        : `Bạn đã hủy theo dõi trang "${fanpage?.name || ''}".`,
-      'info'
-    )
+
+    try {
+      if (nextState) {
+        await fanpageService.followFanpage(fanpageId)
+        showToast(`Bạn đã theo dõi trang "${fanpage?.name || ''}".`, 'info')
+      } else {
+        await fanpageService.unfollowFanpage(fanpageId)
+        showToast(`Bạn đã hủy theo dõi trang "${fanpage?.name || ''}".`, 'info')
+      }
+      queryClient.invalidateQueries({ queryKey: ['fanpages', 'sidebar'] })
+      queryClient.invalidateQueries({ queryKey: ['fanpage', fanpageId] })
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+    } catch (err: any) {
+      queryClient.invalidateQueries({ queryKey: ['fanpage', fanpageId] })
+      showToast(err?.response?.data?.message || 'Có lỗi xảy ra khi thực hiện thao tác!', 'info')
+    }
   }
 
   const handleMessageClick = () => {
@@ -156,7 +199,7 @@ export const FanpageDetailPage: React.FC = () => {
       {/* Main Container Layout: Sidebar flush left, main content centered and scrollable */}
       <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
         {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pr-1 sidebar-scrollbar">
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
@@ -172,7 +215,10 @@ export const FanpageDetailPage: React.FC = () => {
               <>
                 {/* 1. Hero Fanpage Header Card */}
                 <FanpagePublicHeader
-                  fanpage={fanpage}
+                  fanpage={{
+                    ...fanpage,
+                    eventCount: fanpage.eventCount || events.length,
+                  }}
                   onMessageClick={handleMessageClick}
                   onFollowChange={handleFollowChange}
                 />

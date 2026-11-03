@@ -61,7 +61,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               {formData.avatarUrl ? (
                 <img
                   src={formData.avatarUrl}
-                  alt={formData.fullName}
+                  alt={formData.fullName || 'Avatar'}
                   className="h-14 w-14 rounded-full object-cover border border-border"
                 />
               ) : (
@@ -141,7 +141,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {/* Read-only synchronized fields banner */}
           <div className="rounded-lg bg-[#EFF5FC] dark:bg-[#162E4F]/60 border border-[#DBEAFE] dark:border-[#1E40AF]/40 p-3.5 text-xs text-[#1E40AF] dark:text-[#93C5FD] flex flex-col gap-1">
             <span className="font-semibold">Thông tin học vụ đồng bộ từ hệ thống:</span>
-            <span>MSSV: <strong>{profile.studentId}</strong> — Lớp: <strong>{profile.classId}</strong> — {profile.major}</span>
+            <span>
+              MSSV: <strong>{profile.studentId || 'Chưa cập nhật'}</strong> — Lớp: <strong>{profile.classId || 'Chưa cập nhật'}</strong> — {profile.major || 'Chưa cập nhật'}
+            </span>
           </div>
 
           {/* Footer Actions */}
@@ -165,4 +167,3 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     </div>
   )
 }
-

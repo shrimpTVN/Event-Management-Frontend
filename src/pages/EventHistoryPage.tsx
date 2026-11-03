@@ -12,6 +12,8 @@ import {
   StudentAttendanceModal,
   historyService,
   normalizeHistoryStatus,
+  calculateRealHistoryStats,
+  getEventTerm,
   type RegisteredEventItem,
   type HistoryStatus,
   type HistoryStats,
@@ -33,6 +35,8 @@ export const EventHistoryPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedYear, setSelectedYear] = useState('2026 - 2027')
   const [selectedSemester, setSelectedSemester] = useState('1')
+  const [appliedYear, setAppliedYear] = useState('2026 - 2027')
+  const [appliedSemester, setAppliedSemester] = useState('1')
 
   // View mode switcher: 'TABLE' (Mặc định dạng bảng tinh gọn) | 'GRID' (Dạng lưới thẻ)
   const [viewMode, setViewMode] = useState<'GRID' | 'TABLE'>(() => {
@@ -78,42 +82,41 @@ export const EventHistoryPage: React.FC = () => {
     }, 4000)
   }
 
-  // Calculate dynamic stats merged with trend indicators
+  // Calculate dynamic stats merged with real trend indicators calculated from actual data
   const stats: HistoryStats = useMemo(() => {
-    const list = Array.isArray(events) ? events : []
-    const totalRegistered = list.length
-    const upcoming = list.filter((e) => normalizeHistoryStatus(e.status) === 'UPCOMING').length
-    const completed = list.filter((e) => normalizeHistoryStatus(e.status) === 'COMPLETED').length
-    const absent = list.filter((e) => normalizeHistoryStatus(e.status) === 'ABSENT').length
+    return calculateRealHistoryStats(events, appliedYear, appliedSemester)
+  }, [events, appliedYear, appliedSemester])
 
-    return {
-      totalRegistered,
-      totalTrend: { value: '+12%', isUp: true, subText: 'so với kì trước' },
-      upcoming,
-      upcomingTrend: { value: '', isUp: true, subText: 'sắp diễn ra' },
-      completed,
-      completedTrend: { value: '+8%', isUp: true, subText: 'so với kì trước' },
-      absent,
-      absentTrend: { value: '0%', isUp: false, subText: 'so với kì trước' },
+  // Filter events by applied academic year and semester if dates are available
+  const termFilteredList = useMemo(() => {
+    const list = Array.isArray(events) ? events : []
+    if (list.length === 0) return []
+
+    const listWithTerms = list.map((e) => ({ event: e, term: getEventTerm(e) }))
+    const matched = listWithTerms
+      .filter((item) => item.term && item.term.year === appliedYear && item.term.semester === appliedSemester)
+      .map((item) => item.event)
+
+    if (listWithTerms.some((item) => item.term !== null)) {
+      return matched
     }
-  }, [events])
+    return list
+  }, [events, appliedYear, appliedSemester])
 
   // Tab counts
   const counts = useMemo(() => {
-    const list = Array.isArray(events) ? events : []
     return {
-      all: list.length,
-      upcoming: list.filter((e) => normalizeHistoryStatus(e.status) === 'UPCOMING').length,
-      completed: list.filter((e) => normalizeHistoryStatus(e.status) === 'COMPLETED').length,
-      absent: list.filter((e) => normalizeHistoryStatus(e.status) === 'ABSENT').length,
-      cancelled: list.filter((e) => normalizeHistoryStatus(e.status) === 'CANCELLED').length,
+      all: termFilteredList.length,
+      upcoming: termFilteredList.filter((e) => normalizeHistoryStatus(e.status) === 'UPCOMING').length,
+      completed: termFilteredList.filter((e) => normalizeHistoryStatus(e.status) === 'COMPLETED').length,
+      absent: termFilteredList.filter((e) => normalizeHistoryStatus(e.status) === 'ABSENT').length,
+      cancelled: termFilteredList.filter((e) => normalizeHistoryStatus(e.status) === 'CANCELLED').length,
     }
-  }, [events])
+  }, [termFilteredList])
 
   // Filtered event list
   const filteredEvents = useMemo(() => {
-    const list = Array.isArray(events) ? events : []
-    return list.filter((evt) => {
+    return termFilteredList.filter((evt) => {
       // Filter by status tab
       if (activeStatus !== 'ALL') {
         const itemStatus = normalizeHistoryStatus(evt.status)
@@ -135,7 +138,7 @@ export const EventHistoryPage: React.FC = () => {
 
       return true
     })
-  }, [events, activeStatus, searchTerm])
+  }, [termFilteredList, activeStatus, searchTerm])
 
   // Handlers for modal actions
   const handleAbsenceSubmit = (_data: AbsenceFormData) => {
@@ -172,6 +175,8 @@ export const EventHistoryPage: React.FC = () => {
   }
 
   const handleApplyFilter = () => {
+    setAppliedYear(selectedYear)
+    setAppliedSemester(selectedSemester)
     showToast(`Đã lọc danh sách sự kiện theo Năm học ${selectedYear} - Học kì ${selectedSemester}.`, 'info')
   }
 
@@ -206,7 +211,7 @@ export const EventHistoryPage: React.FC = () => {
       {/* Main Container Layout: Left sidebar with padding, Main content extends flush to right edge */}
       <div className="w-full flex-1 min-h-0 flex items-start pl-4 sm:pl-6 pr-0 gap-6 overflow-hidden">
         {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 sidebar-scrollbar">
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 

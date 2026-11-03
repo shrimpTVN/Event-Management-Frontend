@@ -1,20 +1,11 @@
-import React, { useState, useMemo } from 'react'
+import React, { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { BarChart3, ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { BarChart3, Check } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/shared'
-import {
-  format,
-  addMonths,
-  subMonths,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-} from 'date-fns'
+import { useAuthStore } from '@/features/auth'
+import { historyService, type RegisteredEventItem } from '@/features/registration-history'
+import { EventCalendarWidget } from './EventCalendarWidget'
 
 interface CriteriaItem {
   id: string
@@ -25,9 +16,7 @@ interface CriteriaItem {
 }
 
 export const StudentRightSidebar: React.FC = () => {
-  // Default to Month 10/2026 matching current semester period
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date(2026, 9, 1))
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 9, 23))
+  const { isAuthenticated } = useAuthStore()
 
   // 1. Fetch active semester & academic year
   const { data: semestersList } = useQuery<any[]>({
@@ -40,7 +29,7 @@ export const StudentRightSidebar: React.FC = () => {
 
   const activeSemester = useMemo(() => {
     if (!semestersList || !Array.isArray(semestersList) || semestersList.length === 0) return null
-    return semestersList.find((s: any) => s.status === 'ACTIVE') || semestersList[0]
+    return semestersList.find((s: any) => s.status === 'ONGOING' || s.status === 'ACTIVE') || semestersList[0]
   }, [semestersList])
 
   const activeSemesterId = activeSemester?.id || 1
@@ -52,7 +41,7 @@ export const StudentRightSidebar: React.FC = () => {
       const res: any = await apiClient.get(`/student-semester-points/me/semesters/${activeSemesterId}`)
       return Array.isArray(res) ? res : res?.data || []
     },
-    enabled: Boolean(activeSemesterId),
+    enabled: Boolean(activeSemesterId) && isAuthenticated,
   })
 
   // 3. Fetch point categories from server dynamically
@@ -64,15 +53,11 @@ export const StudentRightSidebar: React.FC = () => {
     },
   })
 
-  // 4. Fetch events to dynamically pinpoint event days on calendar
-  const { data: eventsList } = useQuery<any[]>({
-    queryKey: ['events', 'calendar'],
-    queryFn: async () => {
-      const res: any = await apiClient.get('/events', { params: { size: 50 } })
-      if (res && Array.isArray(res.content)) return res.content
-      if (Array.isArray(res)) return res
-      return []
-    },
+  // 4. Fetch registered events to render calendar dots strictly for events the student has actually registered for
+  const { data: registeredEvents = [] } = useQuery<RegisteredEventItem[]>({
+    queryKey: ['registrations', 'history'],
+    queryFn: () => historyService.getMyHistory(),
+    enabled: isAuthenticated,
   })
 
   const currentSemesterLabel = useMemo(() => {
@@ -134,22 +119,6 @@ export const StudentRightSidebar: React.FC = () => {
     }
   }, [rootCategories, semesterPoints])
 
-  // Extract event day numbers in the currently displayed month from server data
-  const eventDaysInMonth = useMemo(() => {
-    if (!eventsList || !Array.isArray(eventsList)) return []
-    const days: number[] = []
-    eventsList.forEach((ev: any) => {
-      const dStr = ev.dateHappen || ev.startTime
-      if (dStr) {
-        const d = new Date(dStr)
-        if (d.getFullYear() === currentMonth.getFullYear() && d.getMonth() === currentMonth.getMonth()) {
-          days.push(d.getDate())
-        }
-      }
-    })
-    return days
-  }, [eventsList, currentMonth])
-
   const maxScore = 100
   const scorePercentage = Math.min(100, (currentScore / maxScore) * 100)
 
@@ -158,19 +127,7 @@ export const StudentRightSidebar: React.FC = () => {
   const circumference = 2 * Math.PI * radius
   const strokeDashoffset = circumference - (scorePercentage / 100) * circumference
 
-  // Compute days in grid (starts on Monday: weekStartsOn = 1)
-  const monthStart = startOfMonth(currentMonth)
-  const monthEnd = endOfMonth(monthStart)
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 })
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
-  const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
-
-  const handlePrevMonth = () => setCurrentMonth((prev) => subMonths(prev, 1))
-  const handleNextMonth = () => setCurrentMonth((prev) => addMonths(prev, 1))
-
   return (
-    //add resize for right side bar
-    //refactor: add maximize button
     <aside className="w-full flex flex-col gap-6 text-sm">
       {/* 1. Điểm rèn luyện Section Header */}
       <div className="flex flex-col gap-3.5 font-sans">
@@ -275,79 +232,8 @@ export const StudentRightSidebar: React.FC = () => {
         </Link>
       </div>
 
-      {/* 2. Interactive Calendar Widget */}
-      <div className="rounded-2xl border border-[#E5E7EB] dark:border-border bg-[#F0F2F5] dark:bg-card p-2.5 sm:p-3 flex flex-col gap-3 font-sans">
-        {/* Header Month & Arrows */}
-        <div className="flex items-center justify-between px-1">
-          <span className="font-medium text-xs text-[#111827] dark:text-foreground">
-            Tháng {format(currentMonth, 'M, yyyy')}
-          </span>
-          <div className="flex items-center gap-1 text-[#9CA3AF]">
-            <button
-              type="button"
-              onClick={handlePrevMonth}
-              className="p-1 rounded-lg hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-              title="Tháng trước"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={handleNextMonth}
-              className="p-1 rounded-lg hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-              title="Tháng sau"
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Days of Week */}
-        <div className="grid grid-cols-7 text-center text-[8px] font-semibold text-[#9CA3AF]">
-          <span>T2</span>
-          <span>T3</span>
-          <span>T4</span>
-          <span>T5</span>
-          <span>T6</span>
-          <span>T7</span>
-          <span>CN</span>
-        </div>
-
-        {/* Days Grid */}
-        <div className="grid grid-cols-7 gap-y-1 text-center text-[9.5px]">
-          {calendarDays.map((dayDate, idx) => {
-            const inCurrentMonth = isSameMonth(dayDate, currentMonth)
-            const isSelected = isSameDay(dayDate, selectedDate)
-            const dayNum = dayDate.getDate()
-            const hasEvent = inCurrentMonth && eventDaysInMonth.includes(dayNum)
-
-            return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => {
-                  setSelectedDate(dayDate)
-                  if (!inCurrentMonth) {
-                    setCurrentMonth(startOfMonth(dayDate))
-                  }
-                }}
-                className={`relative flex flex-col items-center justify-center h-7 rounded-md transition-colors cursor-pointer ${
-                  isSelected
-                    ? 'bg-[#BDD7F0] text-[#1B365D] font-bold shadow-xs'
-                    : inCurrentMonth
-                    ? 'text-black dark:text-foreground hover:bg-muted/70 font-medium'
-                    : 'text-[#9CA3AF]/40'
-                }`}
-              >
-                <span>{dayNum}</span>
-                {hasEvent && (
-                  <span className="absolute bottom-0.5 h-1 w-1 rounded-full bg-[#008CCC]" />
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      {/* 2. Interactive Calendar Widget with Real Registered Events */}
+      <EventCalendarWidget registeredEvents={registeredEvents} />
 
       {/* Bottom spacer for sidebar scroll breathing room */}
       <div className="h-16 w-full shrink-0" aria-hidden="true" />

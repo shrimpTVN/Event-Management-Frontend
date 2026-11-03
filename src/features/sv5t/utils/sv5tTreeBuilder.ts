@@ -265,11 +265,6 @@ export function ensureSv5tHierarchy(
   // Collect completed statuses from API response
   const completedMap = new Map<number, { completionSource?: string; completedAt?: string; note?: string }>()
 
-  // Seed default completed records for sample demonstration matching Figma
-  completedMap.set(101, { completionSource: 'MANUAL', note: 'Điểm rèn luyện đạt 92 điểm' })
-  completedMap.set(102, { completionSource: 'MANUAL', note: 'Không vi phạm kỷ luật' })
-  completedMap.set(1031, { completionSource: 'EVENT_CHECKOUT', note: 'Tham gia Hội thi Ánh sáng soi đường cấp ĐHCT' })
-
   // Overlay API data if available
   if (criteriaProgress?.criteria) {
     function indexNodes(nodes: CriteriaProgressNode[]) {

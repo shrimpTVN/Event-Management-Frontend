@@ -1,4 +1,5 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 import { Calendar, MapPin, Users, Award, ShieldCheck, Clock, Building } from 'lucide-react'
 import { formatDate } from '@/shared'
 import type { Event } from '../types/event.types'
@@ -49,11 +50,15 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
       </div>
 
       {/* Organizer Card */}
-      <div className="flex items-center gap-3 p-4 rounded-xl border border-border bg-muted/40">
+      <Link
+        to={event.organizerId ? `/fanpage/${event.organizerId}` : '/fanpage/1'}
+        className="flex items-center gap-3 p-4 rounded-xl border border-border bg-muted/40 hover:bg-muted/70 transition-colors group cursor-pointer"
+        title={`Xem trang ${organizerName}`}
+      >
         <img
           src={organizerAvatar}
           alt={organizerName}
-          className="h-12 w-12 rounded-full object-cover border border-border shrink-0"
+          className="h-12 w-12 rounded-full object-cover border border-border shrink-0 group-hover:scale-105 transition-transform"
         />
         <div className="min-w-0 flex-1">
           <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -61,11 +66,13 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
             Đơn vị tổ chức
           </span>
           <div className="flex items-center gap-1 min-w-0 mt-0.5">
-            <p className="font-semibold text-sm text-foreground truncate">{organizerName}</p>
+            <p className="font-semibold text-sm text-foreground group-hover:text-primary group-hover:underline transition-colors truncate">
+              {organizerName}
+            </p>
             <VerifiedBadge className="h-4 w-4 shrink-0" />
           </div>
         </div>
-      </div>
+      </Link>
 
       {/* Training Points & SV5T Benefits Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

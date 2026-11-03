@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/shared'
+import { useAuthStore } from '@/features/auth'
 
 export interface FollowedOrg {
   id: string
@@ -34,17 +35,36 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
   const [isExpanded, setIsExpanded] = useState(false)
   const [hoveredOrg, setHoveredOrg] = useState<{ id: string; name: string; x: number; y: number } | null>(null)
 
-  // Fetch fanpages from backend if not provided as prop
+  const { isAuthenticated } = useAuthStore()
+
+  // Fetch fanpages from backend if not provided as prop (following when authenticated)
   const { data: apiFanpages } = useQuery<FollowedOrg[]>({
-    queryKey: ['fanpages', 'sidebar'],
+    queryKey: ['fanpages', 'sidebar', isAuthenticated],
     queryFn: async () => {
+      if (isAuthenticated) {
+        try {
+          const res: any = await apiClient.get('/fanpages/following', { params: { size: 50 } })
+          const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
+          if (Array.isArray(list) && list.length > 0) {
+            return list.map((fp: any, idx: number) => ({
+              id: String(fp.id),
+              name: fp.orgName || (fp.name?.includes('CNTT') ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông' : fp.name),
+              avatarUrl: fp.avatarUrl || (String(fp.id) === '1' ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg' : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'),
+              hasUnread: idx < 2,
+            }))
+          }
+          return []
+        } catch {
+          // If following endpoint fails, fallback to general fanpages
+        }
+      }
       const res: any = await apiClient.get('/fanpages', { params: { size: 50 } })
       const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
       return list.map((fp: any, idx: number) => ({
         id: String(fp.id),
-        name: fp.name,
-        avatarUrl: fp.avatarUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100',
-        hasUnread: idx < 2, // Mark top 2 as having recent activity
+        name: fp.orgName || (fp.name?.includes('CNTT') ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông' : fp.name),
+        avatarUrl: fp.avatarUrl || (String(fp.id) === '1' ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg' : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'),
+        hasUnread: false,
       }))
     },
     enabled: !followedOrgs,
@@ -170,10 +190,20 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
         </h3>
         <nav className="flex flex-col gap-1">
           <Link
-            to="/history?saved=true"
-            className="flex items-center gap-3 px-3.5 py-2 rounded-xl font-medium text-xs text-[#656565] dark:text-foreground/85 hover:bg-muted/80 hover:text-primary transition-colors"
+            to="/events/saved"
+            className={`flex items-center gap-3 px-3.5 py-2 rounded-xl font-medium text-xs transition-colors ${
+              currentPath === '/events/saved' || currentPath === '/saved'
+                ? 'bg-[#BDD7F0]/60 dark:bg-primary/20 text-[#1B406F] dark:text-primary font-semibold'
+                : 'text-[#656565] dark:text-foreground/85 hover:bg-muted/80 hover:text-primary'
+            }`}
           >
-            <Bookmark className="h-5 w-5 text-[#9CA3AF]" />
+            <Bookmark
+              className={`h-5 w-5 ${
+                currentPath === '/events/saved' || currentPath === '/saved'
+                  ? 'text-amber-500 fill-amber-500'
+                  : 'text-[#9CA3AF]'
+              }`}
+            />
             <span>Đã lưu</span>
           </Link>
           <Link

@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Pencil,
 } from 'lucide-react'
+import { cn } from '@/shared/utils/cn'
 import type { AdminEvent, EventStatus } from '../types/fanpageAdmin.types'
 import { MOCK_ADMIN_EVENTS, MOCK_EVENT_TYPES } from '../services/fanpageAdminService'
 
@@ -43,8 +44,8 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Lọc bỏ trạng thái DRAFT nếu không dùng
-  const validEvents = useMemo(() => events.filter((e) => e.status !== 'DRAFT'), [events])
+  // Sử dụng danh sách sự kiện đầy đủ cho trang quản lý fanpage (gồm cả DRAFT, PUBLISHED, CLOSED)
+  const validEvents = useMemo(() => events, [events])
 
   // Lọc sự kiện theo tab và từ khóa
   const filteredEvents = useMemo(() => {
@@ -59,8 +60,10 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
 
       let matchStatus = true
       if (activeStatusTab === 'UPCOMING') {
-        // Sự kiện sắp diễn ra: ngày bắt đầu từ hôm nay trở đi và chưa kết thúc
-        matchStatus = evt.dateStart >= '2026-10-24' && evt.status !== 'CLOSED'
+        // Sự kiện sắp diễn ra: chưa kết thúc, chưa hủy và không phải bản nháp
+        matchStatus = evt.status !== 'CLOSED' && evt.status !== 'CANCELLED' && evt.status !== 'DRAFT'
+      } else if (activeStatusTab === 'DRAFT') {
+        matchStatus = evt.status === 'DRAFT'
       } else if (activeStatusTab !== 'ALL') {
         matchStatus = evt.status === activeStatusTab
       }
@@ -69,13 +72,73 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
     })
   }, [validEvents, searchTerm, selectedType, activeStatusTab])
 
-  // Count summaries
+  // Count summaries dựa trên dữ liệu thật
   const totalCount = validEvents.length
   const upcomingCount = validEvents.filter(
-    (e) => e.dateStart >= '2026-10-24' && e.status !== 'CLOSED'
+    (e) => e.status !== 'CLOSED' && e.status !== 'CANCELLED' && e.status !== 'DRAFT'
   ).length
   const publishedCount = validEvents.filter((e) => e.status === 'PUBLISHED').length
   const closedCount = validEvents.filter((e) => e.status === 'CLOSED').length
+  const draftCount = validEvents.filter((e) => e.status === 'DRAFT').length
+
+  // 1. Phân tích học kỳ để tính toán thống kê và so sánh với học kỳ trước
+  const semesterIds = validEvents.map((e) => (typeof e.semesterId === 'number' ? e.semesterId : 1))
+  const currentSemesterId = semesterIds.length > 0 ? Math.max(...semesterIds) : 1
+  const prevSemesterId = currentSemesterId > 1 ? currentSemesterId - 1 : null
+
+  const currentSemesterCount = validEvents.filter(
+    (e) => (e.semesterId || 1) === currentSemesterId
+  ).length
+
+  const prevSemesterCount =
+    prevSemesterId !== null
+      ? validEvents.filter((e) => (e.semesterId || 1) === prevSemesterId).length
+      : 0
+
+  // Badge tỉ lệ tăng trưởng: CHỈ HIỂN THỊ KHI CÓ DỮ LIỆU HỌC KỲ TRƯỚC ĐỂ SO SÁNH (prevSemesterCount > 0)
+  let allEventsTrend: { value: string; isUp: boolean } | undefined = undefined
+  let allEventsTrendVariant: 'success' | 'danger' | 'neutral' = 'neutral'
+  let allEventsSubText = ''
+
+  if (prevSemesterCount > 0) {
+    const diff = currentSemesterCount - prevSemesterCount
+    const percent = Math.round((diff / prevSemesterCount) * 100)
+    allEventsTrend = {
+      value: `${Math.abs(percent)}%`,
+      isUp: diff >= 0,
+    }
+    allEventsTrendVariant = diff > 0 ? 'success' : diff < 0 ? 'danger' : 'neutral'
+    allEventsSubText =
+      diff === 0
+        ? 'Không đổi so với học kỳ trước'
+        : diff > 0
+          ? `+${diff} sự kiện so với học kỳ trước`
+          : `${diff} sự kiện so với học kỳ trước`
+  } else {
+    // Không có dữ liệu học kỳ trước để tính tỉ lệ -> không hiện badge tỉ lệ (tránh hiển thị sai âm 100%)
+    allEventsTrend = undefined
+    allEventsSubText =
+      currentSemesterCount > 0
+        ? `+${currentSemesterCount} sự kiện so với học kỳ trước`
+        : 'Chưa có sự kiện trong học kỳ này'
+  }
+
+  // Tìm ngày sự kiện sắp diễn ra gần nhất từ dữ liệu thật
+  const nextUpcomingEvent = [...validEvents]
+    .filter((e) => e.status !== 'CLOSED' && e.status !== 'CANCELLED')
+    .sort((a, b) => new Date(a.dateStart).getTime() - new Date(b.dateStart).getTime())[0]
+
+  const nextDateText = nextUpcomingEvent?.dateStart
+    ? (() => {
+        const d = new Date(nextUpcomingEvent.dateStart)
+        const pad = (n: number) => n.toString().padStart(2, '0')
+        return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`
+      })()
+    : null
+
+  const upcomingSubText = nextDateText
+    ? `Sự kiện kế tiếp: ${nextDateText}`
+    : (upcomingCount > 0 ? 'Sẵn sàng tiếp nhận sinh viên' : 'Không có sự kiện sắp tới')
 
   // Danh sách quyền lợi chi tiết của sự kiện (dùng cho popover)
   const getEventBenefits = (evt: AdminEvent) => {
@@ -134,36 +197,33 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
     )
   }
 
-  // 4 Cards thống kê (chỉ hiển thị tăng/giảm cho card Tất cả sự kiện)
+  // 4 Cards thống kê theo dữ liệu thật - badge tỉ lệ chỉ hiện khi có dữ liệu thật
   const statsCards = [
     {
       id: 'ALL',
       title: 'Tất cả sự kiện',
       value: totalCount,
-      trend: {
-        value: '25%',
-        isUp: true,
-      },
-      trendVariant: 'success' as const,
-      subText: '4 sự kiện trong tháng này',
+      trend: allEventsTrend,
+      trendVariant: allEventsTrendVariant,
+      subText: allEventsSubText,
     },
     {
       id: 'UPCOMING',
       title: 'Sự kiện sắp diễn ra',
       value: upcomingCount,
-      subText: 'Sự kiện kế tiếp: 05/11',
+      subText: upcomingSubText,
     },
     {
       id: 'PUBLISHED',
       title: 'Đang mở đăng ký',
       value: publishedCount,
-      subText: 'Sẵn sàng tiếp nhận sinh viên',
+      subText: publishedCount > 0 ? 'Sẵn sàng tiếp nhận sinh viên' : 'Chưa mở đăng ký sự kiện nào',
     },
     {
       id: 'CLOSED',
       title: 'Đã kết thúc',
       value: closedCount,
-      subText: 'Đã hoàn thành tổ chức',
+      subText: closedCount > 0 ? `${closedCount} sự kiện đã hoàn thành` : 'Chưa có sự kiện hoàn thành',
     },
   ]
 
@@ -179,22 +239,22 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
         )
       case 'CLOSED':
         return (
-          <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[11px] font-medium inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+          <span className="px-2.5 py-1 rounded-full bg-slate-100/70 text-slate-500 dark:bg-slate-800/50 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/50 text-[11px] font-normal inline-flex items-center gap-1.5 whitespace-nowrap">
+            <span className="h-1.5 w-1.5 rounded-full bg-slate-400/80 shrink-0" />
             Kết thúc
           </span>
         )
       case 'CANCELLED':
         return (
-          <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-[11px] font-medium inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+          <span className="px-2.5 py-1 rounded-full bg-rose-50/70 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/50 text-[11px] font-normal inline-flex items-center gap-1.5 whitespace-nowrap">
+            <span className="h-1.5 w-1.5 rounded-full bg-rose-400 shrink-0" />
             Đã hủy
           </span>
         )
       case 'DRAFT':
         return (
-          <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[11px] font-medium inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+          <span className="px-2.5 py-1 rounded-full bg-slate-100/80 text-slate-600 dark:bg-slate-800/60 dark:text-slate-400 border border-slate-200 dark:border-slate-700 text-[11px] font-medium inline-flex items-center gap-1.5 whitespace-nowrap">
+            <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
             Bản nháp
           </span>
         )
@@ -268,6 +328,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
             { id: 'UPCOMING', label: 'Sắp diễn ra', count: upcomingCount },
             { id: 'PUBLISHED', label: 'Đang mở đăng ký', count: publishedCount },
             { id: 'CLOSED', label: 'Đã kết thúc', count: closedCount },
+            { id: 'DRAFT', label: 'Bản nháp', count: draftCount },
           ].map((tab) => {
             const isActive = activeStatusTab === tab.id
             return (
@@ -446,20 +507,27 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                     )
                     const benefits = getEventBenefits(evt)
 
+                    const isClosed = evt.status === 'CLOSED'
+
                     return (
                       <div
                         key={evt.id}
-                        className="bg-white dark:bg-card border border-border/80 dark:border-border/60 rounded-2xl shadow-2xs hover:shadow-xs hover:border-primary/40 transition-all px-5 py-3.5 grid grid-cols-12 items-center group cursor-pointer"
+                        className={cn(
+                          "bg-white dark:bg-card border border-border/80 dark:border-border/60 rounded-2xl shadow-2xs hover:shadow-xs hover:border-primary/40 transition-all px-5 py-3.5 grid grid-cols-12 items-center group cursor-pointer",
+                          isClosed && "opacity-70 hover:opacity-95 transition-opacity"
+                        )}
                         onClick={() => onEventClick && onEventClick(evt.id)}
                       >
-                        {/* Cột 1: Tên sự kiện & Mã code (đã bỏ icon AI) */}
+                        {/* Cột 1: Tên sự kiện & Mã code (bỏ màu xanh, dùng font-mono xám trung tính) */}
                         <div className="col-span-4 min-w-0 pr-2">
                           <div className="space-y-0.5 min-w-0">
                             <div className="font-bold text-foreground text-xs group-hover:text-primary transition-colors text-left line-clamp-1">
                               {evt.name}
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                              <span className="font-semibold text-primary tracking-wide">{evt.code}</span>
+                              <span className="font-mono text-[11px] text-muted-foreground font-medium tracking-wide">
+                                {evt.code}
+                              </span>
                               <span>•</span>
                               <span className="truncate">{evt.eventTypeName}</span>
                             </div>
@@ -480,38 +548,57 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                           </div>
                         </div>
 
-                        {/* Cột 3: Đăng ký / Sức chứa */}
+                        {/* Cột 3: Đăng ký / Sức chứa (Cam cảnh báo khi gần đầy >= 90%) */}
                         <div className="col-span-2 space-y-1.5 pr-4">
                           <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-semibold text-foreground">
+                            <span
+                              className={cn(
+                                "font-semibold",
+                                regPercent >= 90
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-foreground"
+                              )}
+                            >
                               {evt.registeredCount} / {evt.capacity}
                             </span>
-                            <span className="text-muted-foreground font-medium">
+                            <span
+                              className={cn(
+                                "font-medium",
+                                regPercent >= 90
+                                  ? "text-amber-600 dark:text-amber-400 font-semibold"
+                                  : "text-muted-foreground"
+                              )}
+                            >
                               {regPercent}%
                             </span>
                           </div>
                           <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
                             <div
-                              className="h-full bg-primary rounded-full transition-all"
+                              className={cn(
+                                "h-full rounded-full transition-all",
+                                regPercent >= 90
+                                  ? "bg-amber-500"
+                                  : "bg-slate-400 dark:bg-slate-500"
+                              )}
                               style={{ width: `${regPercent}%` }}
                             />
                           </div>
                         </div>
 
-                        {/* Cột 4: Quyền lợi */}
+                        {/* Cột 4: Quyền lợi (Không tô màu sặc sỡ, badge phụ xám nhỏ hơn để phân biệt rõ ràng) */}
                         <div className="col-span-1" onClick={(e) => e.stopPropagation()}>
                           <div className="relative group/benefits inline-block text-left py-0.5">
                             <div className="flex items-center gap-1.5 cursor-pointer">
                               {evt.trainingPoints && evt.trainingPoints > 0 ? (
-                                <span className="font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 text-[11px] whitespace-nowrap">
+                                <span className="font-medium text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/70 text-[11px] whitespace-nowrap">
                                   +{evt.trainingPoints} ĐRL
                                 </span>
                               ) : evt.sv5tCriteriaName ? (
-                                <span className="font-semibold text-blue-700 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-400 px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800 text-[11px] whitespace-nowrap">
+                                <span className="font-medium text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/70 text-[11px] whitespace-nowrap">
                                   SV5T
                                 </span>
                               ) : evt.hasCertificate ? (
-                                <span className="font-semibold text-amber-700 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400 px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800 text-[11px] whitespace-nowrap">
+                                <span className="font-medium text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/70 text-[11px] whitespace-nowrap">
                                   Chứng nhận
                                 </span>
                               ) : (
@@ -522,7 +609,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
 
                               {benefits.length > 1 && (
                                 <span
-                                  className="px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-all whitespace-nowrap bg-slate-100 text-slate-600 border-slate-200 group-hover/benefits:bg-slate-200 group-hover/benefits:text-slate-800 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+                                  className="px-1.5 py-0.2 rounded-full text-[10px] font-medium border whitespace-nowrap bg-muted/40 text-muted-foreground border-border/50 group-hover/benefits:bg-muted group-hover/benefits:text-foreground transition-colors"
                                   title="Rê chuột để xem thêm quyền lợi"
                                 >
                                   +{benefits.length - 1}

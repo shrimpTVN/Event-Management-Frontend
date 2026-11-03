@@ -45,18 +45,10 @@ export const Sv5tTable: React.FC<Sv5tTableProps> = ({
   }
 
   return (
-    <div
-      className={`bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg p-3 sm:p-4 flex flex-col shadow-2xs overflow-hidden ${
-        hasAnyExpanded ? 'flex-1 min-h-[360px] md:min-h-0' : 'h-auto shrink-0'
-      }`}
-    >
+    <div className="w-full bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg p-3 sm:p-4 flex flex-col shadow-2xs overflow-hidden h-auto">
       {/* Scrollable Container for table columns & rows */}
-      <div
-        className={`w-full overflow-x-auto custom-scrollbar ${
-          hasAnyExpanded ? 'flex-1 min-h-0 overflow-y-auto' : ''
-        }`}
-      >
-        <div className="min-w-[820px] flex flex-col">
+      <div className="w-full overflow-x-auto custom-scrollbar">
+        <div className="w-full min-w-[820px] flex flex-col">
           {/* Main Dark Navy Table Header */}
           <div className="sticky top-0 z-20 flex items-stretch bg-[#1B406F] text-white rounded-t-md text-xs font-semibold min-h-[44px] mb-2 shadow-xs select-none">
             {/* 1. Mã TC (86px) */}
@@ -84,7 +76,7 @@ export const Sv5tTable: React.FC<Sv5tTableProps> = ({
           {/* Standards Accordions (Tiêu chuẩn 1 đến 5) - Mặc định đóng */}
           {standards.map((std, idx) => (
             <Sv5tSectionAccordion
-              key={`${std.criteriaId}-${resetKey ?? ''}`}
+              key={`${std.criteriaId || idx + 1}-${resetKey ?? ''}`}
               standard={std}
               standardIndex={idx + 1}
               onSaveProgress={onSaveProgress}

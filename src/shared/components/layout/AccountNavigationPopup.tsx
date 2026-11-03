@@ -1,7 +1,10 @@
 import React, { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { UserRound, LogOut } from 'lucide-react'
+import { UserRound, LogOut, Shield } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { type User, isStaffUser } from '@/features/auth'
+import { profileService } from '@/features/profile/services/profileService'
+import { useAuthStore } from '@/features/auth/store/authStore'
 
 interface AccountNavigationPopupProps {
   isOpen: boolean
@@ -19,6 +22,41 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
   className = '',
 }) => {
   const popupRef = useRef<HTMLDivElement>(null)
+  const isStaff = isStaffUser(user)
+  const isAdmin =
+    user.role === 'ADMIN' ||
+    user.role === 'ROLE_ADMIN' ||
+    (user as any).roles?.includes('ADMIN') ||
+    (user as any).roles?.includes('ROLE_ADMIN') ||
+    user.email?.includes('admin')
+  const updateUser = useAuthStore((state) => state.updateUser)
+
+  // Fetch real student profile from backend (/users/me/profile)
+  const { data: profile } = useQuery({
+    queryKey: ['my-profile', user.email],
+    queryFn: () => profileService.getMyProfile(),
+    enabled: isOpen && !isStaff && Boolean(user.email),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Synchronize profile name, studentId and avatarUrl to authStore if available
+  useEffect(() => {
+    if (profile) {
+      const realName = profile.fullName?.trim()
+      const realStudentId = profile.studentId?.trim()
+      if (
+        (realName && realName !== user.name) ||
+        (realStudentId && realStudentId !== user.studentId) ||
+        (profile.avatarUrl && profile.avatarUrl !== user.avatarUrl)
+      ) {
+        updateUser({
+          ...(realName ? { name: realName } : {}),
+          ...(realStudentId ? { studentId: realStudentId } : {}),
+          ...(profile.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),
+        })
+      }
+    }
+  }, [profile, user.name, user.studentId, user.avatarUrl, updateUser])
 
   // Handle click outside & Escape key
   useEffect(() => {
@@ -49,22 +87,43 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
 
   if (!isOpen) return null
 
-  // Extract student ID from user object or CTU email (e.g. locb2303827@student.ctu.edu.vn -> B2303827)
+  // Extract student ID from profile, user object or CTU email (e.g. locb2303827@student.ctu.edu.vn -> B2303827)
   const extractStudentId = (u: User): string => {
-    if (u.studentId) return u.studentId
-    const match = u.email?.match(/([bB]\d{7})/i)
+    if (profile?.studentId) return profile.studentId.toUpperCase()
+    if (u.studentId) {
+      const match = u.studentId.match(/([a-zA-Z]\d{7})/i)
+      if (match) return match[1].toUpperCase()
+      if (/^[a-zA-Z]\d{7}$/.test(u.studentId)) return u.studentId.toUpperCase()
+    }
+    const match = u.email?.match(/([a-zA-Z]\d{7})/i)
     if (match) return match[1].toUpperCase()
     return ''
   }
 
-  const isStaff = isStaffUser(user)
-  const displayName = user.name || (isStaff ? 'Cán bộ quản trị' : user.email || 'Người dùng')
   const studentMssv = extractStudentId(user)
+
+  // Real display name resolution:
+  // 1. profile.fullName from backend if available
+  // 2. user.name IF it's not just the email username string (e.g. "Locb2303827")
+  // 3. Fallback
+  const getDisplayName = (): string => {
+    if (profile?.fullName) return profile.fullName
+    const emailPrefix = (user.email || '').split('@')[0]
+    if (user.name && user.name.toLowerCase() !== emailPrefix.toLowerCase()) {
+      return user.name
+    }
+    if (isStaff) return 'Cán bộ quản trị'
+    return studentMssv ? `Sinh viên (${studentMssv})` : 'Sinh viên CTU'
+  }
+
+  const displayName = getDisplayName()
+
   const displaySubtitle = isStaff
     ? user.email || 'Ban quản trị Fanpage'
     : studentMssv
       ? `MSSV: ${studentMssv}`
       : user.email || 'Sinh viên'
+
   const primaryNavPath = isStaff ? '/staff/fanpages' : '/profile'
   const primaryNavLabel = isStaff ? 'Trung tâm Fanpage' : 'Thông tin cá nhân'
 
@@ -106,45 +165,46 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
       {/* Đường phân cách */}
       <div className="w-full h-px bg-[#EDF0F4] dark:bg-border/60" />
 
-      {/* 2. Điều hướng cá nhân / Quản lý cán bộ */}
-      <div className="py-1.5">
+      {/* 2. Điều hướng cá nhân / Quản lý cán bộ / Quản trị */}
+      <div className="py-1.5 space-y-0.5">
+        {isAdmin && (
+          <Link
+            to="/admin"
+            onClick={onClose}
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-[#111827] dark:text-foreground hover:bg-[#F3F4F6] dark:hover:bg-accent transition-colors font-sans text-sm font-medium"
+            role="menuitem"
+          >
+            <Shield className="w-5 h-5 text-[#1B4B8A] dark:text-blue-400 shrink-0" />
+            <span>Quản trị hệ thống</span>
+          </Link>
+        )}
         <Link
           to={primaryNavPath}
           onClick={onClose}
-          className="w-full h-[46px] px-3.5 rounded-lg bg-[#F3F6FA] dark:bg-muted/80 hover:bg-[#E8EFF7] dark:hover:bg-muted flex items-center gap-3 transition-colors group"
+          className="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-[#111827] dark:text-foreground hover:bg-[#F3F4F6] dark:hover:bg-accent transition-colors font-sans text-sm font-medium"
           role="menuitem"
         >
-          <UserRound
-            className="w-5 h-5 text-[#4B5563] dark:text-foreground shrink-0 transition-colors"
-            strokeWidth={1.75}
-          />
-          <span className="font-sans font-medium text-sm leading-5 text-[#111827] dark:text-foreground">
-            {primaryNavLabel}
-          </span>
+          <UserRound className="w-5 h-5 text-[#4B5563] dark:text-muted-foreground shrink-0" />
+          <span>{primaryNavLabel}</span>
         </Link>
       </div>
 
       {/* Đường phân cách */}
       <div className="w-full h-px bg-[#EDF0F4] dark:bg-border/60" />
 
-      {/* 3. Thoát tài khoản */}
-      <div className="pt-1.5">
+      {/* 3. Đăng xuất */}
+      <div className="py-1.5">
         <button
           type="button"
           onClick={() => {
             onClose()
             onLogout()
           }}
-          className="w-full h-[46px] px-3.5 rounded-lg bg-transparent hover:bg-red-50 dark:hover:bg-red-950/25 flex items-center gap-3 transition-colors cursor-pointer group"
+          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-[#DC2626] hover:bg-[#FEE2E2]/50 dark:hover:bg-red-950/30 transition-colors font-sans text-sm font-medium cursor-pointer"
           role="menuitem"
         >
-          <LogOut
-            className="w-5 h-5 text-[#DC2626] shrink-0 transition-transform group-hover:translate-x-0.5"
-            strokeWidth={1.75}
-          />
-          <span className="font-sans font-medium text-sm leading-5 text-[#DC2626]">
-            Đăng xuất
-          </span>
+          <LogOut className="w-5 h-5 text-[#DC2626] shrink-0" />
+          <span>Đăng xuất</span>
         </button>
       </div>
     </div>

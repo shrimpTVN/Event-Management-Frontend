@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect, useEffect } from 'react'
+import React, { useState, useRef, useMemo, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import {
   Calendar as CalendarIcon,
@@ -14,6 +14,31 @@ import { Link, useLocation } from 'react-router-dom'
 import type { Event } from '../types/event.types'
 import { RegisterButton } from './RegisterButton'
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
+
+function getPreviewDescription(text: string, maxChars = 160) {
+  if (!text) return { isLong: false, previewText: '' }
+
+  const lines = text.split('\n')
+  const hasManyLines = lines.length > 2
+
+  let baseText = text
+  if (hasManyLines) {
+    baseText = lines.slice(0, 2).join('\n')
+  }
+
+  if (baseText.length > maxChars) {
+    const cut = baseText.slice(0, maxChars)
+    const lastSpace = cut.lastIndexOf(' ')
+    const trimmed = (lastSpace > 60 ? cut.slice(0, lastSpace) : cut).trimEnd()
+    return { isLong: true, previewText: trimmed }
+  }
+
+  if (hasManyLines || text.length > baseText.length) {
+    return { isLong: true, previewText: baseText.trimEnd() }
+  }
+
+  return { isLong: false, previewText: text }
+}
 
 interface EventFeedCardProps {
   event: Event
@@ -54,22 +79,10 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
     onToggleSave?.(event.id)
   }
 
-  const descRef = useRef<HTMLDivElement>(null)
-  const [isOverflowing, setIsOverflowing] = useState(false)
-
-  useLayoutEffect(() => {
-    const el = descRef.current
-    if (!el || !event.description) return
-
-    const checkOverflow = () => {
-      // 2 lines with leading-5 (20px line-height) is 40px. Exceeding 42px means > 2 lines.
-      setIsOverflowing(el.scrollHeight > 42)
-    }
-
-    checkOverflow()
-    window.addEventListener('resize', checkOverflow)
-    return () => window.removeEventListener('resize', checkOverflow)
-  }, [event.description])
+  const { isLong, previewText } = useMemo(
+    () => getPreviewDescription(event.description || '', 160),
+    [event.description]
+  )
 
   // Helper to format ISO strings cleanly into e.g. "29/09/2026 · 19:30"
   const formatDisplayDateTime = (startStr?: string, endStr?: string): string => {
@@ -100,30 +113,46 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
       ? `${address}, ${city}`
       : address
 
+  const fanpageId = event.organizerId || '1'
+  const fanpageUrl = `/fanpage/${fanpageId}`
+  const organizerDisplayName =
+    event.organizerFullName ||
+    event.fanpageFullName ||
+    event.organizerName ||
+    event.fanpageName ||
+    'Ban Tổ Chức'
+
   return (
     <article className="w-full max-w-[680px] mx-auto rounded-xl bg-white dark:bg-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] dark:border dark:border-border/60 text-left pt-2.5 pb-[12px] px-0 flex flex-col gap-3 relative">
       {/* 1. Header: Organization Info & Follow CTA (Figma: FanpageInfo [680x48], pad: 4px 12px 4px 12px, gap: 12px) */}
       <div className="flex items-center justify-between gap-3 px-3 py-1 h-12">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          {event.organizerAvatarUrl ? (
-            <img
-              src={event.organizerAvatarUrl}
-              alt={event.organizerName || event.fanpageName || 'Ban Tổ Chức'}
-              className="h-10 w-10 rounded-full object-cover shrink-0"
-            />
-          ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
-              {(event.organizerName || event.fanpageName || 'CTU').charAt(0)}
-            </div>
-          )}
+          <Link
+            to={fanpageUrl}
+            className="shrink-0 rounded-full hover:opacity-85 transition-opacity cursor-pointer"
+            title={`Xem trang ${organizerDisplayName}`}
+          >
+            {event.organizerAvatarUrl ? (
+              <img
+                src={event.organizerAvatarUrl}
+                alt={organizerDisplayName}
+                className="h-10 w-10 rounded-full object-cover shrink-0 border border-border/40"
+              />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
+                {organizerDisplayName.charAt(0)}
+              </div>
+            )}
+          </Link>
           <div className="flex flex-col gap-0.5 min-w-0 flex-1">
             <div className="flex items-center gap-1 min-w-0">
-              <span
-                className="font-medium text-sm leading-5 text-foreground truncate"
-                title={event.organizerName || event.fanpageName || 'Ban Tổ Chức'}
+              <Link
+                to={fanpageUrl}
+                className="font-medium text-sm leading-5 text-foreground hover:text-primary hover:underline transition-colors truncate cursor-pointer"
+                title={organizerDisplayName}
               >
-                {event.organizerName || event.fanpageName || 'Ban Tổ Chức'}
-              </span>
+                {organizerDisplayName}
+              </Link>
               <VerifiedBadge className="h-4 w-4 shrink-0" />
             </div>
             <span className="text-xs font-medium leading-4 text-[#4B5563] dark:text-muted-foreground">
@@ -164,40 +193,31 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
         </h2>
 
         {event.description && (
-          <div className="text-sm font-normal text-[#374151] dark:text-muted-foreground leading-5">
+          <div className="text-sm font-normal text-[#374151] dark:text-muted-foreground leading-[22px]">
             {isExpanded ? (
-              <p>
-                {event.description}{' '}
+              <div className="whitespace-pre-line text-sm leading-[22px]">
+                <span>{event.description}</span>{' '}
                 <button
                   type="button"
                   onClick={() => setIsExpanded(false)}
-                  className="font-semibold text-[#1F5CA9] dark:text-blue-400 hover:underline cursor-pointer inline ml-1.5"
+                  className="font-medium text-[#1B4B8A] dark:text-blue-400 hover:underline cursor-pointer inline ml-1.5"
                 >
                   Thu gọn
                 </button>
-              </p>
+              </div>
+            ) : isLong ? (
+              <div className="whitespace-pre-line text-sm leading-[22px]">
+                <span>{previewText}...</span>{' '}
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(true)}
+                  className="font-medium text-[#1B4B8A] dark:text-blue-400 hover:underline cursor-pointer inline"
+                >
+                  Xem thêm
+                </button>
+              </div>
             ) : (
-              <div
-                ref={descRef}
-                className={cn(
-                  'relative text-sm font-normal text-[#374151] dark:text-muted-foreground leading-5',
-                  isOverflowing && 'max-h-[40px] overflow-hidden'
-                )}
-              >
-                {isOverflowing && (
-                  <>
-                    {/* Spacer pushes button down to Line 2 */}
-                    <div className="float-right h-5 w-0" />
-                    {/* Inline "Xem Thêm" sitting directly at the end of line 2 */}
-                    <button
-                      type="button"
-                      onClick={() => setIsExpanded(true)}
-                      className="float-right clear-right bg-white dark:bg-card pl-1 font-semibold text-[#1F5CA9] dark:text-blue-400 hover:underline cursor-pointer inline-flex items-center"
-                    >
-                      ... <span className="ml-1">Xem Thêm</span>
-                    </button>
-                  </>
-                )}
+              <div className="whitespace-pre-line text-sm leading-[22px]">
                 <span>{event.description}</span>
               </div>
             )}
@@ -205,34 +225,47 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
         )}
       </div>
 
-      {/* 3. Event Poster / Media with Compact Bottom-Right Information Badge */}
+      {/* 3. Event Poster / Media with Ambient Blurred Background & Compact Information Badge */}
       {event.bannerUrl && (
-        <div className="relative w-full max-h-[460px] bg-[#010101] p-1.5 flex items-center justify-center overflow-hidden">
+        <div className="relative w-full min-h-[380px] max-h-[620px] flex items-center justify-center overflow-hidden bg-slate-900/10 dark:bg-slate-950/40 select-none">
+          {/* Ambient Blurred Backdrop reflecting poster palette */}
+          <div
+            className="absolute inset-0 bg-cover bg-center scale-110 blur-2xl opacity-45 dark:opacity-35 pointer-events-none"
+            style={{ backgroundImage: `url(${event.bannerUrl})` }}
+          />
+          {/* Soft ambient overlay for contrast */}
+          <div className="absolute inset-0 bg-slate-900/15 dark:bg-black/35 backdrop-blur-2xs pointer-events-none" />
+
+          {/* Foreground Sharp Poster Image with true proportions */}
           <Link
             to={`/events/${event.id}`}
             state={{ from: `${location.pathname}${location.search}` }}
-            className="w-full h-full flex items-center justify-center"
+            className="relative z-1 max-h-[580px] w-auto max-w-full flex items-center justify-center"
           >
             <img
               src={event.bannerUrl}
               alt={event.title}
-              className="max-h-[440px] w-auto max-w-full object-contain"
+              className="max-h-[580px] w-auto max-w-full object-contain rounded-sm shadow-md"
               loading="lazy"
             />
           </Link>
 
           {/* Compact Important Info Badge - Bottom Right over image (transparent frosted glass, 4 uniform rows) */}
-          <div className="absolute bottom-2.5 right-2.5 z-10 max-w-[85%] sm:max-w-[260px] bg-black/65 backdrop-blur-md border border-white/15 rounded-lg px-2.5 py-2 text-white shadow-md flex flex-col gap-1.5 text-[11px] leading-tight select-none pointer-events-auto">
+          <div className="absolute bottom-2.5 right-2.5 z-10 max-w-[85%] sm:max-w-[280px] bg-black/70 backdrop-blur-md border border-white/20 rounded-lg px-2.5 py-2 text-white shadow-lg flex flex-col gap-1.5 text-[11px] leading-tight select-none pointer-events-auto">
             {/* Date & Time */}
             <div className="flex items-center gap-2 min-w-0">
               <CalendarIcon className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
-              <span className="truncate font-medium text-white/85">{formatDisplayDateTime(event.startTime, event.endTime)}</span>
+              <span className="truncate font-medium text-white/85">
+                {formatDisplayDateTime(event.startTime, event.endTime)}
+              </span>
             </div>
 
             {/* Location */}
             <div className="flex items-center gap-2 min-w-0">
               <MapPin className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
-              <span className="truncate font-medium text-white/85" title={locationDisplay}>{locationDisplay}</span>
+              <span className="truncate font-medium text-white/85" title={locationDisplay}>
+                {locationDisplay}
+              </span>
             </div>
 
             {/* Benefits */}
@@ -330,12 +363,18 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
           <button
             type="button"
             onClick={handleSaveClick}
-            className={`flex h-8 w-8 items-center justify-center text-[#6B7280] hover:text-foreground transition-colors cursor-pointer ${
-              isSaved ? 'text-primary' : ''
+            className={`flex h-8 w-8 items-center justify-center transition-colors cursor-pointer ${
+              isSaved
+                ? 'text-amber-500 hover:text-amber-600'
+                : 'text-[#6B7280] hover:text-amber-500'
             }`}
-            title={isSaved ? 'Đã lưu' : 'Lưu sự kiện'}
+            title={isSaved ? 'Đã lưu (nhấn để bỏ lưu)' : 'Lưu sự kiện'}
           >
-            <Bookmark className={`h-6 w-6 ${isSaved ? 'fill-current' : ''}`} />
+            <Bookmark
+              className={`h-6 w-6 transition-all ${
+                isSaved ? 'fill-amber-500 text-amber-500 drop-shadow-xs' : ''
+              }`}
+            />
           </button>
 
           <RegisterButton

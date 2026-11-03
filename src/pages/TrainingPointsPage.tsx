@@ -15,13 +15,13 @@ import {
 export const TrainingPointsPage: React.FC = () => {
   const queryClient = useQueryClient()
 
-  // 1. Fetch Academic Years from mock data
+  // 1. Fetch Academic Years from server
   const { data: academicYears = [] } = useQuery({
     queryKey: ['academic-years'],
     queryFn: () => trainingPointsService.getAcademicYears(),
   })
 
-  // 2. Fetch Semesters from mock data
+  // 2. Fetch Semesters from server
   const { data: semesters = [] } = useQuery({
     queryKey: ['semesters'],
     queryFn: () => trainingPointsService.getSemesters(),
@@ -35,7 +35,7 @@ export const TrainingPointsPage: React.FC = () => {
   const [appliedYear, setAppliedYear] = useState('')
   const [appliedSemester, setAppliedSemester] = useState('')
 
-  // Set default active academic year when mock data arrives
+  // Set default active academic year when data arrives
   useEffect(() => {
     if (academicYears.length > 0 && !selectedYear) {
       const activeYear = academicYears.find((y) => y.isActive) || academicYears[0]
@@ -46,10 +46,10 @@ export const TrainingPointsPage: React.FC = () => {
     }
   }, [academicYears, selectedYear])
 
-  // Set default active semester when mock data arrives
+  // Set default active semester when data arrives
   useEffect(() => {
     if (semesters.length > 0 && !selectedSemester) {
-      const activeSem = semesters.find((s) => s.status === 'ACTIVE') || semesters[0]
+      const activeSem = semesters.find((s) => s.status === 'ONGOING' || s.status === 'ACTIVE') || semesters[0]
       if (activeSem) {
         setSelectedSemester(String(activeSem.number))
         setAppliedSemester(String(activeSem.number))
@@ -81,19 +81,33 @@ export const TrainingPointsPage: React.FC = () => {
     queryFn: () => trainingPointsService.getPointCategories(),
   })
 
+  // Leaf category IDs for fetching transactions
+  const leafCategoryIds = useMemo(() => {
+    const parentIds = new Set(rawCategories.map((c) => c.parentCategoryId).filter(Boolean))
+    return rawCategories.filter((c) => !parentIds.has(c.id)).map((c) => c.id)
+  }, [rawCategories])
+
   // 4. Fetch Point Transactions (System & manual check-in points)
   const { data: transactions = [], isLoading: isLoadingTransactions } = useQuery({
-    queryKey: ['point-transactions', currentSemesterId],
-    queryFn: () => trainingPointsService.getPointTransactions(currentSemesterId),
-    enabled: Boolean(currentSemesterId),
+    queryKey: ['point-transactions', currentSemesterId, leafCategoryIds],
+    queryFn: () => trainingPointsService.getPointTransactions(currentSemesterId, leafCategoryIds),
+    enabled: Boolean(currentSemesterId) && leafCategoryIds.length > 0,
   })
 
-  // 5. Fetch Aggregate Semester Points
-  const { data: _aggregatePoints = [] } = useQuery({
+  // 5. Fetch Aggregate Semester Points (Directly from student_semester_points)
+  const { data: aggregatePoints = [] } = useQuery({
     queryKey: ['student-semester-points', currentSemesterId],
     queryFn: () => trainingPointsService.getStudentSemesterPoints(currentSemesterId),
     enabled: Boolean(currentSemesterId),
   })
+
+  const aggregateScores = useMemo(() => {
+    const map: Record<number, number> = {}
+    aggregatePoints.forEach((p) => {
+      map[p.pointCategoryId] = p.totalPoint
+    })
+    return map
+  }, [aggregatePoints])
 
   // 6. Fetch Registration History to get completed events count
   const { data: historyEvents = [] } = useQuery({
@@ -110,7 +124,7 @@ export const TrainingPointsPage: React.FC = () => {
   const [studentScores, setStudentScores] = useState<Record<number, number>>({})
   const [studentDescriptions, setStudentDescriptions] = useState<Record<number, string>>({})
 
-  // Initialize self-evaluated scores and descriptions from manual transactions in mock data
+  // Initialize self-evaluated scores and descriptions from manual transactions
   useEffect(() => {
     if (transactions.length > 0) {
       const initialScores: Record<number, number> = {}
@@ -154,7 +168,9 @@ export const TrainingPointsPage: React.FC = () => {
 
   // Calculate real total score as the exact sum of all 5 sections (capped at section maximums)
   const totalScore = useMemo(() => {
-    if (categoryTree.length === 0) return 0
+    if (categoryTree.length === 0) {
+      return aggregatePoints.reduce((acc, p) => acc + (p.totalPoint || 0), 0)
+    }
 
     // Map recorded event transactions (excluding manual self-evaluations)
     const recordedMap = new Map<number, number>()
@@ -183,13 +199,18 @@ export const TrainingPointsPage: React.FC = () => {
 
       sumLeaves(rootSection)
 
-      // Final section score capped at root section maximum
-      const finalSectionScore = Math.min(rootSection.maximum, sectionLeavesSum)
+      const agg = aggregateScores[rootSection.id] || 0
+      // Final section score capped at root section maximum, or fallback to aggregate
+      const finalSectionScore = sectionLeavesSum > 0 ? Math.min(rootSection.maximum, sectionLeavesSum) : agg
       realSum += finalSectionScore
     })
 
+    if (realSum === 0 && aggregatePoints.length > 0) {
+      return aggregatePoints.reduce((acc, p) => acc + (p.totalPoint || 0), 0)
+    }
+
     return realSum
-  }, [categoryTree, transactions, studentScores])
+  }, [categoryTree, transactions, studentScores, aggregateScores, aggregatePoints])
 
   // Hoạt động đã tham gia: lấy tổng số sự kiện đã hoàn thành từ lịch sử đăng ký của sinh viên
   const activitiesCount = useMemo(() => {
@@ -208,13 +229,13 @@ export const TrainingPointsPage: React.FC = () => {
     <div className="w-full h-full flex flex-col overflow-hidden bg-[#F0F2F5] dark:bg-background">
       <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
         {/* Left Sidebar */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 custom-scrollbar">
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto md:overflow-hidden py-3 sm:py-4 px-1 flex justify-center custom-scrollbar">
-          <div className="w-full max-w-6xl h-full flex flex-col gap-3 min-h-0">
+        <main className="flex-1 min-w-0 h-full overflow-y-auto py-5 pl-1 pr-4 sm:pr-6 custom-scrollbar">
+          <div className="w-full max-w-full flex flex-col gap-4 pb-16">
             {/* 1. Header with title and filter selectors from mock data */}
             <div className="shrink-0">
               <TrainingPointsHeader
@@ -252,6 +273,7 @@ export const TrainingPointsPage: React.FC = () => {
               onSaveSelfScore={handleSaveSelfScore}
               isLoading={isLoading}
               resetKey={`${appliedYear}-${appliedSemester}-${currentSemesterId}`}
+              aggregateScores={aggregateScores}
             />
           </div>
         </main>

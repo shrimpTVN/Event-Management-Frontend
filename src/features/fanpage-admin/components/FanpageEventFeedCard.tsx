@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect } from 'react'
+import React, { useState, useRef, useMemo, useEffect } from 'react'
 import {
   Calendar as CalendarIcon,
   MapPin,
@@ -9,40 +9,91 @@ import {
   BarChart3,
   MoreHorizontal,
   Check,
+  Pencil,
+  Pin,
+  PinOff,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
 import type { FanpageFeedPost } from '../types/fanpageAdmin.types'
 
+function getPreviewDescription(text: string, maxChars = 160) {
+  if (!text) return { isLong: false, previewText: '' }
+
+  const lines = text.split('\n')
+  const hasManyLines = lines.length > 2
+
+  let baseText = text
+  if (hasManyLines) {
+    baseText = lines.slice(0, 2).join('\n')
+  }
+
+  if (baseText.length > maxChars) {
+    const cut = baseText.slice(0, maxChars)
+    const lastSpace = cut.lastIndexOf(' ')
+    const trimmed = (lastSpace > 60 ? cut.slice(0, lastSpace) : cut).trimEnd()
+    return { isLong: true, previewText: trimmed }
+  }
+
+  if (hasManyLines || text.length > baseText.length) {
+    return { isLong: true, previewText: baseText.trimEnd() }
+  }
+
+  return { isLong: false, previewText: text }
+}
+
 interface FanpageEventFeedCardProps {
   post: FanpageFeedPost
   onViewAnalytics?: (post: FanpageFeedPost) => void
+  onEdit?: (post: FanpageFeedPost) => void
+  onTogglePin?: (post: FanpageFeedPost, isPinned: boolean) => void
+  onToggleHide?: (post: FanpageFeedPost, isHidden: boolean) => void
 }
 
 export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
   post,
   onViewAnalytics,
+  onEdit,
+  onTogglePin,
+  onToggleHide,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [copiedShare, setCopiedShare] = useState(false)
+  const [isPinned, setIsPinned] = useState(Boolean(post.isPinned))
+  const [isHidden, setIsHidden] = useState(Boolean(post.isHidden))
+  const menuRef = useRef<HTMLDivElement>(null)
 
-  const descRef = useRef<HTMLDivElement>(null)
-  const [isOverflowing, setIsOverflowing] = useState(false)
-
-  useLayoutEffect(() => {
-    const el = descRef.current
-    if (!el || !post.summary) return
-
-    const checkOverflow = () => {
-      // 2 lines with leading-5 (20px line-height) is 40px. Exceeding 42px means > 2 lines.
-      setIsOverflowing(el.scrollHeight > 42)
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false)
+      }
     }
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showMenu])
 
-    checkOverflow()
-    window.addEventListener('resize', checkOverflow)
-    return () => window.removeEventListener('resize', checkOverflow)
-  }, [post.summary])
+  const handleTogglePin = () => {
+    const next = !isPinned
+    setIsPinned(next)
+    onTogglePin?.(post, next)
+  }
+
+  const handleToggleHide = () => {
+    const next = !isHidden
+    setIsHidden(next)
+    onToggleHide?.(post, next)
+  }
+
+  const { isLong, previewText } = useMemo(
+    () => getPreviewDescription(post.summary || '', 160),
+    [post.summary]
+  )
 
   const eventId = post.eventId || post.id.replace('post-', '')
   const locationDisplay = post.location || 'Khu II, Đại học Cần Thơ'
@@ -75,7 +126,33 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
   }
 
   return (
-    <article className="w-full max-w-[680px] mx-auto rounded-xl bg-white dark:bg-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] dark:border dark:border-border/60 text-left pt-2.5 pb-[12px] px-0 flex flex-col gap-3 relative">
+    <article className={cn(
+    "w-full max-w-[680px] mx-auto rounded-xl bg-white dark:bg-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] dark:border dark:border-border/60 text-left pt-2.5 pb-[12px] px-0 flex flex-col gap-3 relative transition-opacity duration-200",
+    isHidden && "opacity-75 hover:opacity-100"
+  )}>
+      {/* Pinned Banner */}
+      {isPinned && (
+        <div className="flex items-center gap-1.5 px-3.5 py-1.5 -mt-2.5 bg-blue-50/80 dark:bg-blue-950/40 border-b border-blue-100 dark:border-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-semibold rounded-t-xl">
+          <Pin className="h-3.5 w-3.5 fill-blue-700 dark:fill-blue-300 rotate-45 shrink-0" />
+          <span>Bài viết đã ghim</span>
+        </div>
+      )}
+      {/* Hidden Banner */}
+      {isHidden && (
+        <div className="flex items-center justify-between gap-2 px-3.5 py-1.5 -mt-2.5 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-300 text-xs font-medium rounded-t-xl">
+          <div className="flex items-center gap-1.5">
+            <EyeOff className="h-3.5 w-3.5 shrink-0" />
+            <span>Bài viết đang bị ẩn (chỉ quản trị viên mới nhìn thấy)</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleToggleHide}
+            className="text-primary hover:underline font-semibold cursor-pointer shrink-0"
+          >
+            Hiện lại bài viết
+          </button>
+        </div>
+      )}
       {/* 1. Header: Fanpage Info & Admin More Actions */}
       <div className="flex items-center justify-between gap-3 px-3 py-1 h-12">
         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -107,7 +184,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
         </div>
 
         {/* More Actions Menu */}
-        <div className="relative">
+        <div className="relative" ref={menuRef}>
           <button
             type="button"
             onClick={() => setShowMenu(!showMenu)}
@@ -118,7 +195,59 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
           </button>
 
           {showMenu && (
-            <div className="absolute right-0 mt-1 w-48 rounded-xl border border-border bg-white dark:bg-card shadow-lg p-1.5 z-30 space-y-0.5 text-xs">
+            <div className="absolute right-0 mt-1 w-48 rounded-xl border border-border bg-white dark:bg-card shadow-lg p-1.5 z-30 space-y-0.5 text-xs animate-in fade-in zoom-in-95">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
+                  onEdit?.(post)
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-muted text-foreground flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>Chỉnh sửa</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
+                  handleTogglePin()
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-muted text-foreground flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                {isPinned ? (
+                  <>
+                    <PinOff className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Bỏ ghim bài viết</span>
+                  </>
+                ) : (
+                  <>
+                    <Pin className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Ghim bài viết</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
+                  handleToggleHide()
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-muted text-foreground flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                {isHidden ? (
+                  <>
+                    <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Hiện bài viết</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Ẩn bài viết</span>
+                  </>
+                )}
+              </button>
+              <div className="border-t border-border/60 my-1" />
               <button
                 type="button"
                 onClick={() => {
@@ -153,38 +282,31 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
         </h2>
 
         {post.summary && (
-          <div className="text-sm font-normal text-[#374151] dark:text-muted-foreground leading-5">
+          <div className="text-sm font-normal text-[#374151] dark:text-muted-foreground leading-[22px]">
             {isExpanded ? (
-              <p>
-                {post.summary}{' '}
+              <div className="whitespace-pre-line text-sm leading-[22px]">
+                <span>{post.summary}</span>{' '}
                 <button
                   type="button"
                   onClick={() => setIsExpanded(false)}
-                  className="font-semibold text-[#1F5CA9] dark:text-blue-400 hover:underline cursor-pointer inline ml-1.5"
+                  className="font-medium text-[#1B4B8A] dark:text-blue-400 hover:underline cursor-pointer inline ml-1.5"
                 >
                   Thu gọn
                 </button>
-              </p>
+              </div>
+            ) : isLong ? (
+              <div className="whitespace-pre-line text-sm leading-[22px]">
+                <span>{previewText}...</span>{' '}
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(true)}
+                  className="font-medium text-[#1B4B8A] dark:text-blue-400 hover:underline cursor-pointer inline"
+                >
+                  Xem thêm
+                </button>
+              </div>
             ) : (
-              <div
-                ref={descRef}
-                className={cn(
-                  'relative text-sm font-normal text-[#374151] dark:text-muted-foreground leading-5',
-                  isOverflowing && 'max-h-[40px] overflow-hidden'
-                )}
-              >
-                {isOverflowing && (
-                  <>
-                    <div className="float-right h-5 w-0" />
-                    <button
-                      type="button"
-                      onClick={() => setIsExpanded(true)}
-                      className="float-right clear-right bg-white dark:bg-card pl-1 font-semibold text-[#1F5CA9] dark:text-blue-400 hover:underline cursor-pointer inline-flex items-center"
-                    >
-                      ... <span className="ml-1">Xem Thêm</span>
-                    </button>
-                  </>
-                )}
+              <div className="whitespace-pre-line text-sm leading-[22px]">
                 <span>{post.summary}</span>
               </div>
             )}
@@ -192,18 +314,27 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
         )}
       </div>
 
-      {/* 3. Event Poster / Media with Compact Frosted-Glass Bottom-Right Information Badge */}
+      {/* 3. Event Poster / Media with Ambient Blurred Background & Compact Information Badge */}
       {post.bannerUrl && (
-        <div className="relative w-full max-h-[460px] bg-[#010101] p-1.5 flex items-center justify-center overflow-hidden">
+        <div className="relative w-full min-h-[380px] max-h-[620px] flex items-center justify-center overflow-hidden bg-slate-900/10 dark:bg-slate-950/40 select-none">
+          {/* Ambient Blurred Backdrop reflecting poster palette */}
+          <div
+            className="absolute inset-0 bg-cover bg-center scale-110 blur-2xl opacity-45 dark:opacity-35 pointer-events-none"
+            style={{ backgroundImage: `url(${post.bannerUrl})` }}
+          />
+          {/* Soft ambient overlay for contrast */}
+          <div className="absolute inset-0 bg-slate-900/15 dark:bg-black/35 backdrop-blur-2xs pointer-events-none" />
+
+          {/* Foreground Sharp Poster Image with true proportions */}
           <img
             src={post.bannerUrl}
             alt={post.title}
-            className="max-h-[440px] w-auto max-w-full object-contain"
+            className="relative z-1 max-h-[580px] w-auto max-w-full object-contain rounded-sm shadow-md"
             loading="lazy"
           />
 
           {/* Frosted Glass Info Badge - Bottom Right over poster */}
-          <div className="absolute bottom-2.5 right-2.5 z-10 max-w-[85%] sm:max-w-[260px] bg-black/65 backdrop-blur-md border border-white/15 rounded-lg px-2.5 py-2 text-white shadow-md flex flex-col gap-1.5 text-[11px] leading-tight select-none pointer-events-auto">
+          <div className="absolute bottom-2.5 right-2.5 z-10 max-w-[85%] sm:max-w-[280px] bg-black/70 backdrop-blur-md border border-white/20 rounded-lg px-2.5 py-2 text-white shadow-lg flex flex-col gap-1.5 text-[11px] leading-tight select-none pointer-events-auto">
             {/* Date & Time */}
             <div className="flex items-center gap-2 min-w-0">
               <CalendarIcon className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />

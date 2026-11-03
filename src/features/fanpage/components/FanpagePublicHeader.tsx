@@ -29,6 +29,13 @@ export const FanpagePublicHeader: React.FC<FanpagePublicHeaderProps> = ({
     onFollowChange?.(nextState)
   }
 
+  const displayName =
+    fanpage.fullName ||
+    fanpage.orgName ||
+    (fanpage.name?.includes('CNTT')
+      ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông'
+      : fanpage.name)
+
   return (
     <div className="w-full bg-white dark:bg-card border border-border/50 dark:border-border/60 rounded-xl p-5 sm:p-6 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] flex flex-col sm:flex-row items-center sm:items-center justify-between gap-5 sm:gap-6">
       {/* Left: Avatar + Fanpage Name + Stats */}
@@ -37,7 +44,7 @@ export const FanpagePublicHeader: React.FC<FanpagePublicHeaderProps> = ({
         <div className="relative shrink-0">
           <img
             src={fanpage.avatarUrl}
-            alt={fanpage.name}
+            alt={displayName}
             className="h-24 w-24 rounded-full object-cover border-2 border-border/80 shadow-2xs p-0.5 bg-white dark:bg-card"
           />
         </div>
@@ -45,7 +52,7 @@ export const FanpagePublicHeader: React.FC<FanpagePublicHeaderProps> = ({
         {/* Title & Metadata */}
         <div className="min-w-0">
           <h1 className="font-k2d font-bold text-xl sm:text-2xl text-foreground tracking-tight flex items-center justify-center sm:justify-start gap-1.5 flex-wrap">
-            <span>{fanpage.name}</span>
+            <span>{displayName}</span>
             <VerifiedBadge className="h-5 w-5 sm:h-5.5 sm:w-5.5 shrink-0" />
           </h1>
 

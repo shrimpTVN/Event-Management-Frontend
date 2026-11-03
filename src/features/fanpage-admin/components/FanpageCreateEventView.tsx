@@ -9,7 +9,12 @@ import {
   RefreshCw,
   Plus,
   Trash2,
+  Search,
+  ChevronDown,
+  Loader2,
 } from 'lucide-react'
+import { mediaService } from '@/shared'
+import { cn } from '@/shared/utils/cn'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -109,6 +114,35 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
     queryFn: () => fanpageAdminService.getSv5tCriterias(),
   })
 
+  // Lấy danh sách loại sự kiện thực tế từ Backend API & Combobox state
+  const { data: eventTypeList = MOCK_EVENT_TYPES } = useQuery({
+    queryKey: ['admin-event-types'],
+    queryFn: () => fanpageAdminService.getEventTypes(),
+  })
+  const [isEventTypeOpen, setIsEventTypeOpen] = useState(false)
+  const [eventTypeSearch, setEventTypeSearch] = useState('')
+  const eventTypeComboboxRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (eventTypeComboboxRef.current && !eventTypeComboboxRef.current.contains(e.target as Node)) {
+        setIsEventTypeOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const filteredEventTypes = useMemo(() => {
+    if (!eventTypeSearch.trim()) return eventTypeList
+    const q = eventTypeSearch.toLowerCase()
+    return eventTypeList.filter((t) => t.name.toLowerCase().includes(q))
+  }, [eventTypeList, eventTypeSearch])
+
+  const selectedEventTypeObj = useMemo(() => {
+    return eventTypeList.find((t) => t.id === eventTypeId)
+  }, [eventTypeList, eventTypeId])
+
   // Modal và danh sách mục Điểm rèn luyện đã chọn (hỗ trợ chọn nhiều mục)
   const [isPointModalOpen, setIsPointModalOpen] = useState(false)
   const [selectedPointCategories, setSelectedPointCategories] = useState<SelectedPointCategory[]>(() => {
@@ -173,6 +207,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
 
   // 6. Nội dung & Poster (Schema: description, bannerUrl, tags)
   const [description, setDescription] = useState(initialEvent?.description || '')
+  const [isExpandedDesc, setIsExpandedDesc] = useState(false)
   const [tags, setTags] = useState(
     initialEvent
       ? Array.isArray(initialEvent.tags)
@@ -181,6 +216,8 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       : ''
   )
   const [bannerPreview, setBannerPreview] = useState(initialEvent?.bannerUrl || '')
+  const [bannerFile, setBannerFile] = useState<File | null>(null)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -237,6 +274,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
           : initialEvent.tags || ''
       )
       setBannerPreview(initialEvent.bannerUrl || '')
+      setBannerFile(null)
     } else {
       // Khởi tạo trạng thái trống khi Tạo sự kiện mới
       setName('')
@@ -265,6 +303,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       setDescription('')
       setTags('')
       setBannerPreview('')
+      setBannerFile(null)
     }
   }, [initialEvent])
 
@@ -300,6 +339,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      setBannerFile(file)
       const previewUrl = URL.createObjectURL(file)
       setBannerPreview(previewUrl)
     }
@@ -307,6 +347,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
 
   // Chọn ảnh mẫu có sẵn
   const handleUseSampleImage = () => {
+    setBannerFile(null)
     setBannerPreview(
       'https://images.unsplash.com/photo-1515187029135-18ee286d815b?auto=format&fit=crop&w=1200&q=80'
     )
@@ -330,18 +371,47 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       alert('Vui lòng nhập số lượng sinh viên tham gia hợp lệ!')
       return
     }
+    if (!bannerPreview && !bannerFile) {
+      alert('Vui lòng tải lên ảnh bìa (poster) cho sự kiện!')
+      return
+    }
 
     setIsSubmitting(true)
 
+    let finalBannerUrl = bannerPreview
+    if (bannerFile) {
+      setIsUploadingImage(true)
+      try {
+        finalBannerUrl = await mediaService.uploadImage(bannerFile, 'EVENT')
+        setBannerPreview(finalBannerUrl)
+        setBannerFile(null)
+      } catch (uploadErr: any) {
+        console.error('Lỗi upload ảnh poster lên Cloudinary:', uploadErr)
+        alert(uploadErr?.message || 'Không thể tải ảnh poster lên Cloudinary. Vui lòng thử lại!')
+        setIsSubmitting(false)
+        setIsUploadingImage(false)
+        return
+      } finally {
+        setIsUploadingImage(false)
+      }
+    }
 
     const activeSv5tId = activeSv5tCriteria?.id
     const activeSv5tName = activeSv5tCriteria?.name
-    const selectedEventType = MOCK_EVENT_TYPES.find((t) => t.id === eventTypeId)
+    const selectedEventType = selectedEventTypeObj || MOCK_EVENT_TYPES.find((t) => t.id === eventTypeId)
     const selectedSemester = MOCK_SEMESTERS.find((s) => s.id === semesterId)
 
-    const dateOpenIso = dateOpen ? `${dateOpen}T${timeOpen || '07:00'}:00Z` : undefined
-    const dateCloseIso = dateClose ? `${dateClose}T${timeClose || '23:59'}:00Z` : undefined
-    const dateHappenIso = dateHappen ? `${dateHappen}T${timeStart || '08:00'}:00Z` : ''
+    // Backend LocalDate yêu cầu định dạng YYYY-MM-DD
+    const todayStr = new Date().toISOString().split('T')[0]
+    const effectiveDateOpen = dateOpen ? dateOpen : (dateHappen < todayStr ? dateHappen : todayStr)
+    const effectiveDateClose = dateClose ? dateClose : dateHappen
+
+    const dateOpenIso = `${effectiveDateOpen}T${timeOpen || '07:00'}:00Z`
+    const dateCloseIso = `${effectiveDateClose}T${timeClose || '23:59'}:00Z`
+
+    const safeCapacity = Number(capacity) || 0
+    const safeMaleQuantity = maleQuantity !== '' && maleQuantity !== undefined ? Number(maleQuantity) : 0
+    const safeFemaleQuantity = femaleQuantity !== '' && femaleQuantity !== undefined ? Number(femaleQuantity) : 0
 
     const eventPayload: Partial<AdminEvent> = {
       id: initialEvent ? initialEvent.id : `evt-${Date.now()}`,
@@ -362,13 +432,13 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       dateClose: dateCloseIso,
       format,
       location,
-      capacity: Number(capacity) || 0,
-      maleQuantity: maleQuantity !== '' ? Number(maleQuantity) : undefined,
-      femaleQuantity: femaleQuantity !== '' ? Number(femaleQuantity) : undefined,
+      capacity: safeCapacity,
+      maleQuantity: safeMaleQuantity,
+      femaleQuantity: safeFemaleQuantity,
       registeredCount: initialEvent ? initialEvent.registeredCount : 0,
       checkedInCount: initialEvent ? initialEvent.checkedInCount : 0,
       status: isPublished ? 'PUBLISHED' : (initialEvent ? initialEvent.status : 'DRAFT'),
-      bannerUrl: bannerPreview,
+      bannerUrl: finalBannerUrl,
       requiresApproval,
       attendanceMethod,
       attendanceSessionType,
@@ -392,31 +462,41 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
           name: eventPayload.name,
           description: eventPayload.description,
           location: eventPayload.location,
-          dateHappen: dateHappenIso,
-          dateOpen: dateOpenIso,
-          dateClose: dateCloseIso,
-          capacity: eventPayload.capacity,
-          maleQuantity: eventPayload.maleQuantity,
-          femaleQuantity: eventPayload.femaleQuantity,
-          bannerUrl: eventPayload.bannerUrl,
+          dateHappen: dateHappen,
+          dateOpen: effectiveDateOpen,
+          dateClose: effectiveDateClose,
+          capacity: safeCapacity,
+          maleQuantity: safeMaleQuantity,
+          femaleQuantity: safeFemaleQuantity,
+          bannerUrl: finalBannerUrl,
           status: eventPayload.status,
           eventTypeId: eventPayload.eventTypeId,
           semesterId: eventPayload.semesterId,
           criteriaId: eventPayload.sv5tCriteriaId,
           eventPoints: selectedPointCategories.map((c) => ({ pointCategoryId: c.pointCategoryId, point: c.point })),
         } as any)
+
+        // Cập nhật trạng thái sự kiện nếu thay đổi
+        const targetStatus = isPublished ? 'PUBLISHED' : 'DRAFT'
+        if (initialEvent.status !== targetStatus) {
+          try {
+            await fanpageAdminService.changeEventStatus(initialEvent.id, targetStatus)
+          } catch (stErr) {
+            console.warn('Lỗi cập nhật trạng thái sự kiện:', stErr)
+          }
+        }
       } else {
         await fanpageAdminService.createAdminEvent({
           name: eventPayload.name,
           description: eventPayload.description,
           location: eventPayload.location,
-          dateHappen: dateHappenIso,
-          dateOpen: dateOpenIso,
-          dateClose: dateCloseIso,
-          capacity: eventPayload.capacity,
-          maleQuantity: eventPayload.maleQuantity,
-          femaleQuantity: eventPayload.femaleQuantity,
-          bannerUrl: eventPayload.bannerUrl,
+          dateHappen: dateHappen,
+          dateOpen: effectiveDateOpen,
+          dateClose: effectiveDateClose,
+          capacity: safeCapacity,
+          maleQuantity: safeMaleQuantity,
+          femaleQuantity: safeFemaleQuantity,
+          bannerUrl: finalBannerUrl,
           status: eventPayload.status,
           eventTypeId: eventPayload.eventTypeId,
           fanpageId: Number(currentFanpage?.id || 1),
@@ -424,13 +504,29 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
           criteriaId: eventPayload.sv5tCriteriaId,
           eventPoints: selectedPointCategories.map((c) => ({ pointCategoryId: c.pointCategoryId, point: c.point })),
         } as any)
-      }
-    } catch (err) {
-      console.warn('API error during event save, saving local state', err)
-    }
 
-    setIsSubmitting(false)
-    onSaveEvent(eventPayload, isPublished)
+        // Backend Spring Boot mặc định luôn khởi tạo sự kiện mới với status DRAFT (Bản nháp).
+        // Nếu người dùng chọn "Xuất bản sự kiện" (isPublished === true), tự động kích hoạt trạng thái PUBLISHED ngay
+        if (isPublished) {
+          try {
+            const latestEvents = await fanpageAdminService.getAdminEvents(currentFanpage?.id || '1')
+            if (latestEvents.length > 0 && latestEvents[0]?.id) {
+              await fanpageAdminService.changeEventStatus(latestEvents[0].id, 'PUBLISHED')
+              eventPayload.status = 'PUBLISHED'
+            }
+          } catch (pubErr) {
+            console.warn('Không thể tự động xuất bản sự kiện mới:', pubErr)
+          }
+        }
+      }
+      setIsSubmitting(false)
+      onSaveEvent(eventPayload, isPublished)
+    } catch (err: any) {
+      console.error('API error during event save', err)
+      const msg = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi lưu sự kiện!'
+      alert(`Lưu sự kiện thất bại: ${msg}`)
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -482,7 +578,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
             variant="outline"
             size="sm"
             onClick={onBack}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isUploadingImage}
             className="h-9 px-4 text-xs font-medium cursor-pointer"
           >
             Hủy bỏ
@@ -492,7 +588,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
             variant="outline"
             size="sm"
             onClick={() => handleSubmit(false)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isUploadingImage}
             className="h-9 px-4 text-xs font-medium cursor-pointer"
           >
             Lưu bản nháp
@@ -501,11 +597,20 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
             type="button"
             size="sm"
             onClick={() => handleSubmit(true)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isUploadingImage}
             className="h-9 px-4 text-xs font-semibold bg-primary hover:bg-primary/95 text-white flex items-center gap-1.5 cursor-pointer shadow-2xs"
           >
-            <Check className="h-4 w-4" />
-            <span>{isEditMode ? 'Cập nhật sự kiện' : 'Xuất bản sự kiện'}</span>
+            {isSubmitting || isUploadingImage ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>{isUploadingImage ? 'Đang tải ảnh...' : 'Đang xử lý...'}</span>
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4" />
+                <span>{isEditMode ? 'Cập nhật sự kiện' : 'Xuất bản sự kiện'}</span>
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -559,26 +664,72 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
               </Select>
             </div>
 
-            {/* Loại sự kiện */}
-            <div className="space-y-1.5">
+            {/* Loại sự kiện (Combobox có tìm kiếm & đồng bộ CSDL thật) */}
+            <div className="space-y-1.5 relative" ref={eventTypeComboboxRef}>
               <Label htmlFor="event-type">
                 Loại sự kiện <span className="text-destructive">*</span>
               </Label>
-              <Select
-                value={String(eventTypeId)}
-                onValueChange={(val) => setEventTypeId(Number(val))}
+              <button
+                type="button"
+                id="event-type"
+                onClick={() => setIsEventTypeOpen((prev) => !prev)}
+                className="w-full h-10 px-3 rounded-xl border border-input bg-background text-sm text-foreground flex items-center justify-between gap-2 hover:bg-accent/40 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-all cursor-pointer text-left"
               >
-                <SelectTrigger id="event-type">
-                  <SelectValue placeholder="Chọn loại sự kiện" />
-                </SelectTrigger>
-                <SelectContent>
-                  {MOCK_EVENT_TYPES.map((t) => (
-                    <SelectItem key={t.id} value={String(t.id)}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <span className={selectedEventTypeObj ? 'font-medium truncate' : 'text-muted-foreground truncate'}>
+                  {selectedEventTypeObj ? selectedEventTypeObj.name : 'Chọn loại sự kiện'}
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200 ${
+                    isEventTypeOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {isEventTypeOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1.5 bg-popover border border-border rounded-xl shadow-xl z-50 max-h-60 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+                  <div className="p-2 border-b border-border bg-muted/40 flex items-center gap-2">
+                    <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <input
+                      type="text"
+                      value={eventTypeSearch}
+                      onChange={(e) => setEventTypeSearch(e.target.value)}
+                      placeholder="Tìm kiếm loại sự kiện..."
+                      className="w-full text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="overflow-y-auto p-1 flex-1 max-h-48 divide-y divide-border/20">
+                    {filteredEventTypes.length === 0 ? (
+                      <div className="py-4 text-center text-xs text-muted-foreground">
+                        Không tìm thấy loại sự kiện phù hợp
+                      </div>
+                    ) : (
+                      filteredEventTypes.map((t) => {
+                        const isSelected = eventTypeId === t.id
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => {
+                              setEventTypeId(t.id)
+                              setIsEventTypeOpen(false)
+                              setEventTypeSearch('')
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors text-left cursor-pointer ${
+                              isSelected
+                                ? 'bg-primary/10 text-primary font-semibold'
+                                : 'hover:bg-accent hover:text-accent-foreground text-foreground'
+                            }`}
+                          >
+                            <span className="truncate">{t.name}</span>
+                            {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Đơn vị tổ chức (Disabled) */}
@@ -717,27 +868,6 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                   />
                 </div>
               </div>
-            </div>
-
-            {/* Nhóm 3: Hình thức xét duyệt đơn */}
-            <div className="space-y-1.5">
-              <Label htmlFor="approval-mode">Hình thức xét duyệt đơn đăng ký</Label>
-              <Select
-                value={requiresApproval ? 'MANUAL_APPROVAL' : 'AUTO_APPROVE'}
-                onValueChange={(val) => setRequiresApproval(val === 'MANUAL_APPROVAL')}
-              >
-                <SelectTrigger id="approval-mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="AUTO_APPROVE">
-                    Tự động duyệt (Sinh viên đăng ký thành công ngay)
-                  </SelectItem>
-                  <SelectItem value="MANUAL_APPROVAL">
-                    Yêu cầu xét duyệt (Ban tổ chức duyệt đơn)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Nhóm 3: Sức chứa & Tùy chọn số lượng Nam / Nữ */}
@@ -907,9 +1037,6 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                   <div className="flex items-center justify-between text-xs px-1">
                     <span className="text-muted-foreground font-medium">
                       Đã chọn <strong>{selectedPointCategories.length}</strong> mục
-                    </span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                      Tổng: +{totalTrainingPoints} ĐRL
                     </span>
                   </div>
 
@@ -1110,6 +1237,12 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
 
               {/* Khung Live Preview 16:9 vừa vặn toàn bộ cột */}
               <div className="w-full aspect-video rounded-xl overflow-hidden border border-border bg-muted relative shadow-2xs group">
+                {isUploadingImage && (
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white z-20">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="text-xs font-semibold">Đang tải ảnh lên Cloudinary...</span>
+                  </div>
+                )}
                 {bannerPreview ? (
                   <img
                     src={bannerPreview}
@@ -1132,6 +1265,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                   accept="image/png, image/jpeg, image/webp"
                   className="hidden"
                   onChange={handleFileChange}
+                  disabled={isSubmitting || isUploadingImage}
                 />
                 <div className="flex items-center gap-2">
                   <Button
@@ -1139,6 +1273,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                     variant="outline"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
+                    disabled={isSubmitting || isUploadingImage}
                     className="h-9 px-3.5 text-xs font-semibold gap-1.5 cursor-pointer flex-1"
                   >
                     <Upload className="h-3.5 w-3.5" />
@@ -1149,6 +1284,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                     variant="ghost"
                     size="sm"
                     onClick={handleUseSampleImage}
+                    disabled={isSubmitting || isUploadingImage}
                     className="h-9 px-3 text-xs text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
@@ -1167,19 +1303,33 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                 <Label htmlFor="event-description">
                   Nội dung chi tiết <span className="text-destructive">*</span>
                 </Label>
-                <span className="text-[11px] text-muted-foreground">
-                  {description.length} ký tự
-                </span>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpandedDesc(!isExpandedDesc)}
+                    className="text-[11px] font-medium text-primary hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    {isExpandedDesc ? 'Thu nhỏ khung' : 'Mở rộng khung nhập'}
+                  </button>
+                  <span className="text-[11px] text-muted-foreground">
+                    {description.length} ký tự
+                  </span>
+                </div>
               </div>
 
               <Textarea
                 id="event-description"
-                rows={7}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Nhập nội dung, lộ trình, diễn giả và quyền lợi cụ thể của sự kiện..."
-                className="leading-relaxed resize-none h-[180px]"
+                placeholder="Nhập nội dung, lộ trình, diễn giả và quyền lợi cụ thể của sự kiện... (Hỗ trợ định dạng xuống dòng, dán bài viết dài)"
+                className={cn(
+                  "leading-relaxed font-sans text-sm resize-y whitespace-pre-wrap transition-all shadow-2xs",
+                  isExpandedDesc ? "min-h-[420px]" : "min-h-[220px]"
+                )}
               />
+              <p className="text-[11px] text-muted-foreground">
+                Gợi ý: Bạn có thể kéo góc dưới bên phải để chỉnh chiều cao tùy ý. Các đoạn xuống dòng được bảo toàn nguyên vẹn khi hiển thị lên bài đăng.
+              </p>
 
               {/* Từ khóa tìm kiếm (Tags) */}
               <div className="space-y-1.5 pt-2">
@@ -1206,7 +1356,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
           variant="outline"
           size="sm"
           onClick={onBack}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isUploadingImage}
           className="h-9 px-4 text-xs font-medium cursor-pointer"
         >
           Hủy bỏ
@@ -1216,7 +1366,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
           variant="outline"
           size="sm"
           onClick={() => handleSubmit(false)}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isUploadingImage}
           className="h-9 px-4 text-xs font-medium cursor-pointer"
         >
           Lưu bản nháp
@@ -1225,11 +1375,20 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
           type="button"
           size="sm"
           onClick={() => handleSubmit(true)}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isUploadingImage}
           className="h-9 px-4 text-xs font-semibold bg-primary hover:bg-primary/95 text-white flex items-center gap-1.5 cursor-pointer shadow-2xs"
         >
-          <Check className="h-4 w-4" />
-          <span>Xuất bản sự kiện</span>
+          {isSubmitting || isUploadingImage ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>{isUploadingImage ? 'Đang tải ảnh...' : 'Đang xử lý...'}</span>
+            </>
+          ) : (
+            <>
+              <Check className="h-4 w-4" />
+              <span>{isEditMode ? 'Cập nhật sự kiện' : 'Xuất bản sự kiện'}</span>
+            </>
+          )}
         </Button>
       </div>
 
