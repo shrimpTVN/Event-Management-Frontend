@@ -94,6 +94,10 @@ export const FanpageDetailPage: React.FC = () => {
             : e
         )
     )
+    queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) => [
+      ...(Array.isArray(old) ? old : []),
+      { eventId: Number(eventId), status: 'REGISTERED' },
+    ])
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
     showToast('Đăng ký tham gia sự kiện thành công!', 'success')
@@ -113,8 +117,12 @@ export const FanpageDetailPage: React.FC = () => {
             : e
         )
     )
+    queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) =>
+      (Array.isArray(old) ? old : []).filter((r: any) => String(r.eventId || r.id) !== String(eventId))
+    )
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
+    showToast('Đã hủy đăng ký sự kiện thành công.', 'info')
   }
 
   const handleToggleSave = async (eventId: string) => {

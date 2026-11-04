@@ -120,6 +120,10 @@ export const HomePage: React.FC = () => {
           : evt
       )
     )
+    queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) => [
+      ...(Array.isArray(old) ? old : []),
+      { eventId: Number(eventId), status: 'REGISTERED' },
+    ])
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
     setNotificationMessage('Đăng ký tham gia sự kiện thành công!')
@@ -138,8 +142,13 @@ export const HomePage: React.FC = () => {
           : evt
       )
     )
+    queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) =>
+      (Array.isArray(old) ? old : []).filter((r: any) => String(r.eventId || r.id) !== String(eventId))
+    )
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
+    setNotificationMessage('Đã hủy đăng ký sự kiện thành công.')
+    setTimeout(() => setNotificationMessage(null), 3000)
   }
 
   const handleToggleSave = async (eventId: string) => {
