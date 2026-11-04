@@ -18,6 +18,8 @@ export const RegisterForm: React.FC = () => {
   const {
     register,
     handleSubmit,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
@@ -32,16 +34,33 @@ export const RegisterForm: React.FC = () => {
     try {
       setIsSubmitting(true)
       setApiError(null)
-      await authService.register({
-        email: data.email,
-        password: data.password,
-      })
+      clearErrors()
+      sessionStorage.setItem("pending_registration", JSON.stringify({ email: data.email, password: data.password }))
+      await authService.sendOtp(data.email)
+
+
       // Direct user to OTP Verification Step (Figma 968:5594)
       navigate(`/verify-otp?email=${encodeURIComponent(data.email)}`)
     } catch (err: any) {
-      setApiError(
-        err.response?.data?.message || 'Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.'
-      )
+      const msg = (err.response?.data?.message || err.message || '').toString()
+      const code = (err.response?.data?.exceptionCode || '').toString()
+
+      if (
+        code === 'AUTH.003' ||
+        code === 'AUTH.015' ||
+        msg.toLowerCase().includes('already exists') ||
+        msg.toLowerCase().includes('duplicate') ||
+        msg.toLowerCase().includes('email')
+      ) {
+        setError('email', {
+          type: 'manual',
+          message: 'Email này đã được đăng ký trong hệ thống. Vui lòng đăng nhập hoặc sử dụng email khác.',
+        })
+      } else {
+        setApiError(
+          msg || 'Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.'
+        )
+      }
     } finally {
       setIsSubmitting(false)
     }

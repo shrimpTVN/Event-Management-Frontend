@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Loader2, CalendarDays } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { fanpageService } from '@/features/fanpage'
 import {
   EventFeedCard,
   StudentLeftSidebar,
@@ -66,10 +67,25 @@ export const EventDetailPage: React.FC = () => {
     setTimeout(() => setNotificationMessage(null), 3000)
   }
 
-  const handleToggleFollow = (_organizerId: string) => {
+  const handleToggleFollow = async (organizerId: string) => {
+    const nextState = !event?.isFollowed
+
     queryClient.setQueryData(['events', id], (old: Event | undefined) =>
-      old ? { ...old, isFollowed: !old.isFollowed } : old
+      old ? { ...old, isFollowed: nextState } : old
     )
+
+    try {
+      if (nextState) {
+        await fanpageService.followFanpage(organizerId)
+      } else {
+        await fanpageService.unfollowFanpage(organizerId)
+      }
+      queryClient.invalidateQueries({ queryKey: ['fanpages', 'sidebar'] })
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['fanpage', organizerId] })
+    } catch {
+      queryClient.invalidateQueries({ queryKey: ['events', id] })
+    }
   }
 
   return (
@@ -83,7 +99,7 @@ export const EventDetailPage: React.FC = () => {
 
       <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
         {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pr-1 sidebar-scrollbar">
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 

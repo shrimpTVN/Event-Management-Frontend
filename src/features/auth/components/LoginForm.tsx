@@ -6,8 +6,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
 import { loginSchema, type LoginInput } from '../types/auth.schemas'
 import { authService } from '../services/authService'
+import { checkEmailRegistered } from '../services/accountVerificationService'
 import { useAuthStore } from '../store/authStore'
-import { isStaffUser } from '../utils/authUtils'
+import { isStaffUser, isStudentRole } from '../utils/authUtils'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 import { GoogleAuthButton } from './GoogleAuthButton'
 
@@ -40,6 +41,8 @@ export const LoginForm: React.FC = () => {
   const {
     register,
     handleSubmit,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -53,6 +56,7 @@ export const LoginForm: React.FC = () => {
     try {
       setIsSubmitting(true)
       setApiError(null)
+      clearErrors()
       const res = await authService.login(data)
       
       // Xóa toàn bộ query cache từ tài khoản trước đó để tránh xung đột dữ liệu
@@ -63,17 +67,70 @@ export const LoginForm: React.FC = () => {
       const isStaff = isStaffUser(res.user)
       if (isStaff) {
         navigate('/staff/fanpages', { replace: true })
-      } else if (false) {
-        /* no forced onboarding */
+      } else if (isStudentRole(res.user.role) && !res.user.isProfileComplete) {
+        navigate('/onboarding/student', { replace: true })
       } else {
         // Sinh viên chuyển về trang chủ hoặc trang mong muốn
         const target = redirectUrl === '/staff/fanpages' ? '/' : redirectUrl
         navigate(target, { replace: true })
       }
     } catch (err: any) {
-      setApiError(
-        err.response?.data?.message || 'Email hoặc mật khẩu không chính xác. Vui lòng thử lại.'
-      )
+      const errorData = err.response?.data
+      const rawMsg = (errorData?.message || err.message || '').toString()
+      const code = (errorData?.exceptionCode || '').toString()
+
+      const isInvalidCredentials =
+        code === 'AUTH.005' ||
+        rawMsg.toLowerCase().includes('invalid username or password') ||
+        rawMsg.toLowerCase().includes('invalid credentials') ||
+        rawMsg.toLowerCase().includes('bad credentials') ||
+        err.response?.status === 400 ||
+        err.response?.status === 401
+
+      const isUserNotFound =
+        rawMsg.toLowerCase().includes('user not found') ||
+        rawMsg.toLowerCase().includes('email not found') ||
+        rawMsg.toLowerCase().includes('account not found')
+
+      const isUserDisabled =
+        code === 'AUTH.010' ||
+        rawMsg.toLowerCase().includes('disabled') ||
+        rawMsg.toLowerCase().includes('inactive')
+
+      if (isUserNotFound) {
+        clearErrors('password')
+        setError('email', {
+          type: 'manual',
+          message: 'Email không tồn tại trong hệ thống.',
+        })
+      } else if (isUserDisabled) {
+        clearErrors('password')
+        setError('email', {
+          type: 'manual',
+          message: 'Tài khoản này đã bị khóa hoặc tạm ngưng hoạt động.',
+        })
+      } else if (isInvalidCredentials) {
+        // Phân loại chính xác: Nếu email sai (không tồn tại) thì chỉ báo lỗi ở email,
+        // ngược lại nếu email đúng nhưng mật khẩu sai thì chỉ báo lỗi ở mật khẩu.
+        const isRegistered = await checkEmailRegistered(data.email)
+        if (!isRegistered) {
+          clearErrors('password')
+          setError('email', {
+            type: 'manual',
+            message: 'Email không tồn tại trong hệ thống.',
+          })
+        } else {
+          clearErrors('email')
+          setError('password', {
+            type: 'manual',
+            message: 'Mật khẩu không chính xác. Vui lòng kiểm tra lại.',
+          })
+        }
+      } else {
+        setApiError(
+          rawMsg || 'Hệ thống đang bận hoặc mất kết nối mạng. Vui lòng thử lại sau.'
+        )
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -96,8 +153,8 @@ export const LoginForm: React.FC = () => {
       const isStaff = isStaffUser(res.user)
       if (isStaff) {
         navigate('/staff/fanpages', { replace: true })
-      } else if (false) {
-        /* no forced onboarding */
+      } else if (isStudentRole(res.user.role) && !res.user.isProfileComplete) {
+        navigate('/onboarding/student', { replace: true })
       } else {
         const target = redirectUrl === '/staff/fanpages' ? '/' : redirectUrl
         navigate(target, { replace: true })
@@ -131,7 +188,12 @@ export const LoginForm: React.FC = () => {
             <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <input
               type="email"
-              {...register('email')}
+              {...register('email', {
+                onChange: () => {
+                  if (errors.email) clearErrors('email')
+                  if (apiError) setApiError(null)
+                },
+              })}
               placeholder="example@student.ctu.edu.vn hoặc @ctu.edu.vn"
               autoComplete="email"
               className={`w-full h-11 pl-10 pr-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
@@ -155,7 +217,12 @@ export const LoginForm: React.FC = () => {
             <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <input
               type={showPassword ? 'text' : 'password'}
-              {...register('password')}
+              {...register('password', {
+                onChange: () => {
+                  if (errors.password) clearErrors('password')
+                  if (apiError) setApiError(null)
+                },
+              })}
               placeholder="Vui lòng nhập mật khẩu"
               autoComplete="current-password"
               className={`w-full h-11 pl-10 pr-10 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${

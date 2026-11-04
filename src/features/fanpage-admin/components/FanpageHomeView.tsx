@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Pencil, X, Users, SlidersHorizontal } from 'lucide-react'
+import { Pencil, X, Users, SlidersHorizontal, CalendarPlus, Plus } from 'lucide-react'
 import type {
   FanpageSummary,
   FanpageActivityStats,
@@ -21,6 +21,9 @@ interface FanpageHomeViewProps {
   onOpenEventsTab?: () => void
   onCreateEventClick?: () => void
   onEditProfileClick?: () => void
+  onEditEvent?: (post: FanpageFeedPost) => void
+  onPinEvent?: (post: FanpageFeedPost, isPinned: boolean) => void
+  onHideEvent?: (post: FanpageFeedPost, isHidden: boolean) => void
 }
 
 export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
@@ -31,9 +34,16 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
   onOpenEventsTab,
   onCreateEventClick,
   onEditProfileClick,
+  onEditEvent,
+  onPinEvent,
+  onHideEvent,
 }) => {
   const navigate = useNavigate()
   const [selectedPostForAnalytics, setSelectedPostForAnalytics] = useState<FanpageFeedPost | null>(null)
+
+  const handleCreateEvent = onCreateEventClick
+    ? onCreateEventClick
+    : () => navigate('/fanpage/admin?tab=create-event')
 
   return (
     <div className="w-full space-y-3.5 text-left">
@@ -52,20 +62,22 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
         }
       />
 
-      {/* 2. 2-Column Content Layout: Left = Card thông tin & Card tạo sự kiện (Cố định khi lướt như Facebook), Right = Feed bài viết */}
-      <div className="w-full flex flex-col lg:flex-row items-start gap-3.5">
-        {/* Left Column: Card thông tin (Giới thiệu) cố định khi chạm header như trang fanpage theo dõi */}
-        <div className="w-full lg:w-[340px] shrink-0 lg:sticky lg:top-20 self-start space-y-3.5">
-          {/* Card thông tin (Giới thiệu) */}
+      {/* 2. 2-Column Content Layout: Left = Card thông tin & Card tạo sự kiện, Right = Feed bài viết */}
+      <div className="w-full flex flex-col lg:flex-row items-start gap-4">
+        {/* Left Column: Card thông tin (Giới thiệu) + Tạo nhanh sự kiện */}
+        <div className="w-full lg:w-[320px] shrink-0 lg:sticky lg:top-20 self-start space-y-3.5">
           <FanpageAboutCard
             fanpage={currentFanpage}
             onEditClick={onEditProfileClick ? onEditProfileClick : () => navigate('/fanpage/admin?tab=profile')}
           />
           <FanpageQuickCreateCard
             reminder={reminder || undefined}
-            onCreateEvent={onCreateEventClick ? onCreateEventClick : () => navigate('/fanpage/admin?tab=create-event')}
+            onCreateEvent={handleCreateEvent}
           />
-          <FanpageActivityStatsCard stats={stats} />
+          {/* On smaller screens (below xl where right sidebar is hidden), show activity stats card here */}
+          <div className="block xl:hidden">
+            <FanpageActivityStatsCard stats={stats} />
+          </div>
         </div>
 
         {/* Right Column: Sự kiện Feed */}
@@ -88,16 +100,47 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
             )}
           </div>
 
-          {/* Event Feed Posts */}
-          <div className="flex flex-col gap-3.5">
-            {posts.map((post) => (
-              <FanpageEventFeedCard
-                key={post.id}
-                post={post}
-                onViewAnalytics={(p) => setSelectedPostForAnalytics(p)}
-              />
-            ))}
-          </div>
+          {/* Event Feed Posts or Empty State */}
+          {posts.length > 0 ? (
+            <div className="flex flex-col gap-3.5">
+              {posts.map((post) => (
+                <FanpageEventFeedCard
+                  key={post.id}
+                  post={{
+                    ...post,
+                    authorAvatarUrl: post.authorAvatarUrl || currentFanpage.avatarUrl,
+                    authorName: currentFanpage.fullName || currentFanpage.name || post.authorName,
+                  }}
+                  onViewAnalytics={(p) => setSelectedPostForAnalytics(p)}
+                  onEdit={onEditEvent}
+                  onTogglePin={onPinEvent}
+                  onToggleHide={onHideEvent}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="w-full rounded-2xl border border-dashed border-border/90 bg-white dark:bg-card p-10 sm:p-12 flex flex-col items-center justify-center text-center gap-3.5 shadow-2xs">
+              <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-[#1B4B8A] dark:text-blue-400 flex items-center justify-center">
+                <CalendarPlus className="h-7 w-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-k2d font-bold text-base sm:text-lg text-foreground">
+                  Chưa có sự kiện nào
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground max-w-md">
+                  Fanpage hiện tại chưa đăng tải sự kiện nào. Hãy tạo sự kiện mới để kết nối và thu hút sinh viên tham gia!
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCreateEvent}
+                className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 bg-[#1B4B8A] hover:bg-[#153a6b] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Tạo sự kiện mới</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

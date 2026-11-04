@@ -1,20 +1,21 @@
 import React, { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Check, X } from 'lucide-react'
 import { StudentLeftSidebar } from '@/features/events'
 import {
   ProfileHeaderCard,
   PersonalInfoCard,
   ContactInfoCard,
   AcademicYouthUnionCard,
-  EditProfileModal,
   profileService,
   type StudentProfile,
 } from '@/features/profile'
 
 export const ProfilePage: React.FC = () => {
   const queryClient = useQueryClient()
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [formData, setFormData] = useState<StudentProfile | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
   const [successToast, setSuccessToast] = useState<string | null>(null)
 
   const { data: profile, isLoading } = useQuery({
@@ -22,15 +23,38 @@ export const ProfilePage: React.FC = () => {
     queryFn: () => profileService.getMyProfile(),
   })
 
-  const handleSaveProfile = async (updatedProfile: StudentProfile) => {
-    try {
-      await profileService.updateMyProfile(updatedProfile)
-    } catch {
-      // optimistic or local fallback
+  const handleStartEdit = () => {
+    if (profile) {
+      setFormData({ ...profile })
+      setIsEditing(true)
     }
-    queryClient.setQueryData(['profile', 'me'], updatedProfile)
-    setSuccessToast('Đã lưu thông tin hồ sơ sinh viên thành công!')
-    setTimeout(() => setSuccessToast(null), 3000)
+  }
+
+  const handleCancelEdit = () => {
+    setFormData(null)
+    setIsEditing(false)
+  }
+
+  const handleFieldChange = (fields: Partial<StudentProfile>) => {
+    setFormData((prev) => (prev ? { ...prev, ...fields } : null))
+  }
+
+  const handleSaveProfile = async () => {
+    if (!formData) return
+    setIsSaving(true)
+    try {
+      const saved = await profileService.updateMyProfile(formData)
+      queryClient.setQueryData(['profile', 'me'], saved)
+      setSuccessToast('Đã lưu thông tin hồ sơ sinh viên thành công!')
+      setTimeout(() => setSuccessToast(null), 3000)
+      setIsEditing(false)
+      setFormData(null)
+    } catch {
+      setSuccessToast('Đã có lỗi khi lưu, vui lòng thử lại!')
+      setTimeout(() => setSuccessToast(null), 3000)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -45,7 +69,7 @@ export const ProfilePage: React.FC = () => {
       {/* Main Container Layout: Left sidebar (240px) + Main Content (gap 24px) */}
       <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
         {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto py-5 pr-1 custom-scrollbar">
+        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
@@ -62,20 +86,67 @@ export const ProfilePage: React.FC = () => {
                 {/* 1. Header Overview Card */}
                 <ProfileHeaderCard
                   profile={profile}
-                  onEdit={() => setIsEditModalOpen(true)}
+                  isEditing={isEditing}
+                  formData={formData}
+                  onChange={handleFieldChange}
+                  onEdit={handleStartEdit}
+                  onSave={handleSaveProfile}
+                  onCancel={handleCancelEdit}
+                  isSaving={isSaving}
                 />
 
                 {/* 2. Personal Info Card */}
-                <PersonalInfoCard profile={profile} />
+                <PersonalInfoCard
+                  profile={profile}
+                  isEditing={isEditing}
+                  formData={formData}
+                  onChange={handleFieldChange}
+                />
 
                 {/* 3. Contact Info Card */}
                 <ContactInfoCard
                   profile={profile}
-                  onAddPhone={() => setIsEditModalOpen(true)}
+                  isEditing={isEditing}
+                  formData={formData}
+                  onChange={handleFieldChange}
+                  onAddPhone={handleStartEdit}
                 />
 
                 {/* 4. Academic & Youth Union Info Card */}
-                <AcademicYouthUnionCard profile={profile} />
+                <AcademicYouthUnionCard
+                  profile={profile}
+                  isEditing={isEditing}
+                  formData={formData}
+                  onChange={handleFieldChange}
+                />
+
+                {/* Bottom Action Bar in Edit Mode */}
+                {isEditing && (
+                  <div className="w-full flex items-center justify-end gap-3 p-4 bg-card border border-border rounded-xl shadow-xs mt-1 animate-in fade-in">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      disabled={isSaving}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border bg-card hover:bg-muted text-foreground text-sm font-semibold transition-colors cursor-pointer"
+                    >
+                      <X className="h-4 w-4" />
+                      <span>Hủy bỏ</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveProfile}
+                      disabled={isSaving}
+                      className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-[#1B365D] hover:bg-[#1B4B8A] dark:bg-primary dark:hover:bg-primary/90 text-white text-sm font-semibold transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+                    >
+                      {isSaving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                      <span>Lưu thay đổi</span>
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <div className="w-full rounded-2xl border border-dashed border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-2">
@@ -90,16 +161,6 @@ export const ProfilePage: React.FC = () => {
           </div>
         </main>
       </div>
-
-      {/* Edit Profile Modal */}
-      {profile && (
-        <EditProfileModal
-          isOpen={isEditModalOpen}
-          profile={profile}
-          onClose={() => setIsEditModalOpen(false)}
-          onSave={handleSaveProfile}
-        />
-      )}
     </div>
   )
 }

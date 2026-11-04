@@ -1,14 +1,21 @@
-export type CheckInStatus = 'PENDING' | 'CHECKED_IN' | 'FAILED'
+export type CheckInStatus = 'PENDING' | 'CHECKED_IN' | 'COMPLETED' | 'FAILED'
 
-export interface CheckInPayload {
-  registrationId: string
-  photo: File | Blob
+export type AttendanceSessionType = 'check-in' | 'check-out'
+
+export interface AttendancePayload {
+  eventId: string | number
+  sessionType: AttendanceSessionType
+  proofUrl?: string
 }
 
-export interface CheckInResult {
-  registrationId: string
-  status: CheckInStatus
-  verifiedAt: string
-  confidenceScore?: number
-  message: string
+export interface AttendanceEventItem {
+  eventId: number | string
+  eventName: string
+  location?: string
+  dateHappen?: string
+  bannerUrl?: string
+  status: string
+  checkInAt?: string | null
+  checkOutAt?: string | null
+  evidenceUrl?: string | null
 }

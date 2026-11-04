@@ -45,13 +45,42 @@ export const trainingPointsService = {
   },
 
   /**
+   * Lấy danh sách giao dịch điểm cho 1 danh mục cụ thể
+   */
+  async getPointTransactionsByCategory(
+    semesterId: number,
+    pointCategoryId: number
+  ): Promise<PointTransaction[]> {
+    try {
+      const res = await apiClient.get<unknown, PointTransaction[]>(
+        `/point-transactions/me/semesters/${semesterId}/point-categories/${pointCategoryId}`
+      )
+      return Array.isArray(res) ? res : []
+    } catch {
+      return []
+    }
+  },
+
+  /**
    * Lấy danh sách các giao dịch / điểm ghi nhận của sinh viên trong học kỳ
    */
-  async getPointTransactions(semesterId: number): Promise<PointTransaction[]> {
-    const res = await apiClient.get<unknown, PointTransaction[]>(
-      `/point-transactions/me/semesters/${semesterId}`
-    )
-    return Array.isArray(res) ? res : []
+  async getPointTransactions(semesterId: number, categoryIds?: number[]): Promise<PointTransaction[]> {
+    try {
+      let targetIds = categoryIds
+      if (!targetIds || targetIds.length === 0) {
+        const categories = await this.getPointCategories()
+        const parentIds = new Set(categories.map((c) => c.parentCategoryId).filter(Boolean))
+        targetIds = categories.filter((c) => !parentIds.has(c.id)).map((c) => c.id)
+      }
+      if (!targetIds || targetIds.length === 0) return []
+
+      const batches = await Promise.all(
+        targetIds.map((id) => this.getPointTransactionsByCategory(semesterId, id))
+      )
+      return batches.flat()
+    } catch {
+      return []
+    }
   },
 
   /**

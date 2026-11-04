@@ -1,5 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
+import { useAuthStore } from '@/features/auth'
+import { apiClient } from '@/shared'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { fanpageService } from '@/features/fanpage'
 import {
   StudentLeftSidebar,
   StudentRightSidebar,
@@ -15,13 +18,86 @@ export const HomePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<FeedTabType>('DISCOVER')
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
 
+  const { isAuthenticated } = useAuthStore()
+
   const { data: events = [], isLoading } = useQuery({
     queryKey: ['events', 'feed'],
     queryFn: () => eventService.getEvents(),
   })
 
+  // Fetch followed fanpages for the user to accurately mark follow state
+  const { data: followedFanpages = [] } = useQuery<any[]>({
+    queryKey: ['fanpages', 'sidebar', isAuthenticated],
+    queryFn: async () => {
+      if (!isAuthenticated) return []
+      try {
+        const res: any = await apiClient.get('/fanpages/following', { params: { size: 50 } })
+        const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
+        return list
+      } catch {
+        return []
+      }
+    },
+    enabled: isAuthenticated,
+  })
+
+  const followedFanpageIds = useMemo(() => {
+    return new Set(followedFanpages.map((fp: any) => String(fp.id)))
+  }, [followedFanpages])
+
+  // Fetch stored events for the user to accurately mark isSaved state
+  const { data: storedEvents = [] } = useQuery<Event[]>({
+    queryKey: ['events', 'stored', isAuthenticated],
+    queryFn: async () => {
+      if (!isAuthenticated) return []
+      try {
+        return await eventService.getStoredEvents()
+      } catch {
+        return []
+      }
+    },
+    enabled: isAuthenticated,
+  })
+
+  const storedEventIds = useMemo(() => {
+    return new Set(storedEvents.map((e) => String(e.id)))
+  }, [storedEvents])
+
+  // Fetch registered events for the user to accurately mark isRegistered state
+  const { data: upcomingRegistrations = [] } = useQuery<any[]>({
+    queryKey: ['registrations', 'me', isAuthenticated],
+    queryFn: async () => {
+      if (!isAuthenticated) return []
+      try {
+        const res: any = await apiClient.get('/registrations/me/upcoming')
+        const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
+        return list
+      } catch {
+        return []
+      }
+    },
+    enabled: isAuthenticated,
+  })
+
+  const registeredEventIds = useMemo(() => {
+    return new Set(
+      upcomingRegistrations
+        .filter((r: any) => r.status === 'REGISTERED' || !r.status)
+        .map((r: any) => String(r.eventId || r.id))
+    )
+  }, [upcomingRegistrations])
+
+  const eventsWithFollowState = useMemo(() => {
+    return events.map((evt) => ({
+      ...evt,
+      isFollowed: evt.isFollowed || followedFanpageIds.has(String(evt.organizerId)),
+      isSaved: storedEventIds.has(String(evt.id)) || Boolean(evt.isSaved),
+      isRegistered: registeredEventIds.has(String(evt.id)) || Boolean(evt.isRegistered),
+    }))
+  }, [events, followedFanpageIds, storedEventIds, registeredEventIds])
+
   // Filter events by selected feed tab
-  const filteredEvents = events.filter((evt) => {
+  const filteredEvents = eventsWithFollowState.filter((evt) => {
     if (activeTab === 'FOLLOWING') {
       return evt.isFollowed === true
     }
@@ -44,6 +120,10 @@ export const HomePage: React.FC = () => {
           : evt
       )
     )
+    queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) => [
+      ...(Array.isArray(old) ? old : []),
+      { eventId: Number(eventId), status: 'REGISTERED' },
+    ])
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
     setNotificationMessage('Đăng ký tham gia sự kiện thành công!')
@@ -62,26 +142,64 @@ export const HomePage: React.FC = () => {
           : evt
       )
     )
+    queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) =>
+      (Array.isArray(old) ? old : []).filter((r: any) => String(r.eventId || r.id) !== String(eventId))
+    )
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
-  }
-
-  const handleToggleSave = (eventId: string) => {
-    queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
-      old.map((evt) =>
-        String(evt.id) === String(eventId) ? { ...evt, isSaved: !evt.isSaved } : evt
-      )
-    )
-    setNotificationMessage('Đã cập nhật danh sách sự kiện lưu trữ')
+    setNotificationMessage('Đã hủy đăng ký sự kiện thành công.')
     setTimeout(() => setNotificationMessage(null), 3000)
   }
 
-  const handleToggleFollow = (organizerId: string) => {
+  const handleToggleSave = async (eventId: string) => {
+    const isCurrentlySaved = storedEventIds.has(String(eventId))
+    const nextSavedState = !isCurrentlySaved
+
     queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
       old.map((evt) =>
-        evt.organizerId === organizerId ? { ...evt, isFollowed: !evt.isFollowed } : evt
+        String(evt.id) === String(eventId) ? { ...evt, isSaved: nextSavedState } : evt
       )
     )
+
+    try {
+      if (nextSavedState) {
+        await eventService.storeEvent(eventId)
+        setNotificationMessage('Đã lưu sự kiện vào danh sách đã lưu')
+      } else {
+        await eventService.unstoreEvent(eventId)
+        setNotificationMessage('Đã xóa sự kiện khỏi danh sách đã lưu')
+      }
+      queryClient.invalidateQueries({ queryKey: ['events', 'stored'] })
+    } catch {
+      queryClient.invalidateQueries({ queryKey: ['events', 'stored'] })
+      queryClient.invalidateQueries({ queryKey: ['events', 'feed'] })
+    }
+    setTimeout(() => setNotificationMessage(null), 3000)
+  }
+
+  const handleToggleFollow = async (organizerId: string) => {
+    const isCurrentlyFollowed = followedFanpageIds.has(String(organizerId))
+    const nextState = !isCurrentlyFollowed
+
+    queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
+      old.map((evt) =>
+        evt.organizerId === organizerId ? { ...evt, isFollowed: nextState } : evt
+      )
+    )
+
+    try {
+      if (nextState) {
+        await fanpageService.followFanpage(organizerId)
+      } else {
+        await fanpageService.unfollowFanpage(organizerId)
+      }
+      queryClient.invalidateQueries({ queryKey: ['fanpages', 'sidebar'] })
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['fanpage', organizerId] })
+    } catch {
+      queryClient.invalidateQueries({ queryKey: ['fanpages', 'sidebar'] })
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+    }
   }
 
   const [showMobileLeft, setShowMobileLeft] = useState(false)

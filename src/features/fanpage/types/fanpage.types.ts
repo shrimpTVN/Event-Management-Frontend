@@ -1,6 +1,7 @@
 export interface FanpageDetail {
   id: string
   name: string
+  fullName?: string
   avatarUrl: string
   coverUrl?: string
   followerCount: number

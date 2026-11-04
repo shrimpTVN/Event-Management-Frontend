@@ -11,6 +11,7 @@ interface FanpageAdminLayoutProps {
   onSelectTab?: (tab: AdminNavTab) => void
   onLogoClick?: () => void
   onCreateEventClick?: () => void
+  rightSidebar?: React.ReactNode
   children: React.ReactNode
 }
 
@@ -22,6 +23,7 @@ export const FanpageAdminLayout: React.FC<FanpageAdminLayoutProps> = ({
   onSelectTab,
   onLogoClick,
   onCreateEventClick,
+  rightSidebar,
   children,
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -37,10 +39,10 @@ export const FanpageAdminLayout: React.FC<FanpageAdminLayoutProps> = ({
         onCreateEventClick={onCreateEventClick}
       />
 
-      {/* 2. Admin Workspace (Sidebar + Main Content) */}
+      {/* 2. Admin Workspace (Sidebar + Main Content + Right Sidebar) */}
       <div className="flex-1 flex w-full relative">
-        {/* Desktop Fixed/Sticky Sidebar */}
-        <div className="hidden lg:block sticky top-[72px] h-[calc(100vh-72px)] shrink-0 z-30">
+        {/* Desktop Fixed/Sticky Left Sidebar - Attached right below TopNav (h-16 = 64px) with no gap */}
+        <div className="hidden lg:block sticky top-16 h-[calc(100vh-4rem)] shrink-0 z-30">
           <FanpageAdminSidebar
             currentFanpage={currentFanpage}
             availableFanpages={availableFanpages}
@@ -78,12 +80,19 @@ export const FanpageAdminLayout: React.FC<FanpageAdminLayoutProps> = ({
           </div>
         )}
 
-        {/* Main Content Area */}
-        <main className="flex-1 w-full min-w-0 p-4 sm:p-6 lg:py-6 lg:px-8">
-          <div className={`w-full ${activeTab === null ? 'max-w-7xl' : 'w-full'}`}>
+        {/* Center Main Content Area */}
+        <main className="flex-1 w-full min-w-0 p-4 sm:p-5 lg:py-5 lg:px-6 flex justify-center">
+          <div className={`w-full ${activeTab === null ? 'max-w-5xl' : 'w-full'}`}>
             {children}
           </div>
         </main>
+
+        {/* Right Sidebar Area (Card thành viên fanpage + Trạng thái hoạt động) */}
+        {rightSidebar && (
+          <aside className="hidden xl:block w-[280px] min-w-[280px] max-w-[280px] shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto py-5 pr-5 pl-0 sidebar-scrollbar">
+            {rightSidebar}
+          </aside>
+        )}
       </div>
     </div>
   )

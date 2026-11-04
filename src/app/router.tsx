@@ -1,10 +1,9 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { PageShell } from '@/shared'
-import { AuthGuard, STAFF_ROLES } from '@/features/auth'
+import { AuthGuard, STAFF_ROLES, ADMIN_ROLES } from '@/features/auth'
 import { HomePage } from '../pages/HomePage'
 import { EventDetailPage } from '../pages/EventDetailPage'
 import { RegistrationPage } from '../pages/RegistrationPage'
-import { CheckInPage } from '../pages/CheckInPage'
 import { CertificatePage } from '../pages/CertificatePage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { LoginPage } from '../pages/LoginPage'
@@ -15,11 +14,14 @@ import { StaffOnboardingPage } from '../pages/StaffOnboardingPage'
 import { StaffFanpageHubPage } from '../pages/StaffFanpageHubPage'
 import { FanpageRegistrationPage } from '../pages/FanpageRegistrationPage'
 import { FanpageAdminPage } from '../pages/FanpageAdminPage'
+import { SuperAdminPage } from '../pages/SuperAdminPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { EventHistoryPage } from '../pages/EventHistoryPage'
 import { FanpageDetailPage } from '../pages/FanpageDetailPage'
 import { TrainingPointsPage } from '../pages/TrainingPointsPage'
 import { Sv5tPage } from '../pages/Sv5tPage'
+import { SearchPage } from '../pages/SearchPage'
+import { SavedEventsPage } from '../pages/SavedEventsPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 
 export const router = createBrowserRouter([
@@ -57,6 +59,22 @@ export const router = createBrowserRouter([
     element: (
       <AuthGuard allowedRoles={STAFF_ROLES} roleRedirectPath="/">
         <FanpageRegistrationPage />
+      </AuthGuard>
+    ),
+  },
+  {
+    path: '/admin',
+    element: (
+      <AuthGuard allowedRoles={ADMIN_ROLES} roleRedirectPath="/login">
+        <SuperAdminPage />
+      </AuthGuard>
+    ),
+  },
+  {
+    path: '/super-admin',
+    element: (
+      <AuthGuard allowedRoles={ADMIN_ROLES} roleRedirectPath="/login">
+        <SuperAdminPage />
       </AuthGuard>
     ),
   },
@@ -116,7 +134,15 @@ export const router = createBrowserRouter([
       },
       {
         path: 'events',
-        element: <Navigate to="/history" replace />,
+        element: <SearchPage />,
+      },
+      {
+        path: 'events/search',
+        element: <SearchPage />,
+      },
+      {
+        path: 'search',
+        element: <SearchPage />,
       },
       {
         path: 'events/:id',
@@ -132,11 +158,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'checkin',
-        element: (
-          <AuthGuard>
-            <CheckInPage />
-          </AuthGuard>
-        ),
+        element: <Navigate to="/history" replace />,
       },
       {
         path: 'certificate',
@@ -151,6 +173,22 @@ export const router = createBrowserRouter([
         element: (
           <AuthGuard>
             <EventHistoryPage />
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'saved',
+        element: (
+          <AuthGuard>
+            <SavedEventsPage />
+          </AuthGuard>
+        ),
+      },
+      {
+        path: 'events/saved',
+        element: (
+          <AuthGuard>
+            <SavedEventsPage />
           </AuthGuard>
         ),
       },

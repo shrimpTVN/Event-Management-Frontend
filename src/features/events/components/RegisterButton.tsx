@@ -129,8 +129,8 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
       return
     }
 
-    // 2. Kiểm tra thông tin sinh viên - chỉ yêu cầu khi đăng ký sự kiện
-    if (!user.isProfileComplete) {
+    // 2. Kiểm tra thông tin sinh viên - chỉ yêu cầu khi sinh viên chưa hoàn thiện hồ sơ
+    if (user.role === 'STUDENT' && user.isProfileComplete === false) {
       setShowProfilePrompt(true)
       return
     }
@@ -143,24 +143,44 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
 
       const request = (async () => {
         try {
-          return await apiClient.post(`/events/${eventId}/register`)
-        } catch {
-          return await apiClient.post('/registrations', { eventId: Number(eventId) })
+          return await apiClient.post(`/registrations/me/events/${eventId}`)
+        } catch (err: any) {
+          // If 404, fallback to alternative endpoints
+          if (err?.response?.status === 404) {
+            try {
+              return await apiClient.post(`/events/${eventId}/register`)
+            } catch {
+              return await apiClient.post('/registrations', { eventId: Number(eventId) })
+            }
+          }
+          throw err
         }
       })()
 
       await Promise.all([request, minDelay])
 
       setIsRegistered(true)
+      queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) => [
+        ...(Array.isArray(old) ? old : []),
+        { eventId: Number(eventId), status: 'REGISTERED' },
+      ])
       queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
       queryClient.invalidateQueries({ queryKey: ['registrations'] })
       onRegisterSuccess?.()
     } catch (err: any) {
       console.error('Registration failed:', err)
-      const serverMsg =
-        err?.response?.data?.message ||
-        err?.message ||
-        'Đã có lỗi xảy ra trong quá trình đăng ký sự kiện. Vui lòng thử lại sau hoặc liên hệ Ban tổ chức.'
+      const rawMsg = err?.response?.data?.message || err?.message || ''
+      let serverMsg = 'Đã có lỗi xảy ra trong quá trình đăng ký sự kiện. Vui lòng thử lại sau hoặc liên hệ Ban tổ chức.'
+
+      if (rawMsg.includes('had registered') || rawMsg.includes('already registered')) {
+        serverMsg = 'Bạn đã đăng ký tham gia sự kiện này rồi!'
+        setIsRegistered(true)
+      } else if (rawMsg.includes('not open yet') || rawMsg.includes('already closed')) {
+        serverMsg = 'Sự kiện hiện chưa mở đăng ký hoặc đã hết thời hạn đăng ký!'
+      } else if (rawMsg) {
+        serverMsg = rawMsg
+      }
+
       setErrorModal({
         isOpen: true,
         message: serverMsg,
@@ -181,14 +201,25 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
         reason: 'Hủy đăng ký từ giao diện',
       })
       setIsRegistered(false)
+      queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) =>
+        old.filter((r: any) => String(r.eventId || r.id) !== String(eventId))
+      )
       queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
       queryClient.invalidateQueries({ queryKey: ['registrations'] })
       onCancelSuccess?.()
-    } catch (err) {
+    } catch (err: any) {
       console.error('Cancel registration failed:', err)
-      // Optimistic fallback for prototype
-      setIsRegistered(false)
-      onCancelSuccess?.()
+      const rawMsg = err?.response?.data?.message || err?.message || ''
+      let serverMsg = 'Không thể hủy đăng ký sự kiện. Vui lòng thử lại sau!'
+      if (rawMsg.includes('after event close')) {
+        serverMsg = 'Không thể hủy đăng ký sau khi sự kiện đã đóng hạn!'
+      } else if (rawMsg) {
+        serverMsg = rawMsg
+      }
+      setErrorModal({
+        isOpen: true,
+        message: serverMsg,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -301,42 +332,47 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
         )}
 
       {/* 3. Modal xác nhận hủy đăng ký */}
-      {showCancelConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+      {showCancelConfirm &&
+        createPortal(
           <div
-            className="bg-card text-card-foreground border border-border w-full max-w-sm rounded-xl p-5 shadow-xl flex flex-col gap-4 animate-in zoom-in-95 duration-150"
-            role="dialog"
-            aria-modal="true"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+            onClick={() => setShowCancelConfirm(false)}
           >
-            <div className="space-y-1.5 text-left">
-              <h3 className="font-bold text-base text-foreground font-heading">
-                Xác nhận hủy đăng ký?
-              </h3>
-              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                Bạn có chắc chắn muốn hủy đăng ký tham gia sự kiện {eventTitle ? `"${eventTitle}"` : 'này'} không? Sau khi hủy, bạn có thể phải chờ đăng ký lại nếu sự kiện còn chỉ tiêu.
-              </p>
-            </div>
+            <div
+              className="bg-card text-card-foreground border border-border w-full max-w-sm rounded-xl p-5 shadow-2xl flex flex-col gap-4 animate-in zoom-in-95 duration-150"
+              role="dialog"
+              aria-modal="true"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="space-y-1.5 text-left">
+                <h3 className="font-bold text-base text-foreground font-heading">
+                  Xác nhận hủy đăng ký?
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Bạn có chắc chắn muốn hủy đăng ký tham gia sự kiện {eventTitle ? `"${eventTitle}"` : 'này'} không? Sau khi hủy, bạn có thể phải chờ đăng ký lại nếu sự kiện còn chỉ tiêu.
+                </p>
+              </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border/60">
-              <button
-                type="button"
-                onClick={() => setShowCancelConfirm(false)}
-                className="px-3.5 py-1.5 text-xs font-medium border border-border rounded-md hover:bg-muted transition-colors cursor-pointer"
-              >
-                Giữ đăng ký
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelRegistration}
-                className="px-4 py-1.5 bg-[#C7212B] hover:bg-[#a81c25] text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
-              >
-                Xác nhận hủy
-              </button>
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelConfirm(false)}
+                  className="px-3.5 py-1.5 text-xs font-medium border border-border rounded-md hover:bg-muted transition-colors cursor-pointer"
+                >
+                  Giữ đăng ký
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelRegistration}
+                  className="px-4 py-1.5 bg-[#C7212B] hover:bg-[#a81c25] text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
+                >
+                  Xác nhận hủy
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       {/* 4. Modal popup thông báo thất bại */}
       {errorModal.isOpen &&

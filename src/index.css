@@ -84,9 +84,6 @@
 
 @layer base {
   html {
-    scrollbar-gutter: stable;
-  }
-  html:has(.auth-layout) {
     scrollbar-gutter: auto;
   }
   * {
@@ -98,6 +95,7 @@
     font-feature-settings:
       'rlig' 1,
       'calt' 1;
+    overflow-x: hidden;
   }
 }
 

@@ -61,7 +61,9 @@ export interface Event {
   price: number
   organizerId: string
   organizerName: string
+  organizerFullName?: string
   organizerAvatarUrl?: string
+  fanpageFullName?: string
   pointsReward?: string
   criteriaName?: string
   fanpageName?: string
@@ -84,6 +86,9 @@ export interface EventFilters {
   fanpageId?: number
   eventTypeId?: number
   criteriaId?: number
+  pointCategoryId?: number
+  dateHappenFrom?: string
+  dateHappenTo?: string
   category?: EventCategory
   status?: EventStatus
   page?: number

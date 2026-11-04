@@ -1,60 +1,198 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowLeft, ArrowRight, Loader2, AlertCircle, Info } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Loader2, AlertCircle, ChevronDown, Check } from 'lucide-react'
 import { staffProfileSchema, type StaffProfileInput } from '../types/auth.schemas'
 import { RoleEnum } from '../types/auth.types'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  CTU_DEPARTMENTS,
+  CTU_POSITIONS,
+  extractStaffIdFromEmail,
+} from '../utils/staffProfileUtils'
 
-const CTU_DEPARTMENTS = [
-  'Khoa Môi trường và Tài nguyên Thiên nhiên',
-  'Trường Công nghệ Thông tin và Truyền thông',
-  'Trường Bách Khoa',
-  'Trường Kinh tế',
-  'Trường Nông nghiệp',
-  'Trường Thủy sản',
-  'Khoa Khoa học Tự nhiên',
-  'Khoa Khoa học Xã hội và Nhân văn',
-  'Phòng Công tác Sinh viên (CTSV)',
-  'Đoàn Thanh niên - Hội Sinh viên Trường',
-  'Trung tâm Hỗ trợ Học sinh - Sinh viên',
-]
+interface PositionComboboxProps {
+  value: string
+  onChange: (val: string) => void
+  error?: boolean
+  placeholder?: string
+}
 
-const CTU_POSITIONS = [
-  'Cán bộ Đoàn / Hội',
-  'Bí thư / Phó Bí thư Đoàn cơ sở',
-  'Chủ tịch / Phó Chủ tịch Hội Sinh viên',
-  'Cố vấn học tập',
-  'Giảng viên quản trị sự kiện',
-  'Chuyên viên phòng ban',
-]
+export const PositionCombobox: React.FC<PositionComboboxProps> = ({
+  value,
+  onChange,
+  error,
+  placeholder = 'Chọn gợi ý hoặc tự nhập chức vụ...',
+}) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  const trimmedVal = (value || '').trim().toLowerCase()
+  const filteredPositions = CTU_POSITIONS.filter((pos) =>
+    pos.toLowerCase().includes(trimmedVal)
+  )
+
+  const isExactMatch = CTU_POSITIONS.some(
+    (pos) => pos.toLowerCase() === trimmedVal
+  )
+  const isCustomValue = Boolean(trimmedVal) && !isExactMatch
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <div className="relative flex items-center">
+        <Input
+          type="text"
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value)
+            setIsOpen(true)
+          }}
+          onFocus={() => setIsOpen(true)}
+          placeholder={placeholder}
+          aria-expanded={isOpen}
+          className={`h-11 pr-10 bg-white dark:bg-background ${
+            error
+              ? 'border-destructive focus-visible:ring-destructive'
+              : 'border-[#D1D5DB] dark:border-border focus:border-primary'
+          }`}
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
+          aria-label="Toggle danh sách chức vụ"
+        >
+          <ChevronDown
+            className={`h-4 w-4 transition-transform duration-200 ${
+              isOpen ? 'rotate-180' : ''
+            }`}
+          />
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 max-h-60 overflow-y-auto rounded-lg border border-[#E5E7EB] dark:border-border bg-white dark:bg-card shadow-lg z-50 py-1 text-sm animate-in fade-in-50 zoom-in-95">
+          {filteredPositions.length > 0 ? (
+            filteredPositions.map((pos) => {
+              const isSelected = trimmedVal === pos.toLowerCase()
+              return (
+                <button
+                  key={pos}
+                  type="button"
+                  onClick={() => {
+                    onChange(pos)
+                    setIsOpen(false)
+                  }}
+                  className={`w-full text-left px-3.5 py-2.5 flex items-center justify-between hover:bg-[#F3F4F6] dark:hover:bg-muted/80 transition-colors cursor-pointer ${
+                    isSelected
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-[#374151] dark:text-foreground'
+                  }`}
+                >
+                  <span>{pos}</span>
+                  {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                </button>
+              )
+            })
+          ) : (
+            <div className="px-3.5 py-2.5 text-xs text-muted-foreground italic">
+              Không có gợi ý chức vụ khớp
+            </div>
+          )}
+
+          {isCustomValue && (
+            <div className="border-t border-[#F3F4F6] dark:border-border mt-1 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="w-full text-left px-3.5 py-2 text-xs text-primary font-medium hover:bg-primary/5 transition-colors cursor-pointer flex items-center justify-between"
+              >
+                <span>
+                  Sử dụng chức vụ tự nhập: <strong>"{value}"</strong>
+                </span>
+                <span className="text-[11px] text-muted-foreground border border-primary/20 rounded px-1.5 py-0.5">Tự nhập</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export const StaffProfileForm: React.FC = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user, updateUser } = useAuthStore()
 
-  const defaultEmail = user?.email || 'canbo@ctu.edu.vn'
+  const pendingRaw = typeof window !== 'undefined' ? sessionStorage.getItem('pending_registration') : null
+  const pending = pendingRaw ? JSON.parse(pendingRaw) : null
+
+  const defaultEmail = searchParams.get('email') || user?.email || pending?.email || ''
+  const initialStaffId = extractStaffIdFromEmail(defaultEmail)
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
 
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
+    setError,
     formState: { errors },
   } = useForm<StaffProfileInput>({
     resolver: zodResolver(staffProfileSchema),
     defaultValues: {
-      fullName: user?.name || 'Nguyễn Minh Anh',
-      staffId: 'CB02934',
-      department: 'Khoa Môi trường và Tài nguyên Thiên nhiên',
-      position: 'Cán bộ Đoàn / Hội',
+      fullName: '',
+      staffId: initialStaffId,
+      department: '',
+      position: '',
       workEmail: defaultEmail,
-      phoneNumber: '0987654321',
+      phoneNumber: '',
       termsAccepted: true,
     },
   })
+
+  // Theo dõi email và đồng bộ tự động mã cán bộ khi email được cập nhật
+  useEffect(() => {
+    register('position')
+    if (defaultEmail) {
+      setValue('workEmail', defaultEmail)
+      const sid = extractStaffIdFromEmail(defaultEmail)
+      if (sid) {
+        setValue('staffId', sid)
+      }
+    }
+  }, [defaultEmail, setValue, register])
+
+  const departmentValue = watch('department')
+  const positionValue = watch('position')
 
   const onSubmit = async (data: StaffProfileInput) => {
     try {
@@ -62,23 +200,34 @@ export const StaffProfileForm: React.FC = () => {
       setApiError(null)
       const updatedUser = await authService.completeStaffProfile(data)
       updateUser({
-        name: updatedUser.name,
+        name: data.fullName || updatedUser.name,
         role: updatedUser.role || RoleEnum.FANPAGE_ADMIN,
         isProfileComplete: true,
       })
       navigate('/staff/fanpages', { replace: true })
     } catch (err: any) {
-      setApiError(
-        err.response?.data?.message || 'Không thể lưu hồ sơ cán bộ. Vui lòng thử lại.'
-      )
+      const msg = err.response?.data?.message || err.message || ''
+      if (typeof msg === 'string' && (msg.includes('Staff ID already exists') || msg.toLowerCase().includes('staff id'))) {
+        setApiError('Mã số cán bộ (CB) này đã tồn tại trong hệ thống. Vui lòng chỉnh sửa lại mã cán bộ bên dưới và bấm Lưu lại.')
+        setError('staffId', {
+          type: 'manual',
+          message: 'Mã số cán bộ này đã tồn tại trên hệ thống. Vui lòng kiểm tra lại.',
+        })
+      } else if (typeof msg === 'string' && (msg.includes('already exists') || msg.toLowerCase().includes('email'))) {
+        setApiError('Email hoặc thông tin tài khoản này đã tồn tại trong hệ thống.')
+      } else {
+        setApiError(
+          msg || 'Không thể lưu hồ sơ cán bộ. Vui lòng kiểm tra lại các trường thông tin.'
+        )
+      }
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#F0F2F5] dark:bg-background py-8 px-4 sm:px-6 lg:px-8 flex flex-col justify-between">
-      <div className="max-w-[1200px] mx-auto w-full space-y-4">
+    <div className="auth-layout notranslate relative min-h-screen w-full overflow-x-hidden bg-[#F0F2F5] dark:bg-background flex flex-col items-center justify-center py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1200px] w-full space-y-4 my-auto">
         {/* Top Back Navigation */}
         <div>
           <button
@@ -91,7 +240,7 @@ export const StaffProfileForm: React.FC = () => {
           </button>
         </div>
 
-        {/* Main Card (Form ngang 1200px như trang sinh viên) */}
+        {/* Main Card (Form ngang 1200px tương tự trang sinh viên) */}
         <div className="w-full bg-white dark:bg-card rounded-2xl border border-[#E5E7EB] dark:border-border p-6 sm:p-10 shadow-sm">
           {/* Header Title & Subtitle */}
           <div className="text-left pb-6 mb-6 border-b border-[#F3F4F6] dark:border-border">
@@ -110,27 +259,27 @@ export const StaffProfileForm: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" noValidate>
-            {/* 2-COLUMN GRID LAYOUT (Tương tự bố cục trang Sinh viên) */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+            {/* 2-COLUMN GRID LAYOUT (Cân đối 3 mục mỗi cột tương tự trang Sinh viên) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
               {/* CỘT 1: I. THÔNG TIN ĐỊNH DANH CÁN BỘ */}
-              <div className="space-y-4 text-left">
+              <div className="space-y-5 text-left">
                 <h2 className="text-sm font-bold uppercase tracking-wider text-[#0B1626] dark:text-foreground">
                   I. THÔNG TIN ĐỊNH DANH CÁN BỘ
                 </h2>
 
                 {/* Họ tên */}
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
-                    Họ tên <span className="text-destructive">*</span>
-                  </label>
-                  <input
+                  <Label className="block text-sm font-medium text-foreground">
+                    Họ và tên <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
                     type="text"
                     {...register('fullName')}
-                    placeholder="Nhập họ tên đầy đủ"
-                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                    placeholder="Ví dụ: Nguyễn Minh Anh"
+                    className={`h-11 ${
                       errors.fullName
-                        ? 'border-destructive focus:border-destructive'
+                        ? 'border-destructive focus-visible:ring-destructive'
                         : 'border-[#D1D5DB] dark:border-border focus:border-primary'
                     }`}
                   />
@@ -141,99 +290,103 @@ export const StaffProfileForm: React.FC = () => {
 
                 {/* Mã cán bộ */}
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
+                  <Label className="block text-sm font-medium text-foreground">
                     Mã cán bộ <span className="text-destructive">*</span>
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="text"
                     {...register('staffId')}
-                    placeholder="Nhập mã cán bộ"
-                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                    placeholder="Ví dụ: CB02934"
+                    className={`h-11 ${
                       errors.staffId
-                        ? 'border-destructive focus:border-destructive'
+                        ? 'border-destructive focus-visible:ring-destructive'
                         : 'border-[#D1D5DB] dark:border-border focus:border-primary'
                     }`}
                   />
-                  {errors.staffId && (
+                  {errors.staffId ? (
                     <p className="text-xs text-destructive mt-1">{errors.staffId.message}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Mã định danh cán bộ tại trường</p>
                   )}
                 </div>
-
-                {/* Đơn vị / Khoa / Phòng ban */}
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
-                    Đơn vị / Khoa / Phòng ban <span className="text-destructive">*</span>
-                  </label>
-                  <select
-                    {...register('department')}
-                    className="w-full h-11 px-3.5 rounded-lg border border-[#D1D5DB] dark:border-border bg-[#F9FAFB] dark:bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  >
-                    {CTU_DEPARTMENTS.map((dept) => (
-                      <option key={dept} value={dept}>
-                        {dept}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.department && (
-                    <p className="text-xs text-destructive mt-1">{errors.department.message}</p>
-                  )}
-                </div>
-
-                {/* Chức vụ */}
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
-                    Chức vụ <span className="text-destructive">*</span>
-                  </label>
-                  <select
-                    {...register('position')}
-                    className="w-full h-11 px-3.5 rounded-lg border border-[#D1D5DB] dark:border-border bg-[#F9FAFB] dark:bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  >
-                    {CTU_POSITIONS.map((pos) => (
-                      <option key={pos} value={pos}>
-                        {pos}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.position && (
-                    <p className="text-xs text-destructive mt-1">{errors.position.message}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* CỘT 2: II. THÔNG TIN LIÊN HỆ & PHÂN QUYỀN */}
-              <div className="space-y-4 text-left">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-[#0B1626] dark:text-foreground">
-                  II. LIÊN HỆ & PHÂN QUYỀN
-                </h2>
 
                 {/* Email trường (Chỉ đọc) */}
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
+                  <Label className="block text-sm font-medium text-foreground">
                     Email trường
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="email"
                     {...register('workEmail')}
                     readOnly
-                    className="w-full h-11 px-3.5 rounded-lg border border-border bg-muted/60 text-sm text-muted-foreground cursor-not-allowed"
+                    disabled
+                    className="h-11 border-border bg-muted/60 text-sm text-muted-foreground cursor-not-allowed opacity-90"
                   />
                   <p className="text-xs text-muted-foreground">
                     Chỉ đọc. Hệ thống sẽ dùng email này để gửi thông báo và xác minh vai trò.
                   </p>
                 </div>
+              </div>
+
+              {/* CỘT 2: II. ĐƠN VỊ & CÔNG TÁC */}
+              <div className="space-y-5 text-left">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-[#0B1626] dark:text-foreground">
+                  II. ĐƠN VỊ & CÔNG TÁC
+                </h2>
+
+                {/* Đơn vị / Khoa / Phòng ban (Radix Select) */}
+                <div className="space-y-1.5">
+                  <Label className="block text-sm font-medium text-foreground">
+                    Đơn vị / Khoa / Phòng ban <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={departmentValue || ''}
+                    onValueChange={(val) => setValue('department', val, { shouldValidate: true })}
+                  >
+                    <SelectTrigger className={`h-11 w-full bg-white dark:bg-background ${errors.department ? 'border-destructive' : 'border-[#D1D5DB] dark:border-border'}`}>
+                      <SelectValue placeholder="-- Chọn Đơn vị / Khoa / Phòng ban --" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CTU_DEPARTMENTS.map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.department && (
+                    <p className="text-xs text-destructive mt-1">{errors.department.message}</p>
+                  )}
+                </div>
+
+                {/* Chức vụ (Combobox gợi ý có sẵn + cho phép tự gõ tự do) */}
+                <div className="space-y-1.5">
+                  <Label className="block text-sm font-medium text-foreground">
+                    Chức vụ <span className="text-destructive">*</span>
+                  </Label>
+                  <PositionCombobox
+                    value={positionValue || ''}
+                    onChange={(val) => setValue('position', val, { shouldValidate: true })}
+                    error={Boolean(errors.position)}
+                    placeholder="Chọn gợi ý hoặc tự nhập chức vụ..."
+                  />
+                  {errors.position && (
+                    <p className="text-xs text-destructive mt-1">{errors.position.message}</p>
+                  )}
+                </div>
 
                 {/* Số điện thoại công việc */}
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
+                  <Label className="block text-sm font-medium text-foreground">
                     Số điện thoại công việc <span className="text-destructive">*</span>
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="tel"
                     {...register('phoneNumber')}
-                    placeholder="Nhập số điện thoại"
-                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                    placeholder="Ví dụ: 0912345678"
+                    className={`h-11 ${
                       errors.phoneNumber
-                        ? 'border-destructive focus:border-destructive'
+                        ? 'border-destructive focus-visible:ring-destructive'
                         : 'border-[#D1D5DB] dark:border-border focus:border-primary'
                     }`}
                   />
@@ -241,32 +394,24 @@ export const StaffProfileForm: React.FC = () => {
                     <p className="text-xs text-destructive mt-1">{errors.phoneNumber.message}</p>
                   )}
                 </div>
-
-                {/* Notice Banner */}
-                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-primary/5 border border-primary/15 text-foreground text-xs leading-relaxed">
-                  <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                  <p className="text-[#374151] dark:text-muted-foreground font-medium">
-                    Mã cán bộ và đơn vị sẽ được dùng để phân quyền quản trị, cấp quyền tạo sự kiện và đối soát điểm rèn luyện.
-                  </p>
-                </div>
-
-                {/* Terms checkbox */}
-                <div className="pt-1">
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      {...register('termsAccepted')}
-                      className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                    />
-                    <span className="text-xs text-[#374151] dark:text-foreground/90 leading-relaxed select-none">
-                      Tôi xác nhận thông tin trên là chính xác và đồng ý với điều khoản sử dụng dành cho cán bộ.
-                    </span>
-                  </label>
-                  {errors.termsAccepted && (
-                    <p className="text-xs text-destructive mt-1">{errors.termsAccepted.message}</p>
-                  )}
-                </div>
               </div>
+            </div>
+
+            {/* Checkbox điều khoản (Đặt bên dưới 2 cột, trải dài toàn bộ chiều rộng form) */}
+            <div className="pt-2 text-left">
+              <label className="inline-flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  {...register('termsAccepted')}
+                  className="h-4 w-4 rounded border-[#D1D5DB] dark:border-border text-primary focus:ring-primary shrink-0 cursor-pointer"
+                />
+                <span className="text-xs sm:text-[13px] text-[#374151] dark:text-foreground/90 select-none">
+                  Tôi xác nhận thông tin trên là chính xác và đồng ý với điều khoản sử dụng dành cho cán bộ.
+                </span>
+              </label>
+              {errors.termsAccepted && (
+                <p className="text-xs text-destructive mt-1">{errors.termsAccepted.message}</p>
+              )}
             </div>
 
             {/* Bottom Actions Row */}
@@ -276,17 +421,18 @@ export const StaffProfileForm: React.FC = () => {
               </p>
 
               <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => navigate(-1)}
-                  className="w-full md:w-auto px-6 h-11 rounded-lg border border-[#D1D5DB] dark:border-border text-foreground hover:bg-[#F9FAFB] dark:hover:bg-muted font-medium text-sm transition-colors cursor-pointer"
+                  className="w-full md:w-auto px-6 h-11"
                 >
                   Quay lại
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full md:w-auto px-8 h-11 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white font-semibold text-sm transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shrink-0"
+                  className="w-full md:w-auto px-8 h-11 bg-[#1B4B8A] hover:bg-[#1E40AF] text-white flex items-center justify-center gap-2 shrink-0 shadow-sm"
                 >
                   {isSubmitting ? (
                     <>
@@ -299,23 +445,11 @@ export const StaffProfileForm: React.FC = () => {
                       <ArrowRight className="h-4 w-4" />
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </div>
           </form>
         </div>
-      </div>
-
-      {/* CTU Portal Footer */}
-      <div className="mt-8 text-center text-xs text-[#6B7280] dark:text-muted-foreground space-y-1">
-        <p className="font-medium text-foreground/80">
-          Đại học Cần Thơ (CTU) • Hệ thống quản lý sự kiện
-        </p>
-        <p>
-          Quản trị hệ thống sự kiện CTU | Hotline:{' '}
-          <span className="font-medium text-foreground/80">(0292) 3832 663</span> | Email:{' '}
-          <span className="text-primary font-medium">social-admin@ctu.edu.vn</span>
-        </p>
       </div>
     </div>
   )

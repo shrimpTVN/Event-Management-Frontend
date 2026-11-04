@@ -150,11 +150,11 @@ export const OtpVerificationForm: React.FC = () => {
         // Staff phải yêu cầu nhập thông tin cán bộ trước, rồi mới sang trang quản lý fanpage
         navigate('/onboarding/staff', { replace: true })
       } else {
-        // Sinh viên vào thẳng trang chủ liền, chưa cần nhập thông tin ngay
-        navigate('/', { replace: true })
+        // Sinh viên yêu cầu hoàn tất thông tin sinh viên ngay sau khi xác thực OTP
+        navigate('/onboarding/student', { replace: true })
       }
     } catch (err: any) {
-      setApiError(err.response?.data?.message || 'Mã OTP không chính xác hoặc đã hết hạn.')
+      const msg = err.response?.data?.message || err.message || ''; if (typeof msg === 'string' && (msg.includes('can\'t be blank') || msg.includes('otpCode'))) { setApiError('Mã OTP không được để trống.'); } else if (typeof msg === 'string' && (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('expired') || msg.toLowerCase().includes('wrong'))) { setApiError('Mã OTP không chính xác hoặc đã hết hạn.'); } else { setApiError(msg || 'Mã OTP không chính xác hoặc đã hết hạn.'); }
     } finally {
       setIsSubmitting(false)
     }
@@ -175,9 +175,9 @@ export const OtpVerificationForm: React.FC = () => {
       centerText={true}
     >
       <form onSubmit={handleSubmit} className="space-y-6 text-center" noValidate>
-        {/* Masked Email highlight */}
+        {/* Email highlight */}
         <div className="inline-block px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-medium text-sm">
-          {maskedEmail()}
+          {email}
         </div>
 
         {apiError && (

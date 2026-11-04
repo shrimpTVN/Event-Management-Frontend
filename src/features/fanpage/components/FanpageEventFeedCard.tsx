@@ -42,11 +42,17 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
       {/* 1. Post Header: Fanpage info + Follow pill */}
       <div className="p-4 sm:p-5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <img
-            src={post.authorAvatarUrl}
-            alt={post.authorName}
-            className="h-10 w-10 rounded-full object-cover border border-border/80 shrink-0"
-          />
+          {post.authorAvatarUrl ? (
+            <img
+              src={post.authorAvatarUrl}
+              alt={post.authorName}
+              className="h-10 w-10 rounded-full object-cover border border-border/80 shrink-0"
+            />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1B4B8A] text-white font-bold text-sm shrink-0 border border-border/80">
+              {post.authorName.charAt(0)}
+            </div>
+          )}
           <div className="min-w-0">
             <div className="flex items-center gap-1 min-w-0">
               <h4 className="font-semibold text-sm text-foreground line-clamp-1 hover:text-primary transition-colors cursor-pointer">
@@ -204,12 +210,12 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             onClick={handleToggleSave}
             className={`p-2 rounded-lg border transition-colors cursor-pointer ${
               isSaved
-                ? 'bg-primary/10 border-primary/30 text-primary'
-                : 'border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 hover:text-amber-600'
+                : 'border-border/80 text-muted-foreground hover:text-amber-500 hover:bg-muted/60'
             }`}
-            title={isSaved ? 'Đã lưu' : 'Lưu sự kiện'}
+            title={isSaved ? 'Đã lưu (nhấn để bỏ lưu)' : 'Lưu sự kiện'}
           >
-            <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} />
+            <Bookmark className={`h-4 w-4 transition-all ${isSaved ? 'fill-amber-500 text-amber-500' : ''}`} />
           </button>
 
           <RegisterButton

@@ -30,6 +30,11 @@ export const STUDENT_ROLES: UserRole[] = [
   RoleEnum.ROLE_STUDENT,
 ]
 
+export const ADMIN_ROLES: UserRole[] = [
+  RoleEnum.ADMIN,
+  RoleEnum.ROLE_ADMIN,
+]
+
 export interface User {
   id: string
   email: string
@@ -81,7 +86,8 @@ export interface RegisterPayload {
 
 export interface OtpPayload {
   email: string
-  otp: string
+  otp?: string
+  otpCode?: string
 }
 
 export interface StudentProfilePayload {

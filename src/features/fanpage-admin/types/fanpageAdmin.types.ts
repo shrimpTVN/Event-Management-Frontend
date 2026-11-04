@@ -57,6 +57,8 @@ export interface FanpageFeedPost {
   commentsCount: number
   sharesCount: number
   isLiked?: boolean
+  isPinned?: boolean
+  isHidden?: boolean
 }
 
 export type EventStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'CANCELLED'

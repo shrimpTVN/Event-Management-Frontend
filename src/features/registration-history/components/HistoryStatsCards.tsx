@@ -21,8 +21,8 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({ stats }) =
       title: 'Tổng sự kiện đã đăng kí',
       value: safeStats.totalRegistered ?? 0,
       trend: safeStats.totalTrend || {
-        value: '+12%',
-        isUp: true,
+        value: '',
+        isUp: false,
         subText: 'so với kì trước',
       },
       polarity: 'positive' as const,
@@ -45,8 +45,8 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({ stats }) =
       title: 'Sự kiện đã hoàn thành',
       value: safeStats.completed ?? 0,
       trend: safeStats.completedTrend || {
-        value: '+8%',
-        isUp: true,
+        value: '',
+        isUp: false,
         subText: 'so với kì trước',
       },
       polarity: 'positive' as const,
@@ -57,7 +57,7 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({ stats }) =
       title: 'Sự kiện vắng',
       value: safeStats.absent ?? 0,
       trend: safeStats.absentTrend || {
-        value: '0%',
+        value: '',
         isUp: false,
         subText: 'so với kì trước',
       },
@@ -69,7 +69,7 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({ stats }) =
   /**
    * Render badge indicator:
    * - showBadge = false: không hiển thị (ví dụ Sự kiện sắp diễn ra)
-   * - Bằng (0% / không đổi): không hiển thị ("bằng thì ko thể hiện")
+   * - Bằng (0% / không đổi / rỗng): không hiển thị
    * - Polarity 'positive' (chỉ số tích cực):
    *     + Tăng (isUp): tích cực -> Màu xanh lá
    *     + Giảm (!isUp): tiêu cực -> Màu đỏ
@@ -85,6 +85,8 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({ stats }) =
     if (!showBadge || !trend || !trend.value) return null
 
     const rawVal = trend.value.trim()
+    if (!rawVal) return null
+
     const cleanedNumber = parseFloat(rawVal.replace(/[^\d.-]/g, ''))
 
     // Giá trị bằng 0% hoặc không xác định -> không thể hiện badge

@@ -55,6 +55,7 @@ describe('StaffFanpageHub', () => {
 
     expect(screen.getByText(/Chọn fanpage để quản lý sự kiện/i)).toBeInTheDocument()
     expect(await screen.findByText('Fanpage Thử Nghiệm API')).toBeInTheDocument()
+    expect(screen.getByTestId('role-badge-101')).toHaveTextContent('Quản trị viên')
     expect(screen.getByText(/Fanpage đang quản trị \(1\)/i)).toBeInTheDocument()
     expect(screen.getByTitle(/Đăng xuất khỏi hệ thống/i)).toBeInTheDocument()
   })

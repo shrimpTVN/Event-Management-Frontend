@@ -2,15 +2,15 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore, isStaffUser } from '@/features/auth'
-import { Search, Filter, MessageSquare, Bell } from 'lucide-react'
+import { MessageSquare, Bell } from 'lucide-react'
 import logoImg from '@/assets/logo.svg'
 import { AccountNavigationPopup } from './AccountNavigationPopup'
+import { NavbarSearchAutocomplete } from '@/features/events'
 
 export const Navbar: React.FC = () => {
   const { user, isAuthenticated, clearAuth } = useAuthStore()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [searchQuery, setSearchQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
 
   const handleLogout = () => {
@@ -19,13 +19,6 @@ export const Navbar: React.FC = () => {
     clearAuth()
     setShowDropdown(false)
     navigate('/login')
-  }
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      navigate(`/events?search=${encodeURIComponent(searchQuery.trim())}`)
-    }
   }
 
   const isStaff = isStaffUser(user)
@@ -47,30 +40,8 @@ export const Navbar: React.FC = () => {
           />
         </Link>
 
-        {/* 2. Center: Search Bar with Integrated Filter Funnel */}
-        <form
-          onSubmit={handleSearchSubmit}
-          className="hidden md:flex flex-1 max-w-xl mx-8 relative items-center"
-        >
-          <div className="relative w-full flex items-center">
-            <Search className="absolute left-3.5 h-4 w-4 text-[#9CA3AF] pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm sự kiện..."
-              className="w-full h-10 rounded-xl border border-[#E5E7EB] dark:border-border bg-[#F9FAFB] dark:bg-background pl-10 pr-12 text-sm text-[#374151] dark:text-foreground placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-sans"
-            />
-            <button
-              type="button"
-              onClick={() => navigate('/history')}
-              className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="Bộ lọc nâng cao"
-            >
-              <Filter className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </form>
+        {/* 2. Center: Search Bar with Autocomplete Suggestions & Filter Popup */}
+        <NavbarSearchAutocomplete />
 
         {/* 3. Right: Communication, Notifications, & User Avatar */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">

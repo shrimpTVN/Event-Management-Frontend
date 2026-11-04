@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -6,36 +6,33 @@ import { ArrowLeft, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
 import { studentProfileSchema, type StudentProfileInput } from '../types/auth.schemas'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
-const CTU_FACULTIES = [
-  'Trường Công nghệ Thông tin và Truyền thông',
-  'Trường Bách Khoa',
-  'Trường Kinh tế',
-  'Trường Nông nghiệp',
-  'Trường Thủy sản',
-  'Khoa Khoa học Tự nhiên',
-  'Khoa Khoa học Xã hội và Nhân văn',
-  'Khoa Môi trường và Tài nguyên Thiên nhiên',
-  'Khoa Sư phạm',
-  'Khoa Luật',
-  'Viện Nghiên cứu và Phát triển Công nghệ sinh học',
-]
-
-const CTU_ACADEMIC_YEARS = [
-  'Khóa 51 (2025 - 2029)',
-  'Khóa 50 (2024 - 2028)',
-  'Khóa 49 (2023 - 2027)',
-  'Khóa 48 (2022 - 2026)',
-  'Khóa 47 (2021 - 2025)',
-]
+import {
+  CTU_FACULTIES,
+  CTU_ACADEMIC_YEARS,
+  extractStudentIdFromEmail,
+} from '../utils/studentProfileUtils'
 
 export const StudentProfileForm: React.FC = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user, updateUser } = useAuthStore()
 
-  const defaultEmail = user?.email || 'nguyenvana@student.ctu.edu.vn'
-  const guessedStudentId = defaultEmail.split('@')[0].toUpperCase().slice(0, 10)
+  const pendingRaw = typeof window !== 'undefined' ? sessionStorage.getItem('pending_registration') : null
+  const pending = pendingRaw ? JSON.parse(pendingRaw) : null
+
+  const defaultEmail = searchParams.get('email') || user?.email || pending?.email || ''
+  const initialStudentId = extractStudentIdFromEmail(defaultEmail)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
@@ -45,22 +42,36 @@ export const StudentProfileForm: React.FC = () => {
     handleSubmit,
     watch,
     setValue,
+    setError,
     formState: { errors },
   } = useForm<StudentProfileInput>({
     resolver: zodResolver(studentProfileSchema),
     defaultValues: {
-      fullName: user?.name || 'Nguyễn Văn A',
-      studentId: guessedStudentId.startsWith('B') ? guessedStudentId : 'B21DCCN001',
+      fullName: '',
+      studentId: initialStudentId,
       gender: 'MALE',
       email: defaultEmail,
-      faculty: 'Trường Công nghệ Thông tin và Truyền thông',
-      major: 'Công nghệ thông tin (Mã ngành: 7480201)',
-      className: 'DI2496A1',
-      academicYear: 'Khóa 50 (2024 - 2028)',
+      faculty: '',
+      major: '',
+      className: '',
+      academicYear: '',
     },
   })
 
+  // Theo dõi email và đồng bộ tự động MSSV khi email được cập nhật
+  useEffect(() => {
+    if (defaultEmail) {
+      setValue('email', defaultEmail)
+      const sid = extractStudentIdFromEmail(defaultEmail)
+      if (sid) {
+        setValue('studentId', sid)
+      }
+    }
+  }, [defaultEmail, setValue])
+
   const currentGender = watch('gender')
+  const facultyValue = watch('faculty')
+  const academicYearValue = watch('academicYear')
 
   const onSubmit = async (data: StudentProfileInput) => {
     try {
@@ -68,23 +79,36 @@ export const StudentProfileForm: React.FC = () => {
       setApiError(null)
       const updatedUser = await authService.completeStudentProfile(data)
       updateUser({
-        name: updatedUser.name,
+        name: data.fullName || updatedUser.name,
+        studentId: data.studentId || updatedUser.studentId,
+        role: updatedUser.role || RoleEnum.STUDENT,
         isProfileComplete: true,
       })
       navigate(searchParams.get('redirect') || '/', { replace: true })
     } catch (err: any) {
-      setApiError(
-        err.response?.data?.message || 'Không thể lưu hồ sơ sinh viên. Vui lòng thử lại.'
-      )
+      const msg = err.response?.data?.message || err.message || ''
+      if (typeof msg === 'string' && (msg.includes('Student ID already exists') || msg.toLowerCase().includes('student id'))) {
+        setApiError('Mã số sinh viên (MSSV) này đã tồn tại trong hệ thống. Vui lòng chỉnh sửa lại mã số sinh viên bên dưới và bấm Lưu lại.')
+        setError('studentId', {
+          type: 'manual',
+          message: 'Mã số sinh viên này đã tồn tại trên hệ thống. Vui lòng kiểm tra lại.',
+        })
+      } else if (typeof msg === 'string' && (msg.includes('already exists') || msg.toLowerCase().includes('email'))) {
+        setApiError('Email hoặc thông tin tài khoản này đã tồn tại trong hệ thống.')
+      } else {
+        setApiError(
+          msg || 'Không thể lưu hồ sơ sinh viên. Vui lòng kiểm tra lại các trường thông tin.'
+        )
+      }
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#F0F2F5] dark:bg-background py-8 px-4 sm:px-6 lg:px-8 flex flex-col justify-between">
-      <div className="max-w-[1200px] mx-auto w-full space-y-4">
-        {/* Top Back Navigation (Figma: back-navigation [1200x20]) */}
+    <div className="auth-layout notranslate relative min-h-screen w-full overflow-x-hidden bg-[#F0F2F5] dark:bg-background flex flex-col items-center justify-center py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1200px] w-full space-y-4 my-auto">
+        {/* Top Back Navigation */}
         <div>
           <button
             type="button"
@@ -96,7 +120,7 @@ export const StudentProfileForm: React.FC = () => {
           </button>
         </div>
 
-        {/* Main Card (Figma: form-card [1200x700]) */}
+        {/* Main Card */}
         <div className="w-full bg-white dark:bg-card rounded-2xl border border-[#E5E7EB] dark:border-border p-6 sm:p-10 shadow-sm">
           {/* Header Title & Subtitle */}
           <div className="text-left pb-6 mb-6 border-b border-[#F3F4F6] dark:border-border">
@@ -119,24 +143,24 @@ export const StudentProfileForm: React.FC = () => {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" noValidate>
             {/* 2-COLUMN LAYOUT MATCHING FIGMA FRAME 382:2283 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-              {/* CỘT 1: I. THÔNG TIN CÁ NHÂN (Figma: 382:2284 [548px]) */}
-              <div className="space-y-4 text-left">
+              {/* CỘT 1: I. THÔNG TIN CÁ NHÂN */}
+              <div className="space-y-5 text-left">
                 <h2 className="text-sm font-bold uppercase tracking-wider text-[#0B1626] dark:text-foreground">
                   I. THÔNG TIN CÁ NHÂN
                 </h2>
 
                 {/* Họ và tên sinh viên */}
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
+                  <Label className="block text-sm font-medium text-foreground">
                     Họ và tên sinh viên <span className="text-destructive">*</span>
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="text"
                     {...register('fullName')}
-                    placeholder="Nguyễn Văn A"
-                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                    placeholder="Ví dụ: Nguyễn Văn A"
+                    className={`h-11 ${
                       errors.fullName
-                        ? 'border-destructive focus:border-destructive'
+                        ? 'border-destructive focus-visible:ring-destructive'
                         : 'border-[#D1D5DB] dark:border-border focus:border-primary'
                     }`}
                   />
@@ -145,34 +169,34 @@ export const StudentProfileForm: React.FC = () => {
                   )}
                 </div>
 
-                {/* Mã sinh viên */}
+                {/* Mã sinh viên (Tự động lấy từ email) */}
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
+                  <Label className="block text-sm font-medium text-foreground">
                     Mã sinh viên <span className="text-destructive">*</span>
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="text"
                     {...register('studentId')}
-                    placeholder="B21DCCN001"
-                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                    placeholder="Ví dụ: B2303827"
+                    className={`h-11 ${
                       errors.studentId
-                        ? 'border-destructive focus:border-destructive'
+                        ? 'border-destructive focus-visible:ring-destructive'
                         : 'border-[#D1D5DB] dark:border-border focus:border-primary'
                     }`}
                   />
                   {errors.studentId ? (
                     <p className="text-xs text-destructive mt-1">{errors.studentId.message}</p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Đã đồng bộ từ email trường</p>
+                    <p className="text-xs text-muted-foreground">Tự động trích xuất từ email sinh viên</p>
                   )}
                 </div>
 
                 {/* Giới tính */}
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
+                  <Label className="block text-sm font-medium text-foreground">
                     Giới tính <span className="text-destructive">*</span>
-                  </label>
-                  <div className="flex items-center gap-8 h-11 px-3.5 rounded-lg border border-[#D1D5DB] dark:border-border bg-[#F9FAFB] dark:bg-background">
+                  </Label>
+                  <div className="flex items-center gap-8 h-11 px-3.5 rounded-lg border border-[#D1D5DB] dark:border-border bg-white dark:bg-background">
                     <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
                       <input
                         type="radio"
@@ -201,14 +225,15 @@ export const StudentProfileForm: React.FC = () => {
 
                 {/* Email trường (Chỉ đọc) */}
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
-                    Email
-                  </label>
-                  <input
+                  <Label className="block text-sm font-medium text-foreground">
+                    Email sinh viên
+                  </Label>
+                  <Input
                     type="email"
                     {...register('email')}
                     readOnly
-                    className="w-full h-11 px-3.5 rounded-lg border border-border bg-muted/60 text-sm text-muted-foreground cursor-not-allowed"
+                    disabled
+                    className="h-11 border-border bg-muted/60 text-sm text-muted-foreground cursor-not-allowed opacity-90"
                   />
                   <p className="text-xs text-muted-foreground">
                     Trạng thái chỉ đọc. Thông tin này được đồng bộ từ tài khoản đăng nhập.
@@ -216,27 +241,32 @@ export const StudentProfileForm: React.FC = () => {
                 </div>
               </div>
 
-              {/* CỘT 2: II. THÔNG TIN HỌC TẬP (Figma: 382:2329 [548px]) */}
-              <div className="space-y-4 text-left">
+              {/* CỘT 2: II. THÔNG TIN HỌC TẬP */}
+              <div className="space-y-5 text-left">
                 <h2 className="text-sm font-bold uppercase tracking-wider text-[#0B1626] dark:text-foreground">
                   II. THÔNG TIN HỌC TẬP
                 </h2>
 
-                {/* Khoa / Trường thành viên */}
+                {/* Khoa / Trường thành viên (Radix Select) */}
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
+                  <Label className="block text-sm font-medium text-foreground">
                     Khoa / Trường thành viên <span className="text-destructive">*</span>
-                  </label>
-                  <select
-                    {...register('faculty')}
-                    className="w-full h-11 px-3.5 rounded-lg border border-[#D1D5DB] dark:border-border bg-[#F9FAFB] dark:bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  </Label>
+                  <Select
+                    value={facultyValue || undefined}
+                    onValueChange={(val) => setValue('faculty', val, { shouldValidate: true })}
                   >
-                    {CTU_FACULTIES.map((f) => (
-                      <option key={f} value={f}>
-                        {f}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className={`h-11 w-full bg-white dark:bg-background ${errors.faculty ? 'border-destructive' : 'border-[#D1D5DB] dark:border-border'}`}>
+                      <SelectValue placeholder="-- Chọn Khoa / Trường thành viên --" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CTU_FACULTIES.map((f) => (
+                        <SelectItem key={f} value={f}>
+                          {f}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {errors.faculty && (
                     <p className="text-xs text-destructive mt-1">{errors.faculty.message}</p>
                   )}
@@ -244,16 +274,16 @@ export const StudentProfileForm: React.FC = () => {
 
                 {/* Ngành học */}
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
+                  <Label className="block text-sm font-medium text-foreground">
                     Ngành học <span className="text-destructive">*</span>
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="text"
                     {...register('major')}
-                    placeholder="Công nghệ thông tin (Mã ngành: 7480201)"
-                    className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                    placeholder="Ví dụ: Kỹ thuật phần mềm (Mã ngành: 7480103)"
+                    className={`h-11 ${
                       errors.major
-                        ? 'border-destructive focus:border-destructive'
+                        ? 'border-destructive focus-visible:ring-destructive'
                         : 'border-[#D1D5DB] dark:border-border focus:border-primary'
                     }`}
                   />
@@ -262,20 +292,20 @@ export const StudentProfileForm: React.FC = () => {
                   )}
                 </div>
 
-                {/* Lớp học & Khóa học (Side by side in 1 row matching Figma 382:2349) */}
+                {/* Lớp học & Khóa học */}
                 <div className="grid grid-cols-2 gap-4">
                   {/* Lớp học */}
                   <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-foreground">
+                    <Label className="block text-sm font-medium text-foreground">
                       Lớp học <span className="text-destructive">*</span>
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       type="text"
                       {...register('className')}
-                      placeholder="DI2496A1"
-                      className={`w-full h-11 px-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                      placeholder="Ví dụ: DI2396A1"
+                      className={`h-11 ${
                         errors.className
-                          ? 'border-destructive focus:border-destructive'
+                          ? 'border-destructive focus-visible:ring-destructive'
                           : 'border-[#D1D5DB] dark:border-border focus:border-primary'
                       }`}
                     />
@@ -284,21 +314,26 @@ export const StudentProfileForm: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Khóa học */}
+                  {/* Khóa học (Radix Select) */}
                   <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-foreground">
+                    <Label className="block text-sm font-medium text-foreground">
                       Khóa học <span className="text-destructive">*</span>
-                    </label>
-                    <select
-                      {...register('academicYear')}
-                      className="w-full h-11 px-3.5 rounded-lg border border-[#D1D5DB] dark:border-border bg-[#F9FAFB] dark:bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    </Label>
+                    <Select
+                      value={academicYearValue || undefined}
+                      onValueChange={(val) => setValue('academicYear', val, { shouldValidate: true })}
                     >
-                      {CTU_ACADEMIC_YEARS.map((y) => (
-                        <option key={y} value={y}>
-                          {y}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className={`h-11 w-full bg-white dark:bg-background ${errors.academicYear ? 'border-destructive' : 'border-[#D1D5DB] dark:border-border'}`}>
+                        <SelectValue placeholder="-- Chọn Khóa học --" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CTU_ACADEMIC_YEARS.map((y) => (
+                          <SelectItem key={y} value={y}>
+                            {y}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {errors.academicYear && (
                       <p className="text-xs text-destructive mt-1">{errors.academicYear.message}</p>
                     )}
@@ -307,7 +342,7 @@ export const StudentProfileForm: React.FC = () => {
               </div>
             </div>
 
-            {/* Bottom Actions Row (Figma: 382:2379 [1136x68]) */}
+            {/* Bottom Actions Row */}
             <div className="pt-6 border-t border-[#E5E7EB] dark:border-border flex flex-col md:flex-row items-center justify-between gap-6">
               <p className="text-xs text-[#6B7280] dark:text-muted-foreground max-w-lg leading-relaxed text-left">
                 Sau khi lưu, bạn sẽ được chuyển tới website sự kiện thông thường để tiếp tục đăng ký
@@ -315,17 +350,18 @@ export const StudentProfileForm: React.FC = () => {
               </p>
 
               <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => navigate(-1)}
-                  className="w-full md:w-auto px-6 h-11 rounded-lg border border-[#D1D5DB] dark:border-border text-foreground hover:bg-[#F9FAFB] dark:hover:bg-muted font-medium text-sm transition-colors cursor-pointer"
+                  className="w-full md:w-auto px-6 h-11"
                 >
                   Quay lại
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full md:w-auto px-6 h-11 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white font-semibold text-sm transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shrink-0"
+                  className="w-full md:w-auto px-6 h-11 bg-[#1B4B8A] hover:bg-[#1E40AF] text-white flex items-center justify-center gap-2 shrink-0 shadow-sm"
                 >
                   {isSubmitting ? (
                     <>
@@ -338,23 +374,11 @@ export const StudentProfileForm: React.FC = () => {
                       <ArrowRight className="h-4 w-4" />
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </div>
           </form>
         </div>
-      </div>
-
-      {/* CTU Portal Footer (Figma: Thông tin cổng CTU [966:5445]) */}
-      <div className="mt-8 text-center text-xs text-[#6B7280] dark:text-muted-foreground space-y-1">
-        <p className="font-medium text-foreground/80">
-          Đại học Cần Thơ (CTU) • Hệ thống quản lý sự kiện
-        </p>
-        <p>
-          Quản trị hệ thống sự kiện CTU | Hotline:{' '}
-          <span className="font-medium text-foreground/80">(0292) 3832 663</span> | Email:{' '}
-          <span className="text-primary font-medium">social-admin@ctu.edu.vn</span>
-        </p>
       </div>
     </div>
   )

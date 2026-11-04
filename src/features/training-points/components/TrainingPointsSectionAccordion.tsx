@@ -12,6 +12,7 @@ interface TrainingPointsSectionAccordionProps {
   onSaveSelfScore: (categoryId: number, score: number, description?: string) => Promise<void> | void
   defaultExpanded?: boolean
   onToggleExpand?: (isExpanded: boolean) => void
+  aggregateScore?: number
 }
 
 export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccordionProps> = ({
@@ -23,6 +24,7 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
   onSaveSelfScore,
   defaultExpanded = false,
   onToggleExpand,
+  aggregateScore,
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const sectionRef = React.useRef<HTMLDivElement>(null)
@@ -120,8 +122,9 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
     return { totalRecorded: rec, totalSelf: self }
   }, [rows, recordedMap, studentScores])
 
-  // Final section score capped at section.maximum
-  const finalSectionScore = Math.min(section.maximum, totalRecorded + totalSelf)
+  // Final section score capped at section.maximum or fallback to aggregateScore
+  const computedScore = Math.min(section.maximum, totalRecorded + totalSelf)
+  const finalSectionScore = computedScore > 0 ? computedScore : (aggregateScore ?? 0)
   const progressPercent = section.maximum > 0
     ? Math.min(100, Math.round((finalSectionScore / section.maximum) * 100))
     : 0
@@ -196,7 +199,7 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
 
             {/* Dữ liệu ghi nhận (112px) */}
             <div className="w-28 min-w-[112px] max-w-[112px] px-1 flex items-center justify-center border-r border-[#E5E7EB] dark:border-border text-foreground text-center shrink-0">
-              {totalRecorded}
+              {totalRecorded > 0 ? totalRecorded : (finalSectionScore > 0 && totalSelf === 0 ? finalSectionScore : 0)}
             </div>
 
             {/* SV đánh giá (112px) */}
