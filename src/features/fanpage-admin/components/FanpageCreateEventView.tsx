@@ -12,6 +12,7 @@ import {
   Search,
   ChevronDown,
   Loader2,
+  GraduationCap,
 } from 'lucide-react'
 import { mediaService } from '@/shared'
 import { cn } from '@/shared/utils/cn'
@@ -29,6 +30,7 @@ import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
 import { TimeSelect } from '@/components/ui/time-select'
 import { SelectPointCategoriesModal, type SelectedPointCategory } from './SelectPointCategoriesModal'
+import { SelectSv5tCriteriaModal, type SelectedSv5tCriteria } from './SelectSv5tCriteriaModal'
 import type { AdminEvent, FanpageSummary, PointCategoryItem, Sv5tCriteriaItem } from '../types/fanpageAdmin.types'
 import {
   MOCK_EVENT_TYPES,
@@ -168,42 +170,15 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
 
 
 
-  // Cascading states cho Tiêu chuẩn & Tiêu chí Sinh viên 5 Tốt
-  const [selectedSv5tL1Id, setSelectedSv5tL1Id] = useState<number | null>(null)
-  const [selectedSv5tL2Id, setSelectedSv5tL2Id] = useState<number | null>(null)
-  const [selectedSv5tL3Id, setSelectedSv5tL3Id] = useState<number | null>(null)
+  // Tiêu chuẩn & Tiêu chí Sinh viên 5 Tốt
+  const [selectedSv5tCriteria, setSelectedSv5tCriteria] = useState<SelectedSv5tCriteria | null>(null)
+  const [isSv5tModalOpen, setIsSv5tModalOpen] = useState(false)
   const [hasCertificate, setHasCertificate] = useState<boolean>(
     initialEvent ? Boolean(initialEvent.hasCertificate) : false
   )
 
-  // Lọc danh sách phân tầng Tiêu chí SV5T
-  const sv5tL1List = useMemo(
-    () => sv5tCriterias.filter((c) => c.level === 1 || c.parentId === 1),
-    [sv5tCriterias]
-  )
-
-  const sv5tL2List = useMemo(
-    () =>
-      selectedSv5tL1Id
-        ? sv5tCriterias.filter((c) => c.parentId === selectedSv5tL1Id)
-        : [],
-    [sv5tCriterias, selectedSv5tL1Id]
-  )
-
-  const sv5tL3List = useMemo(
-    () =>
-      selectedSv5tL2Id
-        ? sv5tCriterias.filter((c) => c.parentId === selectedSv5tL2Id)
-        : [],
-    [sv5tCriterias, selectedSv5tL2Id]
-  )
-
-  const activeSv5tCriteria = useMemo(() => {
-    if (selectedSv5tL3Id) return sv5tCriterias.find((c) => c.id === selectedSv5tL3Id)
-    if (selectedSv5tL2Id) return sv5tCriterias.find((c) => c.id === selectedSv5tL2Id)
-    if (selectedSv5tL1Id) return sv5tCriterias.find((c) => c.id === selectedSv5tL1Id)
-    return undefined
-  }, [sv5tCriterias, selectedSv5tL1Id, selectedSv5tL2Id, selectedSv5tL3Id])
+  const activeSv5tId = selectedSv5tCriteria?.id || undefined
+  const activeSv5tName = selectedSv5tCriteria?.name || undefined
 
   // 6. Nội dung & Poster (Schema: description, bannerUrl, tags)
   const [description, setDescription] = useState(initialEvent?.description || '')
@@ -296,9 +271,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       setAttendanceMethod('MANUAL')
       setAttendanceSessionType('BOTH')
       setSelectedPointCategories([])
-      setSelectedSv5tL1Id(null)
-      setSelectedSv5tL2Id(null)
-      setSelectedSv5tL3Id(null)
+      setSelectedSv5tCriteria(null)
       setHasCertificate(false)
       setDescription('')
       setTags('')
@@ -307,31 +280,27 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
     }
   }, [initialEvent])
 
-
-
-  // Tự động khôi phục phân tầng Tiêu chí SV5T khi chỉnh sửa
+  // Tự động khôi phục Tiêu chí SV5T khi chỉnh sửa
   useEffect(() => {
-    if (!initialEvent || sv5tCriterias.length === 0) return
+    if (!initialEvent) return
     const critId = initialEvent.sv5tCriteriaId
-    if (!critId) return
+    if (!critId) {
+      setSelectedSv5tCriteria(null)
+      return
+    }
 
     const target = sv5tCriterias.find((c) => c.id === critId)
-    if (!target) return
-
-    if (target.level === 3) {
-      setSelectedSv5tL3Id(target.id)
-      const l2 = sv5tCriterias.find((c) => c.id === target.parentId)
-      if (l2) {
-        setSelectedSv5tL2Id(l2.id)
-        const l1 = sv5tCriterias.find((c) => c.id === l2.parentId)
-        if (l1) setSelectedSv5tL1Id(l1.id)
-      }
-    } else if (target.level === 2) {
-      setSelectedSv5tL2Id(target.id)
-      const l1 = sv5tCriterias.find((c) => c.id === target.parentId)
-      if (l1) setSelectedSv5tL1Id(l1.id)
-    } else if (target.level === 1) {
-      setSelectedSv5tL1Id(target.id)
+    if (target) {
+      setSelectedSv5tCriteria({
+        id: target.id,
+        name: target.name,
+        note: target.note,
+      })
+    } else if (initialEvent.sv5tCriteriaName) {
+      setSelectedSv5tCriteria({
+        id: Number(critId),
+        name: initialEvent.sv5tCriteriaName,
+      })
     }
   }, [initialEvent, sv5tCriterias])
 
@@ -1109,85 +1078,81 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                 </h4>
               </div>
 
-              {/* Tiêu chuẩn SV5T Cấp 1 */}
-              <div className="space-y-1.5">
-                <Label htmlFor="sv5t-standard">Tiêu chuẩn Sinh viên 5 Tốt</Label>
-                <Select
-                  value={selectedSv5tL1Id ? String(selectedSv5tL1Id) : 'none'}
-                  onValueChange={(val) => {
-                    if (val === 'none') {
-                      setSelectedSv5tL1Id(null)
-                      setSelectedSv5tL2Id(null)
-                      setSelectedSv5tL3Id(null)
-                    } else {
-                      const id = Number(val)
-                      setSelectedSv5tL1Id(id)
-                      setSelectedSv5tL2Id(null)
-                      setSelectedSv5tL3Id(null)
-                    }
-                  }}
-                >
-                  <SelectTrigger id="sv5t-standard" className="text-left text-xs">
-                    <SelectValue placeholder="Chọn tiêu chuẩn..." />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    <SelectItem value="none" className="text-xs italic text-muted-foreground">
-                      -- Không áp dụng tiêu chí SV5T --
-                    </SelectItem>
-                    {sv5tL1List.map((crit) => (
-                      <SelectItem key={crit.id} value={String(crit.id)} className="text-xs">
-                        {crit.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Tiêu chí cụ thể Cấp 2 */}
-              {selectedSv5tL1Id && sv5tL2List.length > 0 && (
-                <div className="space-y-1.5 animate-in fade-in duration-150">
-                  <Label htmlFor="sv5t-detail">Tiêu chí con cụ thể</Label>
-                  <Select
-                    value={selectedSv5tL2Id ? String(selectedSv5tL2Id) : ''}
-                    onValueChange={(val) => {
-                      const id = Number(val)
-                      setSelectedSv5tL2Id(id)
-                      setSelectedSv5tL3Id(null)
-                    }}
+              {/* Tiêu chí Sinh viên 5 Tốt (Mở bảng danh mục giống Điểm rèn luyện) */}
+              {!selectedSv5tCriteria ? (
+                <div className="p-4 rounded-xl border border-dashed border-border bg-muted/20 flex flex-col items-center justify-center text-center gap-2">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shadow-2xs">
+                    <GraduationCap className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">
+                      Chưa chọn tiêu chí Sinh viên 5 Tốt
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Mở bảng danh mục SV5T để chọn đúng mục tiêu chuẩn công nhận quyền lợi cho sinh viên
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsSv5tModalOpen(true)}
+                    className="mt-1 h-8 text-xs font-semibold cursor-pointer border-primary/40 text-primary hover:bg-primary/5"
                   >
-                    <SelectTrigger id="sv5t-detail" className="text-left text-xs">
-                      <SelectValue placeholder="Chọn tiêu chí con..." />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      {sv5tL2List.map((crit) => (
-                        <SelectItem key={crit.id} value={String(crit.id)} className="text-xs">
-                          {crit.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Chọn tiêu chí Sinh viên 5 Tốt
+                  </Button>
                 </div>
-              )}
+              ) : (
+                <div className="p-3.5 rounded-xl border border-primary/30 bg-primary/5 dark:bg-primary/10 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {selectedSv5tCriteria.code && (
+                          <span className="px-2 py-0.5 rounded bg-primary text-white font-bold text-[10px] shrink-0">
+                            {selectedSv5tCriteria.code}
+                          </span>
+                        )}
+                        {selectedSv5tCriteria.standardName && (
+                          <span className="text-[11px] font-bold text-primary truncate">
+                            {selectedSv5tCriteria.standardName}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs font-semibold text-foreground leading-relaxed">
+                        {selectedSv5tCriteria.name}
+                      </p>
+                      {selectedSv5tCriteria.note && (
+                        <p className="text-[11px] text-muted-foreground italic line-clamp-2">
+                          {selectedSv5tCriteria.note}
+                        </p>
+                      )}
+                    </div>
 
-              {/* Tiêu chí chi tiết Cấp 3 (nếu có) */}
-              {selectedSv5tL2Id && sv5tL3List.length > 0 && (
-                <div className="space-y-1.5 animate-in fade-in duration-150">
-                  <Label htmlFor="sv5t-sub-detail">Mục chi tiết bổ sung</Label>
-                  <Select
-                    value={selectedSv5tL3Id ? String(selectedSv5tL3Id) : ''}
-                    onValueChange={(val) => setSelectedSv5tL3Id(Number(val))}
-                  >
-                    <SelectTrigger id="sv5t-sub-detail" className="text-left text-xs">
-                      <SelectValue placeholder="Chọn mục chi tiết..." />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      {sv5tL3List.map((crit) => (
-                        <SelectItem key={crit.id} value={String(crit.id)} className="text-xs">
-                          {crit.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSv5tCriteria(null)}
+                      className="p-1 text-muted-foreground hover:text-rose-600 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0"
+                      title="Bỏ chọn tiêu chí này"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="pt-2 border-t border-primary/20 flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">
+                      Sinh viên được ghi nhận đạt mục này khi hoàn thành
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsSv5tModalOpen(true)}
+                      className="h-7 text-xs text-primary font-medium hover:bg-primary/10 cursor-pointer"
+                    >
+                      Thay đổi tiêu chí
+                    </Button>
+                  </div>
                 </div>
               )}
 
@@ -1399,6 +1364,15 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
         onConfirm={(list) => setSelectedPointCategories(list)}
         initialSelected={selectedPointCategories}
         pointCategories={pointCategories}
+      />
+
+      {/* Modal chọn Tiêu chuẩn & Tiêu chí Sinh viên 5 Tốt */}
+      <SelectSv5tCriteriaModal
+        isOpen={isSv5tModalOpen}
+        onClose={() => setIsSv5tModalOpen(false)}
+        onConfirm={(selected) => setSelectedSv5tCriteria(selected)}
+        initialSelectedId={selectedSv5tCriteria?.id}
+        criterias={sv5tCriterias}
       />
     </div>
   )

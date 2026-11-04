@@ -80,19 +80,34 @@ export const sv5tService = {
 
   /**
    * Cập nhật trạng thái tự đánh giá và minh chứng tiêu chí con của sinh viên
+   * Backend endpoint: POST /criteria-transactions/me
    */
   async toggleManualCriteriaProgress(
     criteriaId: number,
     payload: ManualCriteriaProgressRequest
   ): Promise<void> {
+    await apiClient.post(`/criteria-transactions/me`, {
+      academicYearId: payload.academicYearId,
+      criteriaId,
+      note: payload.note || 'Sinh viên tự đánh giá tiêu chuẩn',
+    })
+  },
+
+  /**
+   * Lấy lịch sử giao dịch / ghi nhận của 1 tiêu chí SV5T
+   * Backend endpoint: GET /criteria-transactions/me/criterias/{criteriaId}/academic-years/{academicYearId}
+   */
+  async getCriteriaTransactions(
+    criteriaId: number,
+    academicYearId: number
+  ): Promise<any[]> {
     try {
-      await apiClient.post(`/criteria-progress/me`, {
-        academicYearId: payload.academicYearId,
-        criteriaId,
-        note: payload.note,
-      })
+      const res: any = await apiClient.get(
+        `/criteria-transactions/me/criterias/${criteriaId}/academic-years/${academicYearId}`
+      )
+      return Array.isArray(res) ? res : res?.data || []
     } catch {
-      // Ignore if not yet implemented on backend
+      return []
     }
   },
 }

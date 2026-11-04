@@ -64,6 +64,20 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false)
   const [isFinalizing, setIsFinalizing] = useState(false)
 
+  // Format date DD/MM/YYYY for Vietnamese users
+  const formatDateVN = (dateStr?: string) => {
+    if (!dateStr) return ''
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (match) {
+      const [, yyyy, mm, dd] = match
+      return `${dd}/${mm}/${yyyy}`
+    }
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    const pad = (n: number) => n.toString().padStart(2, '0')
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+  }
+
   // Query attendee list directly from mock backend API
   const { data: attendeesData, isLoading: isLoadingAttendees } = useQuery({
     queryKey: ['event-attendees', event.fanpageId, event.id],
@@ -123,7 +137,8 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
   const [registrations, setRegistrations] = useState<EventRegistrationItem[]>([])
 
   useEffect(() => {
-    if (attendeesData && attendeesData.length > 0) {
+    // Cap nhat ke ca khi array rong (su kien chua co ai dang ky)
+    if (attendeesData !== undefined) {
       setRegistrations(attendeesData)
     }
   }, [attendeesData])
@@ -158,6 +173,7 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
         event.id,
         updatedAttendees
       )
+      await fanpageAdminService.changeEventStatus(event.id, 'CLOSED')
     } catch (err) {
       console.warn('Finalize API failed, updating local state', err)
     }
@@ -240,8 +256,27 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
   }
 
   // Toggle a specific session (START or END) for MANUAL mode
-  const handleToggleManualSession = (regId: string, session: 'START' | 'END') => {
+  const handleToggleManualSession = async (regId: string, session: 'START' | 'END') => {
+    const targetItem = registrations.find((r) => r.id === regId)
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+    if (targetItem) {
+      const targetUserId = targetItem.userId || targetItem.id
+      try {
+        if (session === 'START') {
+          await fanpageAdminService.checkInAttendee(event.id, targetUserId)
+        } else {
+          await fanpageAdminService.checkOutAttendee(event.id, targetUserId)
+        }
+      } catch (err: any) {
+        console.warn(`Backend attendance API notice for user ${targetUserId}:`, err)
+        const rawMsg = err?.response?.data?.message || err?.message
+        if (rawMsg) {
+          setBatchNotice(`Lưu ý máy chủ: ${rawMsg}`)
+          setTimeout(() => setBatchNotice(null), 5000)
+        }
+      }
+    }
     setRegistrations((prev) =>
       prev.map((item) => {
         if (item.id !== regId) return item
@@ -286,8 +321,26 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
   }
 
   // Batch Approve all students who submitted proof (Mode: STUDENT_PROOF)
-  const handleBatchApproveProofs = () => {
+  const handleBatchApproveProofs = async () => {
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const targetUserIds: (string | number)[] = []
+
+    registrations.forEach((item) => {
+      const hasAnyProof = Boolean(item.startEvidenceUrl || item.endEvidenceUrl || item.evidenceUrl)
+      const isDone = item.status === 'COMPLETED' || item.status === 'CHECKED_IN'
+      if (hasAnyProof && !isDone) {
+        targetUserIds.push(item.userId || item.id)
+      }
+    })
+
+    if (targetUserIds.length > 0) {
+      try {
+        await fanpageAdminService.batchCheckOutAttendees(event.id, targetUserIds)
+      } catch (err) {
+        console.warn('Batch approve attendees API call notice:', err)
+      }
+    }
+
     let count = 0
     setRegistrations((prev) =>
       prev.map((item) => {
@@ -314,7 +367,22 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
   }
 
   // Handle Approve Proof in Modal (or inline)
-  const handleApproveProof = (regId: string) => {
+  const handleApproveProof = async (regId: string) => {
+    const targetItem = registrations.find((r) => r.id === regId)
+    if (targetItem) {
+      const targetUserId = targetItem.userId || targetItem.id
+      try {
+        await fanpageAdminService.checkOutAttendee(event.id, targetUserId)
+      } catch (err: any) {
+        console.warn(`Backend attendance API notice for user ${targetUserId}:`, err)
+        const rawMsg = err?.response?.data?.message || err?.message
+        if (rawMsg) {
+          setBatchNotice(`Lưu ý máy chủ: ${rawMsg}`)
+          setTimeout(() => setBatchNotice(null), 5000)
+        }
+      }
+    }
+
     setRegistrations((prev) =>
       prev.map((item) =>
         item.id === regId
@@ -596,7 +664,7 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
               <div className="flex items-center gap-1.5">
                 <CalendarDays className="h-4 w-4 text-primary shrink-0" />
                 <span className="text-foreground font-medium">
-                  {event.timeStart}–{event.timeEnd} · {event.dateStart}
+                  {event.timeStart}–{event.timeEnd} · {formatDateVN(event.dateStart)}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 min-w-0">

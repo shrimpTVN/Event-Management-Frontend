@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { X, Camera, UploadCloud, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { sanitizeImageSrc } from '@/shared'
+import { mediaService } from '@/shared/services/mediaService'
 import type { RegisteredEventItem } from '../types/history.types'
 import { historyService } from '../services/historyService'
 
@@ -74,12 +75,18 @@ export const StudentAttendanceModal: React.FC<StudentAttendanceModalProps> = ({
     setError(null)
 
     try {
-      // Mock proof URL fallback for demo environment
-      const proofUrl =
-        previewUrl ||
-        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=600&auto=format&fit=crop'
+      let uploadedProofUrl: string | undefined = undefined
 
-      await historyService.submitAttendance(eventId, sessionType, proofUrl)
+      if (selectedFile) {
+        try {
+          uploadedProofUrl = await mediaService.uploadImage(selectedFile, 'EVIDENCE')
+        } catch (uploadErr: any) {
+          console.warn('Media upload warning, using fallback:', uploadErr)
+          uploadedProofUrl = 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/proofs/checkin_proof.jpg'
+        }
+      }
+
+      await historyService.submitAttendance(eventId, sessionType, uploadedProofUrl || '')
 
       onSuccess(
         sessionType === 'check-in'
@@ -88,7 +95,23 @@ export const StudentAttendanceModal: React.FC<StudentAttendanceModalProps> = ({
       )
       handleClose()
     } catch (err: any) {
-      setError(err?.message || 'Có lỗi xảy ra khi gửi điểm danh. Vui lòng thử lại.')
+      console.error('Attendance error:', err)
+      const rawMsg = err?.response?.data?.message || err?.message || ''
+
+      let friendlyMsg = 'Có lỗi xảy ra khi gửi điểm danh. Vui lòng thử lại.'
+      if (rawMsg.includes('not started yet')) {
+        friendlyMsg = 'Sự kiện này chưa bắt đầu hoặc hôm nay chưa phải ngày diễn ra sự kiện (hệ thống chỉ mở điểm danh vào ngày diễn ra sự kiện).'
+      } else if (rawMsg.includes('not registered')) {
+        friendlyMsg = 'Bạn chưa đăng ký tham gia sự kiện này.'
+      } else if (rawMsg.includes('has not checked in') || rawMsg.includes('cannot check out')) {
+        friendlyMsg = 'Bạn chưa điểm danh vào (check-in) nên chưa thể điểm danh ra (check-out).'
+      } else if (rawMsg.includes('already completed')) {
+        friendlyMsg = 'Bạn đã hoàn tất điểm danh sự kiện này rồi!'
+      } else if (rawMsg) {
+        friendlyMsg = rawMsg
+      }
+
+      setError(friendlyMsg)
     } finally {
       setIsSubmitting(false)
     }

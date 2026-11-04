@@ -60,7 +60,7 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
       }
       const res: any = await apiClient.get('/fanpages', { params: { size: 50 } })
       const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
-      return list.map((fp: any, idx: number) => ({
+      return list.map((fp: any, _idx: number) => ({
         id: String(fp.id),
         name: fp.orgName || (fp.name?.includes('CNTT') ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông' : fp.name),
         avatarUrl: fp.avatarUrl || (String(fp.id) === '1' ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg' : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'),

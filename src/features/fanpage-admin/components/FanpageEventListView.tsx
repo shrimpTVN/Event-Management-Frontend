@@ -10,9 +10,10 @@ import {
   RotateCcw,
   Pencil,
 } from 'lucide-react'
+import { useQueries } from '@tanstack/react-query'
 import { cn } from '@/shared/utils/cn'
 import type { AdminEvent, EventStatus } from '../types/fanpageAdmin.types'
-import { MOCK_ADMIN_EVENTS, MOCK_EVENT_TYPES } from '../services/fanpageAdminService'
+import { MOCK_ADMIN_EVENTS, MOCK_EVENT_TYPES, fanpageAdminService } from '../services/fanpageAdminService'
 
 interface FanpageEventListViewProps {
   events?: AdminEvent[]
@@ -32,6 +33,27 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
   const [activeStatusTab, setActiveStatusTab] = useState<string>('ALL')
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const filterRef = useRef<HTMLDivElement>(null)
+
+  // Fetch registeredCount thực từ BE cho từng sự kiện (vì EventResponseDto không có trường này)
+  const registeredCountQueries = useQueries({
+    queries: events.map((evt) => ({
+      queryKey: ['event-registered-count', evt.fanpageId, evt.id],
+      queryFn: () => fanpageAdminService.getEventRegisteredCount(evt.fanpageId, evt.id),
+      staleTime: 30_000, // cache 30s
+      retry: 1,
+    })),
+  })
+
+  // Map eventId -> registeredCount thực
+  const registeredCountMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    events.forEach((evt, idx) => {
+      const count = registeredCountQueries[idx]?.data
+      // Nếu fetch được → dùng real count, nếu không → giữ nguyên từ event data
+      map[evt.id] = typeof count === 'number' ? count : (evt.registeredCount ?? 0)
+    })
+    return map
+  }, [events, registeredCountQueries])
 
   // Đóng popover bộ lọc khi click ra ngoài
   useEffect(() => {
@@ -123,17 +145,27 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
         : 'Chưa có sự kiện trong học kỳ này'
   }
 
+  // Hàm định dạng ngày chuẩn DD/MM/YYYY thân thiện với người dùng Việt Nam
+  const formatDateVN = (dateStr?: string) => {
+    if (!dateStr) return ''
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (match) {
+      const [, yyyy, mm, dd] = match
+      return `${dd}/${mm}/${yyyy}`
+    }
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    const pad = (n: number) => n.toString().padStart(2, '0')
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+  }
+
   // Tìm ngày sự kiện sắp diễn ra gần nhất từ dữ liệu thật
   const nextUpcomingEvent = [...validEvents]
     .filter((e) => e.status !== 'CLOSED' && e.status !== 'CANCELLED')
     .sort((a, b) => new Date(a.dateStart).getTime() - new Date(b.dateStart).getTime())[0]
 
   const nextDateText = nextUpcomingEvent?.dateStart
-    ? (() => {
-        const d = new Date(nextUpcomingEvent.dateStart)
-        const pad = (n: number) => n.toString().padStart(2, '0')
-        return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`
-      })()
+    ? formatDateVN(nextUpcomingEvent.dateStart)
     : null
 
   const upcomingSubText = nextDateText
@@ -145,19 +177,19 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
     const list: { title: string; desc: string }[] = []
     if (evt.trainingPoints && evt.trainingPoints > 0) {
       list.push({
-        title: `+${evt.trainingPoints} ĐRL`,
+        title: `+${evt.trainingPoints} Điểm rèn luyện (ĐRL)`,
         desc: evt.trainingPointCategoryName || 'Cộng điểm rèn luyện theo quy chế Nhà trường',
       })
     }
     if (evt.sv5tCriteriaName) {
       list.push({
-        title: 'Tiêu chuẩn SV5T',
+        title: 'Tiêu chí Sinh viên 5 Tốt (SV5T)',
         desc: evt.sv5tCriteriaName,
       })
     }
     if (evt.hasCertificate) {
       list.push({
-        title: 'Giấy chứng nhận',
+        title: 'Giấy chứng nhận (E-Certificate)',
         desc: 'Cấp chứng nhận điện tử sau khi hoàn thành điểm danh',
       })
     }
@@ -485,7 +517,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                 <div className="col-span-4">Tên sự kiện</div>
                 <div className="col-span-3">Thời gian & Địa điểm</div>
                 <div className="col-span-2">Đăng ký / Sức chứa</div>
-                <div className="col-span-1">Quyền lợi</div>
+                <div className="col-span-1" title="Quyền lợi sinh viên (Điểm rèn luyện, Sinh viên 5 tốt, Giấy chứng nhận)">Quyền lợi</div>
                 <div className="col-span-1 text-center">Trạng thái</div>
                 <div className="col-span-1 text-right">Chi tiết</div>
               </div>
@@ -501,9 +533,10 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                   </div>
                 ) : (
                   filteredEvents.map((evt) => {
+                    const realRegisteredCount = registeredCountMap[evt.id] ?? evt.registeredCount ?? 0
                     const regPercent = Math.min(
                       100,
-                      Math.round((evt.registeredCount / evt.capacity) * 100)
+                      Math.round((realRegisteredCount / evt.capacity) * 100)
                     )
                     const benefits = getEventBenefits(evt)
 
@@ -539,7 +572,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                           <div className="flex items-center gap-1.5 text-foreground font-medium">
                             <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                             <span>
-                              {evt.dateStart} · {evt.timeStart} - {evt.timeEnd}
+                              {formatDateVN(evt.dateStart)} · {evt.timeStart} - {evt.timeEnd}
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5 text-muted-foreground line-clamp-1">
@@ -559,7 +592,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                                   : "text-foreground"
                               )}
                             >
-                              {evt.registeredCount} / {evt.capacity}
+                              {realRegisteredCount} / {evt.capacity}
                             </span>
                             <span
                               className={cn(
@@ -590,15 +623,24 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                           <div className="relative group/benefits inline-block text-left py-0.5">
                             <div className="flex items-center gap-1.5 cursor-pointer">
                               {evt.trainingPoints && evt.trainingPoints > 0 ? (
-                                <span className="font-medium text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/70 text-[11px] whitespace-nowrap">
+                                <span
+                                  className="font-medium text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/70 text-[11px] whitespace-nowrap cursor-help hover:bg-muted/90 transition-colors"
+                                  title={`+${evt.trainingPoints} Điểm rèn luyện (ĐRL)${evt.trainingPointCategoryName ? `: ${evt.trainingPointCategoryName}` : ''}`}
+                                >
                                   +{evt.trainingPoints} ĐRL
                                 </span>
                               ) : evt.sv5tCriteriaName ? (
-                                <span className="font-medium text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/70 text-[11px] whitespace-nowrap">
+                                <span
+                                  className="font-medium text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/70 text-[11px] whitespace-nowrap cursor-help hover:bg-muted/90 transition-colors"
+                                  title={`Tiêu chí Sinh viên 5 Tốt: ${evt.sv5tCriteriaName}`}
+                                >
                                   SV5T
                                 </span>
                               ) : evt.hasCertificate ? (
-                                <span className="font-medium text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/70 text-[11px] whitespace-nowrap">
+                                <span
+                                  className="font-medium text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/70 text-[11px] whitespace-nowrap cursor-help hover:bg-muted/90 transition-colors"
+                                  title="Cấp Giấy chứng nhận điện tử (E-Certificate)"
+                                >
                                   Chứng nhận
                                 </span>
                               ) : (

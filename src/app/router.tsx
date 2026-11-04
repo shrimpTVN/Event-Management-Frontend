@@ -1,10 +1,9 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { PageShell } from '@/shared'
 import { AuthGuard, STAFF_ROLES, ADMIN_ROLES } from '@/features/auth'
 import { HomePage } from '../pages/HomePage'
 import { EventDetailPage } from '../pages/EventDetailPage'
 import { RegistrationPage } from '../pages/RegistrationPage'
-import { CheckInPage } from '../pages/CheckInPage'
 import { CertificatePage } from '../pages/CertificatePage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { LoginPage } from '../pages/LoginPage'
@@ -159,11 +158,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'checkin',
-        element: (
-          <AuthGuard>
-            <CheckInPage />
-          </AuthGuard>
-        ),
+        element: <Navigate to="/history" replace />,
       },
       {
         path: 'certificate',

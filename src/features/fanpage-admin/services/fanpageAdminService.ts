@@ -326,7 +326,35 @@ export const fanpageAdminService = {
   },
 
   /**
-   * Fetches attendee registration list for a specific event
+   * Fetches the real-time registered count (excluding CANCELLED) for a specific event.
+   * BE chưa lọc CANCELLED nên fetch size=200 rồi đếm ở FE sau khi lọc.
+   */
+  getEventRegisteredCount: async (
+    fanpageId: string | number,
+    eventId: string | number
+  ): Promise<number> => {
+    const targetFpId = fanpageId || '1'
+    try {
+      const res: any = await apiClient.get(
+        `/registrations/fanpage-member/fanpages/${targetFpId}/events/${eventId}/attendees?size=200&page=0`
+      )
+      const list: any[] = Array.isArray(res)
+        ? res
+        : res?.data?.content ?? res?.content ?? res?.data ?? []
+      // Lọc bỏ CANCELLED trước khi đếm
+      return list.filter((item: any) => (item.status ?? '').toUpperCase() !== 'CANCELLED').length
+    } catch {
+      return 0
+    }
+  },
+
+  /**
+   * Fetches attendee registration list for a specific event.
+   * Maps BE response (firstName + lastName, majorName, studentId, kNumber)
+   * to the EventRegistrationItem shape expected by the UI.
+   * - Lọc bỏ bản ghi CANCELLED (sinh viên đã hủy đăng ký)
+   * - Map checkInAt/checkOutAt (Instant) sang giờ hiển thị
+   * - studentId/kNumber/major: sẽ có khi BE uncomment trong AttendeeInfoDto
    */
   getEventAttendees: async (
     fanpageId: string | number,
@@ -334,11 +362,86 @@ export const fanpageAdminService = {
   ): Promise<EventRegistrationItem[]> => {
     const targetFpId = fanpageId || '1'
     try {
+      // size=200 để lấy đủ danh sách (BE mặc định chỉ trả 10)
       const res: any = await apiClient.get(
-        `/registrations/fanpage-member/fanpages/${targetFpId}/events/${eventId}/attendees`
+        `/registrations/fanpage-member/fanpages/${targetFpId}/events/${eventId}/attendees?size=200&sortBy=regDate&sortDir=asc`
       )
-      const list = Array.isArray(res) ? res : res?.data || res?.content || []
+      // BE có thể trả Array thẳng, hoặc bọc trong data/content (Page object)
+      const list: any[] = Array.isArray(res)
+        ? res
+        : res?.data?.content ?? res?.content ?? res?.data ?? []
+
       return list
+        // ❌ Lọc bỏ sinh viên đã hủy đăng ký — BE (findAllByEventId) trả cả CANCELLED
+        .filter((item: any) => {
+          const st = (item.status ?? '').toUpperCase()
+          return st !== 'CANCELLED'
+        })
+        .map((item: any): EventRegistrationItem => {
+          // BE trả firstName + lastName riêng → ghép fullName (họ trước, tên sau)
+          const fullName =
+            item.fullName ||
+            [item.lastName, item.firstName].filter(Boolean).join(' ') ||
+            item.name ||
+            `Người dùng #${item.userId ?? item.id ?? '?'}`
+
+          // regDate từ BE (Instant) → format sang chuỗi dễ đọc
+          const registeredAt =
+            item.registeredAt ||
+            (item.regDate ? new Date(item.regDate).toLocaleString('vi-VN') : '')
+
+          // Normalize status: map REGISTERED → APPROVED để UI hiển thị "Chưa điểm danh"
+          const rawStatus = (item.status ?? '').toUpperCase()
+          const status: EventRegistrationItem['status'] =
+            rawStatus === 'REGISTERED'
+              ? 'APPROVED'
+              : (rawStatus as EventRegistrationItem['status']) || 'APPROVED'
+
+          // checkInAt / checkOutAt từ BE (Instant) → HH:mm
+          const toTime = (val?: string | null) => {
+            if (!val) return undefined
+            const d = new Date(val)
+            return isNaN(d.getTime())
+              ? undefined
+              : d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+          }
+
+          // BE field names: checkInAt, checkOutAt (RegistrationJpaEntity)
+          const entryCheckInTime =
+            item.entryCheckInTime || toTime(item.checkInAt ?? item.checkInTime)
+
+          const checkOutTime =
+            item.checkOutTime || toTime(item.checkOutAt ?? item.checkOutInstant)
+
+          // studentId: sẽ có khi BE join StudentProfile và uncomment trong AttendeeInfoDto
+          const studentId =
+            item.studentId ?? item.studentCode ?? item.mssv ?? ''
+
+          return {
+            id: String(item.id ?? item.registrationId ?? item.userId ?? Math.random()),
+            userId: String(item.userId ?? item.id ?? ''),
+            studentId,
+            fullName,
+            major: item.major ?? item.majorName ?? item.nganhHoc ?? '',
+            kNumber: Number(item.kNumber ?? item.knumber ?? item.khoaHoc ?? 0),
+            email: item.email ?? '',
+            phone: item.phone ?? item.phoneNumber ?? '',
+            avatarUrl: item.avatarUrl ?? undefined,
+            registeredAt,
+            status,
+            entryCheckInTime,
+            checkOutTime,
+            pinCheckInTime: item.pinCheckInTime ?? undefined,
+            checkInTime: item.checkInAt
+              ? new Date(item.checkInAt).toLocaleString('vi-VN')
+              : item.checkInTime
+              ? new Date(item.checkInTime).toLocaleString('vi-VN')
+              : undefined,
+            evidenceUrl: item.checkInEvidenceUrl ?? item.evidenceUrl ?? undefined,
+            startEvidenceUrl: item.startEvidenceUrl ?? undefined,
+            endEvidenceUrl: item.checkOutEvidenceUrl ?? item.endEvidenceUrl ?? undefined,
+          }
+        })
     } catch (err) {
       console.error('Failed to fetch event attendees', err)
       return []
@@ -346,18 +449,85 @@ export const fanpageAdminService = {
   },
 
   /**
-   * Finalizes event attendance and syncs to database
+   * Organizer Check-in a single student
+   * Endpoint: PATCH /registrations/fanpage-member/events/{eventId}/users/{studentUserId}/check-in
+   */
+  checkInAttendee: async (
+    eventId: string | number,
+    studentUserId: string | number
+  ): Promise<void> => {
+    await apiClient.patch(
+      `/registrations/fanpage-member/events/${eventId}/users/${studentUserId}/check-in`
+    )
+  },
+
+  /**
+   * Organizer Check-out a single student
+   * Endpoint: PATCH /registrations/fanpage-member/events/{eventId}/users/{studentUserId}/check-out
+   */
+  checkOutAttendee: async (
+    eventId: string | number,
+    studentUserId: string | number
+  ): Promise<void> => {
+    await apiClient.patch(
+      `/registrations/fanpage-member/events/${eventId}/users/${studentUserId}/check-out`
+    )
+  },
+
+  /**
+   * Organizer Batch Check-in students
+   * Endpoint: PATCH /registrations/fanpage-member/events/{eventId}/check-in
+   */
+  batchCheckInAttendees: async (
+    eventId: string | number,
+    studentUserIds: (string | number)[]
+  ): Promise<void> => {
+    const numericIds = studentUserIds.map(Number).filter((id) => !isNaN(id) && id > 0)
+    if (numericIds.length === 0) return
+    await apiClient.patch(`/registrations/fanpage-member/events/${eventId}/check-in`, {
+      studentUserIds: numericIds,
+    })
+  },
+
+  /**
+   * Organizer Batch Check-out students (awards training points & criteria in backend)
+   * Endpoint: PATCH /registrations/fanpage-member/events/{eventId}/check-out
+   */
+  batchCheckOutAttendees: async (
+    eventId: string | number,
+    studentUserIds: (string | number)[]
+  ): Promise<void> => {
+    const numericIds = studentUserIds.map(Number).filter((id) => !isNaN(id) && id > 0)
+    if (numericIds.length === 0) return
+    await apiClient.patch(`/registrations/fanpage-member/events/${eventId}/check-out`, {
+      studentUserIds: numericIds,
+    })
+  },
+
+  /**
+   * Finalizes event attendance and syncs to database.
+   * BE marks attendance as completed & awards points via check-out endpoint.
    */
   finalizeAttendance: async (
-    fanpageId: string | number,
+    _fanpageId: string | number,
     eventId: string | number,
     attendees: EventRegistrationItem[]
   ): Promise<void> => {
-    const targetFpId = fanpageId || '1'
-    await apiClient.post(
-      `/registrations/fanpage-member/fanpages/${targetFpId}/events/${eventId}/finalize`,
-      { attendees }
-    )
+    // 1. Identify all attendees who should be completed / checked out
+    const completedUserIds = attendees
+      .filter((a) => a.status === 'COMPLETED' || a.status === 'CHECKED_IN' || a.status === 'ENTRY_CHECKED')
+      .map((a) => Number(a.userId || a.id))
+      .filter((id) => !isNaN(id) && id > 0)
+
+    if (completedUserIds.length > 0) {
+      try {
+        await apiClient.patch(`/registrations/fanpage-member/events/${eventId}/check-out`, {
+          studentUserIds: completedUserIds,
+        })
+      } catch (err) {
+        console.warn('Batch check-out during finalize failed or partially succeeded:', err)
+      }
+    }
   },
 
   /**
@@ -603,11 +773,24 @@ export const MOCK_SEMESTERS = [
 ]
 
 export const MOCK_EVENT_TYPES = [
-  { id: 1, name: 'Hướng nghiệp · Việc làm' },
-  { id: 2, name: 'Học thuật · Nghiên cứu · Công nghệ' },
-  { id: 3, name: 'Tình nguyện · Hoạt động xã hội' },
-  { id: 4, name: 'Văn hóa · Văn nghệ · Thể thao' },
-  { id: 5, name: 'Kỹ năng mềm · Hội thảo' },
+  { id: 1, name: 'Workshop - Tập huấn kỹ năng' },
+  { id: 2, name: 'Networking - Kết nối & Giao lưu' },
+  { id: 3, name: 'Thể dục - Thể thao & Hội thao' },
+  { id: 4, name: 'Tình nguyện & Hoạt động cộng đồng' },
+  { id: 5, name: 'Học thuật & Nghiên cứu khoa học' },
+  { id: 6, name: 'Tọa đàm chuyên đề (Seminar)' },
+  { id: 7, name: 'Cuộc thi học thuật & Hackathon' },
+  { id: 8, name: 'Ngày hội việc làm & Hướng nghiệp (Job Fair)' },
+  { id: 9, name: 'Văn hóa - Văn nghệ & Âm nhạc' },
+  { id: 10, name: 'Lễ tuyên dương & Trao giải thưởng' },
+  { id: 11, name: 'Chào đón tân sinh viên & Đầu khóa' },
+  { id: 12, name: 'Hoạt động Đoàn - Hội & Cán bộ sinh viên' },
+  { id: 13, name: 'Kỹ năng mềm & Phát triển bản thân' },
+  { id: 14, name: 'Giao lưu quốc tế & Hội nhập ngoại ngữ' },
+  { id: 15, name: 'Hiến máu tình nguyện & Y tế học đường' },
+  { id: 16, name: 'Môi trường xanh & Ngày Chủ nhật xanh' },
+  { id: 17, name: 'Triển lãm & Trình diễn công nghệ (Tech Expo)' },
+  { id: 18, name: 'Diễn đàn đối thoại sinh viên' },
 ]
 
 export const MOCK_POINT_CATEGORIES = [

@@ -178,8 +178,10 @@ export const historyService = {
   async submitAttendance(
     eventId: string | number,
     sessionType: 'check-in' | 'check-out',
-    proofUrl: string
+    proofUrl?: string
   ): Promise<void> {
-    await apiClient.patch(`/registrations/me/events/${eventId}/${sessionType}`, { proofUrl })
+    await apiClient.patch(`/registrations/me/events/${eventId}/${sessionType}`, {
+      ...(proofUrl ? { proofUrl } : {}),
+    })
   },
 }
