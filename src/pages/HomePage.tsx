@@ -63,13 +63,38 @@ export const HomePage: React.FC = () => {
     return new Set(storedEvents.map((e) => String(e.id)))
   }, [storedEvents])
 
+  // Fetch registered events for the user to accurately mark isRegistered state
+  const { data: upcomingRegistrations = [] } = useQuery<any[]>({
+    queryKey: ['registrations', 'me', isAuthenticated],
+    queryFn: async () => {
+      if (!isAuthenticated) return []
+      try {
+        const res: any = await apiClient.get('/registrations/me/upcoming')
+        const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
+        return list
+      } catch {
+        return []
+      }
+    },
+    enabled: isAuthenticated,
+  })
+
+  const registeredEventIds = useMemo(() => {
+    return new Set(
+      upcomingRegistrations
+        .filter((r: any) => r.status === 'REGISTERED' || !r.status)
+        .map((r: any) => String(r.eventId || r.id))
+    )
+  }, [upcomingRegistrations])
+
   const eventsWithFollowState = useMemo(() => {
     return events.map((evt) => ({
       ...evt,
       isFollowed: evt.isFollowed || followedFanpageIds.has(String(evt.organizerId)),
       isSaved: storedEventIds.has(String(evt.id)) || Boolean(evt.isSaved),
+      isRegistered: registeredEventIds.has(String(evt.id)) || Boolean(evt.isRegistered),
     }))
-  }, [events, followedFanpageIds, storedEventIds])
+  }, [events, followedFanpageIds, storedEventIds, registeredEventIds])
 
   // Filter events by selected feed tab
   const filteredEvents = eventsWithFollowState.filter((evt) => {

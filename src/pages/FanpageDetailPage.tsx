@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '@/features/auth'
+import { apiClient } from '@/shared'
 import {
   FanpagePublicHeader,
   FanpageAboutCard,
@@ -32,6 +34,39 @@ export const FanpageDetailPage: React.FC = () => {
     queryFn: () => fanpageService.getEventsByFanpage(fanpageId),
     enabled: Boolean(fanpageId),
   })
+
+  const { isAuthenticated } = useAuthStore()
+
+  // Fetch registered events for the user to accurately mark isRegistered state
+  const { data: upcomingRegistrations = [] } = useQuery<any[]>({
+    queryKey: ['registrations', 'me', isAuthenticated],
+    queryFn: async () => {
+      if (!isAuthenticated) return []
+      try {
+        const res: any = await apiClient.get('/registrations/me/upcoming')
+        const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
+        return list
+      } catch {
+        return []
+      }
+    },
+    enabled: isAuthenticated,
+  })
+
+  const registeredEventIds = useMemo(() => {
+    return new Set(
+      upcomingRegistrations
+        .filter((r: any) => r.status === 'REGISTERED' || !r.status)
+        .map((r: any) => String(r.eventId || r.id))
+    )
+  }, [upcomingRegistrations])
+
+  const eventsWithRegisteredState = useMemo(() => {
+    return events.map((event) => ({
+      ...event,
+      isRegistered: registeredEventIds.has(String(event.id)) || Boolean(event.isRegistered),
+    }))
+  }, [events, registeredEventIds])
 
   const [notification, setNotification] = useState<{
     type: 'success' | 'info'
@@ -268,9 +303,9 @@ export const FanpageDetailPage: React.FC = () => {
                           </div>
                         ))}
                       </div>
-                    ) : events.length > 0 ? (
+                    ) : eventsWithRegisteredState.length > 0 ? (
                       <div className="flex flex-col gap-2">
-                        {events.map((event) => (
+                        {eventsWithRegisteredState.map((event) => (
                           <EventFeedCard
                             key={event.id}
                             event={event}

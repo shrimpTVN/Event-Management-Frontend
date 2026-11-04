@@ -129,8 +129,8 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
       return
     }
 
-    // 2. Kiểm tra thông tin sinh viên - chỉ yêu cầu khi đăng ký sự kiện
-    if (!user.isProfileComplete) {
+    // 2. Kiểm tra thông tin sinh viên - chỉ yêu cầu khi sinh viên chưa hoàn thiện hồ sơ
+    if (user.role === 'STUDENT' && user.isProfileComplete === false) {
       setShowProfilePrompt(true)
       return
     }
@@ -143,9 +143,17 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
 
       const request = (async () => {
         try {
-          return await apiClient.post(`/events/${eventId}/register`)
-        } catch {
-          return await apiClient.post('/registrations', { eventId: Number(eventId) })
+          return await apiClient.post(`/registrations/me/events/${eventId}`)
+        } catch (err: any) {
+          // If 404, fallback to alternative endpoints
+          if (err?.response?.status === 404) {
+            try {
+              return await apiClient.post(`/events/${eventId}/register`)
+            } catch {
+              return await apiClient.post('/registrations', { eventId: Number(eventId) })
+            }
+          }
+          throw err
         }
       })()
 
@@ -157,10 +165,18 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
       onRegisterSuccess?.()
     } catch (err: any) {
       console.error('Registration failed:', err)
-      const serverMsg =
-        err?.response?.data?.message ||
-        err?.message ||
-        'Đã có lỗi xảy ra trong quá trình đăng ký sự kiện. Vui lòng thử lại sau hoặc liên hệ Ban tổ chức.'
+      const rawMsg = err?.response?.data?.message || err?.message || ''
+      let serverMsg = 'Đã có lỗi xảy ra trong quá trình đăng ký sự kiện. Vui lòng thử lại sau hoặc liên hệ Ban tổ chức.'
+
+      if (rawMsg.includes('had registered') || rawMsg.includes('already registered')) {
+        serverMsg = 'Bạn đã đăng ký tham gia sự kiện này rồi!'
+        setIsRegistered(true)
+      } else if (rawMsg.includes('not open yet') || rawMsg.includes('already closed')) {
+        serverMsg = 'Sự kiện hiện chưa mở đăng ký hoặc đã hết thời hạn đăng ký!'
+      } else if (rawMsg) {
+        serverMsg = rawMsg
+      }
+
       setErrorModal({
         isOpen: true,
         message: serverMsg,
