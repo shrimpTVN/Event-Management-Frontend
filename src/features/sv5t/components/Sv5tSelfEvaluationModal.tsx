@@ -28,7 +28,18 @@ export const Sv5tSelfEvaluationModal: React.FC<Sv5tSelfEvaluationModalProps> = (
   useEffect(() => {
     if (isOpen) {
       setCompleted(initialCompleted)
-      setNote(currentNote || '')
+      const isGeneric = (str?: string | null) => {
+        if (!str) return true
+        const s = str.trim().toLowerCase()
+        return (
+          s === 'sinh viên tự đánh giá tiêu chuẩn' ||
+          s === 'sinh viên tự đánh giá đạt tiêu chuẩn' ||
+          s === 'sinh viên tự đánh giá đạt' ||
+          s === 'sinh viên tự đánh giá' ||
+          s === 'tự đánh giá'
+        )
+      }
+      setNote(isGeneric(currentNote) ? '' : currentNote || '')
       setError(null)
     }
   }, [isOpen, initialCompleted, currentNote])
@@ -98,7 +109,7 @@ export const Sv5tSelfEvaluationModal: React.FC<Sv5tSelfEvaluationModalProps> = (
                   onClick={() => setCompleted(true)}
                   className={`flex items-center justify-center gap-2 p-2.5 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
                     completed
-                      ? 'bg-[#F0FDF4] border-[#15803D] text-[#15803D] dark:bg-emerald-950/40 dark:border-emerald-600 shadow-2xs'
+                      ? 'bg-emerald-50 border-emerald-600 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-500 dark:text-emerald-300 shadow-2xs'
                       : 'bg-background border-input text-muted-foreground hover:bg-muted/50'
                   }`}
                 >
@@ -149,7 +160,7 @@ export const Sv5tSelfEvaluationModal: React.FC<Sv5tSelfEvaluationModalProps> = (
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 text-xs md:text-sm font-semibold text-white bg-[#1B4B8A] hover:bg-[#153a6b] rounded-md transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+              className="px-5 py-2 text-xs md:text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-md transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
             >
               {isSubmitting ? 'Đang lưu...' : 'Lưu đánh giá'}
             </button>

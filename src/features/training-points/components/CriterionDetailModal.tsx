@@ -1,5 +1,5 @@
 import React from 'react'
-import { X, CheckCircle2, Calendar } from 'lucide-react'
+import { X } from 'lucide-react'
 import type { PointTransaction } from '../types/trainingPoints.types'
 
 interface CriterionDetailModalProps {
@@ -12,6 +12,7 @@ interface CriterionDetailModalProps {
   selfScore: number
   selfDescription?: string
   totalPoints: number
+  onOpenSelfEvaluation?: () => void
 }
 
 function formatDate(dateStr?: string): string {
@@ -38,143 +39,153 @@ export const CriterionDetailModal: React.FC<CriterionDetailModalProps> = ({
   selfScore,
   selfDescription,
   totalPoints,
+  onOpenSelfEvaluation,
 }) => {
   if (!isOpen) return null
 
+  const progressPercent = Math.min(
+    100,
+    Math.max(0, (totalPoints / (maxPoints || 1)) * 100)
+  )
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={onClose}
+    >
       <div
-        className="bg-card text-card-foreground border border-border w-full max-w-lg rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-card text-card-foreground border border-border/60 w-full max-w-[440px] rounded-2xl shadow-2xl p-6 sm:p-7 space-y-6"
         role="dialog"
         aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/40">
-          <div className="min-w-0 pr-2">
-            <h3 className="font-semibold text-base text-foreground font-heading">
-              Chi tiết điểm tiêu chí
-            </h3>
-            <p className="text-xs text-muted-foreground truncate">
-              {criteriaCode} - {criterionName}
+        {/* Header: Subtitle, Title & Close Button */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1 pr-2">
+            <p className="text-xs text-muted-foreground font-medium">
+              Chi tiết điểm tiêu chí · {criteriaCode}
             </p>
+            <h4 className="text-[15px] font-semibold text-foreground leading-snug">
+              {criterionName}
+            </h4>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+            className="p-1 -mr-1 -mt-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer rounded-lg"
             aria-label="Đóng"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-5 overflow-y-auto space-y-4 text-xs md:text-sm custom-scrollbar">
-          {/* Section 1: Dữ liệu ghi nhận từ hệ thống */}
-          <div className="space-y-2">
-            <div className="font-semibold text-foreground">
-              1. Dữ liệu hệ thống ghi nhận
-            </div>
-
-            {recordedTransactions.length > 0 ? (
-              <div className="space-y-2">
-                {recordedTransactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="p-3 rounded-lg border border-border bg-muted/20 flex flex-col gap-1.5"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium text-foreground leading-snug">
-                        {tx.eventName || tx.description || 'Hoạt động được ghi nhận'}
-                      </span>
-                      <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400 shrink-0">
-                        +{tx.points} điểm
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/50">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(tx.createdAt)}
-                      </span>
-                      <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Đã xác nhận
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-3 rounded-lg bg-muted/30 border border-dashed border-border text-center text-xs text-muted-foreground">
-                Chưa có hoạt động hay điểm ghi nhận tự động nào từ hệ thống.
-              </div>
-            )}
+        {/* Điểm tổng hợp lớn & Progress bar mỏng (Màu hệ thống: text-primary, bg-primary, bg-muted) */}
+        <div className="space-y-2.5">
+          <div className="flex items-baseline gap-1.5 font-heading">
+            <span className="text-4xl sm:text-5xl font-bold text-primary tracking-tight">
+              {totalPoints}
+            </span>
+            <span className="text-base text-muted-foreground font-normal">
+              / {maxPoints} điểm
+            </span>
           </div>
 
-          {/* Section 2: Sinh viên tự đánh giá */}
-          <div className="space-y-2 pt-2 border-t border-border/60">
-            <div className="font-semibold text-foreground">
-              2. Sinh viên tự đánh giá
-            </div>
-
-            {selfScore > 0 || selfDescription ? (
-              <div className="p-3 rounded-lg border border-border bg-muted/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-xs">Điểm tự chấm:</span>
-                  <span className="font-bold text-sm text-[#1B4B8A] dark:text-primary">
-                    {selfScore} điểm
-                  </span>
-                </div>
-
-                <div className="space-y-1 pt-1.5 border-t border-border/50">
-                  <span className="text-muted-foreground text-[11px] block">
-                    Nội dung minh chứng / giải trình:
-                  </span>
-                  <p className="text-xs text-foreground bg-background p-2.5 rounded border border-border leading-relaxed whitespace-pre-wrap">
-                    {selfDescription || 'Sinh viên tự chấm điểm theo đúng quy định rèn luyện.'}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="p-3 rounded-lg bg-muted/30 border border-dashed border-border text-center text-xs text-muted-foreground">
-                Sinh viên chưa tự chấm điểm cho tiêu chí này.
-              </div>
-            )}
+          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
 
-          {/* Section 3: Tổng điểm tiêu chí */}
-          <div className="pt-2 border-t border-border/60">
-            <div className="p-3.5 rounded-lg bg-[#EFF5FC] dark:bg-primary/10 border border-[#DBEAFE] dark:border-primary/20 flex items-center justify-between">
-              <div>
-                <span className="font-semibold text-foreground text-xs block">
-                  Tổng điểm tổng hợp tiêu chí
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  (Điểm hệ thống + SV tự đánh giá, tối đa {maxPoints}đ)
-                </span>
-              </div>
-              <div className="flex items-baseline gap-1 font-heading">
-                <span className="text-xl font-bold text-[#008CCC] dark:text-cyan-400">
-                  {totalPoints}
-                </span>
-                <span className="text-xs text-muted-foreground">/ {maxPoints}</span>
-              </div>
-            </div>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            Tổng = điểm hệ thống + sinh viên tự đánh giá, tối đa {maxPoints} điểm.
+          </p>
         </div>
 
-        {/* Footer */}
-        <div className="px-5 py-3 border-t border-border bg-muted/20 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-xs md:text-sm font-semibold text-white bg-[#1B4B8A] hover:bg-[#153a6b] rounded-md transition-colors cursor-pointer shadow-2xs"
-          >
-            Đóng
-          </button>
+        {/* Section 1: Dữ liệu hệ thống ghi nhận */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground">
+            Hệ thống ghi nhận
+          </h4>
+
+          {recordedTransactions.length > 0 ? (
+            <div className="space-y-3">
+              {recordedTransactions.map((tx) => (
+                <div key={tx.id} className="space-y-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-[14px] text-foreground font-normal leading-snug">
+                      {tx.eventName || tx.description || 'Hoạt động được ghi nhận'}
+                    </span>
+                    <span className="text-sm font-semibold text-primary shrink-0">
+                      +{tx.points}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{formatDate(tx.createdAt)}</span>
+                    <span className="text-muted-foreground/50">•</span>
+                    <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium text-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                      Đã xác nhận
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground/80 py-0.5">
+              Chưa có hoạt động nào được ghi nhận
+            </p>
+          )}
+        </div>
+
+        {/* Section 2: Sinh viên tự đánh giá */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground">
+            Sinh viên tự đánh giá
+          </h4>
+
+          {selfScore > 0 || selfDescription ? (
+            <div className="space-y-1">
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-[14px] text-foreground font-normal leading-snug">
+                  {selfDescription || 'Sinh viên tự chấm điểm'}
+                </span>
+                <span className="text-sm font-semibold text-primary shrink-0">
+                  +{selfScore}
+                </span>
+              </div>
+              {onOpenSelfEvaluation && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={onOpenSelfEvaluation}
+                    className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                  >
+                    Chỉnh sửa tự chấm
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-sm text-muted-foreground">
+                Chưa chấm điểm
+              </span>
+              {onOpenSelfEvaluation && (
+                <button
+                  type="button"
+                  onClick={onOpenSelfEvaluation}
+                  className="text-sm font-semibold text-primary hover:text-primary/80 hover:underline cursor-pointer transition-colors"
+                >
+                  Tự chấm điểm
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
   )
 }
+export default CriterionDetailModal

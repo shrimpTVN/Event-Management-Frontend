@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '@/features/auth'
+import { fanpageService } from '@/features/fanpage/services/fanpageService'
+import { useUserFanpagesStore } from '@/features/fanpage/store/userFanpagesStore'
 import {
   FanpageAdminLayout,
   FanpageHomeView,
@@ -11,6 +14,7 @@ import {
   FanpageProfileEditView,
   FanpageDashboardView,
   FanpageRightSidebar,
+  FanpageAdminPersonalProfileView,
   fanpageAdminService,
   EMPTY_ACTIVITY_STATS,
   type FanpageFeedPost,
@@ -21,11 +25,92 @@ export const FanpageAdminPage: React.FC = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user } = useAuthStore()
   const initialFanpageId = (location.state as { fanpageId?: string } | undefined)?.fanpageId
 
+  // Lấy danh sách Fanpage khả dụng mà người dùng có tham gia (Admin hoặc Thành viên/Cộng tác viên)
   const { data: availableFanpages = [] } = useQuery<FanpageSummary[]>({
-    queryKey: ['admin-available-fanpages'],
-    queryFn: () => fanpageAdminService.getAvailableFanpages(),
+    queryKey: ['admin-available-fanpages', user?.id, user?.email],
+    queryFn: async () => {
+      const fanpageMap = new Map<string, FanpageSummary>()
+
+      // 1. Fanpages do user làm Admin hoặc Thành viên từ API chuẩn xác trong DB
+      try {
+        const pages = await fanpageAdminService.getAvailableFanpages()
+        if (Array.isArray(pages)) {
+          for (const fp of pages) {
+            fanpageMap.set(String(fp.id), fp)
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch fanpages:', err)
+      }
+
+      const result = Array.from(fanpageMap.values())
+
+      // Tự động đồng bộ và dọn dẹp các fanpage không còn thuộc về người dùng khỏi userFanpagesStore
+      try {
+        useUserFanpagesStore.getState().setMyFanpages(
+          result.map((f) => ({
+            id: f.id,
+            name: f.name,
+            role: f.role,
+            avatarUrl: f.avatarUrl,
+          }))
+        )
+      } catch (storeErr) {
+        console.warn('Could not sync userFanpagesStore:', storeErr)
+      }
+
+      return result
+    },
+    staleTime: 0,
+    refetchOnMount: 'always',
+  })
+
+  // Nếu có initialFanpageId cụ thể được truyền vào từ URL / state, tải thông tin chi tiết của Fanpage đó
+  const { data: targetFanpage } = useQuery<FanpageSummary | null>({
+    queryKey: ['fanpage-detail-by-id', initialFanpageId, user?.id, user?.email],
+    queryFn: async () => {
+      if (!initialFanpageId) return null
+      try {
+        const fp = await fanpageService.getFanpageById(initialFanpageId)
+        if (fp) {
+          let userRole = 'Cộng tác viên'
+          try {
+            const members = await fanpageAdminService.getFanpageMembers(initialFanpageId)
+            const myMem = members.find((m) => m.id === user?.id || m.email === user?.email)
+            if (myMem?.role === 'ADMIN') {
+              userRole = 'Quản trị viên'
+            }
+          } catch {}
+
+          const fpCode = (fp as any)?.code || (fp.name || 'FP').slice(0, 3).toUpperCase()
+          return {
+            id: String(fp.id),
+            code: fpCode,
+            name: fp.name,
+            fullName: fp.fullName || fp.orgName || fp.name,
+            avatarText: fpCode,
+            avatarUrl: fp.avatarUrl || '',
+            role: userRole,
+            isVerified: fp.isVerified ?? true,
+            email: fp.email || '',
+            phone: fp.phone || '',
+            address: fp.address || '',
+            followersCount: fp.followerCount || 0,
+            eventsCount: fp.eventCount || 0,
+            description: fp.description || '',
+            parentOrg: fp.orgName || '',
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to fetch target fanpage:', e)
+      }
+      return null
+    },
+    enabled: Boolean(initialFanpageId),
+    staleTime: 30 * 1000,
   })
 
   const [selectedFanpage, setSelectedFanpage] = useState<FanpageSummary | null>(null)
@@ -37,7 +122,7 @@ export const FanpageAdminPage: React.FC = () => {
     fullName: 'Đoàn Trường CNTT & TT',
     avatarText: 'CNT',
     avatarUrl: '',
-    role: 'Quản trị viên',
+    role: 'Cộng tác viên',
     isVerified: true,
     email: 'doanit@ctu.edu.vn',
     phone: '0292.3832.663',
@@ -50,17 +135,18 @@ export const FanpageAdminPage: React.FC = () => {
 
   const currentFanpage: FanpageSummary =
     selectedFanpage ||
+    targetFanpage ||
     (initialFanpageId ? availableFanpages.find((fp) => fp.id === initialFanpageId) : undefined) ||
     availableFanpages[0] ||
     fallbackFanpage
 
-  const { data: posts = [] } = useQuery({
+  const { data: posts = [], isLoading: isLoadingPosts } = useQuery({
     queryKey: ['admin-feed-posts', currentFanpage?.id],
     queryFn: () => fanpageAdminService.getFeedPosts(currentFanpage?.id),
     enabled: Boolean(currentFanpage?.id),
   })
 
-  const { data: adminEvents = [] } = useQuery({
+  const { data: adminEvents = [], isLoading: isLoadingAdminEvents } = useQuery({
     queryKey: ['admin-events', currentFanpage?.id],
     queryFn: () => fanpageAdminService.getAdminEvents(currentFanpage?.id),
     enabled: Boolean(currentFanpage?.id),
@@ -93,6 +179,26 @@ export const FanpageAdminPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as AdminNavTab | null
   const [activeTab, setActiveTab] = useState<AdminNavTab | null>(tabFromUrl || null)
+
+  const isCurrentUserAdmin =
+    currentFanpage?.role === 'Quản trị viên' ||
+    currentFanpage?.role === 'ADMIN' ||
+    (user?.role ? ['ADMIN', 'SUPER_ADMIN', 'ORGANIZER'].includes(user.role) : false)
+
+  // Tự động điều hướng URL phù hợp theo vai trò:
+  // - Nếu không phải Quản trị viên (là Sinh viên / Cộng tác viên) mà URL đang là /fanpage/admin:
+  //   chuyển ngay sang /fanpage/workspace để URL chính xác.
+  useEffect(() => {
+    if (!isCurrentUserAdmin && location.pathname === '/fanpage/admin') {
+      navigate(
+        {
+          pathname: '/fanpage/workspace',
+          search: location.search,
+        },
+        { replace: true, state: location.state }
+      )
+    }
+  }, [isCurrentUserAdmin, location.pathname, location.search, location.state, navigate])
 
   // Synchronize state when tab query param in URL changes
   useEffect(() => {
@@ -203,9 +309,15 @@ export const FanpageAdminPage: React.FC = () => {
     })
   }
 
-  const handleSaveFanpageProfile = (_updatedProfile: Partial<FanpageSummary>) => {
+  const handleSaveFanpageProfile = (updatedProfile: Partial<FanpageSummary>) => {
+    setSelectedFanpage((prev) => {
+      const base = prev || currentFanpage
+      return { ...base, ...updatedProfile }
+    })
     queryClient.invalidateQueries({ queryKey: ['admin-available-fanpages'] })
     queryClient.invalidateQueries({ queryKey: ['fanpage-detail'] })
+    queryClient.invalidateQueries({ queryKey: ['fanpage-detail-by-id'] })
+    queryClient.invalidateQueries({ queryKey: ['staff-my-fanpages'] })
     queryClient.invalidateQueries({ queryKey: ['admin-feed-posts'] })
     queryClient.invalidateQueries({ queryKey: ['admin-events'] })
     queryClient.invalidateQueries({ queryKey: ['admin-follower-count'] })
@@ -246,10 +358,17 @@ export const FanpageAdminPage: React.FC = () => {
           next.delete('tab')
           return next
         })
+        const isFpAdmin =
+          fp.role === 'Quản trị viên' ||
+          fp.role === 'ADMIN' ||
+          (user?.role ? ['ADMIN', 'SUPER_ADMIN', 'ORGANIZER'].includes(user.role) : false)
+        const targetPath = isFpAdmin ? '/fanpage/admin' : '/fanpage/workspace'
+        navigate({ pathname: targetPath }, { state: { fanpageId: fp.id }, replace: true })
       }}
       activeTab={activeTab}
       onSelectTab={handleSelectTab}
       onCreateEventClick={handleCreateEventClick}
+      onPersonalProfileClick={() => handleSelectTab('personal-profile')}
       onLogoClick={() => {
         setActiveTab(null)
         setSearchParams((prev) => {
@@ -257,7 +376,8 @@ export const FanpageAdminPage: React.FC = () => {
           next.delete('tab')
           return next
         })
-        navigate('/fanpage/admin', { state: { fanpageId: currentFanpage.id } })
+        const targetPath = isCurrentUserAdmin ? '/fanpage/admin' : '/fanpage/workspace'
+        navigate(targetPath, { state: { fanpageId: currentFanpage.id } })
       }}
       rightSidebar={
         activeTab === null ? (
@@ -276,6 +396,7 @@ export const FanpageAdminPage: React.FC = () => {
           stats={stats}
           reminder={reminder}
           posts={posts}
+          isLoadingPosts={isLoadingPosts}
           onOpenEventsTab={() => {
             setActiveTab('events')
             setSearchParams((prev) => {
@@ -285,7 +406,7 @@ export const FanpageAdminPage: React.FC = () => {
             })
           }}
           onCreateEventClick={handleCreateEventClick}
-          onEditProfileClick={handleEditProfileClick}
+          onEditProfileClick={isCurrentUserAdmin ? handleEditProfileClick : undefined}
           onEditEvent={handleEditFeedPost}
         />
       )}
@@ -294,6 +415,7 @@ export const FanpageAdminPage: React.FC = () => {
       {activeTab === 'events' && (
         <FanpageEventListView
           events={adminEvents}
+          isLoading={isLoadingAdminEvents}
           onCreateEventClick={handleCreateEventClick}
           onEventClick={handleEventClick}
           onEditClick={handleEditEventClick}
@@ -393,6 +515,20 @@ export const FanpageAdminPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {/* 8. Thông tin tài khoản cá nhân (Cán bộ hoặc Sinh viên) */}
+      {activeTab === 'personal-profile' && (
+        <FanpageAdminPersonalProfileView
+          currentFanpage={enrichedFanpage}
+          onBack={() => {
+            setActiveTab(null)
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev)
+              next.delete('tab')
+              return next
+            })
+          }}
+        />
       )}
     </FanpageAdminLayout>
   )

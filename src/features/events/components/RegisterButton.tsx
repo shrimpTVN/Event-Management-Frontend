@@ -10,6 +10,7 @@ export interface RegisterButtonProps {
   eventId: string | number
   eventTitle?: string
   isRegistered?: boolean
+  registrationStatus?: 'REGISTERED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED' | string
   disabled?: boolean
   className?: string
   size?: 'sm' | 'md' | 'lg'
@@ -26,6 +27,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
   eventId,
   eventTitle,
   isRegistered: initialRegistered = false,
+  registrationStatus: initialStatus,
   disabled = false,
   className = '',
   size = 'md',
@@ -37,6 +39,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
   const { isAuthenticated, user } = useAuthStore()
   const [showProfilePrompt, setShowProfilePrompt] = useState(false)
   const [isRegistered, setIsRegistered] = useState(initialRegistered)
+  const [registrationStatus, setRegistrationStatus] = useState<string | undefined>(initialStatus)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [errorModal, setErrorModal] = useState<{
@@ -55,6 +58,10 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
   useEffect(() => {
     setIsRegistered(initialRegistered)
   }, [initialRegistered])
+
+  useEffect(() => {
+    setRegistrationStatus(initialStatus)
+  }, [initialStatus])
 
   // Smart positioning calculation (flips upward if near bottom of viewport)
   const updatePosition = () => {
@@ -164,7 +171,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
         ...(Array.isArray(old) ? old : []),
         { eventId: Number(eventId), status: 'REGISTERED' },
       ])
-      queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
+      queryClient.invalidateQueries({ queryKey: ['events'] })
       queryClient.invalidateQueries({ queryKey: ['registrations'] })
       onRegisterSuccess?.()
     } catch (err: any) {
@@ -204,7 +211,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
       queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) =>
         old.filter((r: any) => String(r.eventId || r.id) !== String(eventId))
       )
-      queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
+      queryClient.invalidateQueries({ queryKey: ['events'] })
       queryClient.invalidateQueries({ queryKey: ['registrations'] })
       onCancelSuccess?.()
     } catch (err: any) {
@@ -259,7 +266,9 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
           isLoading
             ? 'bg-[#72A8DE] hover:bg-[#72A8DE] text-white cursor-wait'
             : isRegistered
-            ? 'bg-[#16A34A] hover:bg-[#15803D] active:bg-[#166534] text-white cursor-pointer shadow-xs focus:ring-2 focus:ring-[#16A34A]/40'
+            ? registrationStatus === 'COMPLETED'
+              ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white cursor-pointer shadow-xs focus:ring-2 focus:ring-emerald-500/40'
+              : 'bg-[#16A34A] hover:bg-[#15803D] active:bg-[#166534] text-white cursor-pointer shadow-xs focus:ring-2 focus:ring-[#16A34A]/40'
             : disabled
             ? 'bg-[#F3F4F6] dark:bg-muted text-[#6B7280] dark:text-muted-foreground border border-[#E5E7EB] dark:border-border cursor-not-allowed shadow-none'
             : 'bg-[#1F5CA9] hover:bg-[#1B4B8A] active:bg-[#1B406F] text-white cursor-pointer focus:ring-2 focus:ring-[#00AFF0]'
@@ -272,7 +281,13 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
           </>
         ) : isRegistered ? (
           <>
-            <span>Đã đăng ký</span>
+            <span>
+              {registrationStatus === 'COMPLETED'
+                ? 'Đã hoàn thành'
+                : registrationStatus === 'CHECKED_IN'
+                ? 'Đang tham gia'
+                : 'Đã đăng ký'}
+            </span>
             {isOpen ? (
               <ChevronUp className="h-3.5 w-3.5 shrink-0 stroke-[2.5]" />
             ) : (
@@ -294,10 +309,10 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
           <div
             ref={menuRef}
             style={dropdownStyle}
-            className="min-w-[140px] w-max bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg shadow-md py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-150 select-none pointer-events-auto"
+            className="min-w-[150px] w-max bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg shadow-md py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-150 select-none pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Item 1: Quản lý sự kiện */}
+            {/* Item 1: Xem lịch sử tham gia */}
             <button
               type="button"
               onClick={(e) => {
@@ -308,25 +323,27 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
               className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#374151] dark:text-foreground hover:bg-muted/70 transition-colors text-left cursor-pointer"
             >
               <CalendarCheck className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span>Quản lý sự kiện</span>
+              <span>Xem lịch sử tham gia</span>
             </button>
 
-            {/* Divider line matching Figma */}
-            <div className="h-[1px] bg-[#E5E7EB] dark:bg-border my-0.5" />
-
-            {/* Item 2: Hủy đăng ký */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                setIsOpen(false)
-                setShowCancelConfirm(true)
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#C7212B] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left cursor-pointer"
-            >
-              <Ban className="h-3.5 w-3.5 text-[#C7212B] dark:text-red-400 shrink-0" />
-              <span>Hủy đăng ký</span>
-            </button>
+            {/* Chỉ cho phép Hủy đăng ký nếu sự kiện CHƯA điểm danh và CHƯA hoàn thành */}
+            {(!registrationStatus || registrationStatus === 'REGISTERED') && (
+              <>
+                <div className="h-[1px] bg-[#E5E7EB] dark:bg-border my-0.5" />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsOpen(false)
+                    setShowCancelConfirm(true)
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#C7212B] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left cursor-pointer"
+                >
+                  <Ban className="h-3.5 w-3.5 text-[#C7212B] dark:text-red-400 shrink-0" />
+                  <span>Hủy đăng ký</span>
+                </button>
+              </>
+            )}
           </div>,
           document.body
         )}

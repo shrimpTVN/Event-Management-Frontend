@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/shared'
+import { profileService } from '@/features/profile'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
 
@@ -81,6 +82,22 @@ export const StaffFanpageHub: React.FC = () => {
   const { user, clearAuth } = useAuthStore()
   const [actionNotice, setActionNotice] = useState<string | null>(null)
 
+  // Fetch real profile from backend to ensure avatar is loaded
+  const { data: staffProfile } = useQuery({
+    queryKey: ['profile', 'me'],
+    queryFn: () => profileService.getMyProfile(),
+    enabled: Boolean(user?.email && !user?.avatarUrl),
+  })
+
+  React.useEffect(() => {
+    if (staffProfile?.avatarUrl && staffProfile.avatarUrl !== user?.avatarUrl) {
+      useAuthStore.getState().updateUser({
+        avatarUrl: staffProfile.avatarUrl,
+        name: staffProfile.fullName || user?.name,
+      })
+    }
+  }, [staffProfile, user?.avatarUrl, user?.name])
+
   const handleLogout = async () => {
     try {
       await authService.logout()
@@ -115,24 +132,31 @@ export const StaffFanpageHub: React.FC = () => {
       try {
         const res: any = await apiClient.get('/fanpages/fanpage-admin/my-fanpages')
         const list = Array.isArray(res) ? res : res?.data || []
-        return list.map((fp: any) => ({
-          id: String(fp.id),
-          code:
+        return list.map((fp: any) => {
+          const id = String(fp.fanpageId ?? fp.id ?? '')
+          const name = fp.fanpageName ?? fp.name ?? ''
+          const orgName = fp.fanpageOrgName ?? fp.orgName ?? fp.parentOrg ?? ''
+          const avatarUrl = fp.fanpageAvatarUrl ?? fp.avatarUrl ?? ''
+          const role = fp.role ?? fp.memberRole ?? (fp.isAdmin === false ? 'MEMBER' : 'ADMIN')
+          const code =
             fp.code ||
-            (fp.name?.includes('CNTT')
+            (name.includes('CNTT')
               ? 'CNTT'
-              : fp.name?.includes('Cần Thơ') || fp.name?.includes('CTU')
-                ? 'CTU'
-                : fp.name?.includes('CLB')
-                  ? 'CLB'
-                  : (fp.name || 'FP').substring(0, 4).toUpperCase()),
-          name: fp.name,
-          orgName: fp.orgName || fp.parentOrg || 'Trường Đại học Cần Thơ',
-          role: fp.role || fp.memberRole || (fp.isAdmin === false ? 'MEMBER' : 'ADMIN'),
-          followersCount: fp.followersCount || fp.followerCount || 0,
-          eventsCount: fp.eventsCount || fp.eventCount || 0,
-          avatarUrl: fp.avatarUrl,
-        }))
+              : name.includes('Đoàn TN') || name.includes('Hội SV') || name.includes('Cần Thơ') || name.includes('CTU')
+                ? 'ĐHCT'
+                : (name || 'FP').substring(0, 4).toUpperCase())
+
+          return {
+            id,
+            code,
+            name,
+            orgName,
+            role,
+            followersCount: fp.followersCount || fp.followerCount || 0,
+            eventsCount: fp.eventsCount || fp.eventCount || 0,
+            avatarUrl,
+          }
+        })
       } catch {
         return []
       }
@@ -188,7 +212,18 @@ export const StaffFanpageHub: React.FC = () => {
         {/* Top bar with user info & quick logout */}
         {user && (
           <div className="flex items-center justify-between px-1 text-xs text-[#6B7280] dark:text-muted-foreground">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name || 'Avatar'}
+                  className="w-7 h-7 rounded-full object-cover border border-border"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-[#1B4B8A] text-white flex items-center justify-center font-bold text-xs">
+                  {(user.name || user.email || 'U').charAt(0).toUpperCase()}
+                </div>
+              )}
               <span className="font-semibold text-foreground">{user.name || user.email}</span>
               {user.email && <span className="hidden sm:inline text-muted-foreground">({user.email})</span>}
             </div>

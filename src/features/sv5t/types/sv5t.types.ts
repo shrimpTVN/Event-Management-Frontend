@@ -11,6 +11,10 @@ export interface CriteriaProgressNode {
   totalChildren: number
   completionSource?: 'MANUAL' | 'EVENT_CHECKOUT' | 'SYSTEM' | null
   completedAt?: string | null
+  isSystemRecorded?: boolean
+  isSelfEvaluated?: boolean
+  systemEventName?: string | null
+  selfEvaluationNote?: string | null
   children: CriteriaProgressNode[]
 }
 

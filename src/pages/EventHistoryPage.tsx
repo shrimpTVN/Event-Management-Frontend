@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CalendarDays, CheckCircle, AlertCircle } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export const EventHistoryPage: React.FC = () => {
   const queryClient = useQueryClient()
@@ -147,22 +148,37 @@ export const EventHistoryPage: React.FC = () => {
     )
   }
 
-  const handleCancelConfirm = (event: RegisteredEventItem) => {
+  const handleCancelConfirm = async (event: RegisteredEventItem) => {
     const targetId = event.id || String(event.eventId)
+    const eventId = event.eventId || event.id
     const title = event.title || event.eventName || 'Sự kiện'
-    queryClient.setQueryData(['registrations', 'history'], (old: RegisteredEventItem[] = []) =>
-      (Array.isArray(old) ? old : []).map((e) =>
-        (e.id === targetId || (event.eventId && String(e.eventId) === String(event.eventId)))
-          ? {
-              ...e,
-              status: 'CANCELLED' as const,
-              canCancel: false,
-              canRequestAbsence: false,
-            }
-          : e
+
+    try {
+      await historyService.cancelRegistration(eventId)
+      queryClient.setQueryData(['registrations', 'history'], (old: RegisteredEventItem[] = []) =>
+        (Array.isArray(old) ? old : []).map((e) =>
+          (e.id === targetId || (event.eventId && String(e.eventId) === String(event.eventId)))
+            ? {
+                ...e,
+                status: 'CANCELLED' as const,
+                canCancel: false,
+                canRequestAbsence: false,
+              }
+            : e
+        )
       )
-    )
-    showToast(`Đã hủy đăng ký thành công sự kiện "${title}".`, 'info')
+      queryClient.invalidateQueries({ queryKey: ['registrations'] })
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      showToast(`Đã hủy đăng ký thành công sự kiện "${title}".`, 'info')
+    } catch (err: any) {
+      console.error('Failed to cancel registration:', err)
+      const rawMsg = err?.response?.data?.message || err?.message || ''
+      let msg = 'Không thể hủy đăng ký sự kiện. Vui lòng thử lại sau!'
+      if (rawMsg.includes('after event close')) {
+        msg = 'Không thể hủy đăng ký sau khi sự kiện đã đóng hạn!'
+      }
+      showToast(msg, 'info')
+    }
   }
 
   const handleComplaint = (event: RegisteredEventItem) => {
@@ -289,21 +305,60 @@ export const EventHistoryPage: React.FC = () => {
               {/* Responsive Events View (Table or Grid Cards) */}
               {isLoading ? (
                 viewMode === 'TABLE' ? (
-                  <div className="rounded-xl border border-border bg-card p-6 flex flex-col gap-3 animate-pulse">
-                    {[1, 2, 3, 4].map((n) => (
-                      <div key={n} className="h-12 bg-muted rounded-lg w-full" />
-                    ))}
+                  <div className="p-3 sm:p-4 bg-[#F9FAFB]/60 dark:bg-background/40 rounded-2xl overflow-x-auto custom-scrollbar border border-border/40 animate-pulse">
+                    <div className="min-w-[860px]">
+                      <div className="grid grid-cols-12 items-center px-5 py-2.5 text-xs font-medium text-[#6B7280] dark:text-muted-foreground">
+                        <div className="col-span-4">Sự kiện & Ban tổ chức</div>
+                        <div className="col-span-3">Thời gian & Địa điểm</div>
+                        <div className="col-span-2">Quyền lợi</div>
+                        <div className="col-span-2">Trạng thái</div>
+                        <div className="col-span-1 text-right">Thao tác</div>
+                      </div>
+                      <div className="flex flex-col gap-2.5 mt-1">
+                        {[1, 2, 3, 4].map((n) => (
+                          <div
+                            key={n}
+                            className="bg-white dark:bg-card border border-border/80 rounded-2xl px-5 py-3.5 grid grid-cols-12 items-center shadow-2xs"
+                          >
+                            <div className="col-span-4 flex items-center gap-3 pr-3">
+                              <Skeleton className="w-11 h-11 rounded-xl shrink-0" />
+                              <div className="space-y-1.5 flex-1 min-w-0">
+                                <Skeleton className="h-4 w-3/4 rounded" />
+                                <Skeleton className="h-3 w-1/2 rounded" />
+                              </div>
+                            </div>
+                            <div className="col-span-3 space-y-1.5 pr-2">
+                              <Skeleton className="h-3.5 w-36 rounded" />
+                              <Skeleton className="h-3 w-28 rounded" />
+                            </div>
+                            <div className="col-span-2 space-y-1">
+                              <Skeleton className="h-5 w-20 rounded-md" />
+                            </div>
+                            <div className="col-span-2">
+                              <Skeleton className="h-6 w-24 rounded-full" />
+                            </div>
+                            <div className="col-span-1 flex justify-end">
+                              <Skeleton className="h-8 w-16 rounded-lg" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 animate-pulse">
                     {[1, 2, 3, 4].map((n) => (
                       <div
                         key={n}
-                        className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3 animate-pulse h-60"
+                        className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3 shadow-2xs"
                       >
-                        <div className="h-28 bg-muted rounded-lg w-full" />
-                        <div className="h-4 bg-muted rounded w-3/4" />
-                        <div className="h-3 bg-muted rounded w-1/2" />
+                        <Skeleton className="h-32 w-full rounded-lg" />
+                        <Skeleton className="h-4 w-3/4 rounded" />
+                        <Skeleton className="h-3 w-1/2 rounded" />
+                        <div className="flex justify-between items-center mt-2">
+                          <Skeleton className="h-5 w-20 rounded-full" />
+                          <Skeleton className="h-7 w-20 rounded-lg" />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -397,6 +452,9 @@ export const EventHistoryPage: React.FC = () => {
         onSuccess={(msg) => {
           showToast(msg, 'success')
           queryClient.invalidateQueries({ queryKey: ['registrations', 'history'] })
+          queryClient.invalidateQueries({ queryKey: ['student-semester-points'] })
+          queryClient.invalidateQueries({ queryKey: ['point-transactions'] })
+          queryClient.invalidateQueries({ queryKey: ['criteria-progress'] })
         }}
       />
     </div>

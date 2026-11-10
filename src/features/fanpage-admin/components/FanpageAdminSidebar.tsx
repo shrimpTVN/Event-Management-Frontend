@@ -12,7 +12,7 @@ import {
   Check,
   Plus,
 } from 'lucide-react'
-import { useAuthStore } from '@/features/auth'
+import { useAuthStore, isStaffUser } from '@/features/auth'
 import type { FanpageSummary, AdminNavTab } from '../types/fanpageAdmin.types'
 
 interface FanpageAdminSidebarProps {
@@ -36,6 +36,12 @@ export const FanpageAdminSidebar: React.FC<FanpageAdminSidebarProps> = ({
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false)
   const [showNameTooltip, setShowNameTooltip] = useState(false)
   const tooltipRef = useRef<HTMLDivElement>(null)
+
+  const isCurrentUserAdmin =
+    currentFanpage?.role === 'Quản trị viên' ||
+    currentFanpage?.role === 'ADMIN' ||
+    (user ? isStaffUser(user) : false)
+  const basePath = isCurrentUserAdmin ? '/fanpage/admin' : '/fanpage/workspace'
 
   // Click outside to close name tooltip
   useEffect(() => {
@@ -211,9 +217,20 @@ export const FanpageAdminSidebar: React.FC<FanpageAdminSidebarProps> = ({
       </div>
 
       {/* Account Info & Logout */}
-      <div className="pt-4 border-t border-[#E5E7EB] dark:border-border">
-        <div className="p-2 rounded-xl bg-[#F9FAFB] dark:bg-background/80 border border-[#E5E7EB] dark:border-border flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
+      <div className="pt-3 border-t border-[#E5E7EB] dark:border-border">
+        <div className="p-2 rounded-xl bg-[#F9FAFB] dark:bg-background/80 border border-[#E5E7EB] dark:border-border flex items-center justify-between gap-2 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => {
+              if (onSelectTab) {
+                onSelectTab('personal-profile')
+              } else {
+                navigate(`${basePath}?tab=personal-profile`)
+              }
+            }}
+            className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer hover:opacity-80 transition-opacity"
+            title="Nhấn để xem tài khoản cá nhân"
+          >
             {user?.avatarUrl ? (
               <img
                 src={user.avatarUrl}
@@ -225,7 +242,7 @@ export const FanpageAdminSidebar: React.FC<FanpageAdminSidebarProps> = ({
                 {user?.name ? user.name.slice(0, 2).toUpperCase() : 'QT'}
               </div>
             )}
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="font-semibold text-xs text-foreground truncate">
                 {user?.name || 'Quản trị fanpage'}
               </p>
@@ -233,13 +250,13 @@ export const FanpageAdminSidebar: React.FC<FanpageAdminSidebarProps> = ({
                 {user?.email || 'quantri@ctu.edu.vn'}
               </p>
             </div>
-          </div>
+          </button>
 
           <button
             type="button"
             onClick={handleLogout}
             title="Đăng xuất"
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer shrink-0"
           >
             <LogOut className="h-4 w-4" />
           </button>

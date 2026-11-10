@@ -12,11 +12,42 @@ import {
 } from 'lucide-react'
 import { useQueries } from '@tanstack/react-query'
 import { cn } from '@/shared/utils/cn'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { AdminEvent, EventStatus } from '../types/fanpageAdmin.types'
 import { MOCK_ADMIN_EVENTS, MOCK_EVENT_TYPES, fanpageAdminService } from '../services/fanpageAdminService'
 
+// Định dạng thời gian: "04/11/2026 · 07:00" (không hiển thị "07:00 - 07:00" khi giờ bắt đầu và kết thúc giống nhau)
+function formatEventTime(dateStart: string, timeStart: string, timeEnd: string): string {
+  let datePart = ''
+  const match = dateStart.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (match) {
+    const [, yyyy, mm, dd] = match
+    datePart = `${dd}/${mm}/${yyyy}`
+  } else {
+    const d = new Date(dateStart)
+    if (!isNaN(d.getTime())) {
+      const pad = (n: number) => n.toString().padStart(2, '0')
+      datePart = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+    } else {
+      datePart = dateStart
+    }
+  }
+
+  const cleanStart = (timeStart || '').trim()
+  const cleanEnd = (timeEnd || '').trim()
+  const timePart = !cleanEnd || cleanStart === cleanEnd ? cleanStart : `${cleanStart} - ${cleanEnd}`
+
+  return timePart ? `${datePart} · ${timePart}` : datePart
+}
+
+// Lọc bỏ emoji trong tên sự kiện nếu có
+function cleanEventName(name: string): string {
+  return name.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').trim()
+}
+
 interface FanpageEventListViewProps {
   events?: AdminEvent[]
+  isLoading?: boolean
   onCreateEventClick?: () => void
   onEventClick?: (eventId: string) => void
   onEditClick?: (event: AdminEvent) => void
@@ -24,32 +55,32 @@ interface FanpageEventListViewProps {
 
 export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
   events = MOCK_ADMIN_EVENTS,
+  isLoading = false,
   onCreateEventClick,
   onEventClick,
   onEditClick,
 }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedType, setSelectedType] = useState<string>('ALL')
+  const [selectedBenefit, setSelectedBenefit] = useState<string>('ALL')
   const [activeStatusTab, setActiveStatusTab] = useState<string>('ALL')
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const filterRef = useRef<HTMLDivElement>(null)
 
-  // Fetch registeredCount thực từ BE cho từng sự kiện (vì EventResponseDto không có trường này)
+  // Fetch số lượng đăng ký thực tế cho từng sự kiện
   const registeredCountQueries = useQueries({
     queries: events.map((evt) => ({
       queryKey: ['event-registered-count', evt.fanpageId, evt.id],
       queryFn: () => fanpageAdminService.getEventRegisteredCount(evt.fanpageId, evt.id),
-      staleTime: 30_000, // cache 30s
+      staleTime: 30_000,
       retry: 1,
     })),
   })
 
-  // Map eventId -> registeredCount thực
   const registeredCountMap = useMemo(() => {
     const map: Record<string, number> = {}
     events.forEach((evt, idx) => {
       const count = registeredCountQueries[idx]?.data
-      // Nếu fetch được → dùng real count, nếu không → giữ nguyên từ event data
       map[evt.id] = typeof count === 'number' ? count : (evt.registeredCount ?? 0)
     })
     return map
@@ -66,228 +97,87 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Sử dụng danh sách sự kiện đầy đủ cho trang quản lý fanpage (gồm cả DRAFT, PUBLISHED, CLOSED)
   const validEvents = useMemo(() => events, [events])
 
-  // Lọc sự kiện theo tab và từ khóa
+  // Lọc sự kiện theo tab trạng thái, từ khóa, loại sự kiện, quyền lợi
   const filteredEvents = useMemo(() => {
     return validEvents.filter((evt) => {
+      const q = searchTerm.trim().toLowerCase()
       const matchSearch =
-        evt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        evt.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        evt.location.toLowerCase().includes(searchTerm.toLowerCase())
+        !q ||
+        evt.name.toLowerCase().includes(q) ||
+        evt.code.toLowerCase().includes(q) ||
+        evt.location.toLowerCase().includes(q)
 
       const matchType =
         selectedType === 'ALL' || evt.eventTypeId.toString() === selectedType
 
+      let matchBenefit = true
+      if (selectedBenefit === 'DRL') {
+        matchBenefit = Boolean(evt.trainingPoints && evt.trainingPoints > 0)
+      } else if (selectedBenefit === 'SV5T') {
+        matchBenefit = Boolean(evt.sv5tCriteriaName)
+      } else if (selectedBenefit === 'CERT') {
+        matchBenefit = Boolean(evt.hasCertificate)
+      }
+
       let matchStatus = true
       if (activeStatusTab === 'UPCOMING') {
-        // Sự kiện sắp diễn ra: chưa kết thúc, chưa hủy và không phải bản nháp
         matchStatus = evt.status !== 'CLOSED' && evt.status !== 'CANCELLED' && evt.status !== 'DRAFT'
       } else if (activeStatusTab === 'DRAFT') {
         matchStatus = evt.status === 'DRAFT'
-      } else if (activeStatusTab !== 'ALL') {
-        matchStatus = evt.status === activeStatusTab
+      } else if (activeStatusTab === 'PUBLISHED') {
+        matchStatus = evt.status === 'PUBLISHED'
+      } else if (activeStatusTab === 'CLOSED') {
+        matchStatus = evt.status === 'CLOSED'
       }
 
-      return matchSearch && matchType && matchStatus
+      return matchSearch && matchType && matchBenefit && matchStatus
     })
-  }, [validEvents, searchTerm, selectedType, activeStatusTab])
+  }, [validEvents, searchTerm, selectedType, selectedBenefit, activeStatusTab])
 
-  // Count summaries dựa trên dữ liệu thật
-  const totalCount = validEvents.length
-  const upcomingCount = validEvents.filter(
-    (e) => e.status !== 'CLOSED' && e.status !== 'CANCELLED' && e.status !== 'DRAFT'
-  ).length
-  const publishedCount = validEvents.filter((e) => e.status === 'PUBLISHED').length
-  const closedCount = validEvents.filter((e) => e.status === 'CLOSED').length
-  const draftCount = validEvents.filter((e) => e.status === 'DRAFT').length
-
-  // 1. Phân tích học kỳ để tính toán thống kê và so sánh với học kỳ trước
-  const semesterIds = validEvents.map((e) => (typeof e.semesterId === 'number' ? e.semesterId : 1))
-  const currentSemesterId = semesterIds.length > 0 ? Math.max(...semesterIds) : 1
-  const prevSemesterId = currentSemesterId > 1 ? currentSemesterId - 1 : null
-
-  const currentSemesterCount = validEvents.filter(
-    (e) => (e.semesterId || 1) === currentSemesterId
-  ).length
-
-  const prevSemesterCount =
-    prevSemesterId !== null
-      ? validEvents.filter((e) => (e.semesterId || 1) === prevSemesterId).length
-      : 0
-
-  // Badge tỉ lệ tăng trưởng: CHỈ HIỂN THỊ KHI CÓ DỮ LIỆU HỌC KỲ TRƯỚC ĐỂ SO SÁNH (prevSemesterCount > 0)
-  let allEventsTrend: { value: string; isUp: boolean } | undefined = undefined
-  let allEventsTrendVariant: 'success' | 'danger' | 'neutral' = 'neutral'
-  let allEventsSubText = ''
-
-  if (prevSemesterCount > 0) {
-    const diff = currentSemesterCount - prevSemesterCount
-    const percent = Math.round((diff / prevSemesterCount) * 100)
-    allEventsTrend = {
-      value: `${Math.abs(percent)}%`,
-      isUp: diff >= 0,
+  // Đếm số lượng theo trạng thái
+  const counts = useMemo(() => {
+    return {
+      all: validEvents.length,
+      upcoming: validEvents.filter(
+        (e) => e.status !== 'CLOSED' && e.status !== 'CANCELLED' && e.status !== 'DRAFT'
+      ).length,
+      published: validEvents.filter((e) => e.status === 'PUBLISHED').length,
+      closed: validEvents.filter((e) => e.status === 'CLOSED').length,
+      draft: validEvents.filter((e) => e.status === 'DRAFT').length,
     }
-    allEventsTrendVariant = diff > 0 ? 'success' : diff < 0 ? 'danger' : 'neutral'
-    allEventsSubText =
-      diff === 0
-        ? 'Không đổi so với học kỳ trước'
-        : diff > 0
-          ? `+${diff} sự kiện so với học kỳ trước`
-          : `${diff} sự kiện so với học kỳ trước`
-  } else {
-    // Không có dữ liệu học kỳ trước để tính tỉ lệ -> không hiện badge tỉ lệ (tránh hiển thị sai âm 100%)
-    allEventsTrend = undefined
-    allEventsSubText =
-      currentSemesterCount > 0
-        ? `+${currentSemesterCount} sự kiện so với học kỳ trước`
-        : 'Chưa có sự kiện trong học kỳ này'
-  }
+  }, [validEvents])
 
-  // Hàm định dạng ngày chuẩn DD/MM/YYYY thân thiện với người dùng Việt Nam
-  const formatDateVN = (dateStr?: string) => {
-    if (!dateStr) return ''
-    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/)
-    if (match) {
-      const [, yyyy, mm, dd] = match
-      return `${dd}/${mm}/${yyyy}`
-    }
-    const d = new Date(dateStr)
-    if (isNaN(d.getTime())) return dateStr
-    const pad = (n: number) => n.toString().padStart(2, '0')
-    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
-  }
-
-  // Tìm ngày sự kiện sắp diễn ra gần nhất từ dữ liệu thật
-  const nextUpcomingEvent = [...validEvents]
-    .filter((e) => e.status !== 'CLOSED' && e.status !== 'CANCELLED')
-    .sort((a, b) => new Date(a.dateStart).getTime() - new Date(b.dateStart).getTime())[0]
-
-  const nextDateText = nextUpcomingEvent?.dateStart
-    ? formatDateVN(nextUpcomingEvent.dateStart)
-    : null
-
-  const upcomingSubText = nextDateText
-    ? `Sự kiện kế tiếp: ${nextDateText}`
-    : (upcomingCount > 0 ? 'Sẵn sàng tiếp nhận sinh viên' : 'Không có sự kiện sắp tới')
-
-  // Danh sách quyền lợi chi tiết của sự kiện (dùng cho popover)
-  const getEventBenefits = (evt: AdminEvent) => {
-    const list: { title: string; desc: string }[] = []
-    if (evt.trainingPoints && evt.trainingPoints > 0) {
-      list.push({
-        title: `+${evt.trainingPoints} Điểm rèn luyện (ĐRL)`,
-        desc: evt.trainingPointCategoryName || 'Cộng điểm rèn luyện theo quy chế Nhà trường',
-      })
-    }
-    if (evt.sv5tCriteriaName) {
-      list.push({
-        title: 'Tiêu chí Sinh viên 5 Tốt (SV5T)',
-        desc: evt.sv5tCriteriaName,
-      })
-    }
-    if (evt.hasCertificate) {
-      list.push({
-        title: 'Giấy chứng nhận (E-Certificate)',
-        desc: 'Cấp chứng nhận điện tử sau khi hoàn thành điểm danh',
-      })
-    }
-    return list
-  }
-
-  // Trend Badge Helper theo chuẩn thiết kế card tổng quan
-  const getTrendBadge = (
-    trend: { value: string; isUp?: boolean },
-    variant: 'success' | 'neutral' | 'danger'
-  ) => {
-    const arrow = trend.isUp ? '▲' : '▼'
-
-    if (variant === 'success') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#DCFCE7] text-[#16A34A] dark:bg-emerald-950/60 dark:text-emerald-400">
-          <span>{arrow}</span>
-          <span>{trend.value}</span>
-        </span>
-      )
-    }
-
-    if (variant === 'danger') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#FEE2E2] text-[#DC2626] dark:bg-rose-950/60 dark:text-rose-400">
-          <span>{arrow}</span>
-          <span>{trend.value}</span>
-        </span>
-      )
-    }
-
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#F3F4F6] text-[#6B7280] dark:bg-muted dark:text-muted-foreground">
-        <span>{arrow}</span>
-        <span>{trend.value}</span>
-      </span>
-    )
-  }
-
-  // 4 Cards thống kê theo dữ liệu thật - badge tỉ lệ chỉ hiện khi có dữ liệu thật
-  const statsCards = [
-    {
-      id: 'ALL',
-      title: 'Tất cả sự kiện',
-      value: totalCount,
-      trend: allEventsTrend,
-      trendVariant: allEventsTrendVariant,
-      subText: allEventsSubText,
-    },
-    {
-      id: 'UPCOMING',
-      title: 'Sự kiện sắp diễn ra',
-      value: upcomingCount,
-      subText: upcomingSubText,
-    },
-    {
-      id: 'PUBLISHED',
-      title: 'Đang mở đăng ký',
-      value: publishedCount,
-      subText: publishedCount > 0 ? 'Sẵn sàng tiếp nhận sinh viên' : 'Chưa mở đăng ký sự kiện nào',
-    },
-    {
-      id: 'CLOSED',
-      title: 'Đã kết thúc',
-      value: closedCount,
-      subText: closedCount > 0 ? `${closedCount} sự kiện đã hoàn thành` : 'Chưa có sự kiện hoàn thành',
-    },
-  ]
-
-  // Badge trạng thái thu gọn, không gây tràn dòng
-  const getStatusBadge = (status: EventStatus) => {
+  // Badge trạng thái: chấm màu nhỏ + chữ
+  const renderStatus = (status: EventStatus) => {
     switch (status) {
       case 'PUBLISHED':
         return (
-          <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            Đang mở
+          <span className="inline-flex items-center gap-1.5 text-xs text-foreground font-medium whitespace-nowrap">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+            <span>Đang mở</span>
           </span>
         )
       case 'CLOSED':
         return (
-          <span className="px-2.5 py-1 rounded-full bg-slate-100/70 text-slate-500 dark:bg-slate-800/50 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/50 text-[11px] font-normal inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400/80 shrink-0" />
-            Kết thúc
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-normal whitespace-nowrap">
+            <span className="h-2 w-2 rounded-full bg-muted-foreground/60 shrink-0" />
+            <span>Đã kết thúc</span>
           </span>
         )
       case 'CANCELLED':
         return (
-          <span className="px-2.5 py-1 rounded-full bg-rose-50/70 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/50 text-[11px] font-normal inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span className="h-1.5 w-1.5 rounded-full bg-rose-400 shrink-0" />
-            Đã hủy
+          <span className="inline-flex items-center gap-1.5 text-xs text-destructive font-normal whitespace-nowrap">
+            <span className="h-2 w-2 rounded-full bg-destructive shrink-0" />
+            <span>Đã hủy</span>
           </span>
         )
       case 'DRAFT':
         return (
-          <span className="px-2.5 py-1 rounded-full bg-slate-100/80 text-slate-600 dark:bg-slate-800/60 dark:text-slate-400 border border-slate-200 dark:border-slate-700 text-[11px] font-medium inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
-            Bản nháp
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-normal whitespace-nowrap">
+            <span className="h-2 w-2 rounded-full bg-muted-foreground/40 shrink-0" />
+            <span>Bản nháp</span>
           </span>
         )
       default:
@@ -295,72 +185,48 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
     }
   }
 
+  const activeFilterCount = (selectedType !== 'ALL' ? 1 : 0) + (selectedBenefit !== 'ALL' ? 1 : 0)
+
   return (
     <div className="w-full space-y-6 text-left animate-in fade-in duration-300">
-      {/* 1. Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-border">
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-            <span>Quản trị fanpage</span>
-            <span>/</span>
-            <span className="text-primary font-bold">Sự kiện</span>
-          </p>
-          <h1 className="font-k2d font-bold text-2xl text-foreground mt-1">
-            Quản lý sự kiện
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Tạo, theo dõi số lượng đăng ký và cập nhật toàn bộ sự kiện của fanpage trong hệ thống.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onCreateEventClick}
-          className="px-4 h-9 rounded-xl bg-primary hover:bg-primary/95 text-white text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-xs transition-all shrink-0"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span>Tạo sự kiện mới</span>
-        </button>
-      </div>
-
-      {/* 2. Thống kê sự kiện (4 Cards hiển thị thông tin) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statsCards.map((card) => (
-          <div
-            key={card.id}
-            className="flex flex-col justify-between p-4 sm:p-5 rounded-xl bg-white dark:bg-card border border-border/80 text-left hover:shadow-xs transition-shadow"
-          >
-            {/* Top: Tiêu đề chỉ số */}
-            <div className="text-xs sm:text-sm font-normal text-[#667085] dark:text-muted-foreground line-clamp-1 mb-2">
-              {card.title}
-            </div>
-
-            {/* Middle: Con số lớn + Badge tăng/giảm (chỉ hiển thị với Tất cả sự kiện) */}
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-3xl sm:text-4xl font-bold font-k2d text-foreground tracking-tight leading-none">
-                {card.value}
-              </span>
-              {card.trend && getTrendBadge(card.trend, card.trendVariant || 'success')}
-            </div>
-
-            {/* Bottom: Dòng thông tin phụ so sánh / trạng thái */}
-            <div className="text-xs text-[#667085] dark:text-muted-foreground truncate">
-              {card.subText}
-            </div>
+      {/* 1. Breadcrumb + Tiêu đề "Quản lý sự kiện" + Nút chính "Tạo sự kiện mới" */}
+      <div className="space-y-1">
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+          <span>Quản trị fanpage</span>
+          <span>/</span>
+          <span className="text-primary font-semibold">Sự kiện</span>
+        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+          <div>
+            <h1 className="font-k2d font-bold text-2xl text-foreground">
+              Quản lý sự kiện
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Tạo, theo dõi số lượng đăng ký và cập nhật toàn bộ sự kiện của fanpage trong hệ thống.
+            </p>
           </div>
-        ))}
+
+          <button
+            type="button"
+            onClick={onCreateEventClick}
+            className="px-4 h-9 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors shadow-2xs shrink-0 self-start sm:self-auto"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Tạo sự kiện mới</span>
+          </button>
+        </div>
       </div>
 
-      {/* 3. Danh sách sự kiện & Toolbar */}
+      {/* 2. Khối bảng màu trắng với thanh Folder Tab bo tròn khi chọn */}
       <div className="flex flex-col mt-2">
-        {/* Hàng Tab Bar phía trên: Chuẩn phong cách Folder Tab như bên Student */}
-        <div className="flex items-end gap-1 sm:gap-2 -mb-px relative z-10 overflow-x-auto no-scrollbar">
+        {/* Hàng Tab Bar dạng folder tab bo tròn trên đỉnh, nổi và kết nối liền mạch với khung trắng */}
+        <div className="flex items-end gap-1.5 -mb-px relative z-10 overflow-x-auto no-scrollbar">
           {[
-            { id: 'ALL', label: 'Tất cả', count: totalCount },
-            { id: 'UPCOMING', label: 'Sắp diễn ra', count: upcomingCount },
-            { id: 'PUBLISHED', label: 'Đang mở đăng ký', count: publishedCount },
-            { id: 'CLOSED', label: 'Đã kết thúc', count: closedCount },
-            { id: 'DRAFT', label: 'Bản nháp', count: draftCount },
+            { id: 'ALL', label: 'Tất cả', count: counts.all },
+            { id: 'UPCOMING', label: 'Sắp diễn ra', count: counts.upcoming },
+            { id: 'PUBLISHED', label: 'Đang mở đăng ký', count: counts.published },
+            { id: 'CLOSED', label: 'Đã kết thúc', count: counts.closed },
+            { id: 'DRAFT', label: 'Bản nháp', count: counts.draft },
           ].map((tab) => {
             const isActive = activeStatusTab === tab.id
             return (
@@ -368,19 +234,19 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveStatusTab(tab.id)}
-                className={`px-5 py-2.5 text-sm transition-all duration-200 ease-out cursor-pointer whitespace-nowrap select-none flex items-center gap-1.5 ${
+                className={cn(
+                  'px-4 sm:px-5 py-2.5 text-xs sm:text-sm transition-all duration-150 cursor-pointer whitespace-nowrap select-none flex items-center gap-1.5',
                   isActive
                     ? 'bg-white dark:bg-card text-foreground font-semibold rounded-t-xl border-t border-x border-[#E5E7EB] dark:border-border shadow-2xs pb-3'
                     : 'text-muted-foreground hover:text-foreground font-medium bg-transparent hover:bg-black/5 dark:hover:bg-white/5 rounded-t-lg'
-                }`}
+                )}
               >
                 <span>{tab.label}</span>
                 <span
-                  className={`text-xs ${
-                    isActive
-                      ? 'text-foreground/80 font-normal'
-                      : 'text-muted-foreground/70 font-normal'
-                  }`}
+                  className={cn(
+                    'text-xs font-normal',
+                    isActive ? 'text-foreground/80' : 'text-muted-foreground/70'
+                  )}
                 >
                   ({tab.count})
                 </span>
@@ -389,34 +255,25 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
           })}
         </div>
 
-        {/* Khung chính chứa Toolbar & Bảng sự kiện */}
+        {/* Khung chính Bảng Trắng chứa Toolbar & Các card hàng bo tròn */}
         <div
-          className={`bg-white dark:bg-card border border-[#E5E7EB] dark:border-border ${
-            activeStatusTab === 'ALL' ? 'rounded-b-xl rounded-tr-xl' : 'rounded-xl'
-          } p-4 sm:p-5 flex flex-col gap-4 shadow-2xs`}
+          className={cn(
+            'bg-white dark:bg-card border border-[#E5E7EB] dark:border-border p-4 sm:p-5 flex flex-col gap-4 shadow-2xs',
+            activeStatusTab === 'ALL' ? 'rounded-b-2xl rounded-tr-2xl' : 'rounded-2xl'
+          )}
         >
-          {/* Header trong panel: Tiêu đề bên trái, Search & Filter kiểu Student bên phải */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-border/60">
-            <div>
-              <h2 className="font-k2d font-bold text-base sm:text-lg text-foreground">
-                Danh sách sự kiện
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Quản lý, theo dõi số lượng đăng ký và điểm danh toàn bộ sự kiện của fanpage.
-              </p>
-            </div>
-
-            {/* Toolbar góc phải: Search + Bộ lọc (Student style) */}
-            <div className="flex flex-wrap items-center gap-2.5 self-end sm:self-auto w-full md:w-auto">
-              {/* Ô tìm kiếm kiểu Student */}
-              <div className="relative flex-1 sm:w-72 lg:w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF] pointer-events-none" />
+          {/* Header trong panel: Ô tìm kiếm + Bộ lọc bên trái, số lượng tóm tắt bên phải */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-border/60">
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+              {/* Ô tìm kiếm */}
+              <div className="relative flex-1 sm:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Tìm kiếm sự kiện, mã code..."
+                  placeholder="Tìm theo tên sự kiện, mã code, địa điểm..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-8 py-1.5 sm:py-2 text-xs sm:text-sm bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg text-foreground placeholder:text-[#9CA3AF] focus:outline-none focus:ring-1 focus:ring-[#1B4B8A] focus:border-[#1B4B8A] transition-colors shadow-2xs"
+                  className="w-full pl-9 pr-8 h-9 text-xs sm:text-sm bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-colors"
                 />
                 {searchTerm && (
                   <button
@@ -429,35 +286,38 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                 )}
               </div>
 
-              {/* Nút Bộ lọc kiểu Student */}
+              {/* Nút Bộ lọc */}
               <div className="relative" ref={filterRef}>
                 <button
                   type="button"
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg border transition-colors shrink-0 shadow-2xs cursor-pointer ${
-                    selectedType !== 'ALL' || isFilterOpen
-                      ? 'bg-primary/5 text-primary border-primary/40 dark:bg-primary/20'
-                      : 'text-[#374151] dark:text-foreground bg-white dark:bg-card border-[#E5E7EB] dark:border-border hover:bg-muted/50'
-                  }`}
+                  className={cn(
+                    'flex items-center gap-2 px-3.5 h-9 text-xs sm:text-sm font-medium rounded-xl border transition-colors shrink-0 cursor-pointer',
+                    activeFilterCount > 0 || isFilterOpen
+                      ? 'border-primary text-primary bg-primary/5'
+                      : 'border-[#E5E7EB] dark:border-border text-foreground bg-white dark:bg-card hover:bg-muted/50'
+                  )}
                 >
-                  <SlidersHorizontal className="h-4 w-4 text-[#374151] dark:text-foreground" />
+                  <SlidersHorizontal className="h-4 w-4" />
                   <span>Bộ lọc</span>
-                  {selectedType !== 'ALL' && (
-                    <span className="h-4 w-4 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
-                      1
+                  {activeFilterCount > 0 && (
+                    <span className="h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                      {activeFilterCount}
                     </span>
                   )}
                 </button>
 
-                {/* Popover Bộ lọc khi bấm vào nút */}
                 {isFilterOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-card border border-border rounded-xl shadow-xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-border">
-                      <span className="text-xs font-bold text-foreground">Loại sự kiện</span>
-                      {selectedType !== 'ALL' && (
+                  <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-72 bg-card border border-border rounded-xl shadow-lg p-3 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-border">
+                      <span className="text-xs font-semibold text-foreground">Bộ lọc nâng cao</span>
+                      {activeFilterCount > 0 && (
                         <button
                           type="button"
-                          onClick={() => setSelectedType('ALL')}
+                          onClick={() => {
+                            setSelectedType('ALL')
+                            setSelectedBenefit('ALL')
+                          }}
                           className="text-[11px] text-primary hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <RotateCcw className="h-3 w-3" />
@@ -465,230 +325,229 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                         </button>
                       )}
                     </div>
-                    <div className="flex flex-col gap-1 max-h-56 overflow-y-auto custom-scrollbar">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedType('ALL')
-                          setIsFilterOpen(false)
-                        }}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center justify-between ${
-                          selectedType === 'ALL'
-                            ? 'bg-primary text-primary-foreground font-semibold'
-                            : 'text-foreground hover:bg-muted'
-                        }`}
-                      >
-                        <span>Tất cả loại</span>
-                        {selectedType === 'ALL' && <span>✓</span>}
-                      </button>
-                      {MOCK_EVENT_TYPES.map((t) => {
-                        const isSelected = selectedType === t.id.toString()
-                        return (
-                          <button
-                            key={t.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedType(t.id.toString())
-                              setIsFilterOpen(false)
-                            }}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center justify-between ${
-                              isSelected
-                                ? 'bg-primary text-primary-foreground font-semibold'
-                                : 'text-foreground hover:bg-muted'
-                            }`}
-                          >
-                            <span>{t.name}</span>
-                            {isSelected && <span>✓</span>}
-                          </button>
-                        )
-                      })}
+
+                    {/* Lọc loại sự kiện */}
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Loại sự kiện
+                      </span>
+                      <div className="flex flex-col gap-0.5 max-h-40 overflow-y-auto no-scrollbar">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedType('ALL')}
+                          className={cn(
+                            'w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer flex items-center justify-between',
+                            selectedType === 'ALL'
+                              ? 'bg-primary text-primary-foreground font-semibold'
+                              : 'text-foreground hover:bg-muted'
+                          )}
+                        >
+                          <span>Tất cả loại</span>
+                          {selectedType === 'ALL' && <span>✓</span>}
+                        </button>
+                        {MOCK_EVENT_TYPES.map((t) => {
+                          const isSelected = selectedType === t.id.toString()
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => setSelectedType(t.id.toString())}
+                              className={cn(
+                                'w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer flex items-center justify-between',
+                                isSelected
+                              ? 'bg-primary text-primary-foreground font-semibold'
+                              : 'text-foreground hover:bg-muted'
+                              )}
+                            >
+                              <span>{t.name}</span>
+                              {isSelected && <span>✓</span>}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Lọc quyền lợi */}
+                    <div className="space-y-1 pt-1 border-t border-border">
+                      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                        Quyền lợi
+                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        {[
+                          { id: 'ALL', label: 'Tất cả quyền lợi' },
+                          { id: 'DRL', label: 'Có điểm rèn luyện (ĐRL)' },
+                          { id: 'SV5T', label: 'Có tiêu chí SV5T' },
+                          { id: 'CERT', label: 'Có giấy chứng nhận' },
+                        ].map((b) => {
+                          const isSelected = selectedBenefit === b.id
+                          return (
+                            <button
+                              key={b.id}
+                              type="button"
+                              onClick={() => setSelectedBenefit(b.id)}
+                              className={cn(
+                                'w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer flex items-center justify-between',
+                                isSelected
+                                  ? 'bg-primary text-primary-foreground font-semibold'
+                                  : 'text-foreground hover:bg-muted'
+                              )}
+                            >
+                              <span>{b.label}</span>
+                              {isSelected && <span>✓</span>}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
             </div>
+
+            {/* Dòng tóm tắt góc phải */}
+            <div className="text-xs text-muted-foreground font-normal">
+              {filteredEvents.length} sự kiện {activeStatusTab !== 'ALL' ? 'trong mục này' : 'tổng cộng'}
+            </div>
           </div>
 
-          {/* Bảng danh sách sự kiện: Dạng Floating Rounded Rows theo chuẩn hình mẫu */}
-          <div className="p-4 sm:p-5 bg-[#F9FAFB]/50 dark:bg-background/40 overflow-x-auto">
-            <div className="min-w-[840px]">
+          {/* 3. Vùng chứa các card sự kiện bo tròn cách nhau */}
+          <div className="p-3 sm:p-4 bg-[#F9FAFB]/60 dark:bg-background/40 overflow-x-auto rounded-xl">
+            <div className="min-w-[760px]">
               {/* Header hàng cột phẳng, chữ xám nhẹ, không viền gồ ghề */}
-              <div className="grid grid-cols-12 items-center px-5 py-2.5 text-xs font-medium text-[#6B7280] dark:text-muted-foreground">
-                <div className="col-span-4">Tên sự kiện</div>
-                <div className="col-span-3">Thời gian & Địa điểm</div>
-                <div className="col-span-2">Đăng ký / Sức chứa</div>
-                <div className="col-span-1" title="Quyền lợi sinh viên (Điểm rèn luyện, Sinh viên 5 tốt, Giấy chứng nhận)">Quyền lợi</div>
-                <div className="col-span-1 text-center">Trạng thái</div>
-                <div className="col-span-1 text-right">Chi tiết</div>
+              <div
+                className={cn(
+                  'grid items-center px-5 py-2 text-xs font-normal text-muted-foreground',
+                  activeStatusTab === 'CLOSED'
+                    ? 'grid-cols-[1fr_240px_110px_90px]'
+                    : 'grid-cols-[1fr_240px_110px_110px_90px]'
+                )}
+              >
+                <div>Tên sự kiện</div>
+                <div>Thời gian &amp; Địa điểm</div>
+                <div>Đăng ký</div>
+                {activeStatusTab !== 'CLOSED' && <div className="text-center">Trạng thái</div>}
+                <div className="text-right">Thao tác</div>
               </div>
 
-              {/* Danh sách các hàng sự kiện dạng Floating Rounded Cards */}
+              {/* Danh sách các card sự kiện bo tròn cách nhau (gap-2.5) */}
               <div
                 key={activeStatusTab}
-                className="flex flex-col gap-2.5 mt-1 animate-in fade-in-50 slide-in-from-bottom-1 duration-200 ease-out"
+                className="flex flex-col gap-2.5 mt-1 animate-in fade-in-50 duration-150"
               >
-                {filteredEvents.length === 0 ? (
-                  <div className="p-12 text-center text-muted-foreground bg-white dark:bg-card rounded-2xl border border-border/80">
+                {isLoading ? (
+                  <div className="flex flex-col gap-2.5 animate-pulse">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          'bg-white dark:bg-card border border-border/80 rounded-2xl px-5 py-3.5 grid items-center shadow-2xs',
+                          activeStatusTab === 'CLOSED'
+                            ? 'grid-cols-[1fr_240px_110px_90px]'
+                            : 'grid-cols-[1fr_240px_110px_110px_90px]'
+                        )}
+                      >
+                        <div className="flex items-center gap-3 pr-4">
+                          <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+                          <div className="space-y-1.5 flex-1 min-w-0">
+                            <Skeleton className="h-4 w-3/4 rounded" />
+                            <Skeleton className="h-3 w-1/2 rounded" />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Skeleton className="h-3.5 w-40 rounded" />
+                          <Skeleton className="h-3 w-32 rounded" />
+                        </div>
+                        <div>
+                          <Skeleton className="h-4 w-16 rounded" />
+                        </div>
+                        {activeStatusTab !== 'CLOSED' && (
+                          <div className="flex justify-center">
+                            <Skeleton className="h-6 w-20 rounded-full" />
+                          </div>
+                        )}
+                        <div className="flex justify-end">
+                          <Skeleton className="h-8 w-8 rounded-lg" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredEvents.length === 0 ? (
+                  <div className="p-10 text-center text-xs text-muted-foreground bg-white dark:bg-card rounded-2xl border border-border/80">
                     Không tìm thấy sự kiện nào phù hợp với bộ lọc.
                   </div>
                 ) : (
                   filteredEvents.map((evt) => {
                     const realRegisteredCount = registeredCountMap[evt.id] ?? evt.registeredCount ?? 0
-                    const regPercent = Math.min(
-                      100,
-                      Math.round((realRegisteredCount / evt.capacity) * 100)
-                    )
-                    const benefits = getEventBenefits(evt)
-
+                    const isNearlyFull = evt.capacity > 0 && realRegisteredCount / evt.capacity >= 0.9
                     const isClosed = evt.status === 'CLOSED'
+                    const eventTime = formatEventTime(evt.dateStart, evt.timeStart, evt.timeEnd)
+                    const displayName = cleanEventName(evt.name)
 
                     return (
                       <div
                         key={evt.id}
-                        className={cn(
-                          "bg-white dark:bg-card border border-border/80 dark:border-border/60 rounded-2xl shadow-2xs hover:shadow-xs hover:border-primary/40 transition-all px-5 py-3.5 grid grid-cols-12 items-center group cursor-pointer",
-                          isClosed && "opacity-70 hover:opacity-95 transition-opacity"
-                        )}
                         onClick={() => onEventClick && onEventClick(evt.id)}
+                        className={cn(
+                          'bg-white dark:bg-card border border-border/80 dark:border-border/60 rounded-2xl shadow-2xs hover:shadow-xs hover:border-primary/40 transition-all px-5 py-3.5 grid items-center group cursor-pointer relative',
+                          activeStatusTab === 'CLOSED'
+                            ? 'grid-cols-[1fr_240px_110px_90px]'
+                            : 'grid-cols-[1fr_240px_110px_110px_90px]',
+                          isClosed && 'opacity-75 hover:opacity-95'
+                        )}
                       >
-                        {/* Cột 1: Tên sự kiện & Mã code (bỏ màu xanh, dùng font-mono xám trung tính) */}
-                        <div className="col-span-4 min-w-0 pr-2">
-                          <div className="space-y-0.5 min-w-0">
-                            <div className="font-bold text-foreground text-xs group-hover:text-primary transition-colors text-left line-clamp-1">
-                              {evt.name}
-                            </div>
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                              <span className="font-mono text-[11px] text-muted-foreground font-medium tracking-wide">
-                                {evt.code}
-                              </span>
-                              <span>•</span>
-                              <span className="truncate">{evt.eventTypeName}</span>
-                            </div>
+                        {/* Cột 1: Tên sự kiện (chỉ 1 hàng + tooltip, dòng phụ: mã + loại sự kiện) */}
+                        <div className="min-w-0 pr-4">
+                          <p
+                            title={displayName}
+                            className="font-semibold text-foreground text-xs group-hover:text-primary transition-colors truncate leading-snug"
+                          >
+                            {displayName}
+                          </p>
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+                            <span className="font-mono tracking-wide">{evt.code}</span>
+                            <span>·</span>
+                            <span className="truncate">{evt.eventTypeName}</span>
                           </div>
                         </div>
 
                         {/* Cột 2: Thời gian & Địa điểm */}
-                        <div className="col-span-3 space-y-1 text-[11px] pr-2">
+                        <div className="space-y-1 text-[11px] pr-3">
                           <div className="flex items-center gap-1.5 text-foreground font-medium">
                             <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span>
-                              {formatDateVN(evt.dateStart)} · {evt.timeStart} - {evt.timeEnd}
-                            </span>
+                            <span>{eventTime}</span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-muted-foreground line-clamp-1">
-                            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="truncate">{evt.location}</span>
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <MapPin className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate" title={evt.location}>
+                              {evt.location}
+                            </span>
                           </div>
                         </div>
 
-                        {/* Cột 3: Đăng ký / Sức chứa (Cam cảnh báo khi gần đầy >= 90%) */}
-                        <div className="col-span-2 space-y-1.5 pr-4">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span
-                              className={cn(
-                                "font-semibold",
-                                regPercent >= 90
-                                  ? "text-amber-600 dark:text-amber-400"
-                                  : "text-foreground"
-                              )}
-                            >
-                              {realRegisteredCount} / {evt.capacity}
-                            </span>
-                            <span
-                              className={cn(
-                                "font-medium",
-                                regPercent >= 90
-                                  ? "text-amber-600 dark:text-amber-400 font-semibold"
-                                  : "text-muted-foreground"
-                              )}
-                            >
-                              {regPercent}%
-                            </span>
-                          </div>
-                          <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div
-                              className={cn(
-                                "h-full rounded-full transition-all",
-                                regPercent >= 90
-                                  ? "bg-amber-500"
-                                  : "bg-slate-400 dark:bg-slate-500"
-                              )}
-                              style={{ width: `${regPercent}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Cột 4: Quyền lợi (Không tô màu sặc sỡ, badge phụ xám nhỏ hơn để phân biệt rõ ràng) */}
-                        <div className="col-span-1" onClick={(e) => e.stopPropagation()}>
-                          <div className="relative group/benefits inline-block text-left py-0.5">
-                            <div className="flex items-center gap-1.5 cursor-pointer">
-                              {evt.trainingPoints && evt.trainingPoints > 0 ? (
-                                <span
-                                  className="font-medium text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/70 text-[11px] whitespace-nowrap cursor-help hover:bg-muted/90 transition-colors"
-                                  title={`+${evt.trainingPoints} Điểm rèn luyện (ĐRL)${evt.trainingPointCategoryName ? `: ${evt.trainingPointCategoryName}` : ''}`}
-                                >
-                                  +{evt.trainingPoints} ĐRL
-                                </span>
-                              ) : evt.sv5tCriteriaName ? (
-                                <span
-                                  className="font-medium text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/70 text-[11px] whitespace-nowrap cursor-help hover:bg-muted/90 transition-colors"
-                                  title={`Tiêu chí Sinh viên 5 Tốt: ${evt.sv5tCriteriaName}`}
-                                >
-                                  SV5T
-                                </span>
-                              ) : evt.hasCertificate ? (
-                                <span
-                                  className="font-medium text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/70 text-[11px] whitespace-nowrap cursor-help hover:bg-muted/90 transition-colors"
-                                  title="Cấp Giấy chứng nhận điện tử (E-Certificate)"
-                                >
-                                  Chứng nhận
-                                </span>
-                              ) : (
-                                <span className="text-[11px] text-muted-foreground italic">
-                                  Không có
-                                </span>
-                              )}
-
-                              {benefits.length > 1 && (
-                                <span
-                                  className="px-1.5 py-0.2 rounded-full text-[10px] font-medium border whitespace-nowrap bg-muted/40 text-muted-foreground border-border/50 group-hover/benefits:bg-muted group-hover/benefits:text-foreground transition-colors"
-                                  title="Rê chuột để xem thêm quyền lợi"
-                                >
-                                  +{benefits.length - 1}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Hover Popover */}
-                            {benefits.length > 0 && (
-                              <div className="invisible opacity-0 group-hover/benefits:visible group-hover/benefits:opacity-100 transition-all duration-150 pointer-events-none group-hover/benefits:pointer-events-auto absolute left-0 top-full mt-1.5 w-72 bg-white dark:bg-card border border-border rounded-xl shadow-xl p-4 z-50 text-left">
-                                <h4 className="font-bold text-xs text-foreground mb-3 pb-2 border-b border-border">
-                                  Quyền lợi ({benefits.length})
-                                </h4>
-                                <div className="space-y-3">
-                                  {benefits.map((b, idx) => (
-                                    <div key={idx} className="space-y-0.5">
-                                      <p className="font-bold text-xs text-foreground">
-                                        {b.title}
-                                      </p>
-                                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                        {b.desc}
-                                      </p>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
+                        {/* Cột 3: Đăng ký (chỉ hiện text "1 / 300", màu nhấn khi >= 90%) */}
+                        <div className="text-[11px] pr-2">
+                          <span
+                            className={cn(
+                              'font-semibold text-xs',
+                              isNearlyFull ? 'text-destructive' : 'text-foreground'
                             )}
+                          >
+                            {realRegisteredCount} / {evt.capacity}
+                          </span>
+                        </div>
+
+                        {/* Cột 4: Trạng thái (chấm màu nhỏ + chữ; ẨN khi đang ở tab "Đã kết thúc") */}
+                        {activeStatusTab !== 'CLOSED' && (
+                          <div className="flex justify-center">
+                            {renderStatus(evt.status)}
                           </div>
-                        </div>
+                        )}
 
-                        {/* Cột 5: Trạng thái */}
-                        <div className="col-span-1 flex justify-center">
-                          {getStatusBadge(evt.status)}
-                        </div>
-
-                        {/* Cột 6: Nút thao tác Chỉnh sửa & Xem chi tiết */}
-                        <div className="col-span-1 flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        {/* Cột 5: Thao tác */}
+                        <div
+                          className="flex items-center justify-end gap-1.5"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {onEditClick && (
                             <button
                               type="button"
@@ -716,30 +575,96 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
             </div>
           </div>
 
+          {/* Mobile view (< 768px): Thẻ bo tròn cách nhau, không cuộn ngang */}
+          <div
+            key={`mobile-${activeStatusTab}`}
+            className="flex flex-col gap-2.5 md:hidden animate-in fade-in-50 duration-150"
+          >
+            {filteredEvents.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground bg-white dark:bg-card rounded-2xl border border-border/80">
+                Không tìm thấy sự kiện nào phù hợp với bộ lọc.
+              </div>
+            ) : (
+              filteredEvents.map((evt) => {
+                const realRegisteredCount = registeredCountMap[evt.id] ?? evt.registeredCount ?? 0
+                const isNearlyFull = evt.capacity > 0 && realRegisteredCount / evt.capacity >= 0.9
+                const eventTime = formatEventTime(evt.dateStart, evt.timeStart, evt.timeEnd)
+                const displayName = cleanEventName(evt.name)
+
+                return (
+                  <div
+                    key={evt.id}
+                    onClick={() => onEventClick && onEventClick(evt.id)}
+                    className="bg-white dark:bg-card border border-border/80 rounded-2xl p-4 space-y-2.5 shadow-2xs hover:border-primary/40 transition-all cursor-pointer"
+                  >
+                    <div>
+                      <p
+                        title={displayName}
+                        className="font-semibold text-foreground text-xs truncate leading-snug"
+                      >
+                        {displayName}
+                      </p>
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+                        <span className="font-mono tracking-wide">{evt.code}</span>
+                        <span>·</span>
+                        <span className="truncate">{evt.eventTypeName}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 text-xs">
+                      <div className="flex items-center gap-1.5 text-foreground font-medium">
+                        <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span>{eventTime}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate" title={evt.location}>
+                          {evt.location}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-border/50 text-xs">
+                      <span
+                        className={cn(
+                          'font-medium',
+                          isNearlyFull ? 'text-destructive font-semibold' : 'text-foreground'
+                        )}
+                      >
+                        {realRegisteredCount} / {evt.capacity} đăng ký
+                      </span>
+                      {activeStatusTab !== 'CLOSED' && renderStatus(evt.status)}
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
           {/* Phân trang */}
-          <div className="p-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+          <div className="pt-3 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
             <span>
               Hiển thị <strong>{filteredEvents.length}</strong> trên tổng số{' '}
               <strong>{validEvents.length}</strong> sự kiện
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 disabled
-                className="px-3 h-8 rounded-lg border border-border bg-muted/30 text-muted-foreground cursor-not-allowed text-xs font-medium"
+                className="px-3 h-8 rounded-lg border border-border/80 bg-white dark:bg-card text-muted-foreground/60 cursor-not-allowed text-xs font-medium"
               >
                 Trước
               </button>
               <button
                 type="button"
-                className="px-3 h-8 rounded-lg border border-primary bg-primary text-white text-xs font-semibold"
+                className="px-3 h-8 rounded-lg bg-primary text-primary-foreground text-xs font-semibold cursor-pointer"
               >
                 1
               </button>
               <button
                 type="button"
                 disabled
-                className="px-3 h-8 rounded-lg border border-border bg-muted/30 text-muted-foreground cursor-not-allowed text-xs font-medium"
+                className="px-3 h-8 rounded-lg border border-border/80 bg-white dark:bg-card text-muted-foreground/60 cursor-not-allowed text-xs font-medium"
               >
                 Sau
               </button>
@@ -750,4 +675,3 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
     </div>
   )
 }
-

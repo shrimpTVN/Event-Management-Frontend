@@ -2,9 +2,17 @@ import React, { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart3, Check } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { apiClient } from '@/shared'
 import { useAuthStore } from '@/features/auth'
 import { historyService, type RegisteredEventItem } from '@/features/registration-history'
+import {
+  trainingPointsService,
+  buildPointCategoryTree,
+  computeCategoryScore,
+  type PointCategory,
+  type PointTransaction,
+  type StudentSemesterPoint,
+} from '@/features/training-points'
+import { Skeleton } from '@/components/ui/skeleton'
 import { EventCalendarWidget } from './EventCalendarWidget'
 
 interface CriteriaItem {
@@ -18,13 +26,15 @@ interface CriteriaItem {
 export const StudentRightSidebar: React.FC = () => {
   const { isAuthenticated } = useAuthStore()
 
-  // 1. Fetch active semester & academic year
-  const { data: semestersList } = useQuery<any[]>({
+  // 1. Fetch active semester & academic years
+  const { data: semestersList, isLoading: isSemestersLoading } = useQuery<any[]>({
     queryKey: ['semesters'],
-    queryFn: async () => {
-      const res: any = await apiClient.get('/semesters')
-      return Array.isArray(res) ? res : res?.data || []
-    },
+    queryFn: () => trainingPointsService.getSemesters(),
+  })
+
+  const { data: academicYears = [] } = useQuery({
+    queryKey: ['academic-years'],
+    queryFn: () => trainingPointsService.getAcademicYears(),
   })
 
   const activeSemester = useMemo(() => {
@@ -35,25 +45,26 @@ export const StudentRightSidebar: React.FC = () => {
   const activeSemesterId = activeSemester?.id || 1
 
   // 2. Fetch training semester points dynamically based on active semester
-  const { data: semesterPoints } = useQuery<any[]>({
+  const { data: semesterPoints, isLoading: isSemesterPointsLoading } = useQuery<StudentSemesterPoint[]>({
     queryKey: ['student-semester-points', activeSemesterId],
-    queryFn: async () => {
-      const res: any = await apiClient.get(`/student-semester-points/me/semesters/${activeSemesterId}`)
-      return Array.isArray(res) ? res : res?.data || []
-    },
+    queryFn: () => trainingPointsService.getStudentSemesterPoints(activeSemesterId),
     enabled: Boolean(activeSemesterId) && isAuthenticated,
   })
 
   // 3. Fetch point categories from server dynamically
-  const { data: pointCategories = [] } = useQuery<any[]>({
+  const { data: pointCategories = [], isLoading: isCategoriesLoading } = useQuery<PointCategory[]>({
     queryKey: ['point-categories'],
-    queryFn: async () => {
-      const res: any = await apiClient.get('/point-categories')
-      return Array.isArray(res) ? res : res?.data || []
-    },
+    queryFn: () => trainingPointsService.getPointCategories(),
   })
 
-  // 4. Fetch registered events to render calendar dots strictly for events the student has actually registered for
+  // 4. Fetch point transactions for current student & semester
+  const { data: transactions = [], isLoading: isTransactionsLoading } = useQuery<PointTransaction[]>({
+    queryKey: ['point-transactions', activeSemesterId],
+    queryFn: () => trainingPointsService.getPointTransactions(activeSemesterId),
+    enabled: Boolean(activeSemesterId) && isAuthenticated,
+  })
+
+  // 5. Fetch registered events to render calendar dots strictly for events the student has actually registered for
   const { data: registeredEvents = [] } = useQuery<RegisteredEventItem[]>({
     queryKey: ['registrations', 'history'],
     queryFn: () => historyService.getMyHistory(),
@@ -67,9 +78,11 @@ export const StudentRightSidebar: React.FC = () => {
     const active = activeSemester
     if (!active) return 'HK1 NH 2026 - 2027'
     const semNum = active.number === 3 ? 'Hè' : active.number || 1
-    const year = active.academicYear ? active.academicYear.replace('-', ' - ') : '2026 - 2027'
-    return `HK${semNum} NH ${year}`
-  }, [semestersList, activeSemester])
+    const yearObj = academicYears.find((y: any) => y.id === active.academicYearId)
+    const rawYear = yearObj?.code || active.academicYear || '2026-2027'
+    const formattedYear = rawYear.replace('-', ' - ')
+    return `HK${semNum} NH ${formattedYear}`
+  }, [semestersList, activeSemester, academicYears])
 
   // Filter root point categories (level 0 or without parent)
   const rootCategories = useMemo(() => {
@@ -77,13 +90,56 @@ export const StudentRightSidebar: React.FC = () => {
     return roots.sort((a: any, b: any) => (a.childrenOrder || 0) - (b.childrenOrder || 0))
   }, [pointCategories])
 
-  // Compute criteria items and total points strictly from server response
+  // Build tree for hierarchical score calculation
+  const categoryTree = useMemo(() => {
+    if (!pointCategories || pointCategories.length === 0) return []
+    return buildPointCategoryTree(pointCategories)
+  }, [pointCategories])
+
+  // Process transactions and leaf semester points
+  const { recordedMap, studentScores } = useMemo(() => {
+    const recMap = new Map<number, number>()
+    const stScores: Record<number, number> = {}
+
+    // 1. Process real transactions
+    transactions.forEach((tx) => {
+      if (tx.type === 'MANUAL') {
+        stScores[tx.pointCategoryId] = tx.points
+      } else {
+        const cur = recMap.get(tx.pointCategoryId) || 0
+        recMap.set(tx.pointCategoryId, cur + tx.points)
+      }
+    })
+
+    // 2. Incorporate leaf entries from semesterPoints if not already represented in transactions
+    if (Array.isArray(semesterPoints)) {
+      semesterPoints.forEach((sp: any) => {
+        const catId = Number(sp.pointCategoryId)
+        if (!recMap.has(catId) && !stScores[catId]) {
+          recMap.set(catId, sp.totalPoint || 0)
+        }
+      })
+    }
+
+    return { recordedMap: recMap, studentScores: stScores }
+  }, [transactions, semesterPoints])
+
+  // Compute criteria items and total points strictly with rollup & maximum caps
   const { criteriaList, currentScore, classification, pointsNeeded } = useMemo(() => {
     const pointsArray = Array.isArray(semesterPoints) ? semesterPoints : []
 
     const list: CriteriaItem[] = rootCategories.map((cat: any) => {
-      const sp = pointsArray.find((p: any) => p.pointCategoryId === cat.id)
-      const current = sp ? sp.totalPoint : 0
+      const treeNode = categoryTree.find((node) => node.id === cat.id)
+      const computedScore = treeNode
+        ? computeCategoryScore(treeNode, recordedMap, studentScores)
+        : 0
+
+      // Direct aggregate from semesterPoints as fallback
+      const rootSp = pointsArray.find((p: any) => p.pointCategoryId === cat.id)
+      const aggScore = rootSp ? rootSp.totalPoint : 0
+
+      // Final score for this section is capped at section maximum
+      const current = Math.min(cat.maximum || 20, Math.max(computedScore, aggScore))
       const max = cat.maximum || 20
       return {
         id: String(cat.id),
@@ -100,6 +156,7 @@ export const StudentRightSidebar: React.FC = () => {
     let needed = 50 - total
     if (total >= 90) {
       rank = 'Xuất sắc'
+      needed = 0
     } else if (total >= 80) {
       rank = 'Tốt'
       needed = 90 - total
@@ -115,9 +172,9 @@ export const StudentRightSidebar: React.FC = () => {
       criteriaList: list,
       currentScore: total,
       classification: rank,
-      pointsNeeded: needed,
+      pointsNeeded: Math.max(0, needed),
     }
-  }, [rootCategories, semesterPoints])
+  }, [rootCategories, categoryTree, recordedMap, studentScores, semesterPoints])
 
   const maxScore = 100
   const scorePercentage = Math.min(100, (currentScore / maxScore) * 100)
@@ -127,109 +184,141 @@ export const StudentRightSidebar: React.FC = () => {
   const circumference = 2 * Math.PI * radius
   const strokeDashoffset = circumference - (scorePercentage / 100) * circumference
 
+  const isPointsLoading =
+    isAuthenticated &&
+    (isSemestersLoading || isSemesterPointsLoading || isCategoriesLoading || isTransactionsLoading)
+
   return (
     <aside className="w-full flex flex-col gap-6 text-sm">
       {/* 1. Điểm rèn luyện Section Header */}
       <div className="flex flex-col gap-3.5 font-sans">
-        <div className="flex items-center justify-center gap-1.5 text-[#111827] dark:text-foreground font-semibold text-xs tracking-wide text-center">
-          <BarChart3 className="h-4 w-4 text-primary shrink-0" />
-          <span>{currentSemesterLabel}</span>
-        </div>
-
-        {/* Circular Gauge + Classification */}
-        <div className="flex items-center justify-between gap-4 pt-1">
-          <div className="relative flex items-center justify-center shrink-0">
-            <svg className="h-28 w-28 -rotate-90 transform" viewBox="0 0 128 128">
-              {/* Background circle track */}
-              <circle
-                cx="64"
-                cy="64"
-                r={radius}
-                className="stroke-[#D9D9D9] dark:stroke-muted"
-                strokeWidth="12"
-                fill="none"
-              />
-              {/* Progress circle */}
-              <circle
-                cx="64"
-                cy="64"
-                r={radius}
-                className="stroke-[#008CCC]"
-                strokeWidth="12"
-                strokeLinecap="round"
-                fill="none"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-              />
-            </svg>
-            <div className="absolute flex flex-col items-center justify-center text-center">
-              <span className="font-k2d font-semibold text-[22.4px] text-black dark:text-foreground leading-none">
-                {currentScore}
-              </span>
-              <span className="text-[10.4px] font-medium text-[#6B7280] mt-0.5">/{maxScore}</span>
+        {isPointsLoading ? (
+          <div className="flex flex-col gap-3.5 animate-pulse">
+            <div className="flex justify-center">
+              <Skeleton className="h-4 w-32 rounded" />
+            </div>
+            <div className="flex items-center justify-between gap-4 pt-1">
+              <Skeleton className="h-28 w-28 rounded-full shrink-0" />
+              <div className="flex-1 flex flex-col items-center gap-2">
+                <Skeleton className="h-3.5 w-16 rounded" />
+                <Skeleton className="h-6 w-24 rounded" />
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 pt-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <Skeleton className="h-3 w-28 rounded" />
+                    <Skeleton className="h-3 w-10 rounded" />
+                  </div>
+                  <Skeleton className="h-2 w-full rounded" />
+                </div>
+              ))}
             </div>
           </div>
-
-          <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <span className="text-[15px] font-normal text-black dark:text-foreground">Xếp loại:</span>
-            <span className="font-k2d font-bold text-[18px] text-black dark:text-foreground tracking-tight">
-              {classification}
-            </span>
-          </div>
-        </div>
-
-        {pointsNeeded > 0 ? (
-          <p className="text-[9px] text-[#6B7280] text-center font-medium">
-            Cần thêm <span className="font-semibold text-[#285FA4]">{pointsNeeded} điểm</span> để nâng hạng tiếp theo
-          </p>
         ) : (
-          <p className="text-[9px] text-emerald-600 text-center font-medium">
-            Đã đạt mức xếp loại tối đa!
-          </p>
-        )}
+          <>
+            <div className="flex items-center justify-center gap-1.5 text-[#111827] dark:text-foreground font-semibold text-xs tracking-wide text-center">
+              <BarChart3 className="h-4 w-4 text-primary shrink-0" />
+              <span>{currentSemesterLabel}</span>
+            </div>
 
-        {/* Breakdown by criteria */}
-        <div className="flex flex-col gap-2 pt-1">
-          {criteriaList.map((item, idx) => {
-            const pct = Math.min(100, Math.round((item.current / item.max) * 100))
-            const isLast = idx === criteriaList.length - 1
-            return (
-              <div
-                key={item.id}
-                className={`flex flex-col gap-1 text-xs ${
-                  !isLast ? 'border-b border-[#E5E7EB] dark:border-border/60 pb-2' : ''
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-[9.5px] text-black dark:text-foreground truncate max-w-[160px]">
-                    {item.name}
-                  </span>
-                  <span className="flex items-center gap-1 font-semibold text-[9.5px] text-black dark:text-foreground">
-                    {item.current}/{item.max}
-                    {item.isCompleted && <Check className="h-3 w-3 text-[#3B8858] stroke-[3]" />}
-                  </span>
-                </div>
-                {/* Progress bar track */}
-                <div className="h-1.5 w-full rounded-full bg-[#E5E7EB] dark:bg-muted overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      item.isCompleted ? 'bg-[#3B8858]' : 'bg-[#008CCC]'
-                    }`}
-                    style={{ width: `${pct}%` }}
+            {/* Circular Gauge + Classification */}
+            <div className="flex items-center justify-between gap-4 pt-1">
+              <div className="relative flex items-center justify-center shrink-0">
+                <svg className="h-28 w-28 -rotate-90 transform" viewBox="0 0 128 128">
+                  {/* Background circle track */}
+                  <circle
+                    cx="64"
+                    cy="64"
+                    r={radius}
+                    className="stroke-[#D9D9D9] dark:stroke-muted"
+                    strokeWidth="12"
+                    fill="none"
                   />
+                  {/* Progress circle */}
+                  <circle
+                    cx="64"
+                    cy="64"
+                    r={radius}
+                    className="stroke-[#008CCC]"
+                    strokeWidth="12"
+                    strokeLinecap="round"
+                    fill="none"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                  />
+                </svg>
+                <div className="absolute flex flex-col items-center justify-center text-center">
+                  <span className="font-k2d font-semibold text-[22.4px] text-black dark:text-foreground leading-none">
+                    {currentScore}
+                  </span>
+                  <span className="text-[10.4px] font-medium text-[#6B7280] mt-0.5">/{maxScore}</span>
                 </div>
               </div>
-            )
-          })}
-        </div>
 
-        {/* CTA Button */}
-        <Link
-          to="/history"
-          className="w-full inline-flex items-center justify-center rounded-lg bg-[#DCEAF8] py-2 px-3 font-semibold text-[10.5px] text-[#1B406F] hover:bg-[#DCEAF8]/80 transition-colors"
-        >
-          → Xem lịch sử hoạt động & ĐRL
-        </Link>
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                <span className="text-[15px] font-normal text-black dark:text-foreground">Xếp loại:</span>
+                <span className="font-k2d font-bold text-[18px] text-black dark:text-foreground tracking-tight">
+                  {classification}
+                </span>
+              </div>
+            </div>
+
+            {pointsNeeded > 0 ? (
+              <p className="text-[9px] text-[#6B7280] text-center font-medium">
+                Cần thêm <span className="font-semibold text-[#285FA4]">{pointsNeeded} điểm</span> để nâng hạng tiếp theo
+              </p>
+            ) : (
+              <p className="text-[9px] text-emerald-600 text-center font-medium">
+                Đã đạt mức xếp loại tối đa!
+              </p>
+            )}
+
+            {/* Breakdown by criteria */}
+            <div className="flex flex-col gap-2 pt-1">
+              {criteriaList.map((item, idx) => {
+                const pct = Math.min(100, Math.round((item.current / item.max) * 100))
+                const isLast = idx === criteriaList.length - 1
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex flex-col gap-1 text-xs ${
+                      !isLast ? 'border-b border-[#E5E7EB] dark:border-border/60 pb-2' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-[9.5px] text-black dark:text-foreground truncate max-w-[160px]">
+                        {item.name}
+                      </span>
+                      <span className="flex items-center gap-1 font-semibold text-[9.5px] text-black dark:text-foreground">
+                        {item.current}/{item.max}
+                        {item.isCompleted && <Check className="h-3 w-3 text-[#3B8858] stroke-[3]" />}
+                      </span>
+                    </div>
+                    {/* Progress bar track */}
+                    <div className="h-1.5 w-full rounded-full bg-[#E5E7EB] dark:bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          item.isCompleted ? 'bg-[#3B8858]' : 'bg-[#008CCC]'
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* CTA Button */}
+            <Link
+              to="/history"
+              className="w-full inline-flex items-center justify-center rounded-lg bg-[#DCEAF8] py-2 px-3 font-semibold text-[10.5px] text-[#1B406F] hover:bg-[#DCEAF8]/80 transition-colors"
+            >
+              → Xem lịch sử hoạt động & ĐRL
+            </Link>
+          </>
+        )}
       </div>
 
       {/* 2. Interactive Calendar Widget with Real Registered Events */}

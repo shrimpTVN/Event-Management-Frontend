@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, MapPin, Award } from 'lucide-react'
+import { Calendar, MapPin } from 'lucide-react'
 import { formatEventTitle } from '@/shared'
 import {
   type RegisteredEventItem,
@@ -168,10 +168,10 @@ export const RegisteredEventTable: React.FC<RegisteredEventTableProps> = ({
                       {displayedBenefits.map((b, bIdx) => (
                         <span
                           key={bIdx}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] text-[11px] font-medium bg-[#EFF5FC] text-[#065C85] dark:bg-blue-950/60 dark:text-blue-300"
+                          title={cleanBenefitText(b)}
+                          className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium bg-[#EFF5FC] text-[#065C85] dark:bg-blue-950/60 dark:text-blue-300"
                         >
-                          <Award className="h-2.5 w-2.5 text-primary shrink-0" />
-                          <span className="truncate max-w-[130px]">{cleanBenefitText(b)}</span>
+                          <span className="truncate max-w-[160px]">{cleanBenefitText(b)}</span>
                         </span>
                       ))}
                       {extraCount > 0 ? (

@@ -56,19 +56,17 @@ export const authService = {
           isProfileComplete: true,
         }
 
-    // Attempt to enrich student user info from real profile if available
-    if (normalizedRole === RoleEnum.STUDENT) {
-      try {
-        const profileRes: any = await apiClient.get('/users/me/profile')
-        if (profileRes) {
-          if (profileRes.studentId) user.studentId = profileRes.studentId
-          const realName = `${profileRes.lastName || ''} ${profileRes.firstName || ''}`.trim()
-          if (realName) user.name = realName
-          if (profileRes.avatarUrl) user.avatarUrl = profileRes.avatarUrl
-        }
-      } catch {
-        // Fallback gracefully
+    // Attempt to enrich user info from real profile if available (both student and staff)
+    try {
+      const profileRes: any = await apiClient.get('/users/me/profile')
+      if (profileRes) {
+        if (profileRes.studentId) user.studentId = profileRes.studentId
+        const realName = `${profileRes.lastName || ''} ${profileRes.firstName || ''}`.trim()
+        if (realName) user.name = realName
+        if (profileRes.avatarUrl) user.avatarUrl = profileRes.avatarUrl
       }
+    } catch {
+      // Fallback gracefully
     }
 
     const tokens: AuthTokens = response?.tokens || {

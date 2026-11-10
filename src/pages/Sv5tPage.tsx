@@ -35,7 +35,11 @@ export const Sv5tPage: React.FC = () => {
   // Set default active academic year when data arrives
   useEffect(() => {
     if (academicYears.length > 0 && !selectedYearId) {
-      const activeYear = academicYears.find((y) => y.isActive) || academicYears[0]
+      const activeYear =
+        academicYears.find((y) => y.isActive) ||
+        academicYears.find((y) => y.code === '2026-2027') ||
+        academicYears[academicYears.length - 1] ||
+        academicYears[0]
       if (activeYear) {
         setSelectedYearId(activeYear.id)
         setAppliedYearId(activeYear.id)
@@ -47,6 +51,13 @@ export const Sv5tPage: React.FC = () => {
   const { data: criteriaProgress, isLoading } = useQuery({
     queryKey: ['student-criteria-progress', appliedYearId],
     queryFn: () => sv5tService.getStudentCriteriaProgress(appliedYearId),
+    enabled: Boolean(appliedYearId),
+  })
+
+  // 2b. Fetch All Student Criteria Transactions for appliedYearId
+  const { data: allTransactions = [] } = useQuery({
+    queryKey: ['student-criteria-transactions-all', appliedYearId],
+    queryFn: () => sv5tService.getAllCriteriaTransactions(appliedYearId),
     enabled: Boolean(appliedYearId),
   })
 
@@ -64,12 +75,13 @@ export const Sv5tPage: React.FC = () => {
   const progressMutation = useMutation({
     mutationFn: (payload: { criteriaId: number; completed: boolean; note: string }) =>
       sv5tService.toggleManualCriteriaProgress(payload.criteriaId, {
-        academicYearId: appliedYearId,
+        academicYearId: appliedYearId || selectedYearId || academicYears[0]?.id || 1,
         completed: payload.completed,
         note: payload.note,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['student-criteria-progress', appliedYearId] })
+      queryClient.invalidateQueries({ queryKey: ['student-criteria-transactions-all', appliedYearId] })
     },
   })
 
@@ -77,7 +89,11 @@ export const Sv5tPage: React.FC = () => {
     // Optimistically update UI
     setLocalCompletedMap((prev) => ({ ...prev, [criteriaId]: completed }))
     setLocalNoteMap((prev) => ({ ...prev, [criteriaId]: note }))
-    await progressMutation.mutateAsync({ criteriaId, completed, note })
+    try {
+      await progressMutation.mutateAsync({ criteriaId, completed, note })
+    } catch (err) {
+      console.warn('API sync warning:', err)
+    }
   }
 
   // Handle clicking "Tìm" button
@@ -88,8 +104,8 @@ export const Sv5tPage: React.FC = () => {
 
   // Build complete hierarchical criteria tree with all children and correct required counts
   const standards = useMemo(() => {
-    return ensureSv5tHierarchy(criteriaProgress, localCompletedMap, localNoteMap)
-  }, [criteriaProgress, localCompletedMap, localNoteMap])
+    return ensureSv5tHierarchy(criteriaProgress, localCompletedMap, localNoteMap, allTransactions)
+  }, [criteriaProgress, localCompletedMap, localNoteMap, allTransactions])
 
   // Count completed standards
   const completedStandardsCount = useMemo(() => {
@@ -139,12 +155,14 @@ export const Sv5tPage: React.FC = () => {
                 completedStandardsCount={completedStandardsCount}
                 totalStandardsCount={standards.length || 5}
                 scope={appliedScope}
+                isLoading={isLoading}
               />
             </div>
 
             {/* 4. Detailed Standards Evaluation Table */}
             <Sv5tTable
               standards={standards}
+              academicYearId={appliedYearId || 2}
               onSaveProgress={handleSaveProgress}
               isLoading={isLoading}
               resetKey={`${appliedYearId}-${appliedScope}`}

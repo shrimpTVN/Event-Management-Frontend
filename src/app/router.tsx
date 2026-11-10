@@ -1,6 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { PageShell } from '@/shared'
-import { AuthGuard, STAFF_ROLES, ADMIN_ROLES } from '@/features/auth'
+import { AuthGuard, STAFF_ROLES, ADMIN_ROLES, STUDENT_ROLES } from '@/features/auth'
 import { HomePage } from '../pages/HomePage'
 import { EventDetailPage } from '../pages/EventDetailPage'
 import { RegistrationPage } from '../pages/RegistrationPage'
@@ -81,7 +81,23 @@ export const router = createBrowserRouter([
   {
     path: '/fanpage/admin',
     element: (
-      <AuthGuard allowedRoles={STAFF_ROLES} roleRedirectPath="/">
+      <AuthGuard allowedRoles={[...STAFF_ROLES, ...STUDENT_ROLES]} roleRedirectPath="/">
+        <FanpageAdminPage />
+      </AuthGuard>
+    ),
+  },
+  {
+    path: '/fanpage/workspace',
+    element: (
+      <AuthGuard allowedRoles={[...STAFF_ROLES, ...STUDENT_ROLES]} roleRedirectPath="/">
+        <FanpageAdminPage />
+      </AuthGuard>
+    ),
+  },
+  {
+    path: '/fanpage/manage',
+    element: (
+      <AuthGuard allowedRoles={[...STAFF_ROLES, ...STUDENT_ROLES]} roleRedirectPath="/">
         <FanpageAdminPage />
       </AuthGuard>
     ),
@@ -89,10 +105,14 @@ export const router = createBrowserRouter([
   {
     path: '/admin/fanpage',
     element: (
-      <AuthGuard allowedRoles={STAFF_ROLES} roleRedirectPath="/">
+      <AuthGuard allowedRoles={[...STAFF_ROLES, ...STUDENT_ROLES]} roleRedirectPath="/">
         <FanpageAdminPage />
       </AuthGuard>
     ),
+  },
+  {
+    path: '/fanpage-admin',
+    element: <Navigate to="/fanpage/workspace" replace />,
   },
   {
     path: '/dang-nhap',

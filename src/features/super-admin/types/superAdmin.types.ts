@@ -1,135 +1,152 @@
-export type SuperAdminTab =
+export type SuperAdminNavTab =
   | 'overview'
-  | 'users'
   | 'fanpages'
+  | 'users'
   | 'events'
   | 'semesters'
-  | 'training-points'
-  | 'sv5t'
+  | 'point-categories'
+  | 'sv5t-criterias'
+  | 'schools'
 
-export interface UserAdminItem {
-  id: number | string
+export type UserRole = 'STUDENT' | 'STAFF' | 'ORGANIZER' | 'SUPERADMIN'
+export type UserStatus = 'ACTIVE' | 'LOCKED' | 'PENDING'
+
+export interface SuperAdminUser {
+  id: string
+  name: string
+  code: string // MSSV hoặc Mã cán bộ
   email: string
-  fullName?: string
-  studentId?: string
-  role: string
-  roles?: string[]
-  isActive: boolean
-  avatarUrl?: string
-  schoolName?: string
+  role: UserRole
+  schoolName: string
   majorName?: string
-  classCode?: string
-  phone?: string
-  createdAt?: string
-}
-
-export type FanpageStatus = 'PENDING' | 'ACTIVE' | 'BANNED'
-
-export interface FanpageAdminItem {
-  id: number | string
-  code: string
-  name: string
-  orgName?: string
-  status: FanpageStatus
-  isActive: boolean
-  followerCount: number
-  eventCount: number
-  helpContact?: string
-  helpPhone?: string
-  address?: string
+  status: UserStatus
   avatarUrl?: string
+  phone?: string
+  createdAt: string
+  eventsParticipatedCount: number
+}
+
+export type FanpageStatus = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'LOCKED'
+
+export interface SuperAdminFanpage {
+  id: string
+  name: string
+  representativeName: string
+  representativeCode: string
+  representativePhone: string
+  representativeEmail: string
+  schoolName: string
+  proofFileUrl?: string
+  proofFileName?: string
+  createdAt: string
+  status: FanpageStatus
+  avatarUrl?: string
+  coverUrl?: string
   description?: string
-  parentOrg?: string
-  createdAt?: string
+  rejectionReason?: string
+  eventsCount: number
+  followersCount: number
 }
 
-export type EventAdminStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'CANCELLED'
+export type AdminEventStatus =
+  | 'OPEN'
+  | 'HAPPENING'
+  | 'COMPLETED'
+  | 'VIOLATED'
+  | 'HIDDEN'
 
-export interface EventAdminItem {
-  id: number | string
-  name: string
-  description: string
+export interface SuperAdminEvent {
+  id: string
+  title: string
+  fanpageId: string
+  fanpageName: string
+  startDateTime: string
+  endDateTime: string
   location: string
-  dateOpen: string
-  dateClose: string
-  dateHappen: string
   capacity: number
-  maleQuantity?: number
-  femaleQuantity?: number
   registeredCount: number
-  checkedInCount?: number
-  status: EventAdminStatus
-  eventTypeId: number
-  eventTypeName?: string
-  fanpageId: number
-  fanpageName?: string
-  semesterId: number
-  semesterName?: string
-  criteriaId?: number
-  criteriaName?: string
+  trainingPoint: number
+  trainingPointCategoryName: string
+  sv5tCriteriaName?: string
+  createdAt: string
+  status: AdminEventStatus
   bannerUrl?: string
-  createdAt?: string
+  violationReason?: string
+  reportCount?: number
 }
 
-export interface SemesterAdminItem {
+export type SemesterStatus = 'UPCOMING' | 'ONGOING' | 'COMPLETED'
+
+export interface SuperAdminSemester {
   id: number
-  number: number
+  number: number // 1, 2, 3
+  academicYear: string // ví dụ: "2025-2026"
   startDate: string
   endDate: string
-  status: 'ONGOING' | 'UPCOMING' | 'CLOSED' | string
-  academicYearId: number
-  academicYearName?: string
-  isActive?: boolean
+  status: SemesterStatus
+  isCurrent: boolean
+  isActive: boolean
 }
 
-export interface AcademicYearItem {
+export interface SuperAdminPointCategory {
   id: number
   name: string
-  startDate: string
-  endDate: string
-  isActive?: boolean
-}
-
-export interface PointCategoryAdminItem {
-  id: number
-  name: string
+  note?: string
   maximum: number
   level: number
-  note?: string
+  childrenOrder: number
   parentCategoryId?: number | null
-  parentCategoryName?: string
-  dateApply?: string
   isActive: boolean
-  childrenOrder?: number
-  children?: PointCategoryAdminItem[]
+  children?: SuperAdminPointCategory[]
 }
 
-export interface CriteriaAdminItem {
+export type Sv5tScope = 'UNIVERSITY' | 'FACULTY'
+
+export interface SuperAdminSv5tCriteria {
   id: number
   name: string
   note?: string
-  scope: string
+  scope: Sv5tScope
   level: number
+  childrenOrder: number
   parentId?: number | null
-  parentName?: string
-  childrenOrder?: number
-  requiredChildren?: number | null
-  isActive?: boolean
-  children?: CriteriaAdminItem[]
+  isActive: boolean
+  children?: SuperAdminSv5tCriteria[]
+}
+
+export interface SuperAdminMajor {
+  id: number
+  code: string
+  name: string
+  schoolId: number
+  isActive: boolean
+  studentCount?: number
+}
+
+export interface SuperAdminSchool {
+  id: number
+  name: string
+  description?: string
+  isActive: boolean
+  majorsCount?: number
+  majors?: SuperAdminMajor[]
 }
 
 export interface SuperAdminOverviewStats {
   totalUsers: number
-  studentCount: number
-  staffCount: number
-  adminCount: number
   totalFanpages: number
-  activeFanpages: number
-  pendingFanpages: number
   totalEvents: number
-  publishedEvents: number
-  draftEvents: number
-  closedEvents: number
-  ongoingSemester?: SemesterAdminItem | null
+  totalParticipations: number
+  pendingFanpagesCount: number
+  violationReportsCount: number
+  userGrowthRate: number
+  eventGrowthRate: number
 }
 
+export interface FanpageRankItem {
+  id: string
+  name: string
+  eventsCount: number
+  participationsCount: number
+  avatarUrl?: string
+}

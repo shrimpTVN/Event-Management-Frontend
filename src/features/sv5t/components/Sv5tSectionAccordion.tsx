@@ -6,6 +6,7 @@ import type { CriteriaProgressNode, CriteriaRowItem } from '../types/sv5t.types'
 interface Sv5tSectionAccordionProps {
   standard: CriteriaProgressNode
   standardIndex: number // 1, 2, 3, 4, 5
+  academicYearId?: number
   onSaveProgress: (criteriaId: number, completed: boolean, note: string) => Promise<void> | void
   defaultExpanded?: boolean
   onToggleExpand?: (isExpanded: boolean) => void
@@ -14,6 +15,7 @@ interface Sv5tSectionAccordionProps {
 export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
   standard,
   standardIndex,
+  academicYearId,
   onSaveProgress,
   defaultExpanded = false,
   onToggleExpand,
@@ -142,6 +144,7 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
               criteriaCode={r.code}
               isLeaf={r.isLeaf}
               isGroupBanner={r.isGroupBanner}
+              academicYearId={academicYearId}
               onSaveProgress={onSaveProgress}
             />
           ))}

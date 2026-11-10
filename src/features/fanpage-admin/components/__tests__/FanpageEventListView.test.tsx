@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { FanpageEventListView } from '../FanpageEventListView'
 import type { AdminEvent } from '../../types/fanpageAdmin.types'
+
+const renderWithQueryClient = (ui: React.ReactElement) => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
+}
 
 const mockEvents: AdminEvent[] = [
   {
@@ -72,85 +80,79 @@ const mockEvents: AdminEvent[] = [
   },
 ]
 
-describe('FanpageEventListView', () => {
-  it('does NOT render fake hardcoded trend badge (25%)', () => {
-    render(<FanpageEventListView events={mockEvents} />)
+describe('FanpageEventListView Redesign', () => {
+  it('renders top layout with breadcrumb, header, and create button', () => {
+    renderWithQueryClient(<FanpageEventListView events={mockEvents} />)
 
-    // The hardcoded fake trend badge (25%) or invalid (-100%) should NEVER appear
-    expect(screen.queryByText('25%')).toBeNull()
-    expect(screen.queryByText('100%')).toBeNull()
+    // Breadcrumb
+    expect(screen.getByText('Quản trị fanpage')).toBeInTheDocument()
 
-    // Real event counts should be rendered correctly
-    expect(screen.getByText('Tất cả sự kiện')).toBeInTheDocument()
-    expect(screen.getAllByText('2').length).toBeGreaterThan(0) // Total 2 events
-    expect(screen.getByText('+2 sự kiện so với học kỳ trước')).toBeInTheDocument()
+    // Title and button
+    expect(screen.getByRole('heading', { level: 1, name: 'Quản lý sự kiện' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Tạo sự kiện mới/i })).toBeInTheDocument()
 
-    // Event title should be visible in the list table
+    // Status tabs with counts
+    expect(screen.getByRole('button', { name: /Tất cả/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Sắp diễn ra/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Đang mở đăng ký/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Đã kết thúc/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Bản nháp/i })).toBeInTheDocument()
+  })
+
+  it('renders table columns correctly without duplicate headings or Quyền lợi column', () => {
+    renderWithQueryClient(<FanpageEventListView events={mockEvents} />)
+
+    // Inner duplicate title should NOT exist
+    expect(screen.queryByRole('heading', { level: 2, name: 'Danh sách sự kiện' })).toBeNull()
+
+    // Column headers
+    expect(screen.getByText('Tên sự kiện')).toBeInTheDocument()
+    expect(screen.getByText('Thời gian & Địa điểm')).toBeInTheDocument()
+    expect(screen.getByText('Đăng ký')).toBeInTheDocument()
+    expect(screen.getByText('Trạng thái')).toBeInTheDocument()
+    expect(screen.getByText('Thao tác')).toBeInTheDocument()
+
+    // "Quyền lợi" column header should be removed
+    expect(screen.queryByText('Quyền lợi')).toBeNull()
+  })
+
+  it('renders event registration as pure text without progress bar percentage', () => {
+    renderWithQueryClient(<FanpageEventListView events={mockEvents} />)
+
+    // Should display text "45 / 80"
+    expect(screen.getByText('45 / 80')).toBeInTheDocument()
+    // Should NOT display percentage badge like "56%" or "60%"
+    expect(screen.queryByText('56%')).toBeNull()
+    expect(screen.queryByText('60%')).toBeNull()
+  })
+
+  it('hides the Status column header and badges when active tab is "Đã kết thúc"', () => {
+    renderWithQueryClient(<FanpageEventListView events={mockEvents} />)
+
+    // Initially on "Tất cả", Status column header is visible
+    expect(screen.getByText('Trạng thái')).toBeInTheDocument()
+
+    // Click "Đã kết thúc" tab
+    const closedTabBtn = screen.getByRole('button', { name: /Đã kết thúc/i })
+    fireEvent.click(closedTabBtn)
+
+    // Status column should be hidden
+    expect(screen.queryByText('Trạng thái')).toBeNull()
+  })
+
+  it('renders clean empty state when no events match', () => {
+    renderWithQueryClient(<FanpageEventListView events={[]} />)
+
     expect(
-      screen.getByText('Workshop: Kỹ năng viết CV và phỏng vấn thành công')
-    ).toBeInTheDocument()
-    expect(screen.getByText('Sự kiện chiếu phim gây quỹ')).toBeInTheDocument()
+      screen.getAllByText('Không tìm thấy sự kiện nào phù hợp với bộ lọc.').length
+    ).toBeGreaterThan(0)
   })
 
-  it('renders cleanly without trend badges when events list is empty', () => {
-    render(<FanpageEventListView events={[]} />)
+  it('renders pagination bar with summary and page button', () => {
+    renderWithQueryClient(<FanpageEventListView events={mockEvents} />)
 
-    // Should display 0 events and no trend badges
-    expect(screen.queryByText('▲')).toBeNull()
-    expect(screen.queryByText('▼')).toBeNull()
-    expect(screen.queryByText('25%')).toBeNull()
-    expect(
-      screen.getByText('Không tìm thấy sự kiện nào phù hợp với bộ lọc.')
-    ).toBeInTheDocument()
-  })
-
-  it('renders muted event code, neutral benefits badges, and dimmed closed event row', () => {
-    render(<FanpageEventListView events={mockEvents} />)
-
-    // Event code should NOT be blue (text-primary)
-    const codeEl = screen.getByText('EVT-0004')
-    expect(codeEl.className).not.toContain('text-primary')
-    expect(codeEl.className).toContain('text-muted-foreground')
-
-    // Finished event row should be dimmed (opacity-70)
-    const closedEventTitle = screen.getByText('Sự kiện chiếu phim gây quỹ')
-    const closedRow = closedEventTitle.closest('.grid')
-    expect(closedRow?.className).toContain('opacity-70')
-
-    // Closed badge has softer text styling
-    const closedBadge = screen.getByText('Kết thúc')
-    expect(closedBadge.className).toContain('text-slate-500')
-
-    // Benefits badge has neutral styling without loud colors
-    const drlBadge = screen.getAllByText('+3 ĐRL')[0]
-    expect(drlBadge.className).not.toContain('bg-emerald-50')
-    expect(drlBadge.className).toContain('bg-muted/70')
-  })
-
-  it('correctly compares event count against previous semester when previous semester data exists', () => {
-    const multiSemesterEvents: AdminEvent[] = [
-      {
-        ...mockEvents[0],
-        id: '101',
-        semesterId: 1, // Previous semester: 1 event
-      },
-      {
-        ...mockEvents[1],
-        id: '102',
-        semesterId: 2, // Current semester: 2 events
-      },
-      {
-        ...mockEvents[0],
-        id: '103',
-        semesterId: 2,
-      },
-    ]
-
-    render(<FanpageEventListView events={multiSemesterEvents} />)
-
-    // Current semester has 2 events, previous has 1 -> diff = +1 (+100%)
-    expect(screen.getByText('+1 sự kiện so với học kỳ trước')).toBeInTheDocument()
-    expect(screen.getByText('100%')).toBeInTheDocument()
-    expect(screen.getByText('▲')).toBeInTheDocument()
+    expect(screen.getByText(/Hiển thị/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Trước' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sau' })).toBeInTheDocument()
   })
 })

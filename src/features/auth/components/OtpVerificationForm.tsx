@@ -119,7 +119,7 @@ export const OtpVerificationForm: React.FC = () => {
     try {
       setIsSubmitting(true)
       setApiError(null)
-      const res = await authService.verifyOtp({ email, otp: otpCode })
+      const res: any = await authService.verifyOtp({ email, otp: otpCode })
 
       const emailUsername = email.split('@')[0] || ''
       const isStaff = isStaffUser(res?.user) || isStaffEmail(email)
@@ -158,14 +158,6 @@ export const OtpVerificationForm: React.FC = () => {
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  const maskedEmail = () => {
-    const parts = email.split('@')
-    if (parts.length < 2) return email
-    const name = parts[0]
-    const maskedName = name.length > 2 ? `${name[0]}******${name[name.length - 1]}` : `${name}***`
-    return `${maskedName}@${parts[1]}`
   }
 
   return (

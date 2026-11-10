@@ -12,6 +12,7 @@ import {
   type FeedTabType,
   type Event,
 } from '@/features/events'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export const HomePage: React.FC = () => {
   const queryClient = useQueryClient()
@@ -63,15 +64,29 @@ export const HomePage: React.FC = () => {
     return new Set(storedEvents.map((e) => String(e.id)))
   }, [storedEvents])
 
-  // Fetch registered events for the user to accurately mark isRegistered state
-  const { data: upcomingRegistrations = [] } = useQuery<any[]>({
+  // Fetch registered events for the user to accurately mark isRegistered and registrationStatus state
+  const { data: userRegistrations = [] } = useQuery<any[]>({
     queryKey: ['registrations', 'me', isAuthenticated],
     queryFn: async () => {
       if (!isAuthenticated) return []
       try {
-        const res: any = await apiClient.get('/registrations/me/upcoming')
-        const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
-        return list
+        const [historyRes, upcomingRes] = await Promise.allSettled([
+          apiClient.get('/registrations/me/history', { params: { size: 100 } }),
+          apiClient.get('/registrations/me/upcoming'),
+        ])
+        const historyVal = historyRes.status === 'fulfilled' ? (historyRes.value as any) : null
+        const upcomingVal = upcomingRes.status === 'fulfilled' ? (upcomingRes.value as any) : null
+
+        const historyList =
+          historyVal?.content || historyVal?.data?.content || historyVal?.data || []
+        const upcomingList =
+          upcomingVal?.content || upcomingVal?.data?.content || upcomingVal?.data || []
+
+        const combined = [
+          ...(Array.isArray(historyList) ? historyList : []),
+          ...(Array.isArray(upcomingList) ? upcomingList : []),
+        ]
+        return combined
       } catch {
         return []
       }
@@ -79,22 +94,31 @@ export const HomePage: React.FC = () => {
     enabled: isAuthenticated,
   })
 
-  const registeredEventIds = useMemo(() => {
-    return new Set(
-      upcomingRegistrations
-        .filter((r: any) => r.status === 'REGISTERED' || !r.status)
-        .map((r: any) => String(r.eventId || r.id))
-    )
-  }, [upcomingRegistrations])
+  const registeredEventMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const r of userRegistrations) {
+      const eid = String(r.eventId || r.id)
+      const status = String(r.status || 'REGISTERED').toUpperCase()
+      // Bất kỳ trạng thái nào ngoài CANCELLED đều có nghĩa là sinh viên đã đăng ký sự kiện này
+      if (status !== 'CANCELLED') {
+        map.set(eid, status)
+      }
+    }
+    return map
+  }, [userRegistrations])
 
   const eventsWithFollowState = useMemo(() => {
-    return events.map((evt) => ({
-      ...evt,
-      isFollowed: evt.isFollowed || followedFanpageIds.has(String(evt.organizerId)),
-      isSaved: storedEventIds.has(String(evt.id)) || Boolean(evt.isSaved),
-      isRegistered: registeredEventIds.has(String(evt.id)) || Boolean(evt.isRegistered),
-    }))
-  }, [events, followedFanpageIds, storedEventIds, registeredEventIds])
+    return events.map((evt) => {
+      const regStatus = registeredEventMap.get(String(evt.id))
+      return {
+        ...evt,
+        isFollowed: evt.isFollowed || followedFanpageIds.has(String(evt.organizerId)),
+        isSaved: storedEventIds.has(String(evt.id)) || Boolean(evt.isSaved),
+        isRegistered: isAuthenticated ? Boolean(regStatus) : false,
+        registrationStatus: isAuthenticated ? regStatus : undefined,
+      }
+    })
+  }, [events, followedFanpageIds, storedEventIds, registeredEventMap, isAuthenticated])
 
   // Filter events by selected feed tab
   const filteredEvents = eventsWithFollowState.filter((evt) => {
@@ -296,21 +320,21 @@ export const HomePage: React.FC = () => {
             {/* Feed List (Figma gap: 8px between consecutive cards) */}
             <div className="flex flex-col gap-2">
               {isLoading ? (
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3">
                   {[1, 2, 3].map((n) => (
                     <div
                       key={n}
-                      className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-4 animate-pulse"
+                      className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 flex flex-col gap-3.5 shadow-2xs animate-pulse"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-muted" />
-                        <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-muted rounded w-1/3" />
-                          <div className="h-3 bg-muted rounded w-1/4" />
+                        <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                        <div className="flex-1 space-y-1.5">
+                          <Skeleton className="h-4 w-1/3 rounded" />
+                          <Skeleton className="h-3 w-1/4 rounded" />
                         </div>
                       </div>
-                      <div className="h-5 bg-muted rounded w-3/4" />
-                      <div className="h-48 bg-muted rounded-xl w-full" />
+                      <Skeleton className="h-5 w-3/4 rounded" />
+                      <Skeleton className="h-52 bg-muted rounded-xl w-full" />
                     </div>
                   ))}
                 </div>

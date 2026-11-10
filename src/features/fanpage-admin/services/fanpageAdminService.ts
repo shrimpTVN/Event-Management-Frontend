@@ -118,35 +118,52 @@ export const fanpageAdminService = {
   },
 
   /**
-   * Retrieves all managed fanpages of the authenticated fanpage admin
+   * Retrieves all managed fanpages of the authenticated user (admin or student collaborator)
    */
   getAvailableFanpages: async (): Promise<FanpageSummary[]> => {
     try {
-      const res: any = await apiClient.get('/fanpages/fanpage-admin/my-fanpages')
+      let res: any
+      try {
+        res = await apiClient.get('/fanpages/my-fanpages')
+      } catch {
+        res = await apiClient.get('/fanpages/fanpage-admin/my-fanpages')
+      }
       const list = Array.isArray(res) ? res : res?.data || []
-      return list.map((fp: any) => ({
-        id: String(fp.id),
-        code:
+      return list.map((fp: any) => {
+        const id = String(fp.fanpageId || fp.id)
+        const name = fp.fanpageName || fp.name || ''
+        const code =
           fp.code ||
-          (fp.name?.includes('CNTT')
+          (name.includes('CNTT')
             ? 'CNTT'
-            : fp.name?.includes('Cần Thơ') || fp.name?.includes('CTU')
+            : name.includes('Cần Thơ') || name.includes('CTU')
               ? 'CTU'
-              : 'CLB'),
-        name: fp.name,
-        fullName: fp.orgName || fp.name,
-        avatarText: (fp.code || fp.name || 'FP').substring(0, 3).toUpperCase(),
-        avatarUrl: fp.avatarUrl || '',
-        role: fp.role || 'Quản trị viên',
-        isVerified: fp.status === 'ACTIVE',
-        email: fp.helpContact || fp.email || '',
-        phone: fp.helpPhone || fp.phone || '',
-        address: fp.address || 'Khu II, Đại học Cần Thơ',
-        followersCount: fp.followersCount || fp.followerCount || 0,
-        eventsCount: fp.eventsCount || fp.eventCount || 0,
-        description: fp.description || '',
-        parentOrg: fp.parentOrg || 'Đoàn Thanh niên - Hội Sinh viên ĐH Cần Thơ',
-      }))
+              : 'CLB')
+        const role =
+          fp.role === 'ADMIN'
+            ? 'Quản trị viên'
+            : fp.role === 'MEMBER'
+              ? 'Cộng tác viên'
+              : fp.role || 'Quản trị viên'
+
+        return {
+          id,
+          code,
+          name,
+          fullName: fp.fanpageOrgName || fp.orgName || name,
+          avatarText: (code || name || 'FP').substring(0, 3).toUpperCase(),
+          avatarUrl: fp.fanpageAvatarUrl || fp.avatarUrl || '',
+          role,
+          isVerified: fp.status === 'ACTIVE' || true,
+          email: fp.helpContact || fp.email || '',
+          phone: fp.helpPhone || fp.phone || '',
+          address: fp.address || 'Khu II, Đại học Cần Thơ',
+          followersCount: fp.followersCount || fp.followerCount || 0,
+          eventsCount: fp.eventsCount || fp.eventCount || 0,
+          description: fp.fanpageDescription || fp.description || '',
+          parentOrg: fp.parentOrg || 'Đoàn Thanh niên - Hội Sinh viên ĐH Cần Thơ',
+        }
+      })
     } catch {
       return []
     }
@@ -187,7 +204,7 @@ export const fanpageAdminService = {
       const res: any = await apiClient.get(`/events/fanpage/${targetId}?size=100`)
       const list = res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
       const isCntt = String(targetId) === '1'
-      return list.map((ev: any, idx: number) => ({
+      return list.map((ev: any) => ({
         id: `post-${ev.id}`,
         eventId: String(ev.id),
         authorName: ev.authorName || (isCntt || ev.fanpageName?.includes('CNTT') ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông' : ev.fanpageName) || 'Ban Tổ Chức',
@@ -390,12 +407,10 @@ export const fanpageAdminService = {
             item.registeredAt ||
             (item.regDate ? new Date(item.regDate).toLocaleString('vi-VN') : '')
 
-          // Normalize status: map REGISTERED → APPROVED để UI hiển thị "Chưa điểm danh"
+          // Preserve exact status from BE: REGISTERED | CHECKED_IN | COMPLETED | CANCELLED
           const rawStatus = (item.status ?? '').toUpperCase()
           const status: EventRegistrationItem['status'] =
-            rawStatus === 'REGISTERED'
-              ? 'APPROVED'
-              : (rawStatus as EventRegistrationItem['status']) || 'APPROVED'
+            (rawStatus as EventRegistrationItem['status']) || 'REGISTERED'
 
           // checkInAt / checkOutAt từ BE (Instant) → HH:mm
           const toTime = (val?: string | null) => {
@@ -450,28 +465,29 @@ export const fanpageAdminService = {
 
   /**
    * Organizer Check-in a single student
-   * Endpoint: PATCH /registrations/fanpage-member/events/{eventId}/users/{studentUserId}/check-in
+   * Fallback seamlessly between batch and single endpoints
    */
   checkInAttendee: async (
     eventId: string | number,
     studentUserId: string | number
   ): Promise<void> => {
-    await apiClient.patch(
-      `/registrations/fanpage-member/events/${eventId}/users/${studentUserId}/check-in`
-    )
+    const id = Number(studentUserId)
+    await apiClient.patch(`/registrations/fanpage-member/events/${eventId}/check-in`, {
+      studentUserIds: [id],
+    })
   },
 
   /**
    * Organizer Check-out a single student
-   * Endpoint: PATCH /registrations/fanpage-member/events/{eventId}/users/{studentUserId}/check-out
    */
   checkOutAttendee: async (
     eventId: string | number,
     studentUserId: string | number
   ): Promise<void> => {
-    await apiClient.patch(
-      `/registrations/fanpage-member/events/${eventId}/users/${studentUserId}/check-out`
-    )
+    const id = Number(studentUserId)
+    await apiClient.patch(`/registrations/fanpage-member/events/${eventId}/check-out`, {
+      studentUserIds: [id],
+    })
   },
 
   /**
@@ -531,10 +547,31 @@ export const fanpageAdminService = {
   },
 
   /**
-   * Publishes a new event to the mock backend API
+   * Publishes a new event to the backend API
    */
   createAdminEvent: async (payload: any): Promise<any> => {
     try {
+      const nowMs = Date.now()
+      if (payload?.dateOpen) {
+        const openMs = new Date(payload.dateOpen).getTime()
+        if (openMs <= nowMs + 10 * 1000) {
+          payload.dateOpen = new Date(nowMs + 30 * 1000).toISOString()
+        }
+      }
+      if (payload?.dateOpen && payload?.dateClose) {
+        const openMs = new Date(payload.dateOpen).getTime()
+        let closeMs = new Date(payload.dateClose).getTime()
+        if (closeMs < openMs) {
+          payload.dateClose = new Date(openMs + 60 * 1000).toISOString()
+          closeMs = new Date(payload.dateClose).getTime()
+        }
+        if (payload?.dateHappen) {
+          const happenMs = new Date(payload.dateHappen).getTime()
+          if (happenMs < closeMs) {
+            payload.dateHappen = new Date(closeMs + 60 * 1000).toISOString()
+          }
+        }
+      }
       const res: any = await apiClient.post('/events/fanpage-member', payload)
       return res?.data || res
     } catch (err) {
@@ -544,10 +581,31 @@ export const fanpageAdminService = {
   },
 
   /**
-   * Updates an existing event in the mock backend API
+   * Updates an existing event in the backend API
    */
   updateAdminEvent: async (id: string | number, payload: any): Promise<any> => {
     try {
+      const nowMs = Date.now()
+      if (payload?.dateOpen) {
+        const openMs = new Date(payload.dateOpen).getTime()
+        if (openMs <= nowMs + 10 * 1000) {
+          payload.dateOpen = new Date(nowMs + 30 * 1000).toISOString()
+        }
+      }
+      if (payload?.dateOpen && payload?.dateClose) {
+        const openMs = new Date(payload.dateOpen).getTime()
+        let closeMs = new Date(payload.dateClose).getTime()
+        if (closeMs < openMs) {
+          payload.dateClose = new Date(openMs + 60 * 1000).toISOString()
+          closeMs = new Date(payload.dateClose).getTime()
+        }
+        if (payload?.dateHappen) {
+          const happenMs = new Date(payload.dateHappen).getTime()
+          if (happenMs < closeMs) {
+            payload.dateHappen = new Date(closeMs + 60 * 1000).toISOString()
+          }
+        }
+      }
       const res: any = await apiClient.put(`/events/fanpage-member/${id}`, payload)
       return res?.data || res
     } catch (err) {
@@ -650,6 +708,7 @@ export const fanpageAdminService = {
     try {
       const payload = {
         name: data.name,
+        orgName: data.fullName || data.name,
         fullName: data.fullName,
         code: data.code,
         description: data.description,
@@ -688,9 +747,12 @@ export const fanpageAdminService = {
           .split(' ')
           .filter(Boolean)
           .slice(-2)
-          .map((w) => w[0])
+          .map((w: string) => w[0])
           .join('')
           .toUpperCase() || 'TV'
+
+        const rawRole = (item.role || 'MEMBER').toUpperCase()
+        const role = rawRole === 'ADMIN' ? 'ADMIN' : 'COLLABORATOR'
 
         return {
           id: String(item.id || item.userId || `mem-${idx + 1}`),
@@ -699,8 +761,8 @@ export const fanpageAdminService = {
           email: item.email || '',
           avatarUrl: item.avatarUrl || '',
           avatarText,
-          role: (item.role || 'MEMBER').toUpperCase(),
-          title: item.title || (item.role === 'ADMIN' ? 'Quản trị viên' : item.role === 'COLLABORATOR' ? 'Cộng tác viên' : 'Thành viên'),
+          role,
+          title: item.title || (role === 'ADMIN' ? 'Quản trị viên' : 'Cộng tác viên'),
           joinedAt: item.joinedAt || item.createdAt || new Date().toISOString(),
           isActive: item.isActive !== false,
         }
@@ -730,18 +792,177 @@ export const fanpageAdminService = {
   },
 
   /**
-   * Removes a member from the fanpage
+   * Tìm kiếm danh sách tài khoản người dùng thực tế trong hệ thống để gửi lời mời
+   * GET /api/users/search-users?keyword={keyword}
    */
-  removeFanpageMember: async (
+  searchUsersForInvitation: async (keyword: string): Promise<Array<{
+    id: string
+    email: string
+    fullName: string
+    studentId?: string
+    avatarUrl?: string
+  }>> => {
+    if (!keyword || !keyword.trim()) return []
+    try {
+      const res: any = await apiClient.get('/users/search-users', {
+        params: { keyword: keyword.trim() },
+      })
+      const list = Array.isArray(res) ? res : res?.data || []
+      return list.map((u: any) => {
+        const fullName =
+          [u.lastName, u.firstName].filter(Boolean).join(' ') ||
+          u.fullName ||
+          u.email?.split('@')[0] ||
+          'Người dùng'
+        return {
+          id: String(u.userId || u.id || ''),
+          email: u.email || '',
+          fullName,
+          studentId: u.studentId || (u.email?.includes('@student') ? u.email.split('@')[0].replace(/^[a-z]+/, '').toUpperCase() : ''),
+          avatarUrl: u.avatarUrl || '',
+        }
+      })
+    } catch (err) {
+      console.error('Failed to search users for invitation', err)
+      return []
+    }
+  },
+
+  /**
+   * Gửi lời mời tham gia Ban tổ chức Fanpage qua email
+   * POST /api/fanpages/fanpage-admin/{fanpageId}/invite-member?email={email}
+   */
+  inviteFanpageMember: async (
     fanpageId: string | number,
-    userId: string | number
+    email: string
   ): Promise<boolean> => {
     const targetId = fanpageId || '1'
     try {
-      await apiClient.post(`/fanpages/fanpage-admin/${targetId}/remove-member/${userId}`)
+      await apiClient.post(
+        `/fanpages/fanpage-admin/${targetId}/invite-member?email=${encodeURIComponent(email)}`
+      )
+      return true
+    } catch (err) {
+      console.error('Failed to invite member to fanpage', err)
+      throw err
+    }
+  },
+
+  /**
+   * Xóa thành viên khỏi ban tổ chức Fanpage
+   * DELETE /api/fanpages/fanpage-admin/{fanpageId}/remove-member?email={email}
+   */
+  removeFanpageMember: async (
+    fanpageId: string | number,
+    userIdOrEmail: string | number,
+    email?: string
+  ): Promise<boolean> => {
+    const targetId = fanpageId || '1'
+    const targetEmail = email || (typeof userIdOrEmail === 'string' && userIdOrEmail.includes('@') ? userIdOrEmail : '')
+    try {
+      if (targetEmail) {
+        await apiClient.delete(
+          `/fanpages/fanpage-admin/${targetId}/remove-member?email=${encodeURIComponent(targetEmail)}`
+        )
+      } else {
+        await apiClient.delete(
+          `/fanpages/fanpage-admin/${targetId}/remove-member/${userIdOrEmail}`
+        )
+      }
       return true
     } catch (err) {
       console.error('Failed to remove fanpage member', err)
+      return false
+    }
+  },
+
+  /**
+   * Thành viên (Cộng tác viên) tự rời khỏi ban tổ chức Fanpage
+   * DELETE /api/users/me/out-fanpage-member/{fanpageId}
+   */
+  leaveFanpage: async (fanpageId: string | number): Promise<boolean> => {
+    const targetId = fanpageId || '1'
+    try {
+      await apiClient.delete(`/users/me/out-fanpage-member/${targetId}`)
+      return true
+    } catch (err) {
+      console.error('Failed to leave fanpage', err)
+      return false
+    }
+  },
+
+  /**
+   * Chuyển quyền Quản trị viên Fanpage cho thành viên khác
+   * PATCH /api/fanpages/fanpage-admin/{fanpageId}/appoint-fanpage-admin?email={email}
+   */
+  appointFanpageAdmin: async (
+    fanpageId: string | number,
+    email: string
+  ): Promise<boolean> => {
+    const targetId = fanpageId || '1'
+    try {
+      await apiClient.patch(
+        `/fanpages/fanpage-admin/${targetId}/appoint-fanpage-admin?email=${encodeURIComponent(email)}`
+      )
+      return true
+    } catch (err) {
+      console.error('Failed to appoint fanpage admin', err)
+      throw err
+    }
+  },
+
+  /**
+   * Lấy danh sách lời mời thành viên thực tế của Fanpage từ Backend
+   * GET /api/fanpage-member-invitations/fanpage/{fanpageId}?status=PENDING&page=0&size=50
+   */
+  getFanpageInvitations: async (
+    fanpageId: string | number,
+    status: string = 'PENDING'
+  ): Promise<FanpageInvitation[]> => {
+    const targetId = fanpageId || '1'
+    try {
+      const res: any = await apiClient.get(`/fanpage-member-invitations/fanpage/${targetId}`, {
+        params: { status, size: 50, sortDir: 'DESC' },
+      })
+      const list = Array.isArray(res)
+        ? res
+        : res?.content || res?.data?.content || res?.data || []
+
+      return list.map((item: any, idx: number) => {
+        const fullName =
+          item.userName ||
+          item.fullName ||
+          [item.userLastName, item.userFirstName].filter(Boolean).join(' ') ||
+          (item.userEmail ? item.userEmail.split('@')[0] : `Lời mời ${idx + 1}`)
+
+        return {
+          id: String(item.id),
+          email: item.userEmail || item.email || '',
+          fanpageId: item.fanpageId ? Number(item.fanpageId) : Number(targetId),
+          name: fullName,
+          role: 'COLLABORATOR',
+          invitedBy: item.invitedBy || 'Nguyễn Minh Anh (Admin)',
+          invitedAt: item.createdAt || new Date().toISOString(),
+          status: item.status || 'PENDING',
+          avatarUrl: item.userAvatarUrl || '',
+        }
+      })
+    } catch (err) {
+      console.warn('Failed to get fanpage invitations', err)
+      return []
+    }
+  },
+
+  /**
+   * Hủy lời mời thành viên
+   * POST /api/fanpage-member-invitations/{invitationId}/cancel
+   */
+  cancelFanpageInvitation: async (invitationId: string | number): Promise<boolean> => {
+    try {
+      await apiClient.post(`/fanpage-member-invitations/${invitationId}/cancel`)
+      return true
+    } catch (err) {
+      console.error('Failed to cancel fanpage invitation', err)
       return false
     }
   },
@@ -908,68 +1129,9 @@ export const MOCK_FANPAGE_MEMBERS: FanpageMember[] = [
     joinedAt: '2026-08-15',
     isActive: true,
   },
-  {
-    id: 'mem-101',
-    userId: '101',
-    staffId: 'B2100123',
-    fullName: 'Lê Hoàng Anh',
-    email: 'anhlhb2100123@student.ctu.edu.vn',
-    avatarText: 'LA',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-    role: 'COLLABORATOR',
-    title: 'Cộng tác viên ban tổ chức',
-    phone: '0901 234 567',
-    joinedAt: '2026-09-05',
-    isActive: true,
-  },
-  {
-    id: 'mem-102',
-    userId: '102',
-    staffId: 'B2100456',
-    fullName: 'Trần Ngọc Bích',
-    email: 'bichtnb2100456@student.ctu.edu.vn',
-    avatarText: 'TB',
-    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
-    role: 'COLLABORATOR',
-    title: 'Cộng tác viên ban tổ chức',
-    phone: '0912 345 678',
-    joinedAt: '2026-09-12',
-    isActive: true,
-  },
-  {
-    id: 'mem-103',
-    userId: '103',
-    staffId: 'B2200789',
-    fullName: 'Nguyễn Văn Minh',
-    email: 'minhnvb2200789@student.ctu.edu.vn',
-    avatarText: 'NM',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
-    role: 'COLLABORATOR',
-    title: 'Cộng tác viên ban tổ chức',
-    phone: '0923 456 789',
-    joinedAt: '2026-09-20',
-    isActive: true,
-  },
 ]
 
-export const MOCK_FANPAGE_INVITATIONS: FanpageInvitation[] = [
-  {
-    id: 'inv-1',
-    email: 'vananb2100111@student.ctu.edu.vn',
-    role: 'COLLABORATOR',
-    invitedBy: 'Nguyễn Minh Anh (Admin)',
-    invitedAt: '2026-10-22 14:30',
-    status: 'PENDING',
-  },
-  {
-    id: 'inv-2',
-    email: 'minhtrietb2200222@student.ctu.edu.vn',
-    role: 'COLLABORATOR',
-    invitedBy: 'Nguyễn Minh Anh (Admin)',
-    invitedAt: '2026-10-23 09:15',
-    status: 'PENDING',
-  },
-]
+export const MOCK_FANPAGE_INVITATIONS: FanpageInvitation[] = []
 
 export const MOCK_EVENT_VOLUNTEERS = [
   {

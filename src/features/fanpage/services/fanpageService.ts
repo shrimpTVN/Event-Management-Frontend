@@ -103,4 +103,30 @@ export const fanpageService = {
   async unfollowFanpage(id: string): Promise<void> {
     await apiClient.delete(`/fanpages/${id}/follow`)
   },
+
+  /**
+   * Fetches real fanpage member invitations for the current logged in student/user
+   */
+  async getMyInvitations(): Promise<any[]> {
+    try {
+      const res: any = await apiClient.get('/fanpage-member-invitations/me')
+      return Array.isArray(res) ? res : res?.data || []
+    } catch {
+      return []
+    }
+  },
+
+  /**
+   * Accepts a fanpage member invitation
+   */
+  async acceptInvitation(invitationId: number | string): Promise<void> {
+    await apiClient.post(`/fanpage-member-invitations/${invitationId}/accept`)
+  },
+
+  /**
+   * Declines a fanpage member invitation
+   */
+  async declineInvitation(invitationId: number | string): Promise<void> {
+    await apiClient.post(`/fanpage-member-invitations/${invitationId}/decline`)
+  },
 }

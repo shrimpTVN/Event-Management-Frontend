@@ -21,6 +21,7 @@ describe('EventCalendarWidget', () => {
     const mockEvents: RegisteredEventItem[] = [
       {
         id: 'ev-1',
+        eventId: 1,
         title: 'Hội thảo Trí tuệ Nhân tạo',
         dateHappen: '2026-10-25T08:00:00',
         status: 'UPCOMING',
@@ -55,6 +56,7 @@ describe('EventCalendarWidget', () => {
     const mockEvents: RegisteredEventItem[] = [
       {
         id: 'ev-2',
+        eventId: 2,
         title: 'Sự kiện đã bị hủy tham gia',
         dateHappen: '2026-10-15T09:00:00',
         status: 'CANCELLED',

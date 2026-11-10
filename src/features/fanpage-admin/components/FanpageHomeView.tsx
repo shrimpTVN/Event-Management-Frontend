@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Pencil, X, Users, SlidersHorizontal, CalendarPlus, Plus } from 'lucide-react'
+import { useAuthStore, isStaffUser } from '@/features/auth'
+import { Skeleton } from '@/components/ui/skeleton'
 import type {
   FanpageSummary,
   FanpageActivityStats,
@@ -18,6 +20,7 @@ interface FanpageHomeViewProps {
   stats: FanpageActivityStats
   reminder?: UpcomingEventReminder | null
   posts: FanpageFeedPost[]
+  isLoadingPosts?: boolean
   onOpenEventsTab?: () => void
   onCreateEventClick?: () => void
   onEditProfileClick?: () => void
@@ -31,6 +34,7 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
   stats,
   reminder,
   posts,
+  isLoadingPosts = false,
   onOpenEventsTab,
   onCreateEventClick,
   onEditProfileClick,
@@ -41,9 +45,16 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
   const navigate = useNavigate()
   const [selectedPostForAnalytics, setSelectedPostForAnalytics] = useState<FanpageFeedPost | null>(null)
 
+  const { user } = useAuthStore()
+  const isCurrentUserAdmin =
+    currentFanpage.role === 'Quản trị viên' ||
+    currentFanpage.role === 'ADMIN' ||
+    (user ? isStaffUser(user) : false)
+  const basePath = isCurrentUserAdmin ? '/fanpage/admin' : '/fanpage/workspace'
+
   const handleCreateEvent = onCreateEventClick
     ? onCreateEventClick
-    : () => navigate('/fanpage/admin?tab=create-event')
+    : () => navigate(`${basePath}?tab=create-event`)
 
   return (
     <div className="w-full space-y-3.5 text-left">
@@ -51,14 +62,21 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
       <FanpageProfileHeader
         fanpage={currentFanpage}
         actions={
-          <button
-            type="button"
-            onClick={onEditProfileClick ? onEditProfileClick : () => navigate('/fanpage/admin?tab=profile')}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold bg-[#1B4B8A] hover:bg-[#153a6b] text-white rounded-lg transition-all shadow-2xs cursor-pointer"
-          >
-            <Pencil className="h-4 w-4" />
-            <span>Chỉnh sửa</span>
-          </button>
+          isCurrentUserAdmin ? (
+            <button
+              type="button"
+              onClick={onEditProfileClick ? onEditProfileClick : () => navigate(`${basePath}?tab=profile`)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold bg-[#1B4B8A] hover:bg-[#153a6b] text-white rounded-lg transition-all shadow-2xs cursor-pointer"
+            >
+              <Pencil className="h-4 w-4" />
+              <span>Chỉnh sửa</span>
+            </button>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-white dark:bg-card rounded-lg border border-border/70 shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+              <span>Chế độ xem</span>
+            </span>
+          )
         }
       />
 
@@ -68,7 +86,11 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
         <div className="w-full lg:w-[320px] shrink-0 lg:sticky lg:top-20 self-start space-y-3.5">
           <FanpageAboutCard
             fanpage={currentFanpage}
-            onEditClick={onEditProfileClick ? onEditProfileClick : () => navigate('/fanpage/admin?tab=profile')}
+            onEditClick={
+              isCurrentUserAdmin
+                ? (onEditProfileClick ? onEditProfileClick : () => navigate(`${basePath}?tab=profile`))
+                : undefined
+            }
           />
           <FanpageQuickCreateCard
             reminder={reminder || undefined}
@@ -101,7 +123,26 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
           </div>
 
           {/* Event Feed Posts or Empty State */}
-          {posts.length > 0 ? (
+          {isLoadingPosts ? (
+            <div className="flex flex-col gap-3.5 animate-pulse">
+              {[1, 2].map((n) => (
+                <div
+                  key={n}
+                  className="rounded-2xl border border-border/80 bg-white dark:bg-card p-5 flex flex-col gap-3.5 shadow-2xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-4 w-1/3 rounded" />
+                      <Skeleton className="h-3 w-1/4 rounded" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-4 w-3/4 rounded" />
+                  <Skeleton className="h-44 w-full rounded-xl" />
+                </div>
+              ))}
+            </div>
+          ) : posts.length > 0 ? (
             <div className="flex flex-col gap-3.5">
               {posts.map((post) => (
                 <FanpageEventFeedCard

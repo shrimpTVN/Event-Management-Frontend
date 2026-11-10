@@ -11,6 +11,7 @@ interface FanpageAdminLayoutProps {
   onSelectTab?: (tab: AdminNavTab) => void
   onLogoClick?: () => void
   onCreateEventClick?: () => void
+  onPersonalProfileClick?: () => void
   rightSidebar?: React.ReactNode
   children: React.ReactNode
 }
@@ -23,6 +24,7 @@ export const FanpageAdminLayout: React.FC<FanpageAdminLayoutProps> = ({
   onSelectTab,
   onLogoClick,
   onCreateEventClick,
+  onPersonalProfileClick,
   rightSidebar,
   children,
 }) => {
@@ -35,8 +37,12 @@ export const FanpageAdminLayout: React.FC<FanpageAdminLayoutProps> = ({
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         isSidebarOpen={isSidebarOpen}
         currentFanpageId={currentFanpage?.id}
+        currentFanpageRole={currentFanpage?.role}
+        currentFanpageName={currentFanpage?.name}
+        currentFanpageAvatarUrl={currentFanpage?.avatarUrl}
         onLogoClick={onLogoClick}
         onCreateEventClick={onCreateEventClick}
+        onPersonalProfileClick={onPersonalProfileClick}
       />
 
       {/* 2. Admin Workspace (Sidebar + Main Content + Right Sidebar) */}

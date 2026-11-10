@@ -6,18 +6,28 @@ import type { FanpageSummary, FanpageActivityStats } from '../../types/fanpageAd
 
 const mockFanpage: FanpageSummary = {
   id: '1',
+  code: 'CNTT',
   name: 'Đoàn Trường CNTT & TT',
-  category: 'Đoàn Hội',
+  fullName: 'Đoàn Trường CNTT & TT',
+  avatarText: 'CNTT',
   role: 'Admin',
+  isVerified: true,
+  email: 'doan@ctu.edu.vn',
+  phone: '0123456789',
+  address: 'Đại học Cần Thơ',
+  description: 'Đoàn Khoa CNTT&TT',
   avatarUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=120',
   followersCount: 1,
   eventsCount: 5,
 }
 
 const mockStats: FanpageActivityStats = {
+  periodLabel: 'Tuần này',
   eventsCount: 0,
-  engagementCount: 0,
+  interactionsCount: 0,
   newFollowersCount: 0,
+  responseRatePercent: 100,
+  pendingCommentsCount: 0,
 }
 
 describe('FanpageRightSidebar', () => {
@@ -36,11 +46,13 @@ describe('FanpageRightSidebar', () => {
       </QueryClientProvider>
     )
 
-    // Should display full name instead of raw email
+    // Should display admin full name without truncation
     await waitFor(() => {
       expect(screen.getByText('Nguyễn Minh Anh')).toBeInTheDocument()
-      expect(screen.getByText('Lê Hoàng Anh')).toBeInTheDocument()
     })
+
+    // Other non-admin members should NOT be in the list
+    expect(screen.queryByText('Lê Hoàng Anh')).toBeNull()
 
     // Email strings should NOT be visible in member names
     expect(screen.queryByText('organizer@ctu.edu.vn')).toBeNull()

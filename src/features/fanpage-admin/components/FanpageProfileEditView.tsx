@@ -10,11 +10,13 @@ import {
   CheckCircle2,
   Pencil,
   X,
+  Lock,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { useAuthStore, isStaffUser } from '@/features/auth'
 import {
   Select,
   SelectContent,
@@ -39,7 +41,13 @@ export const FanpageProfileEditView: React.FC<FanpageProfileEditViewProps> = ({
   onCancel,
 }) => {
   const queryClient = useQueryClient()
+  const { user } = useAuthStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const isCurrentUserAdmin =
+    currentFanpage.role === 'Quản trị viên' ||
+    currentFanpage.role === 'ADMIN' ||
+    (user ? isStaffUser(user) : false)
 
   // Edit toggle mode: Default is disabled (view-only)
   const [isEditing, setIsEditing] = useState(false)
@@ -100,16 +108,18 @@ export const FanpageProfileEditView: React.FC<FanpageProfileEditViewProps> = ({
   const updateMutation = useMutation({
     mutationFn: (updatedPayload: Partial<FanpageSummary>) =>
       fanpageAdminService.updateFanpageProfile(currentFanpage.id, updatedPayload),
-    onSuccess: (data) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['fanpage-detail', currentFanpage.id] })
+      queryClient.invalidateQueries({ queryKey: ['fanpage-detail-by-id'] })
       queryClient.invalidateQueries({ queryKey: ['admin-available-fanpages'] })
+      queryClient.invalidateQueries({ queryKey: ['staff-my-fanpages'] })
       queryClient.invalidateQueries({ queryKey: ['admin-fanpages'] })
       setIsEditing(false)
       setFeedback({
         type: 'success',
         message: 'Cập nhật thông tin fanpage thành công!',
       })
-      onSave?.(data || {})
+      onSave?.(variables)
       setTimeout(() => setFeedback(null), 4000)
     },
     onError: () => {
@@ -132,7 +142,7 @@ export const FanpageProfileEditView: React.FC<FanpageProfileEditViewProps> = ({
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isEditing) return
+    if (!isCurrentUserAdmin || !isEditing) return
 
     if (!name.trim()) {
       setFeedback({ type: 'error', message: 'Tên fanpage không được để trống' })
@@ -199,7 +209,12 @@ export const FanpageProfileEditView: React.FC<FanpageProfileEditViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5">
-          {!isEditing ? (
+          {!isCurrentUserAdmin ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200/80 dark:border-amber-800/40 shadow-2xs">
+              <Lock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>Chế độ xem thông tin</span>
+            </div>
+          ) : !isEditing ? (
             <Button
               type="button"
               size="sm"
@@ -248,6 +263,16 @@ export const FanpageProfileEditView: React.FC<FanpageProfileEditViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* Thông báo chế độ xem dành cho Cộng tác viên (MEMBER) */}
+      {!isCurrentUserAdmin && (
+        <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/40 text-xs text-[#1B4B8A] dark:text-blue-300 flex items-center gap-2.5 shadow-2xs">
+          <AlertCircle className="h-4 w-4 shrink-0 text-[#1B4B8A] dark:text-blue-400" />
+          <span>
+            Bạn đang xem hồ sơ Fanpage ở chế độ <strong>Cộng tác viên (Read-Only)</strong>. Chỉ Quản trị viên của Fanpage mới có quyền thay đổi thông tin giới thiệu, nhận diện và liên hệ.
+          </span>
+        </div>
+      )}
 
       {/* Feedback Alert */}
       {feedback && (

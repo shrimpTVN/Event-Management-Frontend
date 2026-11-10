@@ -86,10 +86,17 @@ export const sv5tService = {
     criteriaId: number,
     payload: ManualCriteriaProgressRequest
   ): Promise<void> {
+    const targetYearId = payload.academicYearId && payload.academicYearId > 0 ? payload.academicYearId : 2
+    const resolvedNote =
+      payload.note && payload.note.trim().length > 0
+        ? payload.note.trim()
+        : payload.completed
+        ? 'Sinh viên tự đánh giá đạt tiêu chuẩn'
+        : 'Sinh viên tự đánh giá chưa đạt'
     await apiClient.post(`/criteria-transactions/me`, {
-      academicYearId: payload.academicYearId,
+      academicYearId: targetYearId,
       criteriaId,
-      note: payload.note || 'Sinh viên tự đánh giá tiêu chuẩn',
+      note: resolvedNote,
     })
   },
 
@@ -104,6 +111,21 @@ export const sv5tService = {
     try {
       const res: any = await apiClient.get(
         `/criteria-transactions/me/criterias/${criteriaId}/academic-years/${academicYearId}`
+      )
+      return Array.isArray(res) ? res : res?.data || []
+    } catch {
+      return []
+    }
+  },
+
+  /**
+   * Lấy toàn bộ giao dịch / minh chứng tiêu chí SV5T của sinh viên trong năm học
+   * Backend endpoint: GET /criteria-transactions/me/academic-years/{academicYearId}
+   */
+  async getAllCriteriaTransactions(academicYearId: number): Promise<any[]> {
+    try {
+      const res: any = await apiClient.get(
+        `/criteria-transactions/me/academic-years/${academicYearId}`
       )
       return Array.isArray(res) ? res : res?.data || []
     } catch {

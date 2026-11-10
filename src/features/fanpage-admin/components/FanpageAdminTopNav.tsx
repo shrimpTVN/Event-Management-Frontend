@@ -3,29 +3,43 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Search, Filter, Plus, Menu, X, MessageSquare, Bell } from 'lucide-react'
 import logoSvg from '@/assets/logo.svg'
-import { useAuthStore } from '@/features/auth'
+import { useAuthStore, isStaffUser } from '@/features/auth'
 import { AccountNavigationPopup } from '@/shared/components/layout/AccountNavigationPopup'
 
 interface FanpageAdminTopNavProps {
   onToggleSidebar?: () => void
   isSidebarOpen?: boolean
   currentFanpageId?: string
+  currentFanpageRole?: string
+  currentFanpageName?: string
+  currentFanpageAvatarUrl?: string
   onLogoClick?: () => void
   onCreateEventClick?: () => void
+  onPersonalProfileClick?: () => void
 }
 
 export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
   onToggleSidebar,
   isSidebarOpen,
   currentFanpageId,
+  currentFanpageRole,
+  currentFanpageName,
+  currentFanpageAvatarUrl,
   onLogoClick,
   onCreateEventClick,
+  onPersonalProfileClick,
 }) => {
   const { user, clearAuth } = useAuthStore()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [showAccountPopup, setShowAccountPopup] = useState(false)
+
+  const isCurrentUserAdmin =
+    currentFanpageRole === 'Quản trị viên' ||
+    currentFanpageRole === 'ADMIN' ||
+    (user ? isStaffUser(user) : false)
+  const homePath = isCurrentUserAdmin ? '/fanpage/admin' : '/fanpage/workspace'
 
   const handleLogout = () => {
     // Xóa toàn bộ TanStack query cache khi đăng xuất
@@ -71,10 +85,10 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
             </button>
           ) : (
             <Link
-              to="/fanpage/admin"
+              to={homePath}
               state={currentFanpageId ? { fanpageId: currentFanpageId } : undefined}
               className="flex items-center shrink-0 group transition-transform hover:opacity-95"
-              title="Trang quản trị Fanpage"
+              title="Trang Fanpage"
             >
               <img
                 src={logoSvg}
@@ -115,7 +129,7 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
           {/* Quick Create Event CTA Button */}
           <button
             type="button"
-            onClick={onCreateEventClick ? onCreateEventClick : () => navigate('/fanpage/admin?tab=create-event')}
+            onClick={onCreateEventClick ? onCreateEventClick : () => navigate(`${homePath}?tab=create-event`)}
             className="hidden sm:inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
           >
             <Plus className="h-4 w-4" />
@@ -170,6 +184,18 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
                   onClose={() => setShowAccountPopup(false)}
                   user={user}
                   onLogout={handleLogout}
+                  currentFanpageId={currentFanpageId}
+                  currentFanpageRole={currentFanpageRole}
+                  currentFanpageName={currentFanpageName}
+                  currentFanpageAvatarUrl={currentFanpageAvatarUrl}
+                  onProfileClick={() => {
+                    setShowAccountPopup(false)
+                    if (onPersonalProfileClick) {
+                      onPersonalProfileClick()
+                    } else {
+                      navigate(`${homePath}?tab=personal-profile`)
+                    }
+                  }}
                 />
               </div>
             ) : null}

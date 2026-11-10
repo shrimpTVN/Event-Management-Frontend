@@ -10,6 +10,7 @@ import {
   TrainingPointsSummary,
   TrainingPointsTable,
   formatYearLabel,
+  computeCategoryScore,
 } from '@/features/training-points'
 
 export const TrainingPointsPage: React.FC = () => {
@@ -184,24 +185,9 @@ export const TrainingPointsPage: React.FC = () => {
     let realSum = 0
 
     categoryTree.forEach((rootSection) => {
-      let sectionLeavesSum = 0
-
-      // Recursively sum leaf scores within this section
-      const sumLeaves = (node: typeof rootSection) => {
-        if (!node.children || node.children.length === 0) {
-          const rec = recordedMap.get(node.id) || 0
-          const self = studentScores[node.id] || 0
-          sectionLeavesSum += rec + self
-          return
-        }
-        node.children.forEach(sumLeaves)
-      }
-
-      sumLeaves(rootSection)
-
+      const computedScore = computeCategoryScore(rootSection, recordedMap, studentScores)
       const agg = aggregateScores[rootSection.id] || 0
-      // Final section score capped at root section maximum, or fallback to aggregate
-      const finalSectionScore = sectionLeavesSum > 0 ? Math.min(rootSection.maximum, sectionLeavesSum) : agg
+      const finalSectionScore = computedScore > 0 ? computedScore : agg
       realSum += finalSectionScore
     })
 
@@ -261,6 +247,7 @@ export const TrainingPointsPage: React.FC = () => {
                 academicYearLabel={formatYearLabel(appliedYear)}
                 totalScore={totalScore}
                 activitiesCount={activitiesCount}
+                isLoading={isLoading}
               />
             </div>
 

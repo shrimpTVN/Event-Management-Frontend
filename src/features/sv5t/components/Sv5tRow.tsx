@@ -9,6 +9,7 @@ interface Sv5tRowProps {
   criteriaCode: string
   isLeaf: boolean
   isGroupBanner?: boolean
+  academicYearId?: number
   onSaveProgress: (criteriaId: number, completed: boolean, note: string) => Promise<void> | void
 }
 
@@ -17,10 +18,13 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
   criteriaCode,
   isLeaf,
   isGroupBanner = false,
+  academicYearId,
   onSaveProgress,
 }) => {
   const [isSelfModalOpen, setIsSelfModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [selfModalInitialNote, setSelfModalInitialNote] = useState<string | null>(null)
+  const [selfModalInitialCompleted, setSelfModalInitialCompleted] = useState<boolean | null>(null)
 
   // 1. Group banner row (e.g. 1.3: Đạt thêm 01 trong 05 tiêu chí sau:)
   if (isGroupBanner) {
@@ -38,8 +42,10 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
     )
   }
 
-  const isEventRecorded = node.completionSource === 'EVENT_CHECKOUT' || node.completionSource === 'SYSTEM'
-  const hasDetails = node.isCompleted || Boolean(node.note)
+  const isEventRecorded =
+    Boolean(node.isSystemRecorded) ||
+    node.completionSource === 'EVENT_CHECKOUT' ||
+    node.completionSource === 'SYSTEM'
 
   return (
     <>
@@ -64,8 +70,8 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
         {/* 3. Dữ liệu ghi nhận (136px) */}
         <div className="w-[136px] min-w-[136px] max-w-[136px] px-2 py-2.5 flex items-center justify-center border-r border-[#E5E7EB] dark:border-border shrink-0 text-center">
           {isEventRecorded ? (
-            <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#EFF5FC] dark:bg-primary/20 text-[#1B4B8A] dark:text-primary">
-              Đã ghi nhận
+            <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#EFF5FC] dark:bg-primary/20 text-[#1B4B8A] dark:text-primary border border-[#BDD7F0] dark:border-primary/40 block">
+              Đạt
             </span>
           ) : (
             <span className="text-muted-foreground/50 font-medium">—</span>
@@ -77,11 +83,15 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
           {isLeaf ? (
             <button
               type="button"
-              onClick={() => setIsSelfModalOpen(true)}
+              onClick={() => {
+                setSelfModalInitialNote(node.selfEvaluationNote || '')
+                setSelfModalInitialCompleted(node.isCompleted)
+                setIsSelfModalOpen(true)
+              }}
               title="Nhấp để tự đánh giá tiêu chuẩn và bổ sung minh chứng"
               className="cursor-pointer transition-transform hover:scale-105 active:scale-95"
             >
-              {node.isCompleted ? (
+              {node.isCompleted || node.isSelfEvaluated ? (
                 <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#EFF5FC] dark:bg-primary/20 text-[#1B4B8A] dark:text-primary border border-[#BDD7F0] dark:border-primary/40 block">
                   Đạt
                 </span>
@@ -98,19 +108,15 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
 
         {/* 5. Chi tiết tổng hợp/Tổng (184px) */}
         <div className="w-[184px] min-w-[184px] max-w-[184px] px-2 py-2.5 flex items-center justify-center shrink-0 text-center">
-          {hasDetails ? (
-            <button
-              type="button"
-              onClick={() => setIsDetailModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold text-[#1F5CA9] dark:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-              title="Xem thông tin chi tiết và minh chứng"
-            >
-              <Eye className="h-3.5 w-3.5" />
-              <span>Xem</span>
-            </button>
-          ) : (
-            <span className="text-muted-foreground/50 font-medium">—</span>
-          )}
+          <button
+            type="button"
+            onClick={() => setIsDetailModalOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+            title="Xem thông tin chi tiết"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            <span>Xem</span>
+          </button>
         </div>
       </div>
 
@@ -121,9 +127,13 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
           onClose={() => setIsSelfModalOpen(false)}
           criterionName={node.name}
           criteriaCode={criteriaCode}
-          isCompleted={node.isCompleted}
-          currentNote={node.note}
-          onSave={(completed, note) => onSaveProgress(node.criteriaId, completed, note)}
+          isCompleted={selfModalInitialCompleted !== null ? selfModalInitialCompleted : node.isCompleted}
+          currentNote={selfModalInitialNote !== null ? selfModalInitialNote : (node.selfEvaluationNote || '')}
+          onSave={async (completed, note) => {
+            await onSaveProgress(node.criteriaId, completed, note)
+            setSelfModalInitialNote(note)
+            setSelfModalInitialCompleted(completed)
+          }}
         />
       )}
 
@@ -134,6 +144,17 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
           onClose={() => setIsDetailModalOpen(false)}
           node={node}
           criteriaCode={criteriaCode}
+          academicYearId={academicYearId}
+          onOpenSelfEvaluation={
+            isLeaf
+              ? (currentNote?: string, isCompleted?: boolean) => {
+                  setSelfModalInitialNote(currentNote ?? node.selfEvaluationNote ?? '')
+                  setSelfModalInitialCompleted(isCompleted ?? node.isCompleted)
+                  setIsDetailModalOpen(false)
+                  setIsSelfModalOpen(true)
+                }
+              : undefined
+          }
         />
       )}
     </>

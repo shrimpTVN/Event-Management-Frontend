@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Search, Filter, Calendar, Award, Building, ArrowRight, Loader2, X } from 'lucide-react'
+import { Search, Filter, Calendar, Building, ArrowRight, Loader2, X } from 'lucide-react'
 import { eventService } from '../services/eventService'
 import type { Event } from '../types/event.types'
 import { EventFilterModal, type EventFilterFormValues } from './EventFilterModal'

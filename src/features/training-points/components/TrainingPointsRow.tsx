@@ -145,6 +145,10 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
           selfScore={selfScore}
           selfDescription={selfDescription}
           totalPoints={rowTotal}
+          onOpenSelfEvaluation={() => {
+            setIsDetailModalOpen(false)
+            setIsSelfModalOpen(true)
+          }}
         />
       )}
     </>

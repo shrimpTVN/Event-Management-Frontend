@@ -1,5 +1,6 @@
 import React from 'react'
 import { classifyScore } from '../types/trainingPoints.types'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface TrainingPointsSummaryProps {
   semesterLabel: string
@@ -7,6 +8,7 @@ interface TrainingPointsSummaryProps {
   totalScore: number
   maxScore?: number
   activitiesCount?: number
+  isLoading?: boolean
 }
 
 export const TrainingPointsSummary: React.FC<TrainingPointsSummaryProps> = ({
@@ -15,8 +17,31 @@ export const TrainingPointsSummary: React.FC<TrainingPointsSummaryProps> = ({
   totalScore,
   maxScore = 100,
   activitiesCount = 0,
+  isLoading = false,
 }) => {
   const classification = classifyScore(totalScore)
+
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg px-4 py-3 sm:px-5 sm:py-3.5 flex flex-col gap-2.5 shadow-2xs animate-pulse">
+        <Skeleton className="h-4 w-52 rounded" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 items-start pt-1">
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-3 w-28 rounded" />
+            <Skeleton className="h-7 w-20 rounded" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-3 w-16 rounded" />
+            <Skeleton className="h-7 w-24 rounded" />
+          </div>
+          <div className="flex flex-col gap-1.5 sm:border-l sm:border-[#E5E7EB] dark:sm:border-border sm:pl-6 md:pl-8 py-0.5">
+            <Skeleton className="h-3 w-36 rounded" />
+            <Skeleton className="h-7 w-16 rounded" />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg px-4 py-3 sm:px-5 sm:py-3.5 flex flex-col gap-2.5 shadow-2xs">

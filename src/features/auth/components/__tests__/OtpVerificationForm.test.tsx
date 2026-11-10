@@ -38,7 +38,7 @@ describe('OtpVerificationForm navigation', () => {
         role: 'STUDENT',
         isProfileComplete: false,
       } as any,
-    })
+    } as any)
 
     render(
       <MemoryRouter initialEntries={['/verify-otp?email=student@student.ctu.edu.vn']}>
@@ -76,7 +76,7 @@ describe('OtpVerificationForm navigation', () => {
         role: 'FANPAGE_ADMIN',
         isProfileComplete: false,
       } as any,
-    })
+    } as any)
 
     render(
       <MemoryRouter initialEntries={['/verify-otp?email=canbo@ctu.edu.vn']}>

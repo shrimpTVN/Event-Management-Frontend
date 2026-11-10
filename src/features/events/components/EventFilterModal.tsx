@@ -355,10 +355,6 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
   const handleReset = () => {
     setFormValues({})
     setSelectedAcademicYear('ALL')
-    setSelectedStatuses([])
-    setSelectedTypeIds([])
-    setSelectedPointCategoryIds([])
-    setSelectedCriteriaIds([])
     setSelectedFanpageIds([])
     setTimePreset(null)
     setFanpageSearch('')

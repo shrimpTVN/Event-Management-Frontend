@@ -116,6 +116,7 @@ export interface AdminEvent {
 }
 
 export type RegistrationStatus =
+  | 'REGISTERED'
   | 'PENDING'
   | 'APPROVED'
   | 'ENTRY_CHECKED'
@@ -185,6 +186,7 @@ export type AdminNavTab =
   | 'members'
   | 'profile'
   | 'settings'
+  | 'personal-profile'
 
 export type VolunteerRole = 'CHECKIN' | 'LOGISTICS' | 'RECEPTION' | 'MEDIA'
 
@@ -260,4 +262,5 @@ export interface Sv5tCriteriaItem {
   childrenOrder: number
   parentId: number | null
   isActive?: boolean
+  children?: Sv5tCriteriaItem[]
 }

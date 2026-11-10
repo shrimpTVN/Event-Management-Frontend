@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import React, { useState } from 'react'
-import { extractStaffIdFromEmail, normalizeOrgName, CTU_DEPARTMENTS, CTU_POSITIONS } from '../../utils/staffProfileUtils'
+import { useState } from 'react'
+import { extractStaffIdFromEmail, normalizeOrgName, CTU_DEPARTMENTS } from '../../utils/staffProfileUtils'
 import { PositionCombobox } from '../StaffProfileForm'
 
 describe('normalizeOrgName', () => {

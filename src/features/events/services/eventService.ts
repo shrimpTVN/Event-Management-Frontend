@@ -169,7 +169,7 @@ export function normalizeEvent(raw: Partial<EventResponseDto> & Record<string, a
 
   const title = formatEventTitle(raw.title || raw.name || '')
   const startTime = raw.startTime || raw.dateHappen || raw.dateOpen || ''
-  const endTime = raw.endTime || raw.dateClose || raw.dateHappen || startTime
+  const endTime = raw.endTime || raw.dateEndHappen || raw.dateEnd || ''
 
   let location: EventLocation
   if (typeof raw.location === 'object' && raw.location !== null && raw.location.type) {

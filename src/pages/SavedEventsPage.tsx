@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bookmark, Sparkles, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
+import { Bookmark, Sparkles, Loader2 } from 'lucide-react'
 import {
   StudentLeftSidebar,
   StudentRightSidebar,

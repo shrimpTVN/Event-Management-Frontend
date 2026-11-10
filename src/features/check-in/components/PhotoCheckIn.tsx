@@ -96,6 +96,8 @@ export const PhotoCheckIn: React.FC = () => {
       // Invalidate relevant React Query caches
       queryClient.invalidateQueries({ queryKey: ['registrations'] })
       queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['student-semester-points'] })
+      queryClient.invalidateQueries({ queryKey: ['point-transactions'] })
       queryClient.invalidateQueries({ queryKey: ['training-points'] })
       queryClient.invalidateQueries({ queryKey: ['criteria-progress'] })
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { TrainingPointsRow } from './TrainingPointsRow'
 import type { PointCategoryNode, PointTransaction } from '../types/trainingPoints.types'
+import { computeCategoryScore } from '../utils/scoreCalculator'
 
 interface TrainingPointsSectionAccordionProps {
   section: PointCategoryNode
@@ -122,8 +123,11 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
     return { totalRecorded: rec, totalSelf: self }
   }, [rows, recordedMap, studentScores])
 
-  // Final section score capped at section.maximum or fallback to aggregateScore
-  const computedScore = Math.min(section.maximum, totalRecorded + totalSelf)
+  // Final section score computed by recursively capping each node and sub-tree at its own maximum
+  const computedScore = React.useMemo(() => {
+    return computeCategoryScore(section, recordedMap, studentScores)
+  }, [section, recordedMap, studentScores])
+
   const finalSectionScore = computedScore > 0 ? computedScore : (aggregateScore ?? 0)
   const progressPercent = section.maximum > 0
     ? Math.min(100, Math.round((finalSectionScore / section.maximum) * 100))

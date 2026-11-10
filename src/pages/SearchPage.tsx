@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { useSearchParams, useNavigate, Link } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   StudentLeftSidebar,
@@ -18,13 +18,6 @@ import {
   Filter,
   X,
   RotateCcw,
-  Calendar,
-  Layers,
-  UserCheck,
-  Award,
-  Flag,
-  ArrowLeft,
-  Sparkles,
 } from 'lucide-react'
 
 export const SearchPage: React.FC = () => {
@@ -64,7 +57,7 @@ export const SearchPage: React.FC = () => {
       fanpageId,
       criteriaId: criteriaId?.includes(',') ? undefined : (criteriaId ? Number(criteriaId) : undefined),
       pointCategoryId: pointCategoryId?.includes(',') ? undefined : (pointCategoryId ? Number(pointCategoryId) : undefined),
-      status: status?.includes(',') ? undefined : status,
+      status: (status?.includes(',') ? undefined : status) as any,
       dateHappenFrom,
       dateHappenTo,
     }),
@@ -92,16 +85,63 @@ export const SearchPage: React.FC = () => {
     enabled: isAuthenticated,
   })
 
+  // Fetch registered events for the user to accurately determine registration and attendance state
+  const { data: userRegistrations = [] } = useQuery<any[]>({
+    queryKey: ['registrations', 'me', isAuthenticated],
+    queryFn: async () => {
+      if (!isAuthenticated) return []
+      try {
+        const [historyRes, upcomingRes] = await Promise.allSettled([
+          apiClient.get('/registrations/me/history', { params: { size: 100 } }),
+          apiClient.get('/registrations/me/upcoming'),
+        ])
+        const historyVal = historyRes.status === 'fulfilled' ? (historyRes.value as any) : null
+        const upcomingVal = upcomingRes.status === 'fulfilled' ? (upcomingRes.value as any) : null
+
+        const historyList =
+          historyVal?.content || historyVal?.data?.content || historyVal?.data || []
+        const upcomingList =
+          upcomingVal?.content || upcomingVal?.data?.content || upcomingVal?.data || []
+
+        return [
+          ...(Array.isArray(historyList) ? historyList : []),
+          ...(Array.isArray(upcomingList) ? upcomingList : []),
+        ]
+      } catch {
+        return []
+      }
+    },
+    enabled: isAuthenticated,
+  })
+
+  // Map eventId -> registration status (REGISTERED, CHECKED_IN, COMPLETED...)
+  const registeredEventMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const r of userRegistrations) {
+      const eid = String(r.eventId || r.id)
+      const st = String(r.status || 'REGISTERED').toUpperCase()
+      if (st !== 'CANCELLED') {
+        map.set(eid, st)
+      }
+    }
+    return map
+  }, [userRegistrations])
+
   const followedFanpageIds = useMemo(() => {
     return new Set(followedFanpages.map((fp: any) => String(fp.id)))
   }, [followedFanpages])
 
   const eventsWithFollowState = useMemo(() => {
-    return rawEvents.map((evt) => ({
-      ...evt,
-      isFollowed: evt.isFollowed || followedFanpageIds.has(String(evt.organizerId)),
-    }))
-  }, [rawEvents, followedFanpageIds])
+    return rawEvents.map((evt) => {
+      const regStatus = registeredEventMap.get(String(evt.id))
+      return {
+        ...evt,
+        isFollowed: evt.isFollowed || followedFanpageIds.has(String(evt.organizerId)),
+        isRegistered: Boolean(regStatus) || Boolean(evt.isRegistered),
+        registrationStatus: regStatus || (evt.isRegistered ? 'REGISTERED' : undefined),
+      }
+    })
+  }, [rawEvents, followedFanpageIds, registeredEventMap])
 
   // Filter options for labels and childIds
   const { data: filterOptions } = useQuery({
@@ -222,7 +262,7 @@ export const SearchPage: React.FC = () => {
   }
 
   const handleToggleSave = async (eventId: string) => {
-    const currentEvent = events.find((e) => String(e.id) === String(eventId))
+    const currentEvent = rawEvents.find((e: Event) => String(e.id) === String(eventId))
     const nextSavedState = !currentEvent?.isSaved
 
     queryClient.setQueryData(['events', 'search', filters], (old: Event[] = []) =>

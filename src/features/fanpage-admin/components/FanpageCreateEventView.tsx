@@ -45,6 +45,45 @@ interface FanpageCreateEventViewProps {
   initialEvent?: AdminEvent | null
 }
 
+// Converts an ISO string or any date string to local YYYY-MM-DD
+function parseIsoToLocalDate(dateStr?: string | null): string {
+  if (!dateStr) return ''
+  const trimmed = dateStr.trim()
+  if (trimmed.includes('/')) {
+    const parts = trimmed.split('/')
+    if (parts.length === 3) {
+      if (parts[2].length === 4) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
+      }
+      if (parts[0].length === 4) {
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`
+      }
+    }
+  }
+  const d = new Date(trimmed)
+  if (!isNaN(d.getTime())) {
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  return trimmed.split('T')[0] || ''
+}
+
+// Converts an ISO string or time string to local HH:mm
+function parseIsoToLocalTime(dateStr?: string | null, defaultTime = '08:00'): string {
+  if (!dateStr) return defaultTime
+  const trimmed = dateStr.trim()
+  if (/^\d{2}:\d{2}$/.test(trimmed)) return trimmed
+  const d = new Date(trimmed)
+  if (!isNaN(d.getTime())) {
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    return `${hours}:${minutes}`
+  }
+  return defaultTime
+}
+
 export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
   currentFanpage,
   onBack,
@@ -62,25 +101,25 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
 
   // 2. Thời gian tổ chức & Thời gian mở/đóng đăng ký (Schema: dateHappen, dateOpen, dateClose)
   const [dateHappen, setDateHappen] = useState(
-    initialEvent?.dateStart || (initialEvent?.dateHappen ? initialEvent.dateHappen.split('T')[0] : '')
+    parseIsoToLocalDate(initialEvent?.dateStart || initialEvent?.dateHappen)
   )
-  const [timeStart, setTimeStart] = useState(initialEvent?.timeStart || '08:00')
-  const [timeEnd, setTimeEnd] = useState(initialEvent?.timeEnd || '11:30')
+  const [timeStart, setTimeStart] = useState(
+    parseIsoToLocalTime(initialEvent?.timeStart || initialEvent?.dateHappen, '08:00')
+  )
+  const [timeEnd, setTimeEnd] = useState(
+    parseIsoToLocalTime(initialEvent?.timeEnd, '11:30')
+  )
   const [dateOpen, setDateOpen] = useState(
-    initialEvent?.dateOpen ? initialEvent.dateOpen.split('T')[0] : ''
+    parseIsoToLocalDate(initialEvent?.dateOpen)
   )
   const [timeOpen, setTimeOpen] = useState(
-    initialEvent?.dateOpen && initialEvent.dateOpen.includes('T')
-      ? initialEvent.dateOpen.split('T')[1].substring(0, 5)
-      : '07:00'
+    parseIsoToLocalTime(initialEvent?.dateOpen, '07:00')
   )
   const [dateClose, setDateClose] = useState(
-    initialEvent?.dateClose ? initialEvent.dateClose.split('T')[0] : ''
+    parseIsoToLocalDate(initialEvent?.dateClose)
   )
   const [timeClose, setTimeClose] = useState(
-    initialEvent?.dateClose && initialEvent.dateClose.includes('T')
-      ? initialEvent.dateClose.split('T')[1].substring(0, 5)
-      : '23:59'
+    parseIsoToLocalTime(initialEvent?.dateClose, '23:59')
   )
 
   // 3. Quy mô & Hình thức đăng ký (Schema: capacity, male_quantity, female_quantity, requiresApproval)
@@ -177,9 +216,6 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
     initialEvent ? Boolean(initialEvent.hasCertificate) : false
   )
 
-  const activeSv5tId = selectedSv5tCriteria?.id || undefined
-  const activeSv5tName = selectedSv5tCriteria?.name || undefined
-
   // 6. Nội dung & Poster (Schema: description, bannerUrl, tags)
   const [description, setDescription] = useState(initialEvent?.description || '')
   const [isExpandedDesc, setIsExpandedDesc] = useState(false)
@@ -205,21 +241,21 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       setFormat(initialEvent.format || 'OFFLINE')
       setLocation(initialEvent.location || '')
       setDateHappen(
-        initialEvent.dateStart || (initialEvent.dateHappen ? initialEvent.dateHappen.split('T')[0] : '')
+        parseIsoToLocalDate(initialEvent.dateStart || initialEvent.dateHappen)
       )
-      setTimeStart(initialEvent.timeStart || '08:00')
-      setTimeEnd(initialEvent.timeEnd || '11:30')
-      setDateOpen(initialEvent.dateOpen ? initialEvent.dateOpen.split('T')[0] : '')
+      setTimeStart(
+        parseIsoToLocalTime(initialEvent.timeStart || initialEvent.dateHappen, '08:00')
+      )
+      setTimeEnd(
+        parseIsoToLocalTime(initialEvent.timeEnd, '11:30')
+      )
+      setDateOpen(parseIsoToLocalDate(initialEvent.dateOpen))
       setTimeOpen(
-        initialEvent.dateOpen && initialEvent.dateOpen.includes('T')
-          ? initialEvent.dateOpen.split('T')[1].substring(0, 5)
-          : '07:00'
+        parseIsoToLocalTime(initialEvent.dateOpen, '07:00')
       )
-      setDateClose(initialEvent.dateClose ? initialEvent.dateClose.split('T')[0] : '')
+      setDateClose(parseIsoToLocalDate(initialEvent.dateClose))
       setTimeClose(
-        initialEvent.dateClose && initialEvent.dateClose.includes('T')
-          ? initialEvent.dateClose.split('T')[1].substring(0, 5)
-          : '23:59'
+        parseIsoToLocalTime(initialEvent.dateClose, '23:59')
       )
       setCapacity(initialEvent.capacity || '')
       setMaleQuantity(initialEvent.maleQuantity !== undefined ? initialEvent.maleQuantity : '')
@@ -289,7 +325,18 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       return
     }
 
-    const target = sv5tCriterias.find((c) => c.id === critId)
+    const findCriteriaRecursive = (items: Sv5tCriteriaItem[]): Sv5tCriteriaItem | null => {
+      for (const item of items) {
+        if (item.id === critId) return item
+        if (item.children && item.children.length > 0) {
+          const found = findCriteriaRecursive(item.children)
+          if (found) return found
+        }
+      }
+      return null
+    }
+
+    const target = findCriteriaRecursive(sv5tCriterias)
     if (target) {
       setSelectedSv5tCriteria({
         id: target.id,
@@ -340,6 +387,16 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       alert('Vui lòng nhập số lượng sinh viên tham gia hợp lệ!')
       return
     }
+
+    const safeCapacity = Number(capacity) || 0
+    const safeMaleQuantity = maleQuantity !== '' && maleQuantity !== undefined ? Number(maleQuantity) : 0
+    const safeFemaleQuantity = femaleQuantity !== '' && femaleQuantity !== undefined ? Number(femaleQuantity) : 0
+
+    if (safeMaleQuantity + safeFemaleQuantity > safeCapacity) {
+      alert(`Tổng số lượng Nam (${safeMaleQuantity}) và Nữ (${safeFemaleQuantity}) không được vượt quá tổng sức chứa (${safeCapacity})!`)
+      return
+    }
+
     if (!bannerPreview && !bannerFile) {
       alert('Vui lòng tải lên ảnh bìa (poster) cho sự kiện!')
       return
@@ -365,31 +422,86 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       }
     }
 
-    const activeSv5tId = activeSv5tCriteria?.id
-    const activeSv5tName = activeSv5tCriteria?.name
+    const activeSv5tId = selectedSv5tCriteria?.id
+    const activeSv5tName = selectedSv5tCriteria?.name
     const selectedEventType = selectedEventTypeObj || MOCK_EVENT_TYPES.find((t) => t.id === eventTypeId)
     const selectedSemester = MOCK_SEMESTERS.find((s) => s.id === semesterId)
 
-    // Backend LocalDate yêu cầu định dạng YYYY-MM-DD
-    const todayStr = new Date().toISOString().split('T')[0]
-    const effectiveDateOpen = dateOpen ? dateOpen : (dateHappen < todayStr ? dateHappen : todayStr)
+    // Helper to extract YYYY-MM-DD from any date format (DD/MM/YYYY, ISO, etc.) in local time
+    const toStandardDateStr = (rawDate?: string): string => {
+      return parseIsoToLocalDate(rawDate)
+    }
+
+    const formatToInstantIso = (dateStr: string, timeStr?: string, defaultTime = '08:00') => {
+      const standardDate = toStandardDateStr(dateStr)
+      if (!standardDate) return new Date().toISOString()
+      const time = timeStr && /^\d{2}:\d{2}$/.test(timeStr.trim()) ? timeStr.trim() : defaultTime
+      try {
+        const d = new Date(`${standardDate}T${time}:00`)
+        if (!isNaN(d.getTime())) return d.toISOString()
+      } catch {}
+      return `${standardDate}T${time}:00Z`
+    }
+
+    const standardDateHappen = toStandardDateStr(dateHappen)
+    const todayStandard = parseIsoToLocalDate(new Date().toISOString())
+
+    const effectiveDateOpen = dateOpen ? dateOpen : (standardDateHappen < todayStandard ? standardDateHappen : todayStandard)
     const effectiveDateClose = dateClose ? dateClose : dateHappen
 
-    const dateOpenIso = `${effectiveDateOpen}T${timeOpen || '07:00'}:00Z`
-    const dateCloseIso = `${effectiveDateClose}T${timeClose || '23:59'}:00Z`
+    let dateOpenIso = formatToInstantIso(effectiveDateOpen, timeOpen, '07:00')
+    let dateCloseIso = formatToInstantIso(effectiveDateClose, timeClose, '23:59')
+    let dateHappenIso = formatToInstantIso(dateHappen, timeStart, '08:00')
 
-    const safeCapacity = Number(capacity) || 0
-    const safeMaleQuantity = maleQuantity !== '' && maleQuantity !== undefined ? Number(maleQuantity) : 0
-    const safeFemaleQuantity = femaleQuantity !== '' && femaleQuantity !== undefined ? Number(femaleQuantity) : 0
+    // Backend domain model strictly enforces:
+    // 1) dateOpen >= Instant.now() (Registration open date cannot be in the past)
+    // 2) dateOpen <= dateClose (Registration open date must be before or equal to registration close date)
+    // 3) dateClose <= dateHappen (Registration close date must be before or equal to event happen date)
+    // This applies to both Create and Update!
+    const nowMs = Date.now()
+    let openTimeMs = new Date(dateOpenIso).getTime()
+    if (openTimeMs <= nowMs + 10 * 1000) {
+      dateOpenIso = new Date(nowMs + 30 * 1000).toISOString()
+      openTimeMs = new Date(dateOpenIso).getTime()
+    }
+
+    let closeTimeMs = new Date(dateCloseIso).getTime()
+    if (closeTimeMs < openTimeMs) {
+      dateCloseIso = new Date(openTimeMs + 60 * 1000).toISOString()
+      closeTimeMs = new Date(dateCloseIso).getTime()
+    }
+
+    let happenTimeMs = new Date(dateHappenIso).getTime()
+    if (happenTimeMs < closeTimeMs) {
+      dateHappenIso = new Date(closeTimeMs + 60 * 1000).toISOString()
+      happenTimeMs = new Date(dateHappenIso).getTime()
+    }
+
+    // Validate date relations
+    if (new Date(dateOpenIso).getTime() > new Date(dateCloseIso).getTime()) {
+      alert('Thời gian mở cổng đăng ký phải trước hoặc cùng lúc với thời gian đóng cổng đăng ký!')
+      setIsSubmitting(false)
+      return
+    }
+
+    if (new Date(dateCloseIso).getTime() > new Date(dateHappenIso).getTime()) {
+      alert('Thời gian đóng cổng đăng ký phải trước hoặc cùng ngày giờ diễn ra sự kiện!')
+      setIsSubmitting(false)
+      return
+    }
+
+    const effectiveDescription =
+      description.trim() ||
+      `Sự kiện ${name.trim()} do ${currentFanpage?.name || 'Đoàn Trường'} tổ chức nhằm kết nối và hỗ trợ đoàn viên, sinh viên.`
 
     const eventPayload: Partial<AdminEvent> = {
       id: initialEvent ? initialEvent.id : `evt-${Date.now()}`,
       code: initialEvent ? initialEvent.code : `EVT-${Math.floor(1000 + Math.random() * 9000)}`,
-      name,
-      description,
-      eventTypeId,
+      name: name.trim(),
+      description: effectiveDescription,
+      eventTypeId: Number(eventTypeId || 1),
       eventTypeName: selectedEventType?.name || 'Học thuật · Công nghệ',
-      semesterId,
+      semesterId: Number(semesterId || 1),
       semesterName: selectedSemester?.name,
       fanpageId: currentFanpage?.id || '1',
       organizerName: currentFanpage?.name || 'Đoàn Trường CNTT & TT',
@@ -400,7 +512,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       dateOpen: dateOpenIso,
       dateClose: dateCloseIso,
       format,
-      location,
+      location: location.trim(),
       capacity: safeCapacity,
       maleQuantity: safeMaleQuantity,
       femaleQuantity: safeFemaleQuantity,
@@ -431,18 +543,21 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
           name: eventPayload.name,
           description: eventPayload.description,
           location: eventPayload.location,
-          dateHappen: dateHappen,
-          dateOpen: effectiveDateOpen,
-          dateClose: effectiveDateClose,
+          dateHappen: dateHappenIso,
+          dateOpen: dateOpenIso,
+          dateClose: dateCloseIso,
           capacity: safeCapacity,
           maleQuantity: safeMaleQuantity,
           femaleQuantity: safeFemaleQuantity,
           bannerUrl: finalBannerUrl,
           status: eventPayload.status,
-          eventTypeId: eventPayload.eventTypeId,
-          semesterId: eventPayload.semesterId,
-          criteriaId: eventPayload.sv5tCriteriaId,
-          eventPoints: selectedPointCategories.map((c) => ({ pointCategoryId: c.pointCategoryId, point: c.point })),
+          eventTypeId: Number(eventPayload.eventTypeId || 1),
+          semesterId: Number(eventPayload.semesterId || 1),
+          criteriaId: activeSv5tId ? Number(activeSv5tId) : null,
+          eventPoints: selectedPointCategories.map((c) => ({
+            pointCategoryId: Number(c.pointCategoryId),
+            point: Number(c.point),
+          })),
         } as any)
 
         // Cập nhật trạng thái sự kiện nếu thay đổi
@@ -459,19 +574,22 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
           name: eventPayload.name,
           description: eventPayload.description,
           location: eventPayload.location,
-          dateHappen: dateHappen,
-          dateOpen: effectiveDateOpen,
-          dateClose: effectiveDateClose,
+          dateHappen: dateHappenIso,
+          dateOpen: dateOpenIso,
+          dateClose: dateCloseIso,
           capacity: safeCapacity,
           maleQuantity: safeMaleQuantity,
           femaleQuantity: safeFemaleQuantity,
           bannerUrl: finalBannerUrl,
           status: eventPayload.status,
-          eventTypeId: eventPayload.eventTypeId,
+          eventTypeId: Number(eventPayload.eventTypeId || 1),
           fanpageId: Number(currentFanpage?.id || 1),
-          semesterId: eventPayload.semesterId,
-          criteriaId: eventPayload.sv5tCriteriaId,
-          eventPoints: selectedPointCategories.map((c) => ({ pointCategoryId: c.pointCategoryId, point: c.point })),
+          semesterId: Number(eventPayload.semesterId || 1),
+          criteriaId: activeSv5tId ? Number(activeSv5tId) : null,
+          eventPoints: selectedPointCategories.map((c) => ({
+            pointCategoryId: Number(c.pointCategoryId),
+            point: Number(c.point),
+          })),
         } as any)
 
         // Backend Spring Boot mặc định luôn khởi tạo sự kiện mới với status DRAFT (Bản nháp).

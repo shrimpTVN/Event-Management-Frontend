@@ -48,7 +48,7 @@ export const profileService = {
   },
 
   /**
-   * Updates student profile information
+   * Updates student profile information including Cloudinary avatarUrl
    */
   async updateMyProfile(payload: Partial<StudentProfile>): Promise<StudentProfile> {
     const fullName = (payload.fullName || '').trim()
@@ -57,9 +57,10 @@ export const profileService = {
     const firstName = parts.length > 1 ? parts.slice(1).join(' ') : (parts[0] || 'Tài Lộc')
 
     let genderEnum = 'MALE'
-    if (payload.gender === 'Nữ' || payload.gender === 'FEMALE') {
+    const rawGender = String(payload.gender || '')
+    if (rawGender === 'Nữ' || rawGender === 'FEMALE') {
       genderEnum = 'FEMALE'
-    } else if (payload.gender === 'Khác' || payload.gender === 'OTHER') {
+    } else if (rawGender === 'Khác' || rawGender === 'OTHER') {
       genderEnum = 'OTHER'
     }
 
@@ -70,7 +71,7 @@ export const profileService = {
       lastName,
       gender: genderEnum,
       kNumber: isNaN(kNum) ? 49 : kNum,
-      avatarUrl: payload.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
+      avatarUrl: payload.avatarUrl || '',
       associationId: 1,
       majorId: 1,
     }
@@ -80,11 +81,20 @@ export const profileService = {
       const mapped = mapBackendProfileToStudentProfile(res)
       return {
         ...mapped,
+        avatarUrl: payload.avatarUrl || mapped.avatarUrl,
         phoneNumber: payload.phoneNumber || mapped.phoneNumber || '',
         classId: payload.classId || mapped.classId || '',
       }
     } catch {
       return payload as StudentProfile
     }
+  },
+
+  /**
+   * Directly updates avatar URL on student profile (Cloudinary image URL)
+   */
+  async updateAvatar(avatarUrl: string): Promise<StudentProfile> {
+    const res: any = await apiClient.patch('/users/me/profile/change-avatar', { avatarUrl })
+    return mapBackendProfileToStudentProfile(res)
   },
 }

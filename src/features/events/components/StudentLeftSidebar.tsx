@@ -12,6 +12,7 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/shared'
 import { useAuthStore } from '@/features/auth'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export interface FollowedOrg {
   id: string
@@ -38,7 +39,7 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
   const { isAuthenticated } = useAuthStore()
 
   // Fetch fanpages from backend if not provided as prop (following when authenticated)
-  const { data: apiFanpages } = useQuery<FollowedOrg[]>({
+  const { data: apiFanpages, isLoading } = useQuery<FollowedOrg[]>({
     queryKey: ['fanpages', 'sidebar', isAuthenticated],
     queryFn: async () => {
       if (isAuthenticated) {
@@ -107,7 +108,16 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
           Trang đã theo dõi
         </h3>
 
-        {orgsToDisplay.length > 0 ? (
+        {isLoading && !followedOrgs ? (
+          <div className="flex flex-col gap-1.5">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-3.5 py-2">
+                <Skeleton className="h-5 w-5 rounded-full shrink-0" />
+                <Skeleton className="h-3.5 w-3/4 rounded" />
+              </div>
+            ))}
+          </div>
+        ) : orgsToDisplay.length > 0 ? (
           <div className="flex flex-col gap-1.5">
             {visibleOrgs.map((org) => {
               const isActive = currentPath === `/fanpage/${org.id}`

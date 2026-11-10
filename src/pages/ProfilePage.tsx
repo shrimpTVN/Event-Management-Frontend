@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Check, X } from 'lucide-react'
 import { StudentLeftSidebar } from '@/features/events'
+import { useAuthStore } from '@/features/auth/store/authStore'
 import {
   ProfileHeaderCard,
   PersonalInfoCard,
@@ -45,6 +46,10 @@ export const ProfilePage: React.FC = () => {
     try {
       const saved = await profileService.updateMyProfile(formData)
       queryClient.setQueryData(['profile', 'me'], saved)
+      useAuthStore.getState().updateUser({
+        avatarUrl: saved.avatarUrl,
+        name: saved.fullName,
+      })
       setSuccessToast('Đã lưu thông tin hồ sơ sinh viên thành công!')
       setTimeout(() => setSuccessToast(null), 3000)
       setIsEditing(false)

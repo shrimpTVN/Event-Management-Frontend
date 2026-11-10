@@ -16,7 +16,8 @@ import {
   eventService,
   type Event,
 } from '@/features/events'
-import { SlidersHorizontal, CheckCircle, AlertCircle, CalendarDays, Loader2 } from 'lucide-react'
+import { SlidersHorizontal, CheckCircle, AlertCircle, CalendarDays } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export const FanpageDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -37,15 +38,28 @@ export const FanpageDetailPage: React.FC = () => {
 
   const { isAuthenticated } = useAuthStore()
 
-  // Fetch registered events for the user to accurately mark isRegistered state
-  const { data: upcomingRegistrations = [] } = useQuery<any[]>({
+  // Fetch registered events for the user to accurately mark isRegistered and registrationStatus state
+  const { data: userRegistrations = [] } = useQuery<any[]>({
     queryKey: ['registrations', 'me', isAuthenticated],
     queryFn: async () => {
       if (!isAuthenticated) return []
       try {
-        const res: any = await apiClient.get('/registrations/me/upcoming')
-        const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
-        return list
+        const [historyRes, upcomingRes] = await Promise.allSettled([
+          apiClient.get('/registrations/me/history', { params: { size: 100 } }),
+          apiClient.get('/registrations/me/upcoming'),
+        ])
+        const historyVal = historyRes.status === 'fulfilled' ? (historyRes.value as any) : null
+        const upcomingVal = upcomingRes.status === 'fulfilled' ? (upcomingRes.value as any) : null
+
+        const historyList =
+          historyVal?.content || historyVal?.data?.content || historyVal?.data || []
+        const upcomingList =
+          upcomingVal?.content || upcomingVal?.data?.content || upcomingVal?.data || []
+
+        return [
+          ...(Array.isArray(historyList) ? historyList : []),
+          ...(Array.isArray(upcomingList) ? upcomingList : []),
+        ]
       } catch {
         return []
       }
@@ -53,20 +67,29 @@ export const FanpageDetailPage: React.FC = () => {
     enabled: isAuthenticated,
   })
 
-  const registeredEventIds = useMemo(() => {
-    return new Set(
-      upcomingRegistrations
-        .filter((r: any) => r.status === 'REGISTERED' || !r.status)
-        .map((r: any) => String(r.eventId || r.id))
-    )
-  }, [upcomingRegistrations])
+  // Map eventId -> registration status (REGISTERED, CHECKED_IN, COMPLETED...)
+  const registeredEventMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const r of userRegistrations) {
+      const eid = String(r.eventId || r.id)
+      const st = String(r.status || 'REGISTERED').toUpperCase()
+      if (st !== 'CANCELLED') {
+        map.set(eid, st)
+      }
+    }
+    return map
+  }, [userRegistrations])
 
   const eventsWithRegisteredState = useMemo(() => {
-    return events.map((event) => ({
-      ...event,
-      isRegistered: registeredEventIds.has(String(event.id)) || Boolean(event.isRegistered),
-    }))
-  }, [events, registeredEventIds])
+    return events.map((event) => {
+      const regStatus = registeredEventMap.get(String(event.id))
+      return {
+        ...event,
+        isRegistered: Boolean(regStatus) || Boolean(event.isRegistered),
+        registrationStatus: regStatus || (event.isRegistered ? 'REGISTERED' : undefined),
+      }
+    })
+  }, [events, registeredEventMap])
 
   const [notification, setNotification] = useState<{
     type: 'success' | 'info'
@@ -250,9 +273,67 @@ export const FanpageDetailPage: React.FC = () => {
         <main className="flex-1 min-w-0 h-full overflow-y-auto pt-4 pb-5 px-1 flex justify-center custom-scrollbar">
           <div className="w-full max-w-5xl flex flex-col gap-3.5 pb-28 sm:pb-36">
             {isLoadingFanpage ? (
-              <div className="w-full rounded-2xl border border-border bg-card p-12 flex flex-col items-center justify-center gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">Đang tải thông tin fanpage...</p>
+              <div className="w-full flex flex-col gap-3.5 animate-pulse">
+                {/* 1. Hero Header Card Skeleton */}
+                <div className="w-full bg-white dark:bg-card border border-border/50 dark:border-border/60 rounded-xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-5 sm:gap-6 shadow-xs">
+                  <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 min-w-0">
+                    <Skeleton className="h-24 w-24 rounded-full shrink-0" />
+                    <div className="space-y-2 text-center sm:text-left">
+                      <Skeleton className="h-7 w-64 sm:w-80 rounded" />
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-4 w-24 rounded" />
+                        <Skeleton className="h-4 w-20 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <Skeleton className="h-9 w-28 rounded-lg" />
+                    <Skeleton className="h-9 w-28 rounded-lg" />
+                  </div>
+                </div>
+
+                {/* 2. Two-Column Layout Skeleton */}
+                <div className="w-full flex flex-col lg:flex-row items-start gap-4">
+                  {/* Left Column: About Card Skeleton */}
+                  <div className="w-full lg:w-[340px] shrink-0">
+                    <div className="w-full bg-white dark:bg-card border border-border/50 rounded-xl p-5 space-y-4">
+                      <Skeleton className="h-5 w-24 rounded" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-3.5 w-full rounded" />
+                        <Skeleton className="h-3.5 w-5/6 rounded" />
+                        <Skeleton className="h-3.5 w-4/6 rounded" />
+                      </div>
+                      <div className="pt-3 border-t border-border/60 space-y-2.5">
+                        <Skeleton className="h-4 w-3/4 rounded" />
+                        <Skeleton className="h-4 w-2/3 rounded" />
+                        <Skeleton className="h-4 w-1/2 rounded" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Events Feed Skeleton */}
+                  <div className="flex-1 min-w-0 w-full flex flex-col gap-3.5">
+                    <div className="flex items-center justify-between px-1">
+                      <Skeleton className="h-6 w-28 rounded" />
+                      <Skeleton className="h-8 w-20 rounded-lg" />
+                    </div>
+                    <div className="flex flex-col gap-3.5">
+                      {[1, 2].map((n) => (
+                        <div key={n} className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-4">
+                          <div className="flex items-center gap-3">
+                            <Skeleton className="w-10 h-10 rounded-full" />
+                            <div className="flex-1 space-y-2">
+                              <Skeleton className="h-4 w-1/3 rounded" />
+                              <Skeleton className="h-3 w-1/4 rounded" />
+                            </div>
+                          </div>
+                          <Skeleton className="h-5 w-3/4 rounded" />
+                          <Skeleton className="h-44 w-full rounded-xl" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : fanpage ? (
               <>

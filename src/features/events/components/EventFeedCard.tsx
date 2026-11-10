@@ -1,5 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react'
-import { cn } from '@/lib/utils'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Calendar as CalendarIcon,
   MapPin,
@@ -59,15 +58,27 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
   const [isExpanded, setIsExpanded] = useState(false)
   const [isFollowed, setIsFollowed] = useState(event.isFollowed ?? false)
   const [isSaved, setIsSaved] = useState(event.isSaved ?? false)
-  const [isRegistered, setIsRegistered] = useState(
-    Boolean(event.isRegistered || (event.status as string) === 'REGISTERED')
+  const isInitialRegistered = Boolean(
+    event.isRegistered ||
+    (event.status as string) === 'REGISTERED' ||
+    (event.registrationStatus && event.registrationStatus !== 'CANCELLED')
+  )
+  const [isRegistered, setIsRegistered] = useState(isInitialRegistered)
+  const [registrationStatus, setRegistrationStatus] = useState<string | undefined>(
+    event.registrationStatus || (isInitialRegistered ? 'REGISTERED' : undefined)
   )
 
   useEffect(() => {
     setIsFollowed(event.isFollowed ?? false)
     setIsSaved(event.isSaved ?? false)
-    setIsRegistered(Boolean(event.isRegistered || (event.status as string) === 'REGISTERED'))
-  }, [event.isFollowed, event.isSaved, event.isRegistered, event.status])
+    const registered = Boolean(
+      event.isRegistered ||
+      (event.status as string) === 'REGISTERED' ||
+      (event.registrationStatus && event.registrationStatus !== 'CANCELLED')
+    )
+    setIsRegistered(registered)
+    setRegistrationStatus(event.registrationStatus || (registered ? 'REGISTERED' : undefined))
+  }, [event.isFollowed, event.isSaved, event.isRegistered, event.status, event.registrationStatus])
 
   const handleFollowClick = () => {
     setIsFollowed((prev) => !prev)
@@ -97,8 +108,15 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
     if (endStr && endStr !== startStr) {
       const endDate = new Date(endStr)
       if (!isNaN(endDate.getTime())) {
-        const endTimeFormatted = `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`
-        return `${dateFormatted} · ${startTimeFormatted} - ${endTimeFormatted}`
+        const isSameDay =
+          startDate.getFullYear() === endDate.getFullYear() &&
+          startDate.getMonth() === endDate.getMonth() &&
+          startDate.getDate() === endDate.getDate()
+
+        if (isSameDay && endDate.getTime() > startDate.getTime()) {
+          const endTimeFormatted = `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`
+          return `${dateFormatted} · ${startTimeFormatted} - ${endTimeFormatted}`
+        }
       }
     }
     return `${dateFormatted} · ${startTimeFormatted}`
@@ -381,13 +399,16 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             eventId={event.id}
             eventTitle={event.title}
             isRegistered={isRegistered}
+            registrationStatus={registrationStatus}
             disabled={event.status === 'CLOSED'}
             onRegisterSuccess={() => {
               setIsRegistered(true)
+              setRegistrationStatus('REGISTERED')
               onRegister?.(event.id)
             }}
             onCancelSuccess={() => {
               setIsRegistered(false)
+              setRegistrationStatus(undefined)
               onCancelRegister?.(event.id)
             }}
             className="min-w-[120px] whitespace-nowrap"

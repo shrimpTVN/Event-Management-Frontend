@@ -5,13 +5,18 @@ import { useAuthStore, isStaffUser } from '@/features/auth'
 import { MessageSquare, Bell } from 'lucide-react'
 import logoImg from '@/assets/logo.svg'
 import { AccountNavigationPopup } from './AccountNavigationPopup'
+import { NotificationDropdown } from './NotificationDropdown'
 import { NavbarSearchAutocomplete } from '@/features/events'
+import { useUserFanpagesStore } from '@/features/fanpage/store/userFanpagesStore'
 
 export const Navbar: React.FC = () => {
   const { user, isAuthenticated, clearAuth } = useAuthStore()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showDropdown, setShowDropdown] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const { notifications } = useUserFanpagesStore()
+  const unreadCount = notifications.filter((n) => n.isUnread).length
 
   const handleLogout = () => {
     // Xóa toàn bộ TanStack query cache khi đăng xuất
@@ -55,14 +60,28 @@ export const Navbar: React.FC = () => {
           </button>
 
           {/* Notifications Bell */}
-          <button
-            type="button"
-            className="relative flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            title="Thông báo"
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-card" />
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setShowNotifications((prev) => !prev)
+                setShowDropdown(false)
+              }}
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              title="Thông báo"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-card" />
+              )}
+            </button>
+
+            {/* Notification Dropdown (Matching Facebook-style image) */}
+            <NotificationDropdown
+              isOpen={showNotifications}
+              onClose={() => setShowNotifications(false)}
+            />
+          </div>
 
           {/* User Profile Avatar with Initial 'U' or Photo */}
           <div className="relative">
@@ -70,8 +89,11 @@ export const Navbar: React.FC = () => {
               <div>
                 <button
                   type="button"
-                  onClick={() => setShowDropdown(!showDropdown)}
-                  className="flex items-center focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-full"
+                  onClick={() => {
+                    setShowDropdown(!showDropdown)
+                    setShowNotifications(false)
+                  }}
+                  className="flex items-center focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-full cursor-pointer"
                 >
                   {user.avatarUrl ? (
                     <img

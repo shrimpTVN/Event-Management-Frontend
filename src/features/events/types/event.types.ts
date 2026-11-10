@@ -72,6 +72,7 @@ export interface Event {
   isFollowed?: boolean
   isSaved?: boolean
   isRegistered?: boolean
+  registrationStatus?: 'REGISTERED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED' | string
   timeAgo?: string
   tags?: string[]
   isModerationRequired: boolean

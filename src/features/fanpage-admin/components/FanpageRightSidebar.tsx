@@ -70,7 +70,7 @@ export const FanpageRightSidebar: React.FC<FanpageRightSidebarProps> = ({
             // Hiển thị tên thay vì email theo yêu cầu người dùng
             const displayName =
               member.fullName ||
-              [member.lastName, member.firstName].filter(Boolean).join(' ') ||
+              [(member as any).lastName, (member as any).firstName].filter(Boolean).join(' ') ||
               (member.email ? member.email.split('@')[0] : 'Thành viên')
 
             // Xác định tài khoản của người dùng hiện tại
@@ -99,21 +99,27 @@ export const FanpageRightSidebar: React.FC<FanpageRightSidebarProps> = ({
                     </div>
                   )}
 
-                  <div className="min-w-0 flex items-center gap-1.5 flex-1">
+                  <div className="min-w-0 flex flex-col justify-center flex-1">
                     <span
-                      className="text-xs font-medium text-foreground truncate max-w-[125px]"
+                      className="text-xs font-semibold text-foreground truncate"
                       title={displayName}
                     >
                       {displayName}
                     </span>
 
-                    {/* Chỉ để badge nếu người đó có vai trò admin, để cùng ở trên tên */}
-                    {isAdmin && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-[#1B4B8A] dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/50 shrink-0">
-                        <ShieldCheck className="h-3 w-3 text-blue-600 dark:text-blue-400 shrink-0" />
-                        <span>Admin</span>
-                      </span>
-                    )}
+                    {/* Dòng 2 dưới tên: Chữ Admin nằm riêng bên dưới để không che tên thành viên */}
+                    <div className="flex items-center gap-1 mt-0.5">
+                      {isAdmin ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-[#1B4B8A] dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/50 w-fit">
+                          <ShieldCheck className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                          <span>Admin</span>
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground">
+                          {member.role === 'COLLABORATOR' ? 'Cộng tác viên' : 'Thành viên'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

@@ -1,8 +1,10 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Loader2, CalendarDays } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fanpageService } from '@/features/fanpage'
+import { useAuthStore } from '@/features/auth'
+import { apiClient } from '@/shared'
 import {
   EventFeedCard,
   StudentLeftSidebar,
@@ -17,6 +19,7 @@ export const EventDetailPage: React.FC = () => {
   const location = useLocation()
   const queryClient = useQueryClient()
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
+  const { isAuthenticated } = useAuthStore()
 
   const handleGoBack = () => {
     const from = (location.state as { from?: string } | undefined)?.from
@@ -34,6 +37,51 @@ export const EventDetailPage: React.FC = () => {
     queryFn: () => eventService.getEventById(id!),
     enabled: Boolean(id),
   })
+
+  // Fetch registrations to determine registration state accurately
+  const { data: userRegistrations = [] } = useQuery<any[]>({
+    queryKey: ['registrations', 'me', isAuthenticated],
+    queryFn: async () => {
+      if (!isAuthenticated) return []
+      try {
+        const [historyRes, upcomingRes] = await Promise.allSettled([
+          apiClient.get('/registrations/me/history', { params: { size: 100 } }),
+          apiClient.get('/registrations/me/upcoming'),
+        ])
+        const historyVal = historyRes.status === 'fulfilled' ? (historyRes.value as any) : null
+        const upcomingVal = upcomingRes.status === 'fulfilled' ? (upcomingRes.value as any) : null
+
+        const historyList =
+          historyVal?.content || historyVal?.data?.content || historyVal?.data || []
+        const upcomingList =
+          upcomingVal?.content || upcomingVal?.data?.content || upcomingVal?.data || []
+
+        return [
+          ...(Array.isArray(historyList) ? historyList : []),
+          ...(Array.isArray(upcomingList) ? upcomingList : []),
+        ]
+      } catch {
+        return []
+      }
+    },
+    enabled: isAuthenticated,
+  })
+
+  const currentRegistration = useMemo(() => {
+    if (!id || !isAuthenticated) return null
+    return (
+      userRegistrations.find(
+        (r: any) =>
+          String(r.eventId || r.id) === String(id) &&
+          String(r.status || '').toUpperCase() !== 'CANCELLED'
+      ) || null
+    )
+  }, [userRegistrations, id, isAuthenticated])
+
+  const isEventRegistered = Boolean(currentRegistration)
+  const currentRegStatus = currentRegistration?.status
+    ? String(currentRegistration.status).toUpperCase()
+    : undefined
 
   const handleRegister = (_eventId: string) => {
     queryClient.setQueryData(['events', id], (old: Event | undefined) =>
@@ -122,7 +170,11 @@ export const EventDetailPage: React.FC = () => {
               </div>
             ) : event ? (
               <EventFeedCard
-                event={event}
+                event={{
+                  ...event,
+                  isRegistered: isEventRegistered,
+                  registrationStatus: currentRegStatus,
+                }}
                 onRegister={handleRegister}
                 onCancelRegister={handleCancelRegister}
                 onToggleSave={handleToggleSave}

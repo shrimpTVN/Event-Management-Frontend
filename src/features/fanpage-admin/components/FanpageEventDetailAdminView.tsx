@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   Pencil,
@@ -18,7 +18,6 @@ import {
   X,
   Eye,
   Camera,
-  RotateCcw,
   Save,
   Loader2,
   UserX,
@@ -32,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import type {
   AdminEvent,
@@ -51,6 +51,7 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
   onBack,
   onEditClick,
 }) => {
+  const queryClient = useQueryClient()
   // Attendance method and session configuration
   const isStudentProof = event.attendanceMethod === 'STUDENT_PROOF'
   const sessionType: 'START' | 'END' | 'BOTH' = event.attendanceSessionType || 'BOTH'
@@ -178,6 +179,12 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
       console.warn('Finalize API failed, updating local state', err)
     }
 
+    queryClient.invalidateQueries({ queryKey: ['event-attendees', event.fanpageId, event.id] })
+    queryClient.invalidateQueries({ queryKey: ['events'] })
+    queryClient.invalidateQueries({ queryKey: ['registrations'] })
+    queryClient.invalidateQueries({ queryKey: ['student-semester-points'] })
+    queryClient.invalidateQueries({ queryKey: ['point-transactions'] })
+
     setRegistrations(updatedAttendees)
     setIsFinalizing(false)
     setIsFinalizeModalOpen(false)
@@ -264,49 +271,67 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
       const targetUserId = targetItem.userId || targetItem.id
       try {
         if (session === 'START') {
+          if (targetItem.status === 'CHECKED_IN' || targetItem.status === 'COMPLETED') {
+            return
+          }
           await fanpageAdminService.checkInAttendee(event.id, targetUserId)
+          setBatchNotice(`Đã điểm danh đầu giờ thành công cho ${targetItem.fullName}.`)
         } else {
+          // session === 'END'
+          if (targetItem.status === 'COMPLETED') {
+            return
+          }
+          // BE requires student to be in CHECKED_IN status before calling check-out
+          if (
+            targetItem.status === 'REGISTERED' ||
+            targetItem.status === 'APPROVED' ||
+            targetItem.status === 'PENDING'
+          ) {
+            await fanpageAdminService.checkInAttendee(event.id, targetUserId)
+          }
           await fanpageAdminService.checkOutAttendee(event.id, targetUserId)
+          setBatchNotice(
+            `Đã điểm danh cuối giờ và ghi nhận hoàn thành (+${event.trainingPoints || 0} ĐRL) cho ${targetItem.fullName}!`
+          )
         }
+        await queryClient.invalidateQueries({ queryKey: ['event-attendees', event.fanpageId, event.id] })
+        setTimeout(() => setBatchNotice(null), 5000)
       } catch (err: any) {
         console.warn(`Backend attendance API notice for user ${targetUserId}:`, err)
-        const rawMsg = err?.response?.data?.message || err?.message
-        if (rawMsg) {
-          setBatchNotice(`Lưu ý máy chủ: ${rawMsg}`)
-          setTimeout(() => setBatchNotice(null), 5000)
-        }
+        const rawMsg = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi điểm danh'
+        setBatchNotice(`Lưu ý máy chủ: ${rawMsg}`)
+        setTimeout(() => setBatchNotice(null), 5000)
       }
     }
+
     setRegistrations((prev) =>
       prev.map((item) => {
         if (item.id !== regId) return item
 
-        // If previously absent, clear absent status when organizer checks in
         let updatedEntry = item.entryCheckInTime
         let updatedCheckout = item.checkOutTime
 
         if (session === 'START') {
-          updatedEntry = updatedEntry ? undefined : nowTime
+          updatedEntry = updatedEntry || nowTime
         } else {
-          updatedCheckout = updatedCheckout ? undefined : nowTime
+          updatedEntry = updatedEntry || nowTime
+          updatedCheckout = updatedCheckout || nowTime
         }
 
         const startDone = Boolean(updatedEntry)
         const endDone = Boolean(updatedCheckout)
 
-        let newStatus: RegistrationStatus = 'APPROVED'
+        let newStatus: RegistrationStatus = 'REGISTERED'
         if (requireStart && requireEnd) {
           if (startDone && endDone) {
             newStatus = 'COMPLETED'
-          } else if (startDone || endDone) {
-            newStatus = 'ENTRY_CHECKED'
-          } else {
-            newStatus = 'APPROVED'
+          } else if (startDone) {
+            newStatus = 'CHECKED_IN'
           }
         } else if (requireStart) {
-          newStatus = startDone ? 'COMPLETED' : 'APPROVED'
+          newStatus = startDone ? 'COMPLETED' : 'REGISTERED'
         } else if (requireEnd) {
-          newStatus = endDone ? 'COMPLETED' : 'APPROVED'
+          newStatus = endDone ? 'COMPLETED' : 'REGISTERED'
         }
 
         return {
@@ -318,6 +343,68 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
         }
       })
     )
+  }
+
+  // Batch Check-in for all students in REGISTERED status
+  const handleBatchCheckIn = async () => {
+    const eligible = registrations.filter(
+      (r) => r.status === 'REGISTERED' || r.status === 'APPROVED' || r.status === 'PENDING'
+    )
+    if (eligible.length === 0) {
+      setBatchNotice('Không có sinh viên nào đang ở trạng thái Chưa điểm danh.')
+      setTimeout(() => setBatchNotice(null), 4000)
+      return
+    }
+    const targetUserIds = eligible.map((r) => r.userId || r.id)
+    try {
+      await fanpageAdminService.batchCheckInAttendees(event.id, targetUserIds)
+      await queryClient.invalidateQueries({ queryKey: ['event-attendees', event.fanpageId, event.id] })
+      setBatchNotice(`Đã điểm danh đầu giờ thành công cho ${eligible.length} sinh viên!`)
+      setTimeout(() => setBatchNotice(null), 5000)
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Lỗi khi điểm danh đầu giờ hàng loạt'
+      setBatchNotice(`Lưu ý máy chủ: ${msg}`)
+      setTimeout(() => setBatchNotice(null), 5000)
+    }
+  }
+
+  // Batch Check-out and complete for all eligible students
+  const handleBatchCheckOut = async () => {
+    // If some students are still registered, check them in first
+    const pendingStart = registrations.filter(
+      (r) => r.status === 'REGISTERED' || r.status === 'APPROVED' || r.status === 'PENDING'
+    )
+    if (pendingStart.length > 0) {
+      try {
+        await fanpageAdminService.batchCheckInAttendees(
+          event.id,
+          pendingStart.map((r) => r.userId || r.id)
+        )
+      } catch (e) {
+        console.warn('Batch check-in step notice:', e)
+      }
+    }
+
+    const eligible = registrations.filter((r) => r.status !== 'COMPLETED' && r.status !== 'ABSENTED')
+    if (eligible.length === 0) {
+      setBatchNotice('Tất cả sinh viên đã hoàn thành điểm danh.')
+      setTimeout(() => setBatchNotice(null), 4000)
+      return
+    }
+
+    const targetUserIds = eligible.map((r) => r.userId || r.id)
+    try {
+      await fanpageAdminService.batchCheckOutAttendees(event.id, targetUserIds)
+      await queryClient.invalidateQueries({ queryKey: ['event-attendees', event.fanpageId, event.id] })
+      setBatchNotice(
+        `Đã hoàn thành điểm danh cuối giờ và cộng ĐRL cho ${eligible.length} sinh viên!`
+      )
+      setTimeout(() => setBatchNotice(null), 5000)
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Lỗi khi điểm danh cuối giờ hàng loạt'
+      setBatchNotice(`Lưu ý máy chủ: ${msg}`)
+      setTimeout(() => setBatchNotice(null), 5000)
+    }
   }
 
   // Batch Approve all students who submitted proof (Mode: STUDENT_PROOF)
@@ -432,11 +519,13 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
 
     const matchStatus =
       selectedStatus === 'ALL' ||
-      (selectedStatus === 'COMPLETED' &&
-        (item.status === 'COMPLETED' || item.status === 'CHECKED_IN')) ||
+      (selectedStatus === 'COMPLETED' && item.status === 'COMPLETED') ||
+      (selectedStatus === 'CHECKED_IN' &&
+        (item.status === 'CHECKED_IN' || item.status === 'ENTRY_CHECKED')) ||
       (selectedStatus === 'PENDING' &&
-        (item.status === 'APPROVED' || item.status === 'PENDING')) ||
-      (selectedStatus === 'ENTRY_CHECKED' && item.status === 'ENTRY_CHECKED') ||
+        (item.status === 'REGISTERED' || item.status === 'APPROVED' || item.status === 'PENDING')) ||
+      (selectedStatus === 'ENTRY_CHECKED' &&
+        (item.status === 'ENTRY_CHECKED' || item.status === 'CHECKED_IN')) ||
       (selectedStatus === 'ABSENTED' && item.status === 'ABSENTED') ||
       (selectedStatus === 'PROOF_SUBMITTED' &&
         Boolean(item.startEvidenceUrl || item.endEvidenceUrl || item.evidenceUrl))
@@ -455,12 +544,17 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
   // Counts for attendance
   const capacity = event.capacity || 300
   const registeredCount = registrations.length || 0
-  const completedCount = registrations.filter(
-    (r) => r.status === 'COMPLETED' || r.status === 'CHECKED_IN'
+  const completedCount = registrations.filter((r) => r.status === 'COMPLETED').length
+  const checkedInCount = registrations.filter(
+    (r) => r.status === 'CHECKED_IN' || r.status === 'ENTRY_CHECKED'
   ).length
   const absentedCount = registrations.filter((r) => r.status === 'ABSENTED').length
   const pendingCount = registrations.filter(
-    (r) => r.status !== 'COMPLETED' && r.status !== 'CHECKED_IN' && r.status !== 'ABSENTED'
+    (r) =>
+      r.status !== 'COMPLETED' &&
+      r.status !== 'CHECKED_IN' &&
+      r.status !== 'ENTRY_CHECKED' &&
+      r.status !== 'ABSENTED'
   ).length
   const proofCount = registrations.filter(
     (r) => r.startEvidenceUrl || r.endEvidenceUrl || r.evidenceUrl
@@ -468,8 +562,7 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
   const pendingProofCount = registrations.filter(
     (r) =>
       (r.startEvidenceUrl || r.endEvidenceUrl || r.evidenceUrl) &&
-      r.status !== 'COMPLETED' &&
-      r.status !== 'CHECKED_IN'
+      r.status !== 'COMPLETED'
   ).length
   const progressPercent = Math.min(100, Math.round((registeredCount / capacity) * 100))
 
@@ -478,11 +571,18 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
     const hasProof = Boolean(item.startEvidenceUrl || item.endEvidenceUrl || item.evidenceUrl)
     switch (item.status) {
       case 'COMPLETED':
-      case 'CHECKED_IN':
         return (
           <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold inline-flex items-center gap-1 whitespace-nowrap">
             <CheckCircle2 className="h-3 w-3" />
-            Đã điểm danh
+            Hoàn thành (+ĐRL)
+          </span>
+        )
+      case 'CHECKED_IN':
+      case 'ENTRY_CHECKED':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200 dark:border-sky-800 text-[11px] font-semibold inline-flex items-center gap-1 whitespace-nowrap">
+            <Check className="h-3 w-3" />
+            Đã check-in đầu giờ
           </span>
         )
       case 'ABSENTED':
@@ -492,13 +592,7 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
             Vắng mặt
           </span>
         )
-      case 'ENTRY_CHECKED':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[11px] font-medium inline-flex items-center gap-1 whitespace-nowrap">
-            <Clock className="h-3 w-3" />
-            Mới điểm danh 1 phiên
-          </span>
-        )
+      case 'REGISTERED':
       case 'APPROVED':
       case 'PENDING':
         if (isStudentProof && hasProof) {
@@ -780,10 +874,10 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
         <div className="p-4 sm:p-5 rounded-xl bg-white dark:bg-card border border-border shadow-2xs flex flex-col justify-between gap-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              {isStudentProof ? 'Chờ duyệt minh chứng' : 'Chưa điểm danh / Vắng'}
+              {isStudentProof ? 'Chờ duyệt minh chứng' : 'Tiến độ điểm danh'}
             </span>
             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/50">
-              {isStudentProof ? `${registeredCount - proofCount} chưa nộp` : `${pendingCount} chưa · ${absentedCount} vắng`}
+              {isStudentProof ? `${registeredCount - proofCount} chưa nộp` : `${checkedInCount} check-in · ${pendingCount} chưa`}
             </span>
           </div>
           <div className="space-y-1.5">
@@ -811,7 +905,7 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
             </div>
           </div>
           <p className="text-[11px] text-muted-foreground">
-            {isStudentProof ? 'Cần duyệt ảnh minh chứng' : `${pendingCount} chưa điểm danh · ${absentedCount} vắng`}
+            {isStudentProof ? 'Cần duyệt ảnh minh chứng' : `${checkedInCount} đã check-in · ${pendingCount} chưa điểm danh · ${absentedCount} vắng`}
           </p>
         </div>
 
@@ -871,7 +965,7 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
 
               {/* Action buttons on toolbar */}
               <div className="flex flex-wrap items-center gap-2 self-end md:self-auto">
-                {isStudentProof && (
+                {isStudentProof ? (
                   <Button
                     type="button"
                     onClick={handleBatchApproveProofs}
@@ -886,6 +980,31 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
                     <CheckCheck className="h-4 w-4" />
                     <span>Duyệt tất cả minh chứng ({pendingProofCount})</span>
                   </Button>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBatchCheckIn}
+                      disabled={pendingCount === 0 || currentEventStatus === 'CLOSED'}
+                      className="h-9 px-3 text-xs font-semibold flex items-center gap-1.5 border-primary/30 text-primary hover:bg-primary/5 disabled:opacity-40"
+                      title="Điểm danh đầu giờ cho tất cả sinh viên chưa điểm danh"
+                    >
+                      <UserCheck className="h-4 w-4" />
+                      <span>Check-in đầu giờ ({pendingCount})</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleBatchCheckOut}
+                      disabled={completedCount === registeredCount || registeredCount === 0 || currentEventStatus === 'CLOSED'}
+                      className="h-9 px-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs"
+                      title="Điểm danh cuối giờ và ghi nhận hoàn thành cho sinh viên"
+                    >
+                      <CheckCheck className="h-4 w-4" />
+                      <span>Check-out cuối giờ ({registeredCount - completedCount})</span>
+                    </Button>
+                  </>
                 )}
                 <Button
                   type="button"
@@ -907,19 +1026,19 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
                   }`}
                   title={
                     currentEventStatus === 'CLOSED'
-                      ? 'Bấm để đối soát hoặc cập nhật lại CSDL'
-                      : 'Cập nhật danh sách điểm danh lên CSDL, hoàn thành sự kiện và cộng quyền lợi cho sinh viên'
+                      ? 'Sự kiện đã được chốt và đóng chính thức'
+                      : 'Chốt danh sách điểm danh và đóng sự kiện (chuyển sang CLOSED)'
                   }
                 >
                   {currentEventStatus === 'CLOSED' ? (
                     <>
                       <CheckCircle2 className="h-4 w-4" />
-                      <span>Đã chốt · Cập nhật lại CSDL</span>
+                      <span>Đã chốt (CLOSED)</span>
                     </>
                   ) : (
                     <>
                       <Save className="h-3.5 w-3.5" />
-                      <span>Lưu</span>
+                      <span>Chốt & Đóng sự kiện</span>
                     </>
                   )}
                 </Button>
@@ -964,12 +1083,10 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">Tất cả trạng thái</SelectItem>
-                  <SelectItem value="COMPLETED">Đã điểm danh</SelectItem>
+                  <SelectItem value="COMPLETED">Đã hoàn thành</SelectItem>
+                  <SelectItem value="CHECKED_IN">Đã check-in đầu giờ</SelectItem>
                   <SelectItem value="PENDING">Chưa điểm danh</SelectItem>
                   <SelectItem value="ABSENTED">Vắng mặt</SelectItem>
-                  {sessionType === 'BOTH' && (
-                    <SelectItem value="ENTRY_CHECKED">Mới điểm danh 1 phiên</SelectItem>
-                  )}
                   {isStudentProof && (
                     <SelectItem value="PROOF_SUBMITTED">Có ảnh minh chứng</SelectItem>
                   )}
@@ -994,9 +1111,46 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
                 {/* Danh sách các hàng Floating Rounded Cards */}
                 <div className="flex flex-col gap-2.5 mt-1">
                   {isLoadingAttendees && registrations.length === 0 ? (
-                    <div className="p-12 text-center text-muted-foreground bg-white dark:bg-card rounded-2xl border border-border/80 flex flex-col items-center justify-center gap-2.5 text-xs">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                      <span>Đang tải danh sách sinh viên đăng ký từ máy chủ...</span>
+                    <div className="flex flex-col gap-2.5 animate-pulse">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div
+                          key={i}
+                          className="bg-white dark:bg-card border border-border/80 rounded-2xl px-5 py-3.5 grid grid-cols-12 items-center shadow-2xs"
+                        >
+                          {/* Col 1: Sinh viên (3 cols) */}
+                          <div className="col-span-3 min-w-0 pr-3 flex items-center gap-2.5">
+                            <Skeleton className="w-8 h-8 rounded-full shrink-0" />
+                            <div className="space-y-1.5 flex-1 min-w-0">
+                              <Skeleton className="h-4 w-28 rounded" />
+                              <Skeleton className="h-3 w-20 rounded" />
+                            </div>
+                          </div>
+
+                          {/* Col 2: Thời gian (2 cols) */}
+                          <div className="col-span-2 space-y-1.5 pr-2">
+                            <Skeleton className="h-3.5 w-28 rounded" />
+                            <Skeleton className="h-3 w-20 rounded" />
+                          </div>
+
+                          {/* Col 3: Phiên điểm danh (2 cols) */}
+                          <div className="col-span-2 space-y-1.5">
+                            <Skeleton className="h-3.5 w-24 rounded" />
+                            <Skeleton className="h-3.5 w-24 rounded" />
+                          </div>
+
+                          {/* Col 4: Trạng thái (2 cols) */}
+                          <div className="col-span-2 flex justify-center">
+                            <Skeleton className="h-6 w-24 rounded-full" />
+                          </div>
+
+                          {/* Col 5: Thao tác (3 cols) */}
+                          <div className="col-span-3 flex items-center justify-end gap-1.5">
+                            <Skeleton className="h-8 w-14 rounded-lg" />
+                            <Skeleton className="h-8 w-14 rounded-lg" />
+                            <Skeleton className="h-8 w-14 rounded-lg" />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : filteredRegistrations.length === 0 ? (
                     <div className="p-10 text-center text-muted-foreground bg-white dark:bg-card rounded-2xl border border-border/80 text-xs">
@@ -1220,52 +1374,56 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
                             ) : (
                               // MANUAL BTC Actions
                               sessionType === 'BOTH' ? (
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1.5">
                                   {/* Tích đầu giờ */}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleManualSession(item.id, 'START')}
-                                    className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all ${
-                                      item.entryCheckInTime
-                                        ? 'bg-emerald-600 text-white shadow-2xs'
-                                        : 'border border-border text-foreground hover:bg-muted'
-                                    }`}
-                                    title={
-                                      item.entryCheckInTime
-                                        ? `Đầu giờ: ${item.entryCheckInTime} (Bấm để hủy)`
-                                        : 'Bấm để điểm danh đầu giờ'
-                                    }
-                                  >
-                                    {item.entryCheckInTime ? (
+                                  {item.entryCheckInTime || item.status === 'CHECKED_IN' || item.status === 'COMPLETED' ? (
+                                    <span
+                                      className="px-2.5 py-1 rounded-md text-[11px] font-medium flex items-center gap-1 bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200 dark:border-sky-800"
+                                      title={`Đã check-in đầu giờ${item.entryCheckInTime ? ` lúc ${item.entryCheckInTime}` : ''}`}
+                                    >
                                       <Check className="h-3 w-3" />
-                                    ) : (
-                                      <Clock className="h-3 w-3 text-muted-foreground" />
-                                    )}
-                                    <span>Đầu</span>
-                                  </button>
+                                      <span>Đầu giờ</span>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleManualSession(item.id, 'START')}
+                                      className="px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 border border-primary/40 text-primary hover:bg-primary/5 cursor-pointer shadow-2xs transition-all"
+                                      title="Điểm danh đầu giờ cho sinh viên"
+                                    >
+                                      <Clock className="h-3 w-3" />
+                                      <span>Đầu giờ</span>
+                                    </button>
+                                  )}
 
-                                  {/* Tích cuối giờ */}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleManualSession(item.id, 'END')}
-                                    className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all ${
-                                      item.checkOutTime
-                                        ? 'bg-emerald-600 text-white shadow-2xs'
-                                        : 'border border-border text-foreground hover:bg-muted'
-                                    }`}
-                                    title={
-                                      item.checkOutTime
-                                        ? `Cuối giờ: ${item.checkOutTime} (Bấm để hủy)`
-                                        : 'Bấm để điểm danh cuối giờ'
-                                    }
-                                  >
-                                    {item.checkOutTime ? (
+                                  {/* Tích cuối giờ / Hoàn thành */}
+                                  {item.status === 'COMPLETED' ? (
+                                    <span
+                                      className="px-2.5 py-1 rounded-md text-[11px] font-medium flex items-center gap-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                                      title={`Đã hoàn thành lúc ${item.checkOutTime || ''}`}
+                                    >
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      <span>Hoàn thành</span>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleManualSession(item.id, 'END')}
+                                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all ${
+                                        item.status === 'CHECKED_IN'
+                                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'
+                                          : 'border border-border text-foreground hover:bg-muted'
+                                      }`}
+                                      title={
+                                        item.status === 'CHECKED_IN'
+                                          ? 'Điểm danh cuối giờ và ghi nhận hoàn thành'
+                                          : 'Điểm danh trọn gói (tự động check-in và check-out hoàn thành)'
+                                      }
+                                    >
                                       <Check className="h-3 w-3" />
-                                    ) : (
-                                      <Clock className="h-3 w-3 text-muted-foreground" />
-                                    )}
-                                    <span>Cuối</span>
-                                  </button>
+                                      <span>Cuối giờ</span>
+                                    </button>
+                                  )}
 
                                   {/* Nút Vắng mặt */}
                                   <button
@@ -1287,33 +1445,26 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
                                   </button>
                                 </div>
                               ) : sessionType === 'START' ? (
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleManualSession(item.id, 'START')}
-                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors ${
-                                      item.entryCheckInTime
-                                        ? 'border border-border text-muted-foreground hover:bg-muted'
-                                        : 'bg-primary text-white hover:bg-primary/95 shadow-2xs'
-                                    }`}
-                                    title={
-                                      item.entryCheckInTime
-                                        ? 'Bấm để hủy điểm danh'
-                                        : 'Điểm danh đầu giờ ngay'
-                                    }
-                                  >
-                                    {item.entryCheckInTime ? (
-                                      <>
-                                        <RotateCcw className="h-3 w-3" />
-                                        <span>Hủy</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Check className="h-3 w-3" />
-                                        <span>Đầu giờ</span>
-                                      </>
-                                    )}
-                                  </button>
+                                <div className="flex items-center gap-1.5">
+                                  {item.entryCheckInTime || item.status === 'CHECKED_IN' || item.status === 'COMPLETED' ? (
+                                    <span
+                                      className="px-2.5 py-1 rounded-md text-[11px] font-medium flex items-center gap-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                                      title={`Đã điểm danh lúc: ${item.entryCheckInTime || ''}`}
+                                    >
+                                      <Check className="h-3 w-3" />
+                                      <span>Đã điểm danh</span>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleManualSession(item.id, 'START')}
+                                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 bg-primary text-white hover:bg-primary/95 shadow-2xs cursor-pointer transition-colors"
+                                      title="Điểm danh đầu giờ ngay"
+                                    >
+                                      <Check className="h-3 w-3" />
+                                      <span>Điểm danh</span>
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={() => handleToggleAbsent(item.id)}
@@ -1322,44 +1473,32 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
                                         ? 'bg-rose-600 text-white shadow-2xs hover:bg-rose-700'
                                         : 'border border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/30'
                                     }`}
-                                    title={
-                                      isAbsent
-                                        ? 'Đang đánh dấu vắng (Bấm để hủy vắng)'
-                                        : 'Đánh dấu sinh viên vắng mặt'
-                                    }
                                   >
                                     <UserX className="h-3 w-3" />
                                     <span>{isAbsent ? 'Đã vắng' : 'Vắng'}</span>
                                   </button>
                                 </div>
                               ) : (
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleManualSession(item.id, 'END')}
-                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors ${
-                                      item.checkOutTime
-                                        ? 'border border-border text-muted-foreground hover:bg-muted'
-                                        : 'bg-primary text-white hover:bg-primary/95 shadow-2xs'
-                                    }`}
-                                    title={
-                                      item.checkOutTime
-                                        ? 'Bấm để hủy điểm danh'
-                                        : 'Điểm danh cuối giờ ngay'
-                                    }
-                                  >
-                                    {item.checkOutTime ? (
-                                      <>
-                                        <RotateCcw className="h-3 w-3" />
-                                        <span>Hủy</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Check className="h-3 w-3" />
-                                        <span>Cuối giờ</span>
-                                      </>
-                                    )}
-                                  </button>
+                                <div className="flex items-center gap-1.5">
+                                  {item.status === 'COMPLETED' || item.checkOutTime ? (
+                                    <span
+                                      className="px-2.5 py-1 rounded-md text-[11px] font-medium flex items-center gap-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                                      title={`Đã hoàn thành lúc: ${item.checkOutTime || ''}`}
+                                    >
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      <span>Hoàn thành</span>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleManualSession(item.id, 'END')}
+                                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 bg-emerald-600 text-white hover:bg-emerald-700 shadow-2xs cursor-pointer transition-colors"
+                                      title="Điểm danh cuối giờ ngay"
+                                    >
+                                      <Check className="h-3 w-3" />
+                                      <span>Check-out</span>
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={() => handleToggleAbsent(item.id)}
@@ -1368,11 +1507,6 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
                                         ? 'bg-rose-600 text-white shadow-2xs hover:bg-rose-700'
                                         : 'border border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/30'
                                     }`}
-                                    title={
-                                      isAbsent
-                                        ? 'Đang đánh dấu vắng (Bấm để hủy vắng)'
-                                        : 'Đánh dấu sinh viên vắng mặt'
-                                    }
                                   >
                                     <UserX className="h-3 w-3" />
                                     <span>{isAbsent ? 'Đã vắng' : 'Vắng'}</span>
