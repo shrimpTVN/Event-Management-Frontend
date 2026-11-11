@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
+import { EventPhotoViewerModal } from '@/features/events'
 import type { FanpageFeedPost } from '../types/fanpageAdmin.types'
 
 function getPreviewDescription(text: string, maxChars = 160) {
@@ -60,6 +61,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
   onToggleHide,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [copiedShare, setCopiedShare] = useState(false)
   const [isPinned, setIsPinned] = useState(Boolean(post.isPinned))
@@ -325,13 +327,20 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
           {/* Soft ambient overlay for contrast */}
           <div className="absolute inset-0 bg-slate-900/15 dark:bg-black/35 backdrop-blur-2xs pointer-events-none" />
 
-          {/* Foreground Sharp Poster Image with true proportions */}
-          <img
-            src={post.bannerUrl}
-            alt={post.title}
-            className="relative z-1 max-h-[580px] w-auto max-w-full object-contain rounded-sm shadow-md"
-            loading="lazy"
-          />
+          {/* Foreground Sharp Poster Image with true proportions - Click to open Photo Viewer Lightbox */}
+          <button
+            type="button"
+            onClick={() => setIsPhotoViewerOpen(true)}
+            className="relative z-1 max-h-[580px] w-auto max-w-full flex items-center justify-center cursor-pointer group hover:opacity-95 transition-opacity"
+            title="Nhấn vào hình ảnh để phóng to và xem rõ chi tiết"
+          >
+            <img
+              src={post.bannerUrl}
+              alt={post.title}
+              className="max-h-[580px] w-auto max-w-full object-contain rounded-sm shadow-md transition-transform duration-200 group-hover:scale-[1.008]"
+              loading="lazy"
+            />
+          </button>
 
           {/* Frosted Glass Info Badge - Bottom Right over poster */}
           <div className="absolute bottom-2.5 right-2.5 z-10 max-w-[85%] sm:max-w-[280px] bg-black/70 backdrop-blur-md border border-white/20 rounded-lg px-2.5 py-2 text-white shadow-lg flex flex-col gap-1.5 text-[11px] leading-tight select-none pointer-events-auto">
@@ -416,6 +425,11 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
         <div className="flex items-center gap-4">
           <button
             type="button"
+            onClick={() => {
+              if (post.bannerUrl) {
+                setIsPhotoViewerOpen(true)
+              }
+            }}
             className="flex items-center justify-center text-[#6B7280] hover:text-foreground transition-colors cursor-pointer"
             title="Bình luận"
           >
@@ -448,6 +462,31 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Lightbox xem ảnh to rõ chuẩn Facebook với thông tin quan trọng đặt dưới phần bình luận */}
+      {post.bannerUrl && (
+        <EventPhotoViewerModal
+          isOpen={isPhotoViewerOpen}
+          onClose={() => setIsPhotoViewerOpen(false)}
+          event={{
+            id: post.id,
+            eventId: post.eventId || post.id.replace('post-', ''),
+            title: post.title,
+            description: post.summary,
+            bannerUrl: post.bannerUrl,
+            startTime: post.startTime,
+            endTime: post.endTime,
+            location: post.location,
+            pointsReward: post.pointsReward,
+            capacity: post.capacity,
+            quotaText: post.quotaText,
+            organizerName: post.authorName,
+            organizerAvatarUrl: post.authorAvatarUrl,
+            timeAgo: post.timeAgo,
+            isFollowed: true,
+          }}
+        />
+      )}
     </article>
   )
 }

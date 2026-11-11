@@ -72,8 +72,8 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
         activeTab === 'ALL'
           ? true
           : activeTab === 'LOCKED'
-          ? u.status === 'LOCKED'
-          : u.role === activeTab
+            ? u.status === 'LOCKED'
+            : u.role === activeTab
 
       return matchSearch && matchTab
     })
@@ -259,8 +259,8 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                               u.role === 'STUDENT'
                                 ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200 dark:border-blue-800'
                                 : u.role === 'STAFF'
-                                ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800'
-                                : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                                  ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                  : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800'
                             )}
                           >
                             {u.role === 'STUDENT' ? (
@@ -274,8 +274,8 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                               {u.role === 'STUDENT'
                                 ? 'Sinh viên'
                                 : u.role === 'STAFF'
-                                ? 'Cán bộ'
-                                : 'Ban tổ chức'}
+                                  ? 'Cán bộ'
+                                  : 'Ban tổ chức'}
                             </span>
                           </span>
                         </div>

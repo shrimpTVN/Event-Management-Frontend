@@ -13,6 +13,7 @@ import { Link, useLocation } from 'react-router-dom'
 import type { Event } from '../types/event.types'
 import { RegisterButton } from './RegisterButton'
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
+import { EventPhotoViewerModal } from './EventPhotoViewerModal'
 
 function getPreviewDescription(text: string, maxChars = 160) {
   if (!text) return { isLong: false, previewText: '' }
@@ -56,6 +57,7 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
 }) => {
   const location = useLocation()
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false)
   const [isFollowed, setIsFollowed] = useState(event.isFollowed ?? false)
   const [isSaved, setIsSaved] = useState(event.isSaved ?? false)
   const isInitialRegistered = Boolean(
@@ -254,19 +256,20 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
           {/* Soft ambient overlay for contrast */}
           <div className="absolute inset-0 bg-slate-900/15 dark:bg-black/35 backdrop-blur-2xs pointer-events-none" />
 
-          {/* Foreground Sharp Poster Image with true proportions */}
-          <Link
-            to={`/events/${event.id}`}
-            state={{ from: `${location.pathname}${location.search}` }}
-            className="relative z-1 max-h-[580px] w-auto max-w-full flex items-center justify-center"
+          {/* Foreground Sharp Poster Image with true proportions - Click to open Photo Viewer Lightbox */}
+          <button
+            type="button"
+            onClick={() => setIsPhotoViewerOpen(true)}
+            className="relative z-1 max-h-[580px] w-auto max-w-full flex items-center justify-center cursor-pointer group hover:opacity-95 transition-opacity"
+            title="Nhấn vào hình ảnh để phóng to và xem rõ chi tiết"
           >
             <img
               src={event.bannerUrl}
               alt={event.title}
-              className="max-h-[580px] w-auto max-w-full object-contain rounded-sm shadow-md"
+              className="max-h-[580px] w-auto max-w-full object-contain rounded-sm shadow-md transition-transform duration-200 group-hover:scale-[1.008]"
               loading="lazy"
             />
-          </Link>
+          </button>
 
           {/* Compact Important Info Badge - Bottom Right over image (transparent frosted glass, 4 uniform rows) */}
           <div className="absolute bottom-2.5 right-2.5 z-10 max-w-[85%] sm:max-w-[280px] bg-black/70 backdrop-blur-md border border-white/20 rounded-lg px-2.5 py-2 text-white shadow-lg flex flex-col gap-1.5 text-[11px] leading-tight select-none pointer-events-auto">
@@ -362,6 +365,11 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
         <div className="flex items-center gap-4">
           <button
             type="button"
+            onClick={() => {
+              if (event.bannerUrl) {
+                setIsPhotoViewerOpen(true)
+              }
+            }}
             className="flex items-center justify-center text-[#6B7280] hover:text-foreground transition-colors cursor-pointer"
             title="Bình luận"
           >
@@ -415,6 +423,47 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
           />
         </div>
       </div>
+
+      {/* Lightbox xem ảnh to rõ chuẩn Facebook với thông tin quan trọng đặt dưới phần bình luận */}
+      {event.bannerUrl && (
+        <EventPhotoViewerModal
+          isOpen={isPhotoViewerOpen}
+          onClose={() => setIsPhotoViewerOpen(false)}
+          event={{
+            id: event.id,
+            eventId: event.id,
+            title: event.title,
+            description: event.description,
+            bannerUrl: event.bannerUrl,
+            startTime: event.startTime,
+            endTime: event.endTime,
+            location: event.location,
+            pointsReward: event.pointsReward,
+            capacity: event.capacity,
+            quotaText: event.quotaText,
+            organizerName: organizerDisplayName,
+            organizerAvatarUrl: event.organizerAvatarUrl,
+            organizerId: event.organizerId,
+            timeAgo: event.timeAgo,
+            isFollowed,
+            isSaved,
+            isRegistered,
+            registrationStatus,
+          }}
+          onRegister={(evId) => {
+            setIsRegistered(true)
+            setRegistrationStatus('REGISTERED')
+            onRegister?.(evId)
+          }}
+          onCancelRegister={(evId) => {
+            setIsRegistered(false)
+            setRegistrationStatus(undefined)
+            onCancelRegister?.(evId)
+          }}
+          onToggleSave={onToggleSave}
+          onToggleFollow={onToggleFollow}
+        />
+      )}
     </article>
   )
 }

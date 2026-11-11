@@ -10,7 +10,7 @@ import {
   Bookmark,
 } from 'lucide-react'
 import type { FanpagePublicEventPost } from '../types/fanpage.types'
-import { RegisterButton } from '@/features/events'
+import { RegisterButton, EventPhotoViewerModal } from '@/features/events'
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
 
 interface FanpageEventFeedCardProps {
@@ -25,6 +25,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
   onToggleSave,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false)
   const [isFollowing, setIsFollowing] = useState(post.isFollowingAuthor || false)
   const [isSaved, setIsSaved] = useState(post.isSaved || false)
 
@@ -102,15 +103,20 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
         </div>
       </div>
 
-      {/* 3. Banner Image */}
+      {/* 3. Banner Image - Click to open Photo Viewer Lightbox */}
       <div className="w-full overflow-hidden bg-slate-100 dark:bg-muted/40 border-y border-border/50">
-        <Link to={`/events/${post.eventId}`}>
+        <button
+          type="button"
+          onClick={() => setIsPhotoViewerOpen(true)}
+          className="w-full flex items-center justify-center cursor-pointer group"
+          title="Nhấn vào hình ảnh để phóng to và xem rõ chi tiết"
+        >
           <img
             src={post.bannerUrl}
             alt={post.title}
-            className="w-full h-auto max-h-[420px] object-cover transition-transform duration-300 hover:scale-[1.01]"
+            className="w-full h-auto max-h-[420px] object-cover transition-transform duration-300 group-hover:scale-[1.01]"
           />
-        </Link>
+        </button>
       </div>
 
       {/* 4. Important Information (4 detail rows) */}
@@ -187,6 +193,11 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
         <div className="flex items-center gap-4">
           <button
             type="button"
+            onClick={() => {
+              if (post.bannerUrl) {
+                setIsPhotoViewerOpen(true)
+              }
+            }}
             className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           >
             <MessageCircle className="h-4 w-4" />
@@ -227,6 +238,33 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
           />
         </div>
       </div>
+
+      {/* Lightbox xem ảnh to rõ chuẩn Facebook với thông tin quan trọng đặt dưới phần bình luận */}
+      {post.bannerUrl && (
+        <EventPhotoViewerModal
+          isOpen={isPhotoViewerOpen}
+          onClose={() => setIsPhotoViewerOpen(false)}
+          event={{
+            id: post.id,
+            eventId: post.eventId,
+            title: post.title,
+            description: post.description,
+            bannerUrl: post.bannerUrl,
+            formattedDateTime: post.dateHappen,
+            location: post.location,
+            pointsReward: post.benefits,
+            quotaText: post.capacityText,
+            organizerName: post.authorName,
+            organizerAvatarUrl: post.authorAvatarUrl,
+            timeAgo: post.timeAgo,
+            isFollowed: isFollowing,
+            isSaved,
+            commentsCount: post.commentsCount,
+            sharesCount: post.sharesCount,
+          }}
+          onToggleSave={() => onToggleSave?.(post)}
+        />
+      )}
     </article>
   )
 }
