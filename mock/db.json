@@ -161,7 +161,7 @@
     },
     {
       "id": 3,
-      "email": "admin@ctu.edu.vn",
+      "email": "superadmin@gmail.com",
       "password": "123123",
       "providerId": "LOCAL",
       "firstName": "Quản Trị",

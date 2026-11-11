@@ -209,7 +209,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
                 {user?.name || 'Quản trị viên'}
               </p>
               <p className="text-[10px] text-muted-foreground truncate">
-                {user?.email || 'superadmin@ctu.edu.vn'}
+                {user?.email || 'superadmin@gmail.com'}
               </p>
             </div>
           </div>

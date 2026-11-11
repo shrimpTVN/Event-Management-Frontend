@@ -8,7 +8,7 @@ import { loginSchema, type LoginInput } from '../types/auth.schemas'
 import { authService } from '../services/authService'
 import { checkEmailRegistered } from '../services/accountVerificationService'
 import { useAuthStore } from '../store/authStore'
-import { isStaffUser, isStudentRole } from '../utils/authUtils'
+import { isStaffUser, isStudentRole, isSuperAdminUser } from '../utils/authUtils'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 import { GoogleAuthButton } from './GoogleAuthButton'
 
@@ -29,11 +29,12 @@ export const LoginForm: React.FC = () => {
   React.useEffect(() => {
     const state = useAuthStore.getState()
     if (state.isAuthenticated && state.user) {
-      const isStaff = isStaffUser(state.user)
-      if (isStaff) {
+      if (isSuperAdminUser(state.user)) {
+        navigate('/admin', { replace: true })
+      } else if (isStaffUser(state.user)) {
         navigate('/staff/fanpages', { replace: true })
       } else {
-        navigate(redirectUrl === '/staff/fanpages' ? '/' : redirectUrl, { replace: true })
+        navigate(redirectUrl === '/staff/fanpages' || redirectUrl === '/admin' ? '/' : redirectUrl, { replace: true })
       }
     }
   }, [navigate, redirectUrl])
@@ -63,15 +64,19 @@ export const LoginForm: React.FC = () => {
       queryClient.clear()
       setAuth(res.user, res.tokens?.accessToken || null)
 
-      // Cán bộ / Ban tổ chức tuyệt đối không điều hướng qua trang chủ sinh viên
-      const isStaff = isStaffUser(res.user)
-      if (isStaff) {
+      // Phân quyền điều hướng theo vai trò:
+      // 1. Super Admin vào thẳng trang quản trị hệ thống /admin
+      // 2. Cán bộ / Ban tổ chức vào /staff/fanpages
+      // 3. Sinh viên chưa hoàn tất hồ sơ vào /onboarding/student
+      // 4. Sinh viên bình thường vào trang chủ hoặc redirectUrl
+      if (isSuperAdminUser(res.user)) {
+        navigate('/admin', { replace: true })
+      } else if (isStaffUser(res.user)) {
         navigate('/staff/fanpages', { replace: true })
       } else if (isStudentRole(res.user.role) && !res.user.isProfileComplete) {
         navigate('/onboarding/student', { replace: true })
       } else {
-        // Sinh viên chuyển về trang chủ hoặc trang mong muốn
-        const target = redirectUrl === '/staff/fanpages' ? '/' : redirectUrl
+        const target = redirectUrl === '/staff/fanpages' || redirectUrl === '/admin' ? '/' : redirectUrl
         navigate(target, { replace: true })
       }
     } catch (err: any) {
@@ -149,14 +154,15 @@ export const LoginForm: React.FC = () => {
       queryClient.clear()
       setAuth(res.user, credentialResponse?.credential || res.tokens?.accessToken || null)
 
-      // Cán bộ / Ban tổ chức tuyệt đối không điều hướng qua trang chủ sinh viên
-      const isStaff = isStaffUser(res.user)
-      if (isStaff) {
+      // Phân quyền điều hướng:
+      if (isSuperAdminUser(res.user)) {
+        navigate('/admin', { replace: true })
+      } else if (isStaffUser(res.user)) {
         navigate('/staff/fanpages', { replace: true })
       } else if (isStudentRole(res.user.role) && !res.user.isProfileComplete) {
         navigate('/onboarding/student', { replace: true })
       } else {
-        const target = redirectUrl === '/staff/fanpages' ? '/' : redirectUrl
+        const target = redirectUrl === '/staff/fanpages' || redirectUrl === '/admin' ? '/' : redirectUrl
         navigate(target, { replace: true })
       }
     } catch {

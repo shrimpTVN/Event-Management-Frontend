@@ -185,4 +185,35 @@ describe('LoginForm error handling', () => {
       screen.queryByText('Email không tồn tại trong hệ thống.')
     ).toBeNull()
   })
+
+  it('navigates directly to /admin when logging in as superadmin with a dedicated non-ctu email', async () => {
+    vi.mocked(authService.login).mockResolvedValueOnce({
+      user: {
+        id: '3',
+        email: 'superadmin@gmail.com',
+        name: 'Quản Trị Hệ Thống',
+        role: 'ADMIN' as any,
+        roles: ['ROLE_ADMIN'],
+        createdAt: '2026-01-01T00:00:00Z',
+        isProfileComplete: true,
+      },
+      tokens: {
+        accessToken: 'mock-jwt-superadmin',
+      },
+    } as any)
+
+    renderComponent()
+
+    const emailInput = screen.getByPlaceholderText('example@student.ctu.edu.vn hoặc @ctu.edu.vn')
+    const passwordInput = screen.getByPlaceholderText('Vui lòng nhập mật khẩu')
+    const submitButton = screen.getByRole('button', { name: 'Đăng nhập' })
+
+    fireEvent.change(emailInput, { target: { value: 'superadmin@gmail.com' } })
+    fireEvent.change(passwordInput, { target: { value: '123123' } })
+    fireEvent.click(submitButton)
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/admin', { replace: true })
+    })
+  })
 })

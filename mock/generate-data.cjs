@@ -68,7 +68,7 @@ db.users = [
     isActive: true, phoneNumber: '0912345678', dateOfBirth: '1995-10-15',
   },
   {
-    id: 3, email: 'admin@ctu.edu.vn', password: '123123', providerId: 'LOCAL',
+    id: 3, email: 'superadmin@gmail.com', password: '123123', providerId: 'LOCAL',
     firstName: 'Quản Trị', lastName: 'Hệ Thống', gender: 'OTHER',
     avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&auto=format&fit=crop&q=80',
     isActive: true, phoneNumber: '0923456789', dateOfBirth: '1990-05-20',

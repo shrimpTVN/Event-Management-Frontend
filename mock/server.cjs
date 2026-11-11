@@ -299,8 +299,15 @@ apiRouter.post('/auth/login', (req, res) => {
 
   // 2. Convenience aliases for dev demo accounts if typed without full domain
   if (!user) {
-    if (normalizedEmail === 'admin' || normalizedEmail === 'admin@ctu.edu.vn') {
-      user = users.find((u) => u.id === 3)
+    if (
+      normalizedEmail === 'admin' ||
+      normalizedEmail === 'admin@ctu.edu.vn' ||
+      normalizedEmail === 'superadmin' ||
+      normalizedEmail === 'superadmin@gmail.com' ||
+      normalizedEmail === 'superadmin@ctu.edu.vn' ||
+      normalizedEmail === 'admin@gmail.com'
+    ) {
+      user = users.find((u) => u.id === 3 || u.email === 'superadmin@gmail.com' || u.email === 'admin@ctu.edu.vn')
     } else if (
       normalizedEmail === 'organizer' ||
       normalizedEmail === 'staff' ||

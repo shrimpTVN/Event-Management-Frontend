@@ -1,9 +1,13 @@
 import { apiClient } from '@/shared'
+import { isSuperAdminEmail } from '../utils/authUtils'
 
 /**
  * Danh sách các tài khoản hệ thống mặc định (seed trong CSDL và mock data)
  */
 export const DEFAULT_SYSTEM_EMAILS: readonly string[] = [
+  'superadmin@gmail.com',
+  'superadmin@ctu.edu.vn',
+  'admin@gmail.com',
   'organizer@ctu.edu.vn',
   'admin@ctu.edu.vn',
   'loc@student.ctu.edu.vn',
@@ -103,6 +107,11 @@ export const fetchFanpageMembersEmails = async (): Promise<string[]> => {
 export const checkEmailRegistered = async (email: string): Promise<boolean> => {
   if (!email) return false
   const normalized = email.trim().toLowerCase()
+
+  // 0. Kiểm tra tài khoản Super Admin (bao gồm cả tài khoản ngoài domain @ctu.edu.vn)
+  if (isSuperAdminEmail(normalized)) {
+    return true
+  }
 
   // 1. Kiểm tra danh sách tài khoản seed mặc định
   if (DEFAULT_SYSTEM_EMAILS.some((e) => e.toLowerCase() === normalized)) {
