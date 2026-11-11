@@ -41,29 +41,27 @@ export const SuperAdminOverviewView: React.FC<SuperAdminOverviewViewProps> = ({
   onModerateEvent,
 }) => {
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6 text-left animate-in fade-in duration-300">
       {/* 1. Page Header with Breadcrumb */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-          <span>Quản trị hệ thống</span>
-          <span>/</span>
-          <span className="text-primary font-semibold">Tổng quan</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+            <span>Quản trị hệ thống</span>
+            <span>/</span>
+            <span className="text-primary font-bold">Tổng quan</span>
+          </p>
+          <h1 className="font-k2d font-bold text-2xl text-foreground mt-1">
+            Tổng quan hệ thống
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Trung tâm kiểm soát, phê duyệt và giám sát hoạt động tổ chức sự kiện toàn trường.
+          </p>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-k2d font-bold text-foreground tracking-tight">
-              Tổng quan hệ thống
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Trung tâm kiểm soát, phê duyệt và giám sát hoạt động tổ chức sự kiện toàn trường
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Hệ thống đang vận hành ổn định
-            </span>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Hệ thống đang vận hành ổn định
+          </span>
         </div>
       </div>
 

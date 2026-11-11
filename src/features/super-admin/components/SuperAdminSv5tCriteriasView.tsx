@@ -128,39 +128,37 @@ export const SuperAdminSv5tCriteriasView: React.FC<SuperAdminSv5tCriteriasViewPr
   }
 
   return (
-    <div className="space-y-6">
-      {/* 1. Header with Breadcrumb */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-          <span>Dữ liệu danh mục</span>
-          <span>/</span>
-          <span className="text-primary font-semibold">Tiêu chí SV 5 tốt</span>
+    <div className="w-full space-y-6 text-left animate-in fade-in duration-300">
+      {/* 1. Header with Breadcrumb & Action */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+            <span>Dữ liệu danh mục</span>
+            <span>/</span>
+            <span className="text-primary font-bold">Tiêu chí SV 5 tốt</span>
+          </p>
+          <h1 className="font-k2d font-bold text-2xl text-foreground mt-1">
+            Tiêu chuẩn danh hiệu "Sinh viên 5 Tốt"
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Quy định xét chọn danh hiệu SV5T ĐHCT theo Quyết định số 17/QĐ-HSV (Giai đoạn 2025-2028).
+          </p>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-k2d font-bold text-foreground tracking-tight">
-              Tiêu chuẩn danh hiệu "Sinh viên 5 Tốt"
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Quy định xét chọn danh hiệu SV5T ĐHCT theo Quyết định số 17/QĐ-HSV (Giai đoạn 2025-2028)
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenCreateModal()}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm transition-all shadow-xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            Thêm tiêu chuẩn mới
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onOpenCreateModal()}
+          className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer self-start sm:self-auto"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Thêm tiêu chuẩn mới</span>
+        </button>
       </div>
 
       {/* 2. Banner with standard 5 pills */}
-      <div className="p-5 rounded-2xl bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 shadow-sm">
-        <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold text-sm mb-3">
+      <div className="p-4 rounded-xl bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 shadow-2xs">
+        <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold text-xs mb-2.5">
           <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
-          5 Tiêu chuẩn cốt lõi bắt buộc:
+          <span>5 Tiêu chuẩn cốt lõi bắt buộc:</span>
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
           {[
@@ -172,7 +170,7 @@ export const SuperAdminSv5tCriteriasView: React.FC<SuperAdminSv5tCriteriasViewPr
           ].map((title, i) => (
             <span
               key={i}
-              className="px-3 py-1.5 rounded-xl bg-white dark:bg-card border border-amber-200 text-amber-950 dark:text-amber-200 font-semibold shadow-2xs"
+              className="px-3 py-1 rounded-lg bg-white dark:bg-card border border-amber-200 text-amber-950 dark:text-amber-200 font-semibold shadow-2xs text-xs"
             >
               {title}
             </span>
@@ -181,7 +179,7 @@ export const SuperAdminSv5tCriteriasView: React.FC<SuperAdminSv5tCriteriasViewPr
       </div>
 
       {/* 3. Filter Bar */}
-      <div className="bg-white dark:bg-card p-4 rounded-2xl border border-border shadow-sm flex items-center justify-between">
+      <div className="bg-white dark:bg-card p-4 rounded-xl border border-[#E5E7EB] dark:border-border shadow-2xs flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-muted-foreground">Phạm vi xét chọn:</span>
           <select
@@ -197,14 +195,14 @@ export const SuperAdminSv5tCriteriasView: React.FC<SuperAdminSv5tCriteriasViewPr
         <button
           type="button"
           onClick={() => setExpandedIds(expandedIds.length > 0 ? [] : [1, 10, 20, 30, 40, 50])}
-          className="text-primary text-xs font-semibold hover:underline cursor-pointer"
+          className="text-[#1B4B8A] text-xs font-semibold hover:underline cursor-pointer"
         >
           {expandedIds.length > 0 ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
         </button>
       </div>
 
       {/* 4. Tree Table */}
-      <div className="bg-white dark:bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-card rounded-2xl border border-[#E5E7EB] dark:border-border shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>

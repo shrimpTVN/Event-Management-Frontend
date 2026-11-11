@@ -127,39 +127,37 @@ export const SuperAdminPointCategoriesView: React.FC<SuperAdminPointCategoriesVi
   }
 
   return (
-    <div className="space-y-6">
-      {/* 1. Header with Breadcrumb */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-          <span>Dữ liệu danh mục</span>
-          <span>/</span>
-          <span className="text-primary font-semibold">Điểm rèn luyện</span>
+    <div className="w-full space-y-6 text-left animate-in fade-in duration-300">
+      {/* 1. Header with Breadcrumb & Action */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+            <span>Dữ liệu danh mục</span>
+            <span>/</span>
+            <span className="text-primary font-bold">Điểm rèn luyện</span>
+          </p>
+          <h1 className="font-k2d font-bold text-2xl text-foreground mt-1">
+            Khung tiêu chí điểm rèn luyện (ĐRL)
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Cấu trúc phân cấp 5 mục chuẩn ĐHCT (Tối đa 100 điểm) theo Quy chế đánh giá rèn luyện.
+          </p>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-k2d font-bold text-foreground tracking-tight">
-              Khung tiêu chí điểm rèn luyện (ĐRL)
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Cấu trúc phân cấp 5 mục chuẩn ĐHCT (Tối đa 100 điểm) theo Quy chế đánh giá rèn luyện
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenCreateModal()}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white font-semibold text-sm hover:bg-primary/90 transition-all shadow-xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            Thêm mục lớn mới
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onOpenCreateModal()}
+          className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer self-start sm:self-auto"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Thêm mục lớn mới</span>
+        </button>
       </div>
 
       {/* 2. Overview Banner */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-card border border-border shadow-sm flex items-center justify-between text-xs text-muted-foreground">
+      <div className="p-4 rounded-xl bg-white dark:bg-card border border-[#E5E7EB] dark:border-border shadow-2xs flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5 font-bold text-foreground">
-            <ShieldCheck className="w-4 h-4 text-primary" />
+            <ShieldCheck className="w-4 h-4 text-[#1B4B8A]" />
             Tổng thang điểm rèn luyện: 100 Điểm
           </span>
           <span className="hidden sm:inline">•</span>
@@ -168,14 +166,14 @@ export const SuperAdminPointCategoriesView: React.FC<SuperAdminPointCategoriesVi
         <button
           type="button"
           onClick={() => setExpandedIds(expandedIds.length > 0 ? [] : [1, 10, 2, 3, 4, 5])}
-          className="text-primary font-semibold hover:underline cursor-pointer"
+          className="text-[#1B4B8A] font-semibold hover:underline cursor-pointer"
         >
           {expandedIds.length > 0 ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
         </button>
       </div>
 
       {/* 3. Tree Table */}
-      <div className="bg-white dark:bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-card rounded-2xl border border-[#E5E7EB] dark:border-border shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>

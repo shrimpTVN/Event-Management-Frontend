@@ -27,43 +27,41 @@ export const SuperAdminSchoolsView: React.FC<SuperAdminSchoolsViewProps> = ({
   const selectedSchool = schools.find((s) => s.id === selectedSchoolId) || schools[0]
 
   return (
-    <div className="space-y-6">
-      {/* 1. Header with Breadcrumb */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-          <span>Dữ liệu danh mục</span>
-          <span>/</span>
-          <span className="text-primary font-semibold">Khoa/Trường, ngành học</span>
+    <div className="w-full space-y-6 text-left animate-in fade-in duration-300">
+      {/* 1. Header with Breadcrumb & Action */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+            <span>Dữ liệu danh mục</span>
+            <span>/</span>
+            <span className="text-primary font-bold">Khoa/Trường, ngành học</span>
+          </p>
+          <h1 className="font-k2d font-bold text-2xl text-foreground mt-1">
+            Quản lý Khoa/Trường &amp; Ngành học
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Danh mục cơ cấu tổ chức học thuật, các Trường/Khoa trực thuộc và chuyên ngành đào tạo ĐHCT.
+          </p>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-k2d font-bold text-foreground tracking-tight">
-              Quản lý Khoa/Trường & Ngành học
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Danh mục cơ cấu tổ chức học thuật, các Trường/Khoa trực thuộc và chuyên ngành đào tạo ĐHCT
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onOpenCreateSchoolModal}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary text-white font-semibold text-xs hover:bg-primary/90 transition-all shadow-xs cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              Thêm Khoa/Trường
-            </button>
-          </div>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={onOpenCreateSchoolModal}
+            className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Thêm Khoa/Trường</span>
+          </button>
         </div>
       </div>
 
       {/* 2. Master-Detail Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: List of Schools */}
-        <div className="lg:col-span-5 bg-white dark:bg-card p-5 rounded-2xl border border-border shadow-sm space-y-4">
+        <div className="lg:col-span-5 bg-white dark:bg-card p-5 rounded-2xl border border-[#E5E7EB] dark:border-border shadow-2xs space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-k2d font-bold text-foreground flex items-center gap-2">
-              <School className="w-5 h-5 text-primary" />
+            <h3 className="text-sm font-k2d font-bold text-foreground flex items-center gap-2">
+              <School className="w-4 h-4 text-[#1B4B8A]" />
               Đơn Vị Đào Tạo ({schools.length})
             </h3>
           </div>
@@ -75,7 +73,7 @@ export const SuperAdminSchoolsView: React.FC<SuperAdminSchoolsViewProps> = ({
               value={schoolSearchQuery}
               onChange={(e) => setSchoolSearchQuery(e.target.value)}
               placeholder="Tìm kiếm Khoa/Trường..."
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-border bg-[#F9FAFB] dark:bg-muted focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-sans"
+              className="w-full pl-9 pr-3 h-9 text-xs rounded-xl border border-[#E5E7EB] dark:border-border bg-[#F9FAFB] dark:bg-muted focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-sans"
             />
           </div>
 
@@ -88,15 +86,15 @@ export const SuperAdminSchoolsView: React.FC<SuperAdminSchoolsViewProps> = ({
                   onClick={() => setSelectedSchoolId(s.id)}
                   className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                     isSelected
-                      ? 'border-primary bg-primary/5 dark:bg-primary/10 shadow-xs'
+                      ? 'border-[#1B4B8A] bg-primary/5 dark:bg-primary/10 shadow-xs'
                       : 'border-border/70 hover:bg-[#F9FAFB] dark:hover:bg-muted/40'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className={`text-sm leading-snug ${isSelected ? 'font-bold text-primary' : 'font-semibold text-foreground'}`}>
+                    <p className={`text-xs leading-snug ${isSelected ? 'font-bold text-[#1B4B8A]' : 'font-semibold text-foreground'}`}>
                       {s.name}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
                       {s.majors?.length || s.majorsCount || 0} chuyên ngành trực thuộc
                     </p>
                   </div>
@@ -112,7 +110,7 @@ export const SuperAdminSchoolsView: React.FC<SuperAdminSchoolsViewProps> = ({
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
-                    <ChevronRight className={`w-4 h-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <ChevronRight className={`w-4 h-4 ${isSelected ? 'text-[#1B4B8A]' : 'text-muted-foreground'}`} />
                   </div>
                 </div>
               )
@@ -121,13 +119,13 @@ export const SuperAdminSchoolsView: React.FC<SuperAdminSchoolsViewProps> = ({
         </div>
 
         {/* Right Column: Majors of Selected School */}
-        <div className="lg:col-span-7 bg-white dark:bg-card p-6 rounded-2xl border border-border shadow-sm space-y-5">
+        <div className="lg:col-span-7 bg-white dark:bg-card p-6 rounded-2xl border border-[#E5E7EB] dark:border-border shadow-2xs space-y-5">
           {selectedSchool ? (
             <>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-border gap-3">
                 <div>
-                  <span className="text-xs font-bold text-primary uppercase tracking-wider">Chi Tiết Đơn Vị</span>
-                  <h3 className="text-xl font-k2d font-bold text-foreground mt-0.5">{selectedSchool.name}</h3>
+                  <span className="text-[11px] font-bold text-[#1B4B8A] uppercase tracking-wider">Chi Tiết Đơn Vị</span>
+                  <h3 className="text-lg font-k2d font-bold text-foreground mt-0.5">{selectedSchool.name}</h3>
                   <p className="text-xs text-muted-foreground mt-1">
                     {selectedSchool.description || 'Chưa có thông tin mô tả chi tiết.'}
                   </p>
@@ -135,10 +133,10 @@ export const SuperAdminSchoolsView: React.FC<SuperAdminSchoolsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenCreateMajorModal(selectedSchool.id)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shrink-0 shadow-xs cursor-pointer"
+                  className="flex items-center gap-1.5 px-3.5 h-9 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shrink-0 shadow-xs cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Thêm Chuyên Ngành
+                  <span>Thêm Chuyên Ngành</span>
                 </button>
               </div>
 

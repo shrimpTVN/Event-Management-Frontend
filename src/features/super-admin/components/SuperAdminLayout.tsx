@@ -38,7 +38,7 @@ export const SuperAdminLayout: React.FC<SuperAdminLayoutProps> = ({
       {/* 2. Admin Workspace */}
       <div className="flex-1 flex w-full relative">
         {/* Desktop Fixed Sidebar */}
-        <div className="hidden lg:block sticky top-[72px] h-[calc(100vh-72px)] shrink-0 z-30">
+        <div className="hidden lg:block sticky top-16 h-[calc(100vh-4rem)] shrink-0 z-30">
           <SuperAdminSidebar
             activeTab={activeTab}
             onSelectTab={onSelectTab}
@@ -72,8 +72,8 @@ export const SuperAdminLayout: React.FC<SuperAdminLayoutProps> = ({
         )}
 
         {/* Main Content Area */}
-        <main className="flex-1 w-full min-w-0 p-4 sm:p-6 lg:p-8">
-          <div className="max-w-[1300px] mx-auto w-full">
+        <main className="flex-1 w-full min-w-0 p-4 sm:p-5 lg:py-5 lg:px-6 flex justify-center">
+          <div className="w-full max-w-7xl">
             {children}
           </div>
         </main>
