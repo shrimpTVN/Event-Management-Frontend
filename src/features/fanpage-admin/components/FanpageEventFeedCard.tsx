@@ -331,13 +331,13 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
           <button
             type="button"
             onClick={() => setIsPhotoViewerOpen(true)}
-            className="relative z-1 max-h-[580px] w-auto max-w-full flex items-center justify-center cursor-pointer group hover:opacity-95 transition-opacity"
+            className="relative z-1 max-h-[580px] w-auto max-w-full flex items-center justify-center cursor-pointer"
             title="Nhấn vào hình ảnh để phóng to và xem rõ chi tiết"
           >
             <img
               src={post.bannerUrl}
               alt={post.title}
-              className="max-h-[580px] w-auto max-w-full object-contain rounded-sm shadow-md transition-transform duration-200 group-hover:scale-[1.008]"
+              className="max-h-[580px] w-auto max-w-full object-contain rounded-sm shadow-md"
               loading="lazy"
             />
           </button>

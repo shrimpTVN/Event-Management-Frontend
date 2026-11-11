@@ -48,6 +48,11 @@ export const DEFAULT_FANPAGES_MAP: Record<string, CachedFanpageInfo> = {
     fullName: 'CLB Thể thao',
     avatarUrl: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=120&auto=format&fit=crop&q=60',
   },
+  '7': {
+    name: 'Đoàn TN - Hội SV Đại học Cần Thơ',
+    fullName: 'Đoàn Thanh niên - Hội Sinh viên Trường Đại học Cần Thơ',
+    avatarUrl: 'https://res.cloudinary.com/depaiphq0/image/upload/v1793963013/ctu-event/fanpages/u_2_606320c599474b7d.jpg',
+  },
 }
 
 const fanpageCache = new Map<string, CachedFanpageInfo>(Object.entries(DEFAULT_FANPAGES_MAP))
@@ -225,9 +230,11 @@ export function normalizeEvent(raw: Partial<EventResponseDto> & Record<string, a
     raw.organizerAvatarUrl ||
     raw.fanpageAvatarUrl ||
     cachedFp?.avatarUrl ||
-    (organizerName.includes('CNTT') || organizerId === '1'
-      ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
-      : undefined)
+    (organizerId === '7' || raw.fanpageId === 7 || (organizerName && organizerName.includes('Hội SV'))
+      ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793963013/ctu-event/fanpages/u_2_606320c599474b7d.jpg'
+      : organizerName.includes('CNTT') || organizerId === '1'
+        ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
+        : undefined)
 
   const fanpageName = organizerFullName || raw.fanpageName || organizerName
   const fanpageFullName = organizerFullName || fanpageName

@@ -7,7 +7,6 @@ import {
   RotateCcw,
   Maximize2,
   Minimize2,
-  ThumbsUp,
   MessageSquare,
   Share2,
   Calendar as CalendarIcon,
@@ -15,14 +14,16 @@ import {
   Gift,
   Users,
   Send,
-  Sparkles,
   ExternalLink,
   Check,
   Bookmark,
   BellRing,
+  MoreHorizontal,
 } from 'lucide-react'
 import { useAuthStore } from '@/features/auth'
+import { apiClient } from '@/shared'
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
+import { DEFAULT_FANPAGES_MAP } from '../services/eventService'
 import { RegisterButton } from './RegisterButton'
 import { cn } from '@/shared/utils/cn'
 
@@ -47,7 +48,6 @@ export interface EventPhotoViewerData {
   isSaved?: boolean
   isRegistered?: boolean
   registrationStatus?: string
-  likesCount?: number
   commentsCount?: number
   sharesCount?: number
 }
@@ -82,29 +82,75 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
   const { user } = useAuthStore()
   const [zoomLevel, setZoomLevel] = useState<number>(1)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isLiked, setIsLiked] = useState(false)
-  const [likesCount, setLikesCount] = useState(12)
   const [isSaved, setIsSaved] = useState(false)
   const [isFollowed, setIsFollowed] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
   const [isDescExpanded, setIsDescExpanded] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const [resolvedAvatar, setResolvedAvatar] = useState<string | undefined>(undefined)
   const [comments, setComments] = useState<LocalComment[]>([])
   const [commentInput, setCommentInput] = useState('')
   const commentInputRef = useRef<HTMLInputElement>(null)
   const viewerContainerRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
+  const fanpageId = String(event?.organizerId || '1')
+
+  // Resolve real avatar
   useEffect(() => {
-    if (event) {
-      setIsSaved(Boolean(event.isSaved))
-      setIsFollowed(Boolean(event.isFollowed))
-      setLikesCount(event.likesCount ?? 14)
-      setIsLiked(false)
-      setZoomLevel(1)
-      setComments([])
-      setCommentInput('')
-      setIsDescExpanded(false)
+    if (!event) return
+
+    setIsSaved(Boolean(event.isSaved))
+    setIsFollowed(Boolean(event.isFollowed))
+    setZoomLevel(1)
+    setComments([])
+    setCommentInput('')
+    setIsDescExpanded(false)
+    setShowMenu(false)
+
+    // 1. Initial check from event or default cache map
+    const initialAvatar =
+      event.organizerAvatarUrl ||
+      DEFAULT_FANPAGES_MAP[fanpageId]?.avatarUrl ||
+      (fanpageId === '7'
+        ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793963013/ctu-event/fanpages/u_2_606320c599474b7d.jpg'
+        : fanpageId === '1'
+          ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
+          : undefined)
+
+    setResolvedAvatar(initialAvatar)
+
+    // 2. Fetch real fanpage avatar if missing
+    if (!initialAvatar && event.organizerId) {
+      let isMounted = true
+      apiClient
+        .get(`/fanpages/${event.organizerId}`)
+        .then((res: any) => {
+          const fp = res?.data || res
+          if (isMounted && fp?.avatarUrl) {
+            setResolvedAvatar(fp.avatarUrl)
+          }
+        })
+        .catch(() => {})
+
+      return () => {
+        isMounted = false
+      }
     }
-  }, [event])
+  }, [event, fanpageId])
+
+  // Click outside to close header menu
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showMenu])
 
   // Prevent background scrolling when modal is open and handle Escape key
   useEffect(() => {
@@ -129,7 +175,6 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
   if (!isOpen || !event) return null
 
   const eventId = event.eventId || event.id
-  const fanpageId = event.organizerId || '1'
   const organizerDisplayName = event.organizerName || 'Ban Tổ Chức'
 
   const handleZoomIn = () => {
@@ -154,14 +199,6 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
     }
   }
 
-  const handleToggleLike = () => {
-    setIsLiked((prev) => {
-      const next = !prev
-      setLikesCount((c) => (next ? c + 1 : Math.max(0, c - 1)))
-      return next
-    })
-  }
-
   const handleToggleSave = () => {
     setIsSaved((prev) => !prev)
     onToggleSave?.(eventId)
@@ -177,10 +214,6 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
     navigator.clipboard?.writeText(shareUrl)
     setCopiedLink(true)
     setTimeout(() => setCopiedLink(false), 2000)
-  }
-
-  const handleFocusCommentInput = () => {
-    commentInputRef.current?.focus()
   }
 
   const handleAddComment = () => {
@@ -242,7 +275,7 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
       ref={viewerContainerRef}
       className="fixed inset-0 z-50 flex flex-col md:flex-row bg-black text-foreground overflow-hidden select-none animate-in fade-in-0 duration-200"
     >
-      {/* ===================== KHU VỰC TRÁI: HÌNH ẢNH TO RÕ TOÀN MÀN HÌNH (Giao diện chuẩn Facebook Photo Viewer) ===================== */}
+      {/* ===================== KHU VỰC TRÁI: HÌNH ẢNH TO RÕ TOÀN MÀN HÌNH ===================== */}
       <div className="flex-1 relative flex items-center justify-center bg-black min-h-[45vh] md:min-h-0 overflow-hidden">
         {/* Nút Đóng góc trên bên trái */}
         <div className="absolute top-3 left-3 z-30 flex items-center gap-2">
@@ -299,29 +332,30 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
           </button>
         </div>
 
-        {/* Tấm ảnh chính: Hiển thị tối đa không gian, không bị che khuất bất kỳ thông tin nào */}
+        {/* Tấm ảnh chính: Hiển thị tối đa không gian, không bị che khuất */}
         <div className="w-full h-full flex items-center justify-center p-2 sm:p-6 overflow-auto">
           <img
             src={event.bannerUrl}
             alt={event.title}
             style={{ transform: `scale(${zoomLevel})` }}
-            className="max-h-[92vh] max-w-full object-contain transition-transform duration-200 select-none shadow-2xl rounded-sm"
+            className="max-h-[92vh] max-w-full object-contain select-none shadow-2xl rounded-sm"
           />
         </div>
       </div>
 
       {/* ===================== KHU VỰC PHẢI: CHI TIẾT SỰ KIỆN, BÌNH LUẬN & THÔNG TIN QUAN TRỌNG ===================== */}
       <aside className="w-full md:w-[390px] lg:w-[440px] xl:w-[460px] shrink-0 h-full flex flex-col min-h-0 bg-white dark:bg-card border-l border-border/80 text-left select-text">
-        {/* 1. Header tác giả / Ban tổ chức (Giống bài đăng Facebook) */}
+        {/* 1. Header tác giả: Bên trái lấy dữ liệu thật (Avatar thật, tên thật), các nút ở trên để trong ba chấm */}
         <div className="p-3.5 sm:p-4 border-b border-border/60 flex items-center justify-between gap-3 bg-white/95 dark:bg-card/95 backdrop-blur-xs shrink-0">
+          {/* Thông tin bên trái: Avatar thật, Tên thật, Ngày đăng */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link
               to={`/fanpage/${fanpageId}`}
               className="shrink-0 rounded-full hover:opacity-85 transition-opacity"
             >
-              {event.organizerAvatarUrl ? (
+              {resolvedAvatar ? (
                 <img
-                  src={event.organizerAvatarUrl}
+                  src={resolvedAvatar}
                   alt={organizerDisplayName}
                   className="h-10 w-10 rounded-full object-cover border border-border/60"
                 />
@@ -335,59 +369,89 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
               <div className="flex items-center gap-1.5 min-w-0">
                 <Link
                   to={`/fanpage/${fanpageId}`}
-                  className="font-semibold text-sm text-foreground hover:text-primary hover:underline truncate"
+                  className="font-semibold text-sm text-foreground hover:text-primary hover:underline line-clamp-1"
                   title={organizerDisplayName}
                 >
                   {organizerDisplayName}
                 </Link>
                 <VerifiedBadge className="h-4 w-4 shrink-0" />
-                <button
-                  type="button"
-                  onClick={handleToggleFollow}
-                  className="text-xs font-semibold text-primary hover:underline cursor-pointer ml-1 inline-flex items-center gap-1"
-                >
-                  {isFollowed ? (
-                    <>
-                      <BellRing className="h-3 w-3" />
-                      <span>Đã theo dõi</span>
-                    </>
-                  ) : (
-                    <span>· Theo dõi</span>
-                  )}
-                </button>
               </div>
               <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                {event.timeAgo || '14 giờ'} · <span>🌐</span>
+                {event.timeAgo || formatDisplayDateTime(event.startTime)} · <span>🌐</span>
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
+          {/* Các nút ở trên để gọn gàng trong menu Ba Chấm (...) */}
+          <div className="relative shrink-0" ref={menuRef}>
             <button
               type="button"
-              onClick={handleToggleSave}
-              className={cn(
-                'p-2 rounded-full transition-colors cursor-pointer',
-                isSaved
-                  ? 'text-primary bg-primary/10'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              )}
-              title={isSaved ? 'Đã lưu sự kiện' : 'Lưu sự kiện'}
-            >
-              <Bookmark className={cn('h-4 w-4', isSaved && 'fill-current')} />
-            </button>
-            <button
-              type="button"
-              onClick={handleShare}
+              onClick={() => setShowMenu(!showMenu)}
               className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-              title="Sao chép liên kết"
+              title="Tùy chọn khác"
+              aria-label="Tùy chọn khác"
             >
-              {copiedLink ? <Check className="h-4 w-4 text-emerald-600" /> : <Share2 className="h-4 w-4" />}
+              <MoreHorizontal className="h-5 w-5" />
             </button>
+
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1.5 w-52 rounded-xl border border-border bg-white dark:bg-card p-1.5 shadow-xl z-50 text-left animate-in fade-in-0 zoom-in-95 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleToggleFollow()
+                    setShowMenu(false)
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-foreground hover:bg-muted transition-colors cursor-pointer"
+                >
+                  <BellRing className={cn('h-4 w-4 shrink-0', isFollowed && 'text-primary')} />
+                  <span>{isFollowed ? 'Bỏ theo dõi Ban tổ chức' : 'Theo dõi Ban tổ chức'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleToggleSave()
+                    setShowMenu(false)
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-foreground hover:bg-muted transition-colors cursor-pointer"
+                >
+                  <Bookmark className={cn('h-4 w-4 shrink-0', isSaved && 'fill-amber-500 text-amber-500')} />
+                  <span>{isSaved ? 'Bỏ lưu sự kiện này' : 'Lưu sự kiện này'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleShare()
+                    setShowMenu(false)
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-foreground hover:bg-muted transition-colors cursor-pointer"
+                >
+                  {copiedLink ? (
+                    <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <Share2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <span>{copiedLink ? 'Đã sao chép liên kết' : 'Sao chép liên kết sự kiện'}</span>
+                </button>
+
+                <div className="h-px bg-border/60 my-1" />
+
+                <Link
+                  to={`/events/${eventId}`}
+                  onClick={() => setShowMenu(false)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-foreground hover:bg-muted transition-colors cursor-pointer"
+                >
+                  <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span>Xem trang sự kiện đầy đủ</span>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* 2. Nội dung cuộn: Tiêu đề + Mô tả + Thống kê + Bình luận + THÔNG TIN QUAN TRỌNG */}
+        {/* 2. Nội dung cuộn: Tiêu đề + Mô tả + Bình luận + CARD THÔNG TIN QUAN TRỌNG */}
         <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-4">
           {/* Tiêu đề sự kiện */}
           <div>
@@ -427,60 +491,8 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
             )}
           </div>
 
-          {/* Hàng thống kê cảm xúc & số lượng bình luận / chia sẻ */}
-          <div className="pt-2 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <span className="flex items-center justify-center h-4 w-4 rounded-full bg-blue-600 text-white text-[10px]">
-                👍
-              </span>
-              <span className="flex items-center justify-center h-4 w-4 rounded-full bg-rose-500 text-white text-[10px] -ml-2">
-                ❤️
-              </span>
-              <span className="ml-1 font-medium">{likesCount}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span>{comments.length} bình luận</span>
-              <span>2 lượt chia sẻ</span>
-            </div>
-          </div>
-
-          {/* Thanh tương tác nhanh: Thích, Bình luận, Chia sẻ */}
-          <div className="py-1 border-y border-border/60 grid grid-cols-3 gap-1">
-            <button
-              type="button"
-              onClick={handleToggleLike}
-              className={cn(
-                'flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer',
-                isLiked
-                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-950/40'
-                  : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
-              )}
-            >
-              <ThumbsUp className={cn('h-4 w-4', isLiked && 'fill-current')} />
-              <span>{isLiked ? 'Đã thích' : 'Thích'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleFocusCommentInput}
-              className="flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors cursor-pointer"
-            >
-              <MessageSquare className="h-4 w-4" />
-              <span>Bình luận</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleShare}
-              className="flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors cursor-pointer"
-            >
-              <Share2 className="h-4 w-4" />
-              <span>Chia sẻ</span>
-            </button>
-          </div>
-
-          {/* ===================== KHU VỰC BÌNH LUẬN ===================== */}
-          <div className="space-y-3">
+          {/* ===================== KHU VỰC BÌNH LUẬN (Đã bỏ phần thích và số lượt tương tác) ===================== */}
+          <div className="pt-3 border-t border-border/60 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-foreground">Bình luận</span>
               <span className="text-[11px] text-muted-foreground">Phù hợp nhất</span>
@@ -488,9 +500,9 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
 
             {/* Trạng thái bình luận: Trống hoặc danh sách */}
             {comments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-7 text-center bg-slate-50/60 dark:bg-muted/30 rounded-xl border border-dashed border-border/70">
-                <div className="w-12 h-12 rounded-2xl bg-white dark:bg-card shadow-2xs border border-border/60 flex items-center justify-center mb-2.5 text-muted-foreground/60">
-                  <MessageSquare className="h-6 w-6 stroke-[1.5]" />
+              <div className="flex flex-col items-center justify-center py-6 text-center bg-slate-50/60 dark:bg-muted/30 rounded-xl border border-dashed border-border/70">
+                <div className="w-11 h-11 rounded-2xl bg-white dark:bg-card shadow-2xs border border-border/60 flex items-center justify-center mb-2 text-muted-foreground/60">
+                  <MessageSquare className="h-5 w-5 stroke-[1.5]" />
                 </div>
                 <p className="font-semibold text-xs sm:text-sm text-foreground">Chưa có bình luận nào</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -562,80 +574,51 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
           </div>
 
           {/* ========================================================================= */}
-          {/* 3. THÔNG TIN QUAN TRỌNG NẰM TRONG ẢNH (ĐƯỢC ĐẶT DƯỚI PHẦN BÌNH LUẬN)     */}
+          {/* 3. CARD THÔNG TIN QUAN TRỌNG (THEO CÁCH THIẾT KẾ NHƯ LÚC CÒN NẰM TRÊN ẢNH) */}
           {/* ========================================================================= */}
-          <div className="rounded-2xl border border-primary/20 bg-linear-to-b from-primary/5 to-transparent dark:from-primary/10 p-4 space-y-3.5 shadow-2xs">
-            <div className="flex items-center justify-between pb-2 border-b border-primary/15">
-              <div className="flex items-center gap-2">
-                <div className="p-1 rounded-md bg-primary/15 text-primary">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <h3 className="font-heading font-bold text-xs sm:text-sm text-foreground">
-                  Thông tin sự kiện quan trọng
-                </h3>
-              </div>
-              <span className="text-[11px] font-semibold text-primary px-2 py-0.5 rounded-full bg-primary/10">
-                Chi tiết
+          <div className="bg-slate-900/95 dark:bg-slate-950/95 border border-slate-700/60 dark:border-white/15 rounded-xl p-3.5 text-white shadow-md flex flex-col gap-2.5 select-none">
+            {/* 1. Date & Time */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <CalendarIcon className="h-4 w-4 text-white shrink-0 stroke-[2.2]" />
+              <span className="truncate text-xs font-medium text-white/90">
+                {formatDisplayDateTime(event.startTime, event.endTime)}
               </span>
             </div>
 
-            {/* Danh sách 4 thông tin cốt lõi */}
-            <div className="space-y-2.5 text-xs">
-              {/* 1. Thời gian */}
-              <div className="flex items-start gap-2.5">
-                <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 shrink-0 mt-0.5">
-                  <CalendarIcon className="h-3.5 w-3.5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="text-muted-foreground block text-[11px]">Thời gian tổ chức</span>
-                  <span className="font-semibold text-foreground text-xs leading-snug">
-                    {formatDisplayDateTime(event.startTime, event.endTime)}
-                  </span>
-                </div>
-              </div>
+            {/* 2. Location */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <MapPin className="h-4 w-4 text-white shrink-0 stroke-[2.2]" />
+              <span className="truncate text-xs font-medium text-white/90" title={locationDisplay}>
+                {locationDisplay}
+              </span>
+            </div>
 
-              {/* 2. Địa điểm */}
-              <div className="flex items-start gap-2.5">
-                <div className="p-1.5 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 shrink-0 mt-0.5">
-                  <MapPin className="h-3.5 w-3.5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="text-muted-foreground block text-[11px]">Địa điểm</span>
-                  <span className="font-semibold text-foreground text-xs leading-snug">
-                    {locationDisplay}
-                  </span>
-                </div>
-              </div>
-
-              {/* 3. Quyền lợi / ĐRL */}
-              <div className="flex items-start gap-2.5">
-                <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5">
-                  <Gift className="h-3.5 w-3.5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="text-muted-foreground block text-[11px]">Quyền lợi tham gia</span>
-                  <span className="font-semibold text-foreground text-xs leading-snug">
-                    {event.pointsReward || 'Cộng điểm rèn luyện (ĐRL)'}
-                  </span>
-                </div>
-              </div>
-
-              {/* 4. Sức chứa / Quota */}
-              <div className="flex items-start gap-2.5">
-                <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 shrink-0 mt-0.5">
-                  <Users className="h-3.5 w-3.5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="text-muted-foreground block text-[11px]">Số lượng sinh viên</span>
-                  <span className="font-semibold text-foreground text-xs leading-snug">
-                    {event.quotaText || (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
-                  </span>
-                </div>
+            {/* 3. Benefits / Điểm rèn luyện */}
+            <div className="flex items-start gap-2.5 min-w-0">
+              <Gift className="h-4 w-4 text-white shrink-0 stroke-[2.2] mt-0.5" />
+              <div className="flex flex-col gap-0.5 min-w-0">
+                {event.pointsReward ? (
+                  event.pointsReward.split(' · ').map((benefit: string, i: number) => (
+                    <span key={i} className="truncate text-xs font-medium text-white/90" title={benefit}>
+                      {benefit}
+                    </span>
+                  ))
+                ) : (
+                  <span className="truncate text-xs font-medium text-white/90">Cộng điểm rèn luyện</span>
+                )}
               </div>
             </div>
 
-            {/* Các nút hành động chính: Đăng ký + Xem trang chi tiết */}
-            <div className="pt-2 border-t border-primary/15 flex flex-col gap-2">
+            {/* 4. Quota / Sức chứa */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Users className="h-4 w-4 text-white shrink-0 stroke-[2.2]" />
+              <span className="truncate text-xs font-medium text-white/90">
+                {event.quotaText || (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
+              </span>
+            </div>
+
+            {/* Các nút hành động: Đăng ký + Xem trang sự kiện */}
+            <div className="pt-2 border-t border-white/15 flex flex-col gap-2">
               <RegisterButton
                 eventId={eventId}
                 eventTitle={event.title}
@@ -649,10 +632,10 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
 
               <Link
                 to={`/events/${eventId}`}
-                className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-border/80 hover:bg-muted text-xs font-semibold text-foreground transition-colors cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-white/20 hover:bg-white/10 text-xs font-medium text-white transition-colors cursor-pointer"
               >
                 <span>Xem trang sự kiện đầy đủ</span>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                <ExternalLink className="h-3.5 w-3.5 text-white/80" />
               </Link>
             </div>
           </div>
