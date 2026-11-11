@@ -75,6 +75,15 @@ const DEFAULT_SYSTEM_USERS: SystemUserSuggestion[] = [
   { id: '134', email: 'ngadtb2101015@student.ctu.edu.vn', fullName: 'Đỗ Thanh Nga', studentId: 'B2101015' },
 ]
 
+// Hàm loại bỏ dấu tiếng Việt để tìm kiếm không dấu
+const removeVietnameseTones = (str: string): string => {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+}
+
 // Hàm format ngày hiển thị chuẩn Việt Nam dd/MM/yyyy
 const formatDateDisplay = (dateStr?: string): string => {
   if (!dateStr) return '05/11/2026'
@@ -171,14 +180,13 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       try {
         const results = await fanpageAdminService.searchUsersForInvitation(term)
         if (isMounted) {
-          if (results && results.length > 0) {
-            setSystemUsers(results)
-          } else {
-            setSystemUsers(DEFAULT_SYSTEM_USERS)
-          }
+          setSystemUsers(results || [])
         }
       } catch (err) {
         console.warn('Search users error:', err)
+        if (isMounted) {
+          setSystemUsers(DEFAULT_SYSTEM_USERS)
+        }
       } finally {
         if (isMounted) setIsSearchingUsers(false)
       }
@@ -265,14 +273,21 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
     }, 4500)
   }
 
-  // Lọc danh sách email gợi ý
+  // Lọc danh sách email gợi ý (hỗ trợ cả tiếng Việt không dấu và MSSV)
   const matchingSuggestions = systemUsers.filter((u) => {
     if (!inviteEmail.trim()) return false
     const term = inviteEmail.trim().toLowerCase()
+    const cleanTerm = removeVietnameseTones(term)
+    const email = u.email.toLowerCase()
+    const fullName = u.fullName.toLowerCase()
+    const cleanFullName = removeVietnameseTones(fullName)
+    const studentId = (u.studentId || '').toLowerCase()
+
     return (
-      u.email.toLowerCase().includes(term) ||
-      u.fullName.toLowerCase().includes(term) ||
-      (u.studentId && u.studentId.toLowerCase().includes(term))
+      email.includes(term) ||
+      fullName.includes(term) ||
+      cleanFullName.includes(cleanTerm) ||
+      studentId.includes(term)
     )
   })
 

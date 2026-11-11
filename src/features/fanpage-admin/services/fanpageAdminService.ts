@@ -814,11 +814,13 @@ export const fanpageAdminService = {
           u.fullName ||
           u.email?.split('@')[0] ||
           'Người dùng'
+        const studentIdMatch = (u.studentId || u.email || '').match(/([a-zA-Z]\d{7})/i)
+        const studentId = u.studentId || (studentIdMatch ? studentIdMatch[1].toUpperCase() : '')
         return {
-          id: String(u.userId || u.id || ''),
+          id: String(u.userId || u.id || u.email || ''),
           email: u.email || '',
           fullName,
-          studentId: u.studentId || (u.email?.includes('@student') ? u.email.split('@')[0].replace(/^[a-z]+/, '').toUpperCase() : ''),
+          studentId,
           avatarUrl: u.avatarUrl || '',
         }
       })
