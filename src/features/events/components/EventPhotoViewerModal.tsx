@@ -345,9 +345,9 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
 
       {/* ===================== KHU VỰC PHẢI: CHI TIẾT SỰ KIỆN, BÌNH LUẬN & THÔNG TIN QUAN TRỌNG ===================== */}
       <aside className="w-full md:w-[390px] lg:w-[440px] xl:w-[460px] shrink-0 h-full flex flex-col min-h-0 bg-white dark:bg-card border-l border-border/80 text-left select-text">
-        {/* 1. Header tác giả: Bên trái lấy dữ liệu thật (Avatar thật, tên thật), các nút ở trên để trong ba chấm */}
-        <div className="p-3.5 sm:p-4 border-b border-border/60 flex items-center justify-between gap-3 bg-white/95 dark:bg-card/95 backdrop-blur-xs shrink-0">
-          {/* Thông tin bên trái: Avatar thật, Tên thật, Ngày đăng */}
+        {/* 1. Header tác giả: Bỏ viền dưới, tên fanpage cho phép 2 dòng */}
+        <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 bg-white/95 dark:bg-card/95 backdrop-blur-xs shrink-0">
+          {/* Thông tin bên trái: Avatar thật, Tên thật (cho phép 2 dòng), Ngày đăng */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link
               to={`/fanpage/${fanpageId}`}
@@ -366,15 +366,15 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
               )}
             </Link>
             <div className="flex flex-col min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex items-start gap-1 min-w-0">
                 <Link
                   to={`/fanpage/${fanpageId}`}
-                  className="font-semibold text-sm text-foreground hover:text-primary hover:underline line-clamp-1"
+                  className="font-semibold text-sm text-foreground hover:text-primary hover:underline line-clamp-2 leading-tight"
                   title={organizerDisplayName}
                 >
                   {organizerDisplayName}
                 </Link>
-                <VerifiedBadge className="h-4 w-4 shrink-0" />
+                <VerifiedBadge className="h-4 w-4 shrink-0 mt-0.5" />
               </div>
               <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                 {event.timeAgo || formatDisplayDateTime(event.startTime)} · <span>🌐</span>
@@ -455,7 +455,7 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
         <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-4">
           {/* Tiêu đề sự kiện */}
           <div>
-            <h2 className="font-heading font-bold text-base sm:text-lg leading-snug text-foreground hover:text-primary transition-colors">
+            <h2 className="font-semibold text-sm sm:text-[15px] leading-snug text-foreground hover:text-primary transition-colors">
               <Link to={`/events/${eventId}`}>{event.title}</Link>
             </h2>
 
@@ -574,51 +574,51 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
           </div>
 
           {/* ========================================================================= */}
-          {/* 3. CARD THÔNG TIN QUAN TRỌNG (THEO CÁCH THIẾT KẾ NHƯ LÚC CÒN NẰM TRÊN ẢNH) */}
+          {/* 3. CARD THÔNG TIN QUAN TRỌNG (NỀN TRẮNG CHỮ ĐEN THEO YÊU CẦU)            */}
           {/* ========================================================================= */}
-          <div className="bg-slate-900/95 dark:bg-slate-950/95 border border-slate-700/60 dark:border-white/15 rounded-xl p-3.5 text-white shadow-md flex flex-col gap-2.5 select-none">
+          <div className="bg-white dark:bg-card border border-border/80 rounded-xl p-3.5 text-foreground shadow-2xs flex flex-col gap-2.5 select-none">
             {/* 1. Date & Time */}
             <div className="flex items-center gap-2.5 min-w-0">
-              <CalendarIcon className="h-4 w-4 text-white shrink-0 stroke-[2.2]" />
-              <span className="truncate text-xs font-medium text-white/90">
+              <CalendarIcon className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2]" />
+              <span className="truncate text-xs font-medium text-foreground">
                 {formatDisplayDateTime(event.startTime, event.endTime)}
               </span>
             </div>
 
             {/* 2. Location */}
             <div className="flex items-center gap-2.5 min-w-0">
-              <MapPin className="h-4 w-4 text-white shrink-0 stroke-[2.2]" />
-              <span className="truncate text-xs font-medium text-white/90" title={locationDisplay}>
+              <MapPin className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2]" />
+              <span className="truncate text-xs font-medium text-foreground" title={locationDisplay}>
                 {locationDisplay}
               </span>
             </div>
 
             {/* 3. Benefits / Điểm rèn luyện */}
             <div className="flex items-start gap-2.5 min-w-0">
-              <Gift className="h-4 w-4 text-white shrink-0 stroke-[2.2] mt-0.5" />
+              <Gift className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2] mt-0.5" />
               <div className="flex flex-col gap-0.5 min-w-0">
                 {event.pointsReward ? (
                   event.pointsReward.split(' · ').map((benefit: string, i: number) => (
-                    <span key={i} className="truncate text-xs font-medium text-white/90" title={benefit}>
+                    <span key={i} className="truncate text-xs font-medium text-foreground" title={benefit}>
                       {benefit}
                     </span>
                   ))
                 ) : (
-                  <span className="truncate text-xs font-medium text-white/90">Cộng điểm rèn luyện</span>
+                  <span className="truncate text-xs font-medium text-foreground">Cộng điểm rèn luyện</span>
                 )}
               </div>
             </div>
 
             {/* 4. Quota / Sức chứa */}
             <div className="flex items-center gap-2.5 min-w-0">
-              <Users className="h-4 w-4 text-white shrink-0 stroke-[2.2]" />
-              <span className="truncate text-xs font-medium text-white/90">
+              <Users className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2]" />
+              <span className="truncate text-xs font-medium text-foreground">
                 {event.quotaText || (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
               </span>
             </div>
 
             {/* Các nút hành động: Đăng ký + Xem trang sự kiện */}
-            <div className="pt-2 border-t border-white/15 flex flex-col gap-2">
+            <div className="pt-2 border-t border-border/60 flex flex-col gap-2">
               <RegisterButton
                 eventId={eventId}
                 eventTitle={event.title}
@@ -632,10 +632,10 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
 
               <Link
                 to={`/events/${eventId}`}
-                className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-white/20 hover:bg-white/10 text-xs font-medium text-white transition-colors cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-border/80 hover:bg-muted text-xs font-medium text-foreground transition-colors cursor-pointer"
               >
                 <span>Xem trang sự kiện đầy đủ</span>
-                <ExternalLink className="h-3.5 w-3.5 text-white/80" />
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
               </Link>
             </div>
           </div>
