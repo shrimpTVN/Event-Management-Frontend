@@ -758,7 +758,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                     <div>Liên hệ</div>
                     <div>Vai trò</div>
                     <div>Ngày tham gia</div>
-                    <div className="text-right min-w-[180px]">Thao tác</div>
+                    <div className="text-right min-w-[140px]">Thao tác</div>
                   </div>
 
                   {/* Danh sách các card thành viên bo tròn cách nhau (gap-2.5) */}
@@ -890,104 +890,23 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                               {displayJoinedAt}
                             </div>
 
-                            {/* Cột 5: Thao tác (Thanh icon hành động nhanh khi hover kiểu Google Drive) */}
-                            <div className="text-right min-w-[180px] relative flex items-center justify-end">
+                            {/* Cột 5: Thao tác */}
+                            <div className="text-right min-w-[140px] relative flex items-center justify-end">
                               {isAdmin ? (
-                                <div className="flex items-center justify-end gap-1">
-                                  <span className="text-xs text-[#6B7280] dark:text-muted-foreground italic transition-all group-hover:hidden sm:group-hover:inline sm:group-hover:text-[11px] sm:group-hover:mr-1">
-                                    Chủ nhiệm hiện tại
-                                  </span>
-
-                                  {/* Icon hành động nhanh cho Chủ nhiệm khi hover */}
-                                  <div
-                                    className={`items-center gap-0.5 sm:gap-1 transition-opacity duration-150 ${
-                                      openActionMenuId === mem.id
-                                        ? 'flex opacity-100'
-                                        : 'hidden group-hover:flex opacity-0 group-hover:opacity-100'
-                                    }`}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() => setViewingMember(mem)}
-                                      className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#1B4B8A] hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors cursor-pointer"
-                                      title="Xem thông tin chi tiết"
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleCopyEmail(
-                                          mem.email || loggedInUser?.email || '',
-                                          mem.id
-                                        )
-                                      }
-                                      className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#1B4B8A] hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors cursor-pointer"
-                                      title={
-                                        copiedMemberId === mem.id
-                                          ? 'Đã sao chép!'
-                                          : 'Sao chép email'
-                                      }
-                                    >
-                                      {copiedMemberId === mem.id ? (
-                                        <Check className="h-4 w-4 text-emerald-600" />
-                                      ) : (
-                                        <Copy className="h-4 w-4" />
-                                      )}
-                                    </button>
-
-                                    {isSelf && (
-                                      <div className="inline-block relative">
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setOpenActionMenuId(
-                                              openActionMenuId === mem.id ? null : mem.id
-                                            )
-                                          }
-                                          className={`h-8 w-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
-                                            openActionMenuId === mem.id
-                                              ? 'bg-[#F3F4F6] dark:bg-muted text-foreground'
-                                              : 'text-[#6B7280] hover:text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted'
-                                          }`}
-                                          title="Tùy chọn khác"
-                                        >
-                                          <MoreHorizontal className="h-4 w-4" />
-                                        </button>
-                                        {openActionMenuId === mem.id && (
-                                          <div
-                                            ref={actionMenuRef}
-                                            className="absolute right-0 top-full mt-1.5 w-52 rounded-xl border border-border bg-card p-1.5 shadow-2xl z-50 text-left animate-in fade-in-0 zoom-in-95 select-none"
-                                          >
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setOpenActionMenuId(null)
-                                                handleOpenLeaveModal()
-                                              }}
-                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[#DC2626] hover:bg-[#FEE2E2]/50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
-                                            >
-                                              <LogOut className="h-3.5 w-3.5 text-[#DC2626] shrink-0" />
-                                              <span>Rời khỏi ban tổ chức</span>
-                                            </button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
+                                <span className="text-xs text-[#6B7280] dark:text-muted-foreground italic">
+                                  Chủ nhiệm hiện tại
+                                </span>
                               ) : (
-                                <div className="flex items-center justify-end gap-0.5 sm:gap-1">
-                                  {/* Cụm icon thao tác thường xuyên hiển thị khi hover dòng (kiểu Google Drive) */}
+                                <div className="flex items-center justify-end gap-1">
+                                  {/* Chỉ hiển thị đúng 2 nút: Xem thông tin và Sao chép email khi hover */}
                                   <div
-                                    className={`items-center gap-0.5 sm:gap-1 transition-all duration-150 ${
+                                    className={`items-center gap-1 transition-all duration-150 ${
                                       openActionMenuId === mem.id
                                         ? 'flex opacity-100'
                                         : 'flex opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
                                     }`}
                                   >
-                                    {/* 1. Xem thông tin liên hệ */}
+                                    {/* 1. Xem thông tin liên hệ / chi tiết */}
                                     <button
                                       type="button"
                                       onClick={() => setViewingMember(mem)}
@@ -1019,67 +938,9 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                                         <Copy className="h-4 w-4" />
                                       )}
                                     </button>
-
-                                    {/* 3. Thao tác Admin: Khóa / Mở khóa & Xóa thành viên */}
-                                    {!isSelf && isCurrentUserAdmin && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleToggleActive(mem.id)}
-                                          className={`h-8 w-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
-                                            mem.isActive !== false
-                                              ? 'text-[#6B7280] hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40'
-                                              : 'text-amber-600 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-                                          }`}
-                                          title={
-                                            mem.isActive !== false
-                                              ? 'Khóa thành viên'
-                                              : 'Mở khóa thành viên'
-                                          }
-                                        >
-                                          {mem.isActive !== false ? (
-                                            <Lock className="h-4 w-4" />
-                                          ) : (
-                                            <Unlock className="h-4 w-4" />
-                                          )}
-                                        </button>
-
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeleteMember(mem)}
-                                          className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
-                                          title="Xóa khỏi ban tổ chức"
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </button>
-                                      </>
-                                    )}
-
-                                    {/* 4. Thao tác Cộng tác viên: Gửi email liên hệ trực tiếp */}
-                                    {!isSelf && !isCurrentUserAdmin && (
-                                      <a
-                                        href={`mailto:${mem.email || ''}`}
-                                        className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#1B4B8A] hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
-                                        title="Gửi email liên hệ"
-                                      >
-                                        <Mail className="h-4 w-4" />
-                                      </a>
-                                    )}
-
-                                    {/* 5. Thao tác Bản thân: Rời khỏi ban tổ chức */}
-                                    {isSelf && (
-                                      <button
-                                        type="button"
-                                        onClick={handleOpenLeaveModal}
-                                        className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
-                                        title="Rời khỏi ban tổ chức"
-                                      >
-                                        <LogOut className="h-4 w-4" />
-                                      </button>
-                                    )}
                                   </div>
 
-                                  {/* Nút Ba chấm "⋯" cho menu thả xuống tùy chọn đầy đủ */}
+                                  {/* Nút Ba chấm (chứa toàn bộ các thao tác còn lại) */}
                                   <div className="inline-block relative">
                                     <button
                                       type="button"
@@ -1107,6 +968,18 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                                         {/* 1. Nếu là chính bản thân người dùng (isSelf) */}
                                         {isSelf && (
                                           <>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setOpenActionMenuId(null)
+                                                setViewingMember(mem)
+                                              }}
+                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                                            >
+                                              <Eye className="h-3.5 w-3.5 text-[#6B7280] shrink-0" />
+                                              <span>Xem thông tin của bạn</span>
+                                            </button>
+
                                             <button
                                               type="button"
                                               onClick={() => {
@@ -1270,7 +1143,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                     <div>Người mời</div>
                     <div>Vai trò</div>
                     <div>Thời gian gửi</div>
-                    <div className="text-right min-w-[180px]">Thao tác</div>
+                    <div className="text-right min-w-[160px]">Thao tác</div>
                   </div>
 
                   <div className="flex flex-col gap-2.5 mt-1">
@@ -1331,7 +1204,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                           <div className="text-xs text-[#6B7280] dark:text-muted-foreground whitespace-nowrap">
                             {formatDateDisplay(inv.invitedAt)}
                           </div>
-                          <div className="text-right min-w-[180px]">
+                          <div className="text-right min-w-[160px]">
                             <div className="flex items-center justify-end gap-1">
                               {/* Nút sao chép email nhanh */}
                               <button
