@@ -85,16 +85,18 @@ export const Navbar: React.FC = () => {
                 setShowNotifications((prev) => !prev)
                 setShowDropdown(false)
               }}
-              className="relative flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
               title="Thông báo"
               aria-label={`Thông báo ${totalUnreadCount > 0 ? `(${totalUnreadCount} chưa đọc)` : ''}`}
             >
-              <Bell className="h-5 w-5" />
-              {totalUnreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white font-bold text-[10px] flex items-center justify-center ring-2 ring-card shadow-xs animate-in zoom-in-50">
-                  {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
-                </span>
-              )}
+              <div className="relative flex items-center justify-center">
+                <Bell className="h-5 w-5" />
+                {totalUnreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white font-bold text-[9px] leading-none flex items-center justify-center ring-2 ring-card shadow-xs animate-in zoom-in-50">
+                    {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                  </span>
+                )}
+              </div>
             </button>
 
             {/* Notification Dropdown (Matching Facebook-style image) */}
