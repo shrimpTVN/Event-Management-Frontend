@@ -76,9 +76,10 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Connected Tabs */}
-      <div className="space-y-0">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-2 px-1">
+      {/* 2. Khối bảng màu trắng với thanh Folder Tab bo tròn khi chọn */}
+      <div className="flex flex-col mt-2">
+        {/* Hàng Tab Bar dạng folder tab bo tròn trên đỉnh, nổi và kết nối liền mạch với khung trắng */}
+        <div className="flex items-end gap-1.5 -mb-px relative z-10 overflow-x-auto no-scrollbar">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id
             return (
@@ -111,7 +112,7 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
         <div
           className={cn(
             'bg-white dark:bg-card border border-[#E5E7EB] dark:border-border p-4 sm:p-5 flex flex-col gap-4 shadow-2xs',
-            activeTab === 'ALL' ? 'rounded-b-2xl rounded-tr-2xl' : 'rounded-2xl'
+            activeTab === 'ALL' ? 'rounded-b-2xl rounded-tr-2xl rounded-tl-none' : 'rounded-2xl'
           )}
         >
           {/* Header trong panel: Ô tìm kiếm bên trái, số lượng tóm tắt bên phải */}
