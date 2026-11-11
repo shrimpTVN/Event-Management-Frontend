@@ -54,11 +54,22 @@ export const LoginForm: React.FC = () => {
   })
 
   const onSubmit = async (data: LoginInput) => {
+    const rawEmail = data.email.trim()
+    let normalizedEmail = rawEmail
+    if (rawEmail.toLowerCase() === 'admin') {
+      normalizedEmail = 'admin@ctu.edu.vn'
+    } else if (rawEmail.toLowerCase() === 'superadmin') {
+      normalizedEmail = 'superadmin@gmail.com'
+    }
+
     try {
       setIsSubmitting(true)
       setApiError(null)
       clearErrors()
-      const res = await authService.login(data)
+      const res = await authService.login({
+        ...data,
+        email: normalizedEmail,
+      })
       
       // Xóa toàn bộ query cache từ tài khoản trước đó để tránh xung đột dữ liệu
       queryClient.clear()
@@ -117,7 +128,9 @@ export const LoginForm: React.FC = () => {
       } else if (isInvalidCredentials) {
         // Phân loại chính xác: Nếu email sai (không tồn tại) thì chỉ báo lỗi ở email,
         // ngược lại nếu email đúng nhưng mật khẩu sai thì chỉ báo lỗi ở mật khẩu.
-        const isRegistered = await checkEmailRegistered(data.email)
+        const isRegistered =
+          (await checkEmailRegistered(normalizedEmail)) ||
+          (await checkEmailRegistered(data.email))
         if (!isRegistered) {
           clearErrors('password')
           setError('email', {
