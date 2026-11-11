@@ -449,7 +449,7 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
           </div>
         </div>
 
-        {/* 2. Nội dung cuộn: Tiêu đề (sát lên trên theo yêu cầu) + Mô tả + Bình luận + CARD THÔNG TIN QUAN TRỌNG */}
+        {/* 2. Nội dung cuộn: Tiêu đề (sát lên trên) + Mô tả + CARD THÔNG TIN QUAN TRỌNG + BÌNH LUẬN */}
         <div className="flex-1 overflow-y-auto min-h-0 px-4 pt-1 pb-4 space-y-3.5">
           {/* Tiêu đề sự kiện */}
           <div className="pt-0">
@@ -489,17 +489,84 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
             )}
           </div>
 
-          {/* ===================== KHU VỰC BÌNH LUẬN (Đã bỏ phần thích và số lượt tương tác) ===================== */}
+          {/* ========================================================================= */}
+          {/* 3. CARD THÔNG TIN QUAN TRỌNG (NẰM TRÊN PHẦN BÌNH LUẬN)                  */}
+          {/* ========================================================================= */}
+          <div className="bg-white dark:bg-card border border-border/80 rounded-xl p-3.5 text-foreground shadow-2xs flex flex-col gap-2.5 select-none">
+            {/* 1. Date & Time */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <CalendarIcon className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2]" />
+              <span className="truncate text-xs font-medium text-foreground">
+                {formatDisplayDateTime(event.startTime, event.endTime)}
+              </span>
+            </div>
+
+            {/* 2. Location */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <MapPin className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2]" />
+              <span className="truncate text-xs font-medium text-foreground" title={locationDisplay}>
+                {locationDisplay}
+              </span>
+            </div>
+
+            {/* 3. Benefits / Điểm rèn luyện */}
+            <div className="flex items-start gap-2.5 min-w-0">
+              <Gift className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2] mt-0.5" />
+              <div className="flex flex-col gap-0.5 min-w-0">
+                {event.pointsReward ? (
+                  event.pointsReward.split(' · ').map((benefit: string, i: number) => (
+                    <span key={i} className="truncate text-xs font-medium text-foreground" title={benefit}>
+                      {benefit}
+                    </span>
+                  ))
+                ) : (
+                  <span className="truncate text-xs font-medium text-foreground">Cộng điểm rèn luyện</span>
+                )}
+              </div>
+            </div>
+
+            {/* 4. Quota / Sức chứa */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Users className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2]" />
+              <span className="truncate text-xs font-medium text-foreground">
+                {event.quotaText || (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
+              </span>
+            </div>
+
+            {/* Các nút hành động: Đăng ký + Xem trang sự kiện */}
+            <div className="pt-2 border-t border-border/60 flex flex-col gap-2">
+              <RegisterButton
+                eventId={eventId}
+                eventTitle={event.title}
+                isRegistered={event.isRegistered}
+                registrationStatus={event.registrationStatus}
+                size="md"
+                className="w-full justify-center"
+                onRegisterSuccess={() => onRegister?.(eventId)}
+                onCancelSuccess={() => onCancelRegister?.(eventId)}
+              />
+
+              <Link
+                to={`/events/${eventId}`}
+                className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-border/80 hover:bg-muted text-xs font-medium text-foreground transition-colors cursor-pointer"
+              >
+                <span>Xem trang sự kiện đầy đủ</span>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              </Link>
+            </div>
+          </div>
+
+          {/* ===================== KHU VỰC BÌNH LUẬN (ĐÃ BỎ VIỀN CHỖ CHƯA CÓ BÌNH LUẬN) ===================== */}
           <div className="pt-3 border-t border-border/60 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-foreground">Bình luận</span>
               <span className="text-[11px] text-muted-foreground">Phù hợp nhất</span>
             </div>
 
-            {/* Trạng thái bình luận: Trống hoặc danh sách */}
+            {/* Trạng thái bình luận: Trống hoặc danh sách (Bỏ viền) */}
             {comments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-6 text-center bg-slate-50/60 dark:bg-muted/30 rounded-xl border border-dashed border-border/70">
-                <div className="w-11 h-11 rounded-2xl bg-white dark:bg-card shadow-2xs border border-border/60 flex items-center justify-center mb-2 text-muted-foreground/60">
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <div className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-muted flex items-center justify-center mb-2 text-muted-foreground/60">
                   <MessageSquare className="h-5 w-5 stroke-[1.5]" />
                 </div>
                 <p className="font-semibold text-xs sm:text-sm text-foreground">Chưa có bình luận nào</p>
@@ -568,73 +635,6 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
                   <Send className="h-3.5 w-3.5" />
                 </button>
               </div>
-            </div>
-          </div>
-
-          {/* ========================================================================= */}
-          {/* 3. CARD THÔNG TIN QUAN TRỌNG (NỀN TRẮNG CHỮ ĐEN THEO YÊU CẦU)            */}
-          {/* ========================================================================= */}
-          <div className="bg-white dark:bg-card border border-border/80 rounded-xl p-3.5 text-foreground shadow-2xs flex flex-col gap-2.5 select-none">
-            {/* 1. Date & Time */}
-            <div className="flex items-center gap-2.5 min-w-0">
-              <CalendarIcon className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2]" />
-              <span className="truncate text-xs font-medium text-foreground">
-                {formatDisplayDateTime(event.startTime, event.endTime)}
-              </span>
-            </div>
-
-            {/* 2. Location */}
-            <div className="flex items-center gap-2.5 min-w-0">
-              <MapPin className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2]" />
-              <span className="truncate text-xs font-medium text-foreground" title={locationDisplay}>
-                {locationDisplay}
-              </span>
-            </div>
-
-            {/* 3. Benefits / Điểm rèn luyện */}
-            <div className="flex items-start gap-2.5 min-w-0">
-              <Gift className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2] mt-0.5" />
-              <div className="flex flex-col gap-0.5 min-w-0">
-                {event.pointsReward ? (
-                  event.pointsReward.split(' · ').map((benefit: string, i: number) => (
-                    <span key={i} className="truncate text-xs font-medium text-foreground" title={benefit}>
-                      {benefit}
-                    </span>
-                  ))
-                ) : (
-                  <span className="truncate text-xs font-medium text-foreground">Cộng điểm rèn luyện</span>
-                )}
-              </div>
-            </div>
-
-            {/* 4. Quota / Sức chứa */}
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Users className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2]" />
-              <span className="truncate text-xs font-medium text-foreground">
-                {event.quotaText || (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
-              </span>
-            </div>
-
-            {/* Các nút hành động: Đăng ký + Xem trang sự kiện */}
-            <div className="pt-2 border-t border-border/60 flex flex-col gap-2">
-              <RegisterButton
-                eventId={eventId}
-                eventTitle={event.title}
-                isRegistered={event.isRegistered}
-                registrationStatus={event.registrationStatus}
-                size="md"
-                className="w-full justify-center"
-                onRegisterSuccess={() => onRegister?.(eventId)}
-                onCancelSuccess={() => onCancelRegister?.(eventId)}
-              />
-
-              <Link
-                to={`/events/${eventId}`}
-                className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-border/80 hover:bg-muted text-xs font-medium text-foreground transition-colors cursor-pointer"
-              >
-                <span>Xem trang sự kiện đầy đủ</span>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-              </Link>
             </div>
           </div>
         </div>
