@@ -345,9 +345,9 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
 
       {/* ===================== KHU VỰC PHẢI: CHI TIẾT SỰ KIỆN, BÌNH LUẬN & THÔNG TIN QUAN TRỌNG ===================== */}
       <aside className="w-full md:w-[390px] lg:w-[440px] xl:w-[460px] shrink-0 h-full flex flex-col min-h-0 bg-white dark:bg-card border-l border-border/80 text-left select-text">
-        {/* 1. Header tác giả: Bỏ viền dưới, tên fanpage cho phép 2 dòng */}
-        <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 bg-white/95 dark:bg-card/95 backdrop-blur-xs shrink-0">
-          {/* Thông tin bên trái: Avatar thật, Tên thật (cho phép 2 dòng), Ngày đăng */}
+        {/* 1. Header tác giả: Bỏ viền dưới, tên fanpage 2 dòng có icon xác thực cùng hàng ký tự cuối, bỏ icon công khai */}
+        <div className="px-3.5 sm:px-4 pt-3 sm:pt-3.5 pb-1 flex items-center justify-between gap-3 bg-white/95 dark:bg-card/95 backdrop-blur-xs shrink-0">
+          {/* Thông tin bên trái: Avatar thật, Tên thật (cho phép 2 dòng, icon xác thực cùng hàng ký tự cuối) */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link
               to={`/fanpage/${fanpageId}`}
@@ -366,18 +366,16 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
               )}
             </Link>
             <div className="flex flex-col min-w-0 flex-1">
-              <div className="flex items-start gap-1 min-w-0">
-                <Link
-                  to={`/fanpage/${fanpageId}`}
-                  className="font-semibold text-sm text-foreground hover:text-primary hover:underline line-clamp-2 leading-tight"
-                  title={organizerDisplayName}
-                >
-                  {organizerDisplayName}
-                </Link>
-                <VerifiedBadge className="h-4 w-4 shrink-0 mt-0.5" />
-              </div>
-              <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                {event.timeAgo || formatDisplayDateTime(event.startTime)} · <span>🌐</span>
+              <Link
+                to={`/fanpage/${fanpageId}`}
+                className="font-semibold text-sm text-foreground hover:text-primary hover:underline line-clamp-2 leading-tight"
+                title={organizerDisplayName}
+              >
+                <span>{organizerDisplayName}</span>
+                <VerifiedBadge className="h-3.5 w-3.5 inline-block align-middle ml-1 -mt-0.5" />
+              </Link>
+              <span className="text-xs text-muted-foreground mt-0.5">
+                {event.timeAgo || formatDisplayDateTime(event.startTime)}
               </span>
             </div>
           </div>
@@ -451,10 +449,10 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
           </div>
         </div>
 
-        {/* 2. Nội dung cuộn: Tiêu đề + Mô tả + Bình luận + CARD THÔNG TIN QUAN TRỌNG */}
-        <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-4">
+        {/* 2. Nội dung cuộn: Tiêu đề (sát lên trên theo yêu cầu) + Mô tả + Bình luận + CARD THÔNG TIN QUAN TRỌNG */}
+        <div className="flex-1 overflow-y-auto min-h-0 px-4 pt-1 pb-4 space-y-3.5">
           {/* Tiêu đề sự kiện */}
-          <div>
+          <div className="pt-0">
             <h2 className="font-semibold text-sm sm:text-[15px] leading-snug text-foreground hover:text-primary transition-colors">
               <Link to={`/events/${eventId}`}>{event.title}</Link>
             </h2>
