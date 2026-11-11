@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NotificationDropdown } from '../NotificationDropdown'
 import { fanpageService } from '@/features/fanpage/services/fanpageService'
@@ -12,6 +13,30 @@ vi.mock('@/features/fanpage/services/fanpageService', () => ({
     declineInvitation: vi.fn(),
   },
 }))
+
+vi.mock('@/features/notifications', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/notifications')>()
+  return {
+    ...actual,
+    notificationService: {
+      ...actual.notificationService,
+      getMyNotifications: vi.fn().mockResolvedValue({
+        content: [],
+        totalElements: 0,
+        totalPages: 1,
+        size: 20,
+        number: 0,
+        last: true,
+        first: true,
+        empty: true,
+      }),
+      getUnreadCount: vi.fn().mockResolvedValue(0),
+      markAsRead: vi.fn().mockResolvedValue(undefined),
+      markAllAsRead: vi.fn().mockResolvedValue(undefined),
+    },
+    useNotificationStream: vi.fn(),
+  }
+})
 
 describe('NotificationDropdown', () => {
   let queryClient: QueryClient
@@ -45,7 +70,9 @@ describe('NotificationDropdown', () => {
   it('renders real fanpage invitation for student', async () => {
     render(
       <QueryClientProvider client={queryClient}>
-        <NotificationDropdown isOpen={true} onClose={vi.fn()} />
+        <MemoryRouter>
+          <NotificationDropdown isOpen={true} onClose={vi.fn()} />
+        </MemoryRouter>
       </QueryClientProvider>
     )
 
@@ -63,11 +90,13 @@ describe('NotificationDropdown', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <NotificationDropdown
-          isOpen={true}
-          onClose={vi.fn()}
-          onAccepted={onAccepted}
-        />
+        <MemoryRouter>
+          <NotificationDropdown
+            isOpen={true}
+            onClose={vi.fn()}
+            onAccepted={onAccepted}
+          />
+        </MemoryRouter>
       </QueryClientProvider>
     )
 

@@ -1,13 +1,14 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore, isStaffUser } from '@/features/auth'
 import { MessageSquare, Bell } from 'lucide-react'
 import logoImg from '@/assets/logo.svg'
 import { AccountNavigationPopup } from './AccountNavigationPopup'
 import { NotificationDropdown } from './NotificationDropdown'
 import { NavbarSearchAutocomplete } from '@/features/events'
-import { useUserFanpagesStore } from '@/features/fanpage/store/userFanpagesStore'
+import { useUnreadNotificationCount, useNotificationStream } from '@/features/notifications'
+import { fanpageService } from '@/features/fanpage/services/fanpageService'
 
 export const Navbar: React.FC = () => {
   const { user, isAuthenticated, clearAuth } = useAuthStore()
@@ -15,8 +16,25 @@ export const Navbar: React.FC = () => {
   const queryClient = useQueryClient()
   const [showDropdown, setShowDropdown] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const { notifications } = useUserFanpagesStore()
-  const unreadCount = notifications.filter((n) => n.isUnread).length
+
+  // Real-time SSE stream lắng nghe thông báo mới khi đăng nhập
+  useNotificationStream()
+
+  // Đếm số thông báo hệ thống chưa đọc từ Backend API (/notifications/unread-count)
+  const { data: unreadNotificationsCount = 0 } = useUnreadNotificationCount()
+
+  // Đếm số lời mời ban tổ chức fanpage đang PENDING (/fanpage-member-invitations/me)
+  const { data: invitations = [] } = useQuery({
+    queryKey: ['my-fanpage-member-invitations', user?.email],
+    queryFn: () => fanpageService.getMyInvitations(),
+    enabled: Boolean(user),
+    staleTime: 30 * 1000,
+  })
+
+  const pendingInvitationsCount = Array.isArray(invitations)
+    ? invitations.filter((i: any) => i.status === 'PENDING').length
+    : 0
+  const totalUnreadCount = (unreadNotificationsCount || 0) + pendingInvitationsCount
 
   const handleLogout = () => {
     // Xóa toàn bộ TanStack query cache khi đăng xuất
@@ -69,10 +87,13 @@ export const Navbar: React.FC = () => {
               }}
               className="relative flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
               title="Thông báo"
+              aria-label={`Thông báo ${totalUnreadCount > 0 ? `(${totalUnreadCount} chưa đọc)` : ''}`}
             >
               <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-card" />
+              {totalUnreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white font-bold text-[10px] flex items-center justify-center ring-2 ring-card shadow-xs animate-in zoom-in-50">
+                  {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                </span>
               )}
             </button>
 
