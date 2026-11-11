@@ -1,5 +1,17 @@
-import React, { useState, useMemo } from 'react'
-import { Search, X, Lock, Unlock, Eye, GraduationCap, Briefcase, Users } from 'lucide-react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
+import {
+  Search,
+  X,
+  Lock,
+  Unlock,
+  Eye,
+  GraduationCap,
+  Briefcase,
+  Users,
+  Copy,
+  Check,
+  MoreHorizontal,
+} from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
 import type { SuperAdminUser, UserRole, UserStatus } from '../types/superAdmin.types'
 
@@ -16,6 +28,30 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'ALL' | UserRole | UserStatus>('ALL')
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null)
+  const [copiedUserId, setCopiedUserId] = useState<string | null>(null)
+  const actionMenuRef = useRef<HTMLDivElement | null>(null)
+
+  // Click outside listener for action menu
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setOpenActionMenuId(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleCopyEmail = (email: string, userId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    if (!email) return
+    navigator?.clipboard?.writeText(email)
+    setCopiedUserId(userId)
+    setTimeout(() => {
+      setCopiedUserId((prev) => (prev === userId ? null : prev))
+    }, 2000)
+  }
 
   const totalCount = users.length
   const studentCount = users.filter((u) => u.role === 'STUDENT').length
@@ -76,9 +112,9 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Khối bảng màu trắng với thanh Folder Tab bo tròn khi chọn */}
+      {/* 2. Khối bảng mở rộng kéo dài sang phải theo chuẩn nhóm trang Quản lý Fanpage */}
       <div className="flex flex-col mt-2">
-        {/* Hàng Tab Bar dạng folder tab bo tròn trên đỉnh, nổi và kết nối liền mạch với khung trắng */}
+        {/* Hàng Tab Bar dạng folder tab bo tròn trên đỉnh */}
         <div className="flex items-end gap-1.5 -mb-px relative z-10 overflow-x-auto no-scrollbar">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id
@@ -108,14 +144,14 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
           })}
         </div>
 
-        {/* Khung chính Bảng Trắng chứa Toolbar & Các card hàng bo tròn */}
+        {/* Khung chính Bảng Trắng chứa Toolbar & Danh sách card hàng */}
         <div
           className={cn(
-            'bg-white dark:bg-card border border-[#E5E7EB] dark:border-border p-4 sm:p-5 flex flex-col gap-4 shadow-2xs',
+            'bg-white dark:bg-card border border-[#E5E7EB] dark:border-border p-4 sm:p-5 flex flex-col gap-4 shadow-2xs w-full',
             activeTab === 'ALL' ? 'rounded-b-2xl rounded-tr-2xl rounded-tl-none' : 'rounded-2xl'
           )}
         >
-          {/* Header trong panel: Ô tìm kiếm bên trái, số lượng tóm tắt bên phải */}
+          {/* Header trong panel: Ô tìm kiếm & tóm tắt */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-border/60">
             <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -124,7 +160,7 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                 placeholder="Tìm MSSV, họ tên, email, khoa viện..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-8 h-9 text-xs sm:text-sm bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-colors"
+                className="w-full pl-9 pr-8 h-9 text-xs sm:text-sm bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary transition-colors"
               />
               {searchQuery && (
                 <button
@@ -142,21 +178,21 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
             </div>
           </div>
 
-          {/* Vùng chứa các card người dùng bo tròn cách nhau */}
-          <div className="p-3 sm:p-4 bg-[#F9FAFB]/60 dark:bg-background/40 overflow-x-auto rounded-xl">
-            <div className="min-w-[800px]">
-              {/* Header hàng cột phẳng, chữ xám nhẹ */}
-              <div className="grid grid-cols-[1fr_120px_200px_130px_110px_90px] items-center px-5 py-2 text-xs font-normal text-muted-foreground">
+          {/* Bảng danh sách các dòng thiết kế dạng Card chuẩn như Quản lý Thành viên */}
+          <div className="w-full overflow-x-auto">
+            <div className="min-w-[860px]">
+              {/* Header hàng cột phẳng */}
+              <div className="grid grid-cols-[2.5fr_1.2fr_2fr_1.4fr_1.1fr_130px] items-center px-5 py-2 text-xs font-normal text-[#6B7280] dark:text-muted-foreground">
                 <div>Người dùng &amp; Email</div>
                 <div>Mã số</div>
                 <div>Đơn vị / Khoa</div>
                 <div>Vai trò</div>
                 <div className="text-center">Trạng thái</div>
-                <div className="text-right">Thao tác</div>
+                <div className="text-right min-w-[130px]">Thao tác</div>
               </div>
 
-              {/* Danh sách các card hàng bo tròn */}
-              <div className="flex flex-col gap-2.5 mt-1 animate-in fade-in-50 duration-150">
+              {/* Danh sách các card hàng bo tròn (gap-2.5) */}
+              <div className="flex flex-col gap-2.5 mt-1">
                 {filteredUsers.length === 0 ? (
                   <div className="p-10 text-center text-xs text-muted-foreground bg-white dark:bg-card rounded-2xl border border-border/80">
                     Không tìm thấy người dùng nào phù hợp với bộ lọc hiện tại.
@@ -164,12 +200,15 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                 ) : (
                   filteredUsers.map((u) => {
                     const isLocked = u.status === 'LOCKED'
+
                     return (
                       <div
                         key={u.id}
+                        onClick={() => onSelectUser(u)}
                         className={cn(
-                          'bg-white dark:bg-card border border-border/80 rounded-2xl px-5 py-3.5 grid grid-cols-[1fr_120px_200px_130px_110px_90px] items-center shadow-2xs hover:border-primary/40 hover:shadow-xs transition-all',
-                          isLocked && 'bg-slate-50/50 dark:bg-slate-900/20 opacity-80'
+                          'bg-white dark:bg-card border border-border/80 dark:border-border/60 rounded-2xl shadow-2xs hover:shadow-xs hover:border-[#1B4B8A]/30 dark:hover:border-blue-500/30 hover:bg-slate-50/40 dark:hover:bg-slate-800/30 transition-all px-5 py-3.5 grid grid-cols-[2.5fr_1.2fr_2fr_1.4fr_1.1fr_130px] items-center group relative cursor-pointer',
+                          isLocked && 'bg-slate-50/60 dark:bg-slate-900/30 opacity-75',
+                          openActionMenuId === u.id ? 'z-50 border-[#1B4B8A]/40' : 'z-10'
                         )}
                       >
                         {/* 1. Người dùng & Avatar & Email */}
@@ -186,13 +225,10 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                             </div>
                           )}
                           <div className="min-w-0 flex-1">
-                            <p
-                              className="font-semibold text-foreground text-xs leading-snug truncate hover:text-primary transition-colors cursor-pointer"
-                              onClick={() => onSelectUser(u)}
-                            >
+                            <p className="font-semibold text-foreground text-xs leading-snug truncate hover:text-primary transition-colors">
                               {u.name}
                             </p>
-                            <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                            <p className="text-[11px] text-[#6B7280] dark:text-muted-foreground truncate mt-0.5">
                               {u.email}
                             </p>
                           </div>
@@ -209,7 +245,7 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                             {u.schoolName || 'Trường ĐH Cần Thơ'}
                           </p>
                           {u.majorName && (
-                            <p className="text-[11px] text-muted-foreground truncate">
+                            <p className="text-[11px] text-[#6B7280] dark:text-muted-foreground truncate">
                               {u.majorName}
                             </p>
                           )}
@@ -224,7 +260,7 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                                 ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200 dark:border-blue-800'
                                 : u.role === 'STAFF'
                                 ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800'
-                                : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800'
                             )}
                           >
                             {u.role === 'STUDENT' ? (
@@ -251,43 +287,151 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                               'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap border',
                               u.status === 'ACTIVE'
                                 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                                : 'bg-slate-100 text-slate-600 dark:bg-muted dark:text-muted-foreground border-slate-200 dark:border-border'
+                                : 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border-red-200 dark:border-red-800'
                             )}
                           >
                             <span
                               className={cn(
                                 'w-1.5 h-1.5 rounded-full',
-                                u.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-slate-400'
+                                u.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-red-500'
                               )}
                             />
                             <span>{u.status === 'ACTIVE' ? 'Hoạt động' : 'Bị khóa'}</span>
                           </span>
                         </div>
 
-                        {/* 6. Thao tác */}
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => onSelectUser(u)}
-                            title="Xem chi tiết người dùng"
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-[#F3F4F6] dark:hover:bg-muted transition-colors cursor-pointer"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
+                        {/* 6. Thao tác hover kiểu Google Drive */}
+                        <div className="text-right min-w-[130px] relative flex items-center justify-end">
+                          <div className="flex items-center justify-end gap-1">
+                            {/* Nút Xem chi tiết (mở Drawer) & Copy email khi hover */}
+                            <div
+                              className={cn(
+                                'items-center gap-1 transition-all duration-150',
+                                openActionMenuId === u.id
+                                  ? 'flex opacity-100'
+                                  : 'flex opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
+                              )}
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onSelectUser(u)
+                                }}
+                                title="Xem hồ sơ chi tiết (Mở Drawer)"
+                                className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#1B4B8A] hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
 
-                          <button
-                            type="button"
-                            onClick={() => onToggleStatus(u.id)}
-                            title={u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Kích hoạt tài khoản'}
-                            className={cn(
-                              'p-1.5 rounded-lg transition-colors cursor-pointer',
-                              u.status === 'ACTIVE'
-                                ? 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40'
-                                : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-                            )}
-                          >
-                            {u.status === 'ACTIVE' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                          </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleCopyEmail(u.email, u.id, e)}
+                                title={copiedUserId === u.id ? 'Đã sao chép!' : 'Sao chép email'}
+                                className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#1B4B8A] hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                              >
+                                {copiedUserId === u.id ? (
+                                  <Check className="h-4 w-4 text-emerald-600" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Nút ba chấm chứa các tùy chọn còn lại */}
+                            <div className="inline-block relative">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setOpenActionMenuId(openActionMenuId === u.id ? null : u.id)
+                                }}
+                                className={cn(
+                                  'h-8 w-8 rounded-full flex items-center justify-center transition-colors cursor-pointer',
+                                  openActionMenuId === u.id
+                                    ? 'bg-[#F3F4F6] dark:bg-muted text-foreground'
+                                    : 'text-[#6B7280] hover:text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted opacity-60 group-hover:opacity-100'
+                                )}
+                                title="Tùy chọn khác"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+
+                              {openActionMenuId === u.id && (
+                                <div
+                                  ref={actionMenuRef}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="absolute right-0 top-full mt-1.5 w-52 rounded-xl border border-border bg-card p-1.5 shadow-2xl z-50 text-left animate-in fade-in-0 zoom-in-95 select-none"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null)
+                                      onSelectUser(u)
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    <Eye className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                    <span>Xem hồ sơ chi tiết</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null)
+                                      onToggleStatus(u.id)
+                                    }}
+                                    className={cn(
+                                      'w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer',
+                                      isLocked
+                                        ? 'text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                                        : 'text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30'
+                                    )}
+                                  >
+                                    {isLocked ? (
+                                      <>
+                                        <Unlock className="h-3.5 w-3.5 shrink-0" />
+                                        <span>Mở khóa tài khoản</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Lock className="h-3.5 w-3.5 shrink-0" />
+                                        <span>Khóa tài khoản này</span>
+                                      </>
+                                    )}
+                                  </button>
+
+                                  <div className="h-px bg-border/60 my-1" />
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null)
+                                      handleCopyEmail(u.email, u.id)
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    <Copy className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                    <span>Sao chép email</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null)
+                                      if (navigator?.clipboard) {
+                                        navigator.clipboard.writeText(u.code)
+                                      }
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    <Copy className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                    <span>Sao chép mã số ({u.code})</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )

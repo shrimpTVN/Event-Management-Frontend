@@ -71,9 +71,9 @@ export const SuperAdminLayout: React.FC<SuperAdminLayoutProps> = ({
           </div>
         )}
 
-        {/* Main Content Area */}
-        <main className="flex-1 w-full min-w-0 p-4 sm:p-5 lg:py-5 lg:px-6 flex justify-center">
-          <div className="w-full max-w-7xl">
+        {/* Main Content Area - Aligned to left and stretching across full width like Fanpage Admin */}
+        <main className="flex-1 w-full min-w-0 p-4 sm:p-5 lg:py-5 lg:px-6">
+          <div className="w-full">
             {children}
           </div>
         </main>

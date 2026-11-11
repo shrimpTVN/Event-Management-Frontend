@@ -1,5 +1,27 @@
 import React, { useState } from 'react'
-import { X, CheckCircle, XCircle, FileText, Download, Building, User, Phone, Mail, AlertTriangle } from 'lucide-react'
+import {
+  CheckCircle,
+  XCircle,
+  FileText,
+  Download,
+  Building,
+  User,
+  Phone,
+  Mail,
+  AlertTriangle,
+  Lock,
+  Unlock,
+} from 'lucide-react'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/shared/utils/cn'
 import type { SuperAdminFanpage } from '../../types/superAdmin.types'
 
 interface FanpageReviewModalProps {
@@ -22,7 +44,7 @@ export const FanpageReviewModal: React.FC<FanpageReviewModalProps> = ({
   const [rejectReason, setRejectReason] = useState('')
   const [isRejecting, setIsRejecting] = useState(false)
 
-  if (!isOpen || !fanpage) return null
+  if (!fanpage) return null
 
   const handleConfirmReject = () => {
     if (!rejectReason.trim()) return
@@ -32,44 +54,53 @@ export const FanpageReviewModal: React.FC<FanpageReviewModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-card w-full max-w-2xl rounded-2xl shadow-xl border border-border overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-white dark:bg-card">
-          <div className="flex items-center gap-2">
-            <Building className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-k2d font-bold text-foreground">
-              {fanpage.status === 'PENDING' ? 'Phê Duyệt Đăng Ký Fanpage' : 'Chi Tiết & Quản Trị Fanpage'}
-            </h3>
+    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-xl flex flex-col p-0 gap-0 text-left bg-white dark:bg-card border-l border-border shadow-2xl"
+      >
+        {/* Header Drawer */}
+        <SheetHeader className="px-6 py-5 border-b border-border/80 bg-slate-50/50 dark:bg-muted/20">
+          <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
+            <Building className="w-4 h-4" />
+            <span>
+              {fanpage.status === 'PENDING'
+                ? 'Phê duyệt đăng ký Fanpage'
+                : 'Chi tiết & Quản trị Fanpage'}
+            </span>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+          <SheetTitle className="text-xl font-k2d font-bold text-foreground mt-1 flex items-center justify-between">
+            <span>{fanpage.name}</span>
+          </SheetTitle>
+          <SheetDescription className="text-xs text-muted-foreground">
+            Đơn vị: <span className="font-semibold text-foreground">{fanpage.schoolName}</span> • ID #{fanpage.id}
+          </SheetDescription>
+        </SheetHeader>
 
-        {/* Content */}
-        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+        {/* Body Drawer (Scrollable) */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
           {/* Fanpage Basic Header */}
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-muted/30 border border-border/70">
             <img
-              src={fanpage.avatarUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&q=80'}
+              src={
+                fanpage.avatarUrl ||
+                'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&q=80'
+              }
               alt={fanpage.name}
-              className="w-16 h-16 rounded-2xl object-cover border border-border shadow-xs"
+              className="w-16 h-16 rounded-2xl object-cover border border-border shadow-xs shrink-0"
             />
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="text-xl font-k2d font-bold text-foreground">{fanpage.name}</h4>
+                <h4 className="text-base font-bold text-foreground truncate">{fanpage.name}</h4>
                 <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                  className={cn(
+                    'px-2.5 py-0.5 rounded-full text-[11px] font-semibold border',
                     fanpage.status === 'ACTIVE'
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200'
                       : fanpage.status === 'PENDING'
-                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                      : 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300'
-                  }`}
+                      ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200'
+                      : 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300 border-red-200'
+                  )}
                 >
                   {fanpage.status === 'ACTIVE'
                     ? 'Đang hoạt động'
@@ -78,14 +109,18 @@ export const FanpageReviewModal: React.FC<FanpageReviewModalProps> = ({
                     : 'Bị khóa / Từ chối'}
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">{fanpage.description || 'Chưa có phần giới thiệu.'}</p>
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                {fanpage.description || 'Chưa có phần giới thiệu.'}
+              </p>
             </div>
           </div>
 
           {/* Representative & Unit Details */}
-          <div className="bg-[#F9FAFB] dark:bg-muted/20 p-4 rounded-xl border border-border space-y-3">
-            <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Thông Tin Người Đại Diện & Đơn Vị</h5>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+          <div className="space-y-3">
+            <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Thông Tin Người Đại Diện &amp; Đơn Vị
+            </h5>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50/60 dark:bg-muted/20 p-4 rounded-xl border border-border/70">
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-primary shrink-0" />
                 <span>Người đại diện: <strong className="text-foreground">{fanpage.representativeName}</strong></span>
@@ -167,54 +202,68 @@ export const FanpageReviewModal: React.FC<FanpageReviewModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-white dark:bg-card">
+        <SheetFooter className="px-6 py-4 border-t border-border/80 bg-slate-50/50 dark:bg-muted/20 flex flex-row items-center justify-between gap-3">
           <div>
             {fanpage.status !== 'PENDING' && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => onToggleLock(fanpage.id)}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
+                className={cn(
+                  'gap-1.5 text-xs font-semibold cursor-pointer',
                   fanpage.status === 'ACTIVE'
-                    ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800'
-                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
-                }`}
+                    ? 'border-amber-300 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                    : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                )}
               >
-                {fanpage.status === 'ACTIVE' ? 'Tạm khóa Fanpage' : 'Mở khóa hoạt động'}
-              </button>
+                {fanpage.status === 'ACTIVE' ? (
+                  <>
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Tạm khóa Fanpage</span>
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="w-3.5 h-3.5" />
+                    <span>Mở khóa hoạt động</span>
+                  </>
+                )}
+              </Button>
             )}
           </div>
 
           <div className="flex items-center gap-2">
             {fanpage.status === 'PENDING' && !isRejecting && (
               <>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setIsRejecting(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors cursor-pointer"
+                  className="gap-1.5 text-xs font-semibold text-red-700 border-red-200 hover:bg-red-50 cursor-pointer"
                 >
-                  <XCircle className="w-4 h-4" />
-                  Từ chối
-                </button>
-                <button
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span>Từ chối</span>
+                </Button>
+                <Button
                   type="button"
                   onClick={() => onApprove(fanpage.id)}
-                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer"
+                  className="gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs cursor-pointer"
                 >
-                  <CheckCircle className="w-4 h-4" />
-                  Phê Duyệt Ngay
-                </button>
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>Phê Duyệt Ngay</span>
+                </Button>
               </>
             )}
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-card border border-border text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted cursor-pointer transition-colors"
+              className="text-xs cursor-pointer"
             >
               Đóng
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
-    </div>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }

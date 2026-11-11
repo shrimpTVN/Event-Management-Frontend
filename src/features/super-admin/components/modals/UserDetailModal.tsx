@@ -1,5 +1,29 @@
-import React from 'react'
-import { X, Shield, Lock, Unlock, Mail, Phone, School, Calendar, Award } from 'lucide-react'
+import React, { useState } from 'react'
+import {
+  Shield,
+  Lock,
+  Unlock,
+  Mail,
+  Phone,
+  School,
+  Calendar,
+  Award,
+  Copy,
+  Check,
+  GraduationCap,
+  Briefcase,
+  Users,
+} from 'lucide-react'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/shared/utils/cn'
 import type { SuperAdminUser } from '../../types/superAdmin.types'
 
 interface UserDetailModalProps {
@@ -17,151 +41,253 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
   onToggleStatus,
   onChangeRole,
 }) => {
-  if (!isOpen || !user) return null
+  const [copiedField, setCopiedField] = useState<string | null>(null)
+
+  if (!user) return null
+
+  const handleCopy = (text: string, fieldName: string) => {
+    if (!text) return
+    navigator?.clipboard?.writeText(text)
+    setCopiedField(fieldName)
+    setTimeout(() => {
+      setCopiedField((prev) => (prev === fieldName ? null : prev))
+    }, 2000)
+  }
+
+  const isLocked = user.status === 'LOCKED'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-card w-full max-w-xl rounded-2xl shadow-xl border border-border overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-white dark:bg-card">
-          <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-k2d font-bold text-foreground">Hồ Sơ Chi Tiết Người Dùng</h3>
+    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-lg flex flex-col p-0 gap-0 text-left bg-white dark:bg-card border-l border-border shadow-2xl"
+      >
+        {/* 1. Header Drawer */}
+        <SheetHeader className="px-6 py-5 border-b border-border/80 bg-slate-50/50 dark:bg-muted/20">
+          <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
+            <Shield className="w-4 h-4" />
+            <span>Hồ sơ người dùng hệ thống</span>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+          <SheetTitle className="text-xl font-k2d font-bold text-foreground mt-1 flex items-center justify-between">
+            <span>{user.name}</span>
+          </SheetTitle>
+          <SheetDescription className="text-xs text-muted-foreground">
+            Mã định danh: <span className="font-semibold text-foreground">{user.code}</span> • ID hệ thống #{user.id}
+          </SheetDescription>
+        </SheetHeader>
 
-        {/* Body */}
-        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
-          {/* User Basic Info Header */}
-          <div className="flex items-center gap-4">
-            <img
-              src={user.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80'}
-              alt={user.name}
-              className="w-16 h-16 rounded-full object-cover border-2 border-primary/20 shadow-xs"
-            />
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h4 className="text-xl font-k2d font-bold text-foreground">{user.name}</h4>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                    user.status === 'ACTIVE'
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                      : 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300'
-                  }`}
-                >
-                  {user.status === 'ACTIVE' ? 'Đang hoạt động' : 'Đã bị khóa'}
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground mt-0.5">Mã số: <span className="font-semibold text-foreground">{user.code}</span></p>
-            </div>
-          </div>
-
-          {/* Details Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-[#F9FAFB] dark:bg-muted/20 p-4 rounded-xl border border-border/60">
-            <div className="flex items-center gap-2.5">
-              <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
-              <div className="truncate">
-                <p className="text-xs text-muted-foreground">Email</p>
-                <p className="font-medium text-foreground truncate">{user.email}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5">
-              <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
-              <div>
-                <p className="text-xs text-muted-foreground">Số điện thoại</p>
-                <p className="font-medium text-foreground">{user.phone || 'Chưa cập nhật'}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5">
-              <School className="w-4 h-4 text-muted-foreground shrink-0" />
-              <div>
-                <p className="text-xs text-muted-foreground">Đơn vị / Khoa trực thuộc</p>
-                <p className="font-medium text-foreground">{user.schoolName}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5">
-              <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-              <div>
-                <p className="text-xs text-muted-foreground">Ngày tham gia hệ thống</p>
-                <p className="font-medium text-foreground">{user.createdAt}</p>
-              </div>
-            </div>
-
-            {user.majorName && (
-              <div className="flex items-center gap-2.5 sm:col-span-2">
-                <Award className="w-4 h-4 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Chuyên ngành đào tạo</p>
-                  <p className="font-medium text-foreground">{user.majorName}</p>
-                </div>
+        {/* 2. Body Drawer (Scrollable) */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+          {/* Avatar & Profile Badge Card */}
+          <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-muted/30 border border-border/70">
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.name}
+                className="w-16 h-16 rounded-full object-cover border-2 border-primary/20 shadow-xs shrink-0"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-[#1B4B8A] text-white font-bold text-base flex items-center justify-center shrink-0 shadow-xs">
+                {user.name ? user.name.substring(0, 2).toUpperCase() : 'ND'}
               </div>
             )}
+            <div className="min-w-0 flex-1">
+              <h4 className="text-base font-bold text-foreground truncate">{user.name}</h4>
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                {/* Badge trạng thái */}
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border',
+                    user.status === 'ACTIVE'
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                      : 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border-red-200 dark:border-red-800'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'w-1.5 h-1.5 rounded-full',
+                      user.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-red-500'
+                    )}
+                  />
+                  <span>{user.status === 'ACTIVE' ? 'Đang hoạt động' : 'Đã bị khóa'}</span>
+                </span>
+
+                {/* Badge vai trò */}
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border',
+                    user.role === 'STUDENT'
+                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                      : user.role === 'STAFF'
+                      ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                      : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                  )}
+                >
+                  {user.role === 'STUDENT' ? (
+                    <GraduationCap className="w-3 h-3" />
+                  ) : user.role === 'STAFF' ? (
+                    <Briefcase className="w-3 h-3" />
+                  ) : (
+                    <Users className="w-3 h-3" />
+                  )}
+                  <span>
+                    {user.role === 'STUDENT'
+                      ? 'Sinh viên'
+                      : user.role === 'STAFF'
+                      ? 'Cán bộ'
+                      : 'Ban tổ chức'}
+                  </span>
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Role Setting */}
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground">Phân vai trò tài khoản</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['STUDENT', 'STAFF', 'ORGANIZER'] as const).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => onChangeRole(user.id, r)}
-                  className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                    user.role === r
-                      ? 'border-primary bg-primary text-white shadow-xs'
-                      : 'border-border bg-white dark:bg-card text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted'
-                  }`}
-                >
-                  {r === 'STUDENT' ? 'Sinh viên' : r === 'STAFF' ? 'Cán bộ' : 'Ban tổ chức'}
-                </button>
-              ))}
+          {/* Section: Thông tin liên hệ & định danh */}
+          <div className="space-y-3">
+            <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Thông tin liên hệ &amp; Tổ chức
+            </h5>
+            <div className="grid grid-cols-1 gap-2.5 text-xs bg-slate-50/60 dark:bg-muted/20 p-4 rounded-xl border border-border/70">
+              <div className="flex items-center justify-between py-1 border-b border-border/50">
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Mail className="w-3.5 h-3.5 text-primary" />
+                  Email trường:
+                </span>
+                <div className="flex items-center gap-1.5 font-medium text-foreground">
+                  <span>{user.email}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(user.email, 'email')}
+                    className="p-1 rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                    title="Sao chép email"
+                  >
+                    {copiedField === 'email' ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between py-1 border-b border-border/50">
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Phone className="w-3.5 h-3.5 text-primary" />
+                  Số điện thoại:
+                </span>
+                <span className="font-medium text-foreground">{user.phone || 'Chưa cập nhật'}</span>
+              </div>
+
+              <div className="flex items-center justify-between py-1 border-b border-border/50">
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <School className="w-3.5 h-3.5 text-primary" />
+                  Đơn vị / Khoa:
+                </span>
+                <span className="font-medium text-foreground text-right">{user.schoolName || 'Trường ĐH Cần Thơ'}</span>
+              </div>
+
+              {user.majorName && (
+                <div className="flex items-center justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <Award className="w-3.5 h-3.5 text-primary" />
+                    Chuyên ngành:
+                  </span>
+                  <span className="font-medium text-foreground text-right">{user.majorName}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between py-1">
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Calendar className="w-3.5 h-3.5 text-primary" />
+                  Ngày tham gia:
+                </span>
+                <span className="font-medium text-foreground">{user.createdAt || '11/11/2026'}</span>
+              </div>
             </div>
+          </div>
+
+          {/* Section: Phân quyền vai trò tài khoản */}
+          <div className="space-y-2.5">
+            <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Phân quyền vai trò hệ thống
+            </h5>
+            <div className="grid grid-cols-3 gap-2">
+              {(['STUDENT', 'STAFF', 'ORGANIZER'] as const).map((r) => {
+                const isCurrent = user.role === r
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => onChangeRole(user.id, r)}
+                    className={cn(
+                      'py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex flex-col items-center gap-1',
+                      isCurrent
+                        ? 'border-primary bg-primary text-white shadow-xs'
+                        : 'border-border bg-white dark:bg-card text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted'
+                    )}
+                  >
+                    {r === 'STUDENT' ? (
+                      <GraduationCap className="w-4 h-4" />
+                    ) : r === 'STAFF' ? (
+                      <Briefcase className="w-4 h-4" />
+                    ) : (
+                      <Users className="w-4 h-4" />
+                    )}
+                    <span>
+                      {r === 'STUDENT'
+                        ? 'Sinh viên'
+                        : r === 'STAFF'
+                        ? 'Cán bộ'
+                        : 'Ban tổ chức'}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Thay đổi vai trò sẽ cập nhật quyền truy cập chức năng của người dùng ngay lập tức.
+            </p>
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-white dark:bg-card">
-          <button
+        {/* 3. Footer Actions */}
+        <SheetFooter className="px-6 py-4 border-t border-border/80 bg-slate-50/50 dark:bg-muted/20 flex flex-row items-center justify-between gap-3">
+          <Button
             type="button"
+            variant="outline"
             onClick={() => onToggleStatus(user.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-              user.status === 'ACTIVE'
-                ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
-                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
-            }`}
+            className={cn(
+              'gap-2 text-xs font-semibold cursor-pointer',
+              isLocked
+                ? 'border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                : 'border-red-300 text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40'
+            )}
           >
-            {user.status === 'ACTIVE' ? (
+            {isLocked ? (
               <>
-                <Lock className="w-4 h-4" />
-                Khóa tài khoản này
+                <Unlock className="w-3.5 h-3.5" />
+                <span>Mở khóa tài khoản</span>
               </>
             ) : (
               <>
-                <Unlock className="w-4 h-4" />
-                Mở khóa tài khoản
+                <Lock className="w-3.5 h-3.5" />
+                <span>Khóa tài khoản này</span>
               </>
             )}
-          </button>
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-card border border-border text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted cursor-pointer transition-colors"
+            className="text-xs cursor-pointer"
           >
             Đóng
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }
