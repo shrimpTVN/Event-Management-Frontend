@@ -48,5 +48,42 @@ describe('sv5tTreeBuilder', () => {
     // 101 is done, but 102 & 103 are not done yet, so Standard 1 (requires 3) is still incomplete
     expect(daoDucTot.isCompleted).toBe(false)
   })
+
+  it('correctly sets criteria to uncompleted (Chưa đạt) when localCompleted is false', () => {
+    // API previously had criteria 101 as completed
+    const apiResponse = {
+      academicYearId: 1,
+      academicYear: '2026 - 2027',
+      completedLeafCriteria: 1,
+      totalLeafCriteria: 10,
+      completedMainCriteria: 0,
+      totalMainCriteria: 5,
+      criteria: [
+        {
+          criteriaId: 10,
+          name: 'Tiêu chuẩn 1',
+          level: 1,
+          isCompleted: false,
+          children: [
+            {
+              criteriaId: 101,
+              name: 'Điểm rèn luyện',
+              level: 2,
+              isCompleted: true,
+              completionSource: 'MANUAL',
+              children: [],
+            },
+          ],
+        },
+      ],
+    }
+
+    // User marks 101 as Chưa đạt (false)
+    const standards = ensureSv5tHierarchy(apiResponse as any, { 101: false })
+    const criteria101 = standards[0].children[0]
+
+    expect(criteria101.isCompleted).toBe(false)
+    expect(criteria101.isSelfEvaluated).toBe(false)
+  })
 })
 

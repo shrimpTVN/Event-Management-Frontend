@@ -80,19 +80,34 @@ export const sv5tService = {
 
   /**
    * Cập nhật trạng thái tự đánh giá và minh chứng tiêu chí con của sinh viên
-   * Backend endpoint: POST /criteria-transactions/me
+   * Backend endpoint: POST /criteria-transactions/me hoặc DELETE /criteria-transactions/me/{id}
    */
   async toggleManualCriteriaProgress(
     criteriaId: number,
     payload: ManualCriteriaProgressRequest
   ): Promise<void> {
     const targetYearId = payload.academicYearId && payload.academicYearId > 0 ? payload.academicYearId : 2
+
+    // Khi sinh viên chọn "Chưa đạt", cần xóa các bản ghi manual transaction đã lưu
+    // Backend sẽ tự động gọi markUncompleted để hạ trạng thái tiêu chuẩn
+    if (!payload.completed) {
+      try {
+        const existingTxs = await this.getCriteriaTransactions(criteriaId, targetYearId)
+        const manualTxs = existingTxs.filter((t: any) => t.completionSource === 'MANUAL')
+        if (manualTxs.length > 0) {
+          await Promise.all(manualTxs.map((t: any) => this.deleteCriteriaTransaction(t.id)))
+        }
+      } catch (err) {
+        console.warn('Lỗi khi hạ trạng thái tiêu chí về chưa đạt:', err)
+      }
+      return
+    }
+
     const resolvedNote =
       payload.note && payload.note.trim().length > 0
         ? payload.note.trim()
-        : payload.completed
-        ? 'Sinh viên tự đánh giá đạt tiêu chuẩn'
-        : 'Sinh viên tự đánh giá chưa đạt'
+        : 'Sinh viên tự đánh giá đạt tiêu chuẩn'
+
     await apiClient.post(`/criteria-transactions/me`, {
       academicYearId: targetYearId,
       criteriaId,

@@ -37,3 +37,4 @@ describe('trainingPointsService', () => {
     expect(apiClient.post).toHaveBeenCalledWith('/point-transactions/me', payload)
   })
 })
+

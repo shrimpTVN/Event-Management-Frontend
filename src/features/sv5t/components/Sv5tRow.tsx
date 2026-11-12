@@ -94,7 +94,7 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
               title="Nhấp để tự đánh giá tiêu chuẩn và bổ sung minh chứng"
               className="cursor-pointer transition-transform hover:scale-105 active:scale-95"
             >
-              {node.isCompleted || node.isSelfEvaluated ? (
+              {node.isCompleted ? (
                 <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#EFF5FC] dark:bg-primary/20 text-[#1B4B8A] dark:text-primary border border-[#BDD7F0] dark:border-primary/40 block">
                   Đạt
                 </span>

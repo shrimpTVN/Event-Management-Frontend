@@ -314,16 +314,6 @@ export function ensureSv5tHierarchy(
       const manualTx = matchingTxs.find((t) => t.completionSource === 'MANUAL')
 
       const isSystemRecorded = Boolean(systemTx)
-      const isSelfEvaluated =
-        Boolean(manualTx) ||
-        Boolean(localCompletedMap?.[node.criteriaId]) ||
-        (node.isCompleted && !isSystemRecorded)
-
-      const completionSource = systemTx
-        ? (systemTx.completionSource as any)
-        : manualTx
-          ? 'MANUAL'
-          : node.completionSource ?? null
 
       if (localCompletedMap && Object.prototype.hasOwnProperty.call(localCompletedMap, node.criteriaId)) {
         isCompleted = Boolean(localCompletedMap[node.criteriaId])
@@ -335,6 +325,16 @@ export function ensureSv5tHierarchy(
         const req = node.requiredChildren ?? updatedChildren.length
         isCompleted = doneCount >= req
       }
+
+      const isSelfEvaluated = isCompleted && !isSystemRecorded
+
+      const completionSource = isCompleted
+        ? systemTx
+          ? (systemTx.completionSource as any)
+          : manualTx
+            ? 'MANUAL'
+            : node.completionSource ?? 'MANUAL'
+        : null
 
       const completedChildren = updatedChildren.filter((c) => c.isCompleted).length
 

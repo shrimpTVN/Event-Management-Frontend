@@ -90,15 +90,17 @@ export const Sv5tDetailModal: React.FC<Sv5tDetailModalProps> = ({
 
   const manualTx = sortedTxs.find((t) => t.completionSource === 'MANUAL')
 
+  const isPassed = Boolean(node.isCompleted)
+
   const isSelfEvaluated =
-    node.completionSource === 'MANUAL' ||
-    Boolean(manualTx) ||
-    Boolean(node.selfEvaluationNote) ||
-    Boolean(node.note && !isSystemRecorded) ||
-    (node.isCompleted && !isSystemRecorded)
+    isPassed &&
+    !isSystemRecorded &&
+    (node.completionSource === 'MANUAL' ||
+      Boolean(manualTx) ||
+      Boolean(node.selfEvaluationNote) ||
+      Boolean(node.isSelfEvaluated))
 
   const isParent = Boolean(node.children && node.children.length > 0)
-  const isPassed = Boolean(node.isCompleted)
 
   const handleDeleteManualTx = async () => {
     if (!manualTx?.id || !onDeleteManualTransaction) return

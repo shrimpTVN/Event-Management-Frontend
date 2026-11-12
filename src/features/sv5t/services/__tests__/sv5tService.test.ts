@@ -38,4 +38,22 @@ describe('sv5tService', () => {
       note: 'Đạt giải NCKH',
     })
   })
+
+  it('deletes manual transactions when student sets completed: false to uncomplete criterion', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue([
+      { id: 101, criteriaId: 12, completionSource: 'MANUAL' },
+      { id: 102, criteriaId: 12, completionSource: 'EVENT_CHECKOUT' },
+    ])
+    vi.mocked(apiClient.delete).mockResolvedValue({})
+
+    await sv5tService.toggleManualCriteriaProgress(12, {
+      academicYearId: 2,
+      completed: false,
+    })
+
+    expect(apiClient.get).toHaveBeenCalledWith('/criteria-transactions/me/criterias/12/academic-years/2')
+    expect(apiClient.delete).toHaveBeenCalledWith('/criteria-transactions/me/101')
+    expect(apiClient.delete).not.toHaveBeenCalledWith('/criteria-transactions/me/102')
+  })
 })
+
