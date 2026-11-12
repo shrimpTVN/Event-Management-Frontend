@@ -42,7 +42,11 @@ export const Sv5tSelfEvaluationModal: React.FC<Sv5tSelfEvaluationModalProps> = (
           s === 'tự đánh giá'
         )
       }
-      setNote(isGeneric(currentNote) ? '' : currentNote || '')
+      if (!initialCompleted) {
+        setNote('')
+      } else {
+        setNote(isGeneric(currentNote) ? '' : currentNote || '')
+      }
       setError(null)
     }
   }, [isOpen, initialCompleted, currentNote])
@@ -54,7 +58,8 @@ export const Sv5tSelfEvaluationModal: React.FC<Sv5tSelfEvaluationModalProps> = (
     setIsSubmitting(true)
     setError(null)
     try {
-      await onSave(completed, note.trim())
+      const finalNote = completed ? note.trim() : ''
+      await onSave(completed, finalNote)
       onClose()
     } catch {
       setError('Có lỗi xảy ra khi lưu đánh giá. Vui lòng thử lại.')
@@ -137,7 +142,10 @@ export const Sv5tSelfEvaluationModal: React.FC<Sv5tSelfEvaluationModalProps> = (
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCompleted(false)}
+                  onClick={() => {
+                    setCompleted(false)
+                    setNote('')
+                  }}
                   disabled={isSubmitting || isDeleting}
                   className={`flex items-center justify-center gap-2 p-2.5 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
                     !completed
@@ -160,9 +168,13 @@ export const Sv5tSelfEvaluationModal: React.FC<Sv5tSelfEvaluationModalProps> = (
                 rows={3}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                disabled={isSubmitting || isDeleting}
-                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs resize-none"
-                placeholder="Nhập ghi chú, lý do tự đánh giá hoặc dẫn link minh chứng (VD: Điểm TB 3.5, link chứng chỉ, giải thưởng đạt được...)"
+                disabled={!completed || isSubmitting || isDeleting}
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+                placeholder={
+                  !completed
+                    ? 'Tiêu chí đang ở trạng thái Chưa đạt (không có minh chứng).'
+                    : 'Nhập ghi chú, lý do tự đánh giá hoặc dẫn link minh chứng (VD: Điểm TB 3.5, link chứng chỉ, giải thưởng đạt được...)'
+                }
               />
             </div>
           </div>

@@ -299,7 +299,7 @@ export function ensureSv5tHierarchy(
     function applyLocalUpdates(node: CriteriaProgressNode): CriteriaProgressNode {
       const updatedChildren = node.children ? node.children.map(applyLocalUpdates) : []
       let isCompleted = node.isCompleted
-      let note = node.note
+      const guideNote = node.note // Giữ nguyên hướng dẫn / quy chế chính thức của tiêu chuẩn
 
       const matchingTxs = transactions
         .filter((t) => Number(t.criteriaId) === node.criteriaId)
@@ -317,9 +317,6 @@ export function ensureSv5tHierarchy(
 
       if (localCompletedMap && Object.prototype.hasOwnProperty.call(localCompletedMap, node.criteriaId)) {
         isCompleted = Boolean(localCompletedMap[node.criteriaId])
-        if (localNoteMap?.[node.criteriaId]) {
-          note = localNoteMap[node.criteriaId]
-        }
       } else if (updatedChildren.length > 0) {
         const doneCount = updatedChildren.filter((c) => c.isCompleted).length
         const req = node.requiredChildren ?? updatedChildren.length
@@ -338,17 +335,26 @@ export function ensureSv5tHierarchy(
 
       const completedChildren = updatedChildren.filter((c) => c.isCompleted).length
 
+      // Nội dung tự đánh giá chỉ tồn tại khi tiêu chuẩn đạt (isCompleted). Khi chưa đạt thì xóa sạch.
+      const customNote = isCompleted
+        ? (localNoteMap?.[node.criteriaId] && !isGenericText(localNoteMap[node.criteriaId])
+            ? localNoteMap[node.criteriaId]
+            : manualTx?.note && !isGenericText(manualTx.note)
+              ? manualTx.note
+              : null)
+        : null
+
       return {
         ...node,
         isCompleted,
-        note,
+        note: guideNote,
         completedChildren,
         totalChildren: updatedChildren.length,
         completionSource,
         isSystemRecorded,
         isSelfEvaluated,
         systemEventName: systemTx?.eventName || null,
-        selfEvaluationNote: manualTx?.note || localNoteMap?.[node.criteriaId] || null,
+        selfEvaluationNote: customNote,
         children: updatedChildren,
       }
     }
@@ -427,11 +433,11 @@ export function ensureSv5tHierarchy(
           const compInfo = completedMap.get(sub.criteriaId)
           const isCompleted = Boolean(compInfo)
           const customNote = compInfo?.note && !isGenericText(compInfo.note) ? compInfo.note : null
-          const resolvedNote = customNote || sub.note || SV5T_CRITERIA_GUIDES[sub.criteriaId] || null
+          const guideNote = sub.note || SV5T_CRITERIA_GUIDES[sub.criteriaId] || null
           return {
             criteriaId: sub.criteriaId,
             name: sub.name,
-            note: resolvedNote,
+            note: guideNote,
             scope: 'UNIVERSITY',
             level: 3,
             childrenOrder: sIdx + 1,
@@ -444,7 +450,7 @@ export function ensureSv5tHierarchy(
             isSystemRecorded: compInfo?.isSystemRecorded,
             isSelfEvaluated: isCompleted && !compInfo?.isSystemRecorded,
             systemEventName: compInfo?.eventName || null,
-            selfEvaluationNote: customNote || null,
+            selfEvaluationNote: isCompleted ? (customNote || null) : null,
             children: [],
           }
         })
@@ -473,11 +479,11 @@ export function ensureSv5tHierarchy(
       const compInfo = completedMap.get(child.criteriaId)
       const isCompleted = Boolean(compInfo)
       const customNote = compInfo?.note && !isGenericText(compInfo.note) ? compInfo.note : null
-      const resolvedNote = customNote || child.note || SV5T_CRITERIA_GUIDES[child.criteriaId] || null
+      const guideNote = child.note || SV5T_CRITERIA_GUIDES[child.criteriaId] || null
       return {
         criteriaId: child.criteriaId,
         name: child.name,
-        note: resolvedNote,
+        note: guideNote,
         scope: 'UNIVERSITY',
         level: 2,
         childrenOrder: chIdx + 1,
@@ -490,7 +496,7 @@ export function ensureSv5tHierarchy(
         isSystemRecorded: compInfo?.isSystemRecorded,
         isSelfEvaluated: isCompleted && !compInfo?.isSystemRecorded,
         systemEventName: compInfo?.eventName || null,
-        selfEvaluationNote: customNote || null,
+        selfEvaluationNote: isCompleted ? (customNote || null) : null,
         children: [],
       }
     })

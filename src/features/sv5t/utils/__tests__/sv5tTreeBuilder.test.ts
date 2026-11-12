@@ -37,19 +37,24 @@ describe('sv5tTreeBuilder', () => {
     })
   })
 
-  it('correctly applies local optimistic updates', () => {
+  it('correctly applies local optimistic updates and keeps note as official guide rather than student self evaluation note', () => {
     const localCompleted = { 101: true }
-    const localNotes = { 101: 'Tự đánh giá đạt 90 điểm rèn luyện' }
+    const localNotes = { 101: 'abc' } // Student self evaluation note
 
     const standards = ensureSv5tHierarchy(undefined, localCompleted, localNotes)
     const daoDucTot = standards[0]
+    const tc101 = daoDucTot.children[0]
 
     expect(daoDucTot.completedChildren).toBe(1)
-    // 101 is done, but 102 & 103 are not done yet, so Standard 1 (requires 3) is still incomplete
     expect(daoDucTot.isCompleted).toBe(false)
+
+    // Student self evaluation note must be in selfEvaluationNote, NOT overwriting node.note (official guide)
+    expect(tc101.selfEvaluationNote).toBe('abc')
+    expect(tc101.note).toBe('SV năm nhất chỉ xét HK1 và HK2')
+    expect(tc101.note).not.toBe('abc')
   })
 
-  it('correctly sets criteria to uncompleted (Chưa đạt) when localCompleted is false', () => {
+  it('correctly sets criteria to uncompleted (Chưa đạt) and clears selfEvaluationNote when localCompleted is false', () => {
     // API previously had criteria 101 as completed
     const apiResponse = {
       academicYearId: 1,
@@ -68,9 +73,11 @@ describe('sv5tTreeBuilder', () => {
             {
               criteriaId: 101,
               name: 'Điểm rèn luyện',
+              note: 'SV năm nhất chỉ xét HK1 và HK2',
               level: 2,
               isCompleted: true,
               completionSource: 'MANUAL',
+              selfEvaluationNote: 'abc',
               children: [],
             },
           ],
@@ -84,6 +91,7 @@ describe('sv5tTreeBuilder', () => {
 
     expect(criteria101.isCompleted).toBe(false)
     expect(criteria101.isSelfEvaluated).toBe(false)
+    expect(criteria101.selfEvaluationNote).toBeNull()
+    expect(criteria101.note).toBe('SV năm nhất chỉ xét HK1 và HK2')
   })
 })
-

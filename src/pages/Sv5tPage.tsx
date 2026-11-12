@@ -96,11 +96,20 @@ export const Sv5tPage: React.FC = () => {
   })
 
   const handleSaveProgress = async (criteriaId: number, completed: boolean, note: string) => {
+    const finalNote = completed ? note : ''
     // Optimistically update UI
     setLocalCompletedMap((prev) => ({ ...prev, [criteriaId]: completed }))
-    setLocalNoteMap((prev) => ({ ...prev, [criteriaId]: note }))
+    setLocalNoteMap((prev) => {
+      const next = { ...prev }
+      if (completed && finalNote) {
+        next[criteriaId] = finalNote
+      } else {
+        delete next[criteriaId]
+      }
+      return next
+    })
     try {
-      await progressMutation.mutateAsync({ criteriaId, completed, note })
+      await progressMutation.mutateAsync({ criteriaId, completed, note: finalNote })
     } catch (err) {
       console.warn('API sync warning:', err)
     }

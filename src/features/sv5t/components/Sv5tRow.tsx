@@ -87,7 +87,7 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
             <button
               type="button"
               onClick={() => {
-                setSelfModalInitialNote(node.selfEvaluationNote || '')
+                setSelfModalInitialNote(node.isCompleted ? (node.selfEvaluationNote || '') : '')
                 setSelfModalInitialCompleted(node.isCompleted)
                 setIsSelfModalOpen(true)
               }}
@@ -131,10 +131,11 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
           criterionName={node.name}
           criteriaCode={criteriaCode}
           isCompleted={selfModalInitialCompleted !== null ? selfModalInitialCompleted : node.isCompleted}
-          currentNote={selfModalInitialNote !== null ? selfModalInitialNote : (node.selfEvaluationNote || '')}
+          currentNote={selfModalInitialNote !== null ? selfModalInitialNote : (node.isCompleted ? (node.selfEvaluationNote || '') : '')}
           onSave={async (completed, note) => {
-            await onSaveProgress(node.criteriaId, completed, note)
-            setSelfModalInitialNote(note)
+            const finalNote = completed ? note : ''
+            await onSaveProgress(node.criteriaId, completed, finalNote)
+            setSelfModalInitialNote(finalNote)
             setSelfModalInitialCompleted(completed)
           }}
           onDelete={
@@ -160,8 +161,9 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
           onOpenSelfEvaluation={
             isLeaf
               ? (currentNote?: string, isCompleted?: boolean, transactionId?: number) => {
-                  setSelfModalInitialNote(currentNote ?? node.selfEvaluationNote ?? '')
-                  setSelfModalInitialCompleted(isCompleted ?? node.isCompleted)
+                  const resolvedCompleted = isCompleted ?? node.isCompleted
+                  setSelfModalInitialNote(resolvedCompleted ? (currentNote ?? node.selfEvaluationNote ?? '') : '')
+                  setSelfModalInitialCompleted(resolvedCompleted)
                   setSelfModalTransactionId(transactionId ?? null)
                   setIsDetailModalOpen(false)
                   setIsSelfModalOpen(true)
