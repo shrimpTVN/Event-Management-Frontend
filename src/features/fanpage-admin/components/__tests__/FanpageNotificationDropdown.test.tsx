@@ -1,142 +1,134 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { FanpageNotificationDropdown } from '../FanpageNotificationDropdown'
-import { notificationService } from '@/features/notifications'
+import * as notificationsModule from '@/features/notifications'
 
 vi.mock('@/features/notifications', async () => {
   const actual = await vi.importActual('@/features/notifications')
   return {
     ...actual,
-    notificationService: {
-      getFanpageNotifications: vi.fn(),
-      getFanpageUnreadCount: vi.fn(),
-      markAsReadByFanpage: vi.fn(),
-      markAllAsReadByFanpage: vi.fn(),
-      deleteFanpageNotification: vi.fn(),
-    },
+    useFanpageUnreadNotificationCount: vi.fn(),
+    useFanpageNotifications: vi.fn(),
+    useFanpageNotificationActions: vi.fn(),
   }
 })
 
 describe('FanpageNotificationDropdown', () => {
-  let queryClient: QueryClient
+  const mockMarkAsRead = vi.fn()
+  const mockMarkAllAsRead = vi.fn()
 
   beforeEach(() => {
-    queryClient = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-      },
-    })
     vi.clearAllMocks()
+    vi.mocked(notificationsModule.useFanpageNotificationActions).mockReturnValue({
+      markAsRead: mockMarkAsRead,
+      markAllAsRead: mockMarkAllAsRead,
+      deleteNotification: vi.fn(),
+      isMarkingAllAsRead: false,
+    })
   })
 
   it('renders nothing when isOpen is false', () => {
+    vi.mocked(notificationsModule.useFanpageUnreadNotificationCount).mockReturnValue({
+      data: 0,
+    } as any)
+    vi.mocked(notificationsModule.useFanpageNotifications).mockReturnValue({
+      data: { content: [] },
+    } as any)
+
     const { container } = render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
-          <FanpageNotificationDropdown
-            isOpen={false}
-            onClose={vi.fn()}
-            fanpageId="1"
-            fanpageName="CLB Tin Học"
-          />
-        </MemoryRouter>
-      </QueryClientProvider>
+      <MemoryRouter>
+        <FanpageNotificationDropdown
+          isOpen={false}
+          onClose={vi.fn()}
+          fanpageId="1"
+          fanpageName="CLB Tin Học"
+        />
+      </MemoryRouter>
     )
 
     expect(container.firstChild).toBeNull()
   })
 
-  it('renders dropdown with fanpage title, tabs, and notifications', async () => {
-    vi.mocked(notificationService.getFanpageUnreadCount).mockResolvedValue(2)
-    vi.mocked(notificationService.getFanpageNotifications).mockResolvedValue({
-      content: [
-        {
-          id: 1,
-          title: 'Đăng ký tham gia',
-          message: 'Nguyễn Văn A muốn tham gia fanpage',
-          status: 'UNREAD',
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: 2,
-          title: 'Duyệt bài viết',
-          message: 'Bài viết sự kiện đã được phê duyệt',
-          status: 'READ',
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      totalElements: 2,
-      totalPages: 1,
-      size: 20,
-      number: 0,
-      last: true,
-      first: true,
-      empty: false,
-    })
+  it('renders dropdown with fanpage title, tabs, and notifications', () => {
+    vi.mocked(notificationsModule.useFanpageUnreadNotificationCount).mockReturnValue({
+      data: 2,
+    } as any)
+    vi.mocked(notificationsModule.useFanpageNotifications).mockReturnValue({
+      data: {
+        content: [
+          {
+            id: 1,
+            title: 'Đăng ký tham gia',
+            message: 'Nguyễn Văn A muốn tham gia fanpage',
+            status: 'UNREAD',
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 2,
+            title: 'Duyệt bài viết',
+            message: 'Bài viết sự kiện đã được phê duyệt',
+            status: 'READ',
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      },
+    } as any)
 
     render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
-          <FanpageNotificationDropdown
-            isOpen={true}
-            onClose={vi.fn()}
-            fanpageId="1"
-            fanpageName="CLB Tin Học"
-          />
-        </MemoryRouter>
-      </QueryClientProvider>
+      <MemoryRouter>
+        <FanpageNotificationDropdown
+          isOpen={true}
+          onClose={vi.fn()}
+          fanpageId="1"
+          fanpageName="CLB Tin Học"
+        />
+      </MemoryRouter>
     )
 
     // Check title
-    expect(await screen.findByText('Thông báo Fanpage')).toBeDefined()
+    expect(screen.getByText('Thông báo Fanpage')).toBeDefined()
     // Check tabs
     expect(screen.getByRole('button', { name: 'Tất cả' })).toBeDefined()
     expect(screen.getByText('Chưa đọc')).toBeDefined()
 
     // Check notification content
-    expect(await screen.findByText('Đăng ký tham gia')).toBeDefined()
-    expect(await screen.findByText('Duyệt bài viết')).toBeDefined()
+    expect(screen.getByText('Đăng ký tham gia')).toBeDefined()
+    expect(screen.getByText('Duyệt bài viết')).toBeDefined()
   })
 
-  it('filters unread notifications when clicking "Chưa đọc" tab', async () => {
-    vi.mocked(notificationService.getFanpageUnreadCount).mockResolvedValue(1)
-    vi.mocked(notificationService.getFanpageNotifications).mockResolvedValue({
-      content: [
-        {
-          id: 1,
-          title: 'Đăng ký tham gia',
-          message: 'Nguyễn Văn A muốn tham gia fanpage',
-          status: 'UNREAD',
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      totalElements: 1,
-      totalPages: 1,
-      size: 20,
-      number: 0,
-      last: true,
-      first: true,
-      empty: false,
-    })
+  it('calls markAllAsRead when clicking "Đã đọc tất cả"', () => {
+    vi.mocked(notificationsModule.useFanpageUnreadNotificationCount).mockReturnValue({
+      data: 2,
+    } as any)
+    vi.mocked(notificationsModule.useFanpageNotifications).mockReturnValue({
+      data: {
+        content: [
+          {
+            id: 1,
+            title: 'Đăng ký tham gia',
+            message: 'Nguyễn Văn A muốn tham gia fanpage',
+            status: 'UNREAD',
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      },
+    } as any)
 
     render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
-          <FanpageNotificationDropdown
-            isOpen={true}
-            onClose={vi.fn()}
-            fanpageId="1"
-            fanpageName="CLB Tin Học"
-          />
-        </MemoryRouter>
-      </QueryClientProvider>
+      <MemoryRouter>
+        <FanpageNotificationDropdown
+          isOpen={true}
+          onClose={vi.fn()}
+          fanpageId="1"
+          fanpageName="CLB Tin Học"
+        />
+      </MemoryRouter>
     )
 
-    const unreadTab = await screen.findByText('Chưa đọc')
-    fireEvent.click(unreadTab)
+    const markAllBtn = screen.getByTitle('Đánh dấu tất cả là đã đọc')
+    fireEvent.click(markAllBtn)
 
-    expect(await screen.findByText('Đăng ký tham gia')).toBeDefined()
+    expect(mockMarkAllAsRead).toHaveBeenCalled()
   })
 })
