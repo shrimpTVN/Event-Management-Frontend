@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/shared/utils/cn'
@@ -156,8 +157,44 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
   // Popover menus state
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false)
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null)
+  const [activeMenuMember, setActiveMenuMember] = useState<FanpageMember | null>(null)
+  const [actionMenuPosition, setActionMenuPosition] = useState<{
+    top?: number
+    bottom?: number
+    right: number
+  } | null>(null)
   const headerMenuRef = useRef<HTMLDivElement>(null)
   const actionMenuRef = useRef<HTMLDivElement>(null)
+  const actionMenuTriggerRef = useRef<HTMLElement | null>(null)
+
+  const handleCloseActionMenu = () => {
+    setOpenActionMenuId(null)
+    setActiveMenuMember(null)
+    setActionMenuPosition(null)
+    actionMenuTriggerRef.current = null
+  }
+
+  const handleToggleActionMenu = (mem: FanpageMember, triggerEl: HTMLElement) => {
+    if (openActionMenuId === mem.id) {
+      handleCloseActionMenu()
+      return
+    }
+
+    const rect = triggerEl.getBoundingClientRect()
+    const menuEstimatedHeight = 240
+    const spaceBelow = window.innerHeight - rect.bottom
+    const openUpward = spaceBelow < menuEstimatedHeight && rect.top > menuEstimatedHeight
+
+    actionMenuTriggerRef.current = triggerEl
+    setActiveMenuMember(mem)
+    setOpenActionMenuId(mem.id)
+
+    setActionMenuPosition({
+      top: openUpward ? undefined : rect.bottom + 6,
+      bottom: openUpward ? window.innerHeight - rect.top + 6 : undefined,
+      right: Math.max(12, window.innerWidth - rect.right),
+    })
+  }
 
   // System users for email autocomplete
   const [inviteEmail, setInviteEmail] = useState('')
@@ -224,9 +261,10 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       }
       if (
         actionMenuRef.current &&
-        !actionMenuRef.current.contains(event.target as Node)
+        !actionMenuRef.current.contains(event.target as Node) &&
+        (!actionMenuTriggerRef.current || !actionMenuTriggerRef.current.contains(event.target as Node))
       ) {
-        setOpenActionMenuId(null)
+        handleCloseActionMenu()
       }
       if (
         emailInputContainerRef.current &&
@@ -243,6 +281,27 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       document.removeEventListener('touchstart', handlePointerDown)
     }
   }, [])
+
+  // Đóng action menu khi cuộn trang, đổi kích thước màn hình hoặc ấn phím Escape
+  useEffect(() => {
+    if (!openActionMenuId) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleCloseActionMenu()
+      }
+    }
+
+    window.addEventListener('scroll', handleCloseActionMenu, true)
+    window.addEventListener('resize', handleCloseActionMenu)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('scroll', handleCloseActionMenu, true)
+      window.removeEventListener('resize', handleCloseActionMenu)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [openActionMenuId])
 
   // Current logged in user detection
   const currentUser =
@@ -747,7 +806,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
           </div>
 
           {/* 3. Vùng chứa các Card thành viên bo tròn, cách nhau */}
-          <div className="p-3 sm:p-4 bg-[#F9FAFB]/60 dark:bg-background/40 overflow-x-auto rounded-xl min-h-[420px] pb-52">
+          <div className="p-3 sm:p-4 bg-[#F9FAFB]/60 dark:bg-background/40 overflow-x-auto rounded-xl min-h-[420px] pb-6">
             <div className="min-w-[760px]">
               {/* Tab 1: Thành viên */}
               {activeTab === 'MEMBERS' && (
@@ -944,11 +1003,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                                   <div className="inline-block relative">
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        setOpenActionMenuId(
-                                          openActionMenuId === mem.id ? null : mem.id
-                                        )
-                                      }
+                                      onClick={(e) => handleToggleActionMenu(mem, e.currentTarget)}
                                       className={`h-8 w-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
                                         openActionMenuId === mem.id
                                           ? 'bg-[#F3F4F6] dark:bg-muted text-foreground'
@@ -958,171 +1013,6 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                                     >
                                       <MoreHorizontal className="h-4 w-4" />
                                     </button>
-
-                                    {/* Menu "⋯" mở thả xuống dưới nút thao tác */}
-                                    {openActionMenuId === mem.id && (
-                                      <div
-                                        ref={actionMenuRef}
-                                        className="absolute right-0 top-full mt-1.5 w-60 rounded-xl border border-border bg-card p-1.5 shadow-2xl z-50 text-left animate-in fade-in-0 zoom-in-95 select-none"
-                                      >
-                                        {/* 1. Nếu là chính bản thân người dùng (isSelf) */}
-                                        {isSelf && (
-                                          <>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setOpenActionMenuId(null)
-                                                setViewingMember(mem)
-                                              }}
-                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                                            >
-                                              <Eye className="h-3.5 w-3.5 text-[#6B7280] shrink-0" />
-                                              <span>Xem thông tin của bạn</span>
-                                            </button>
-
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setOpenActionMenuId(null)
-                                                handleCopyEmail(mem.email || loggedInUser?.email || '', mem.id)
-                                              }}
-                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                                            >
-                                              <Copy className="h-3.5 w-3.5 text-[#6B7280] shrink-0" />
-                                              <span>Sao chép email của bạn</span>
-                                            </button>
-
-                                            <div className="h-px bg-[#F1F3F5] dark:bg-border/60 my-1" />
-
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setOpenActionMenuId(null)
-                                                handleOpenLeaveModal()
-                                              }}
-                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[#DC2626] hover:bg-[#FEE2E2]/50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
-                                            >
-                                              <LogOut className="h-3.5 w-3.5 text-[#DC2626] shrink-0" />
-                                              <span>Rời khỏi ban tổ chức</span>
-                                            </button>
-                                          </>
-                                        )}
-
-                                        {/* 2. Nếu là thành viên khác và người dùng là Admin */}
-                                        {!isSelf && isCurrentUserAdmin && (
-                                          <>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setOpenActionMenuId(null)
-                                                setTransferTarget(mem)
-                                              }}
-                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                                            >
-                                              <Crown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                              <span className="whitespace-nowrap">Chuyển quyền chủ nhiệm</span>
-                                            </button>
-
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setOpenActionMenuId(null)
-                                                handleToggleActive(mem.id)
-                                              }}
-                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                                            >
-                                              {mem.isActive !== false ? (
-                                                <>
-                                                  <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                                  <span className="whitespace-nowrap">Khóa thành viên</span>
-                                                </>
-                                              ) : (
-                                                <>
-                                                  <Unlock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                                  <span className="whitespace-nowrap">Mở khóa thành viên</span>
-                                                </>
-                                              )}
-                                            </button>
-
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setOpenActionMenuId(null)
-                                                setViewingMember(mem)
-                                              }}
-                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                                            >
-                                              <Eye className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                              <span className="whitespace-nowrap">Xem thông tin liên hệ</span>
-                                            </button>
-
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setOpenActionMenuId(null)
-                                                handleCopyEmail(mem.email || '', mem.id)
-                                              }}
-                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                                            >
-                                              <Copy className="h-3.5 w-3.5 text-[#6B7280] shrink-0" />
-                                              <span>Sao chép email</span>
-                                            </button>
-
-                                            <div className="h-px bg-[#F1F3F5] dark:bg-border/60 my-1" />
-
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setOpenActionMenuId(null)
-                                                handleDeleteMember(mem)
-                                              }}
-                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-[#DC2626] hover:bg-[#FEE2E2]/50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
-                                            >
-                                              <Trash2 className="h-3.5 w-3.5 text-[#DC2626] shrink-0" />
-                                              <span>Xóa khỏi ban tổ chức</span>
-                                            </button>
-                                          </>
-                                        )}
-
-                                        {/* 3. Nếu là thành viên khác và người dùng là Cộng tác viên (Sinh viên) */}
-                                        {!isSelf && !isCurrentUserAdmin && (
-                                          <>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setOpenActionMenuId(null)
-                                                setViewingMember(mem)
-                                              }}
-                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                                            >
-                                              <Eye className="h-3.5 w-3.5 text-[#6B7280] shrink-0" />
-                                              <span>Xem thông tin liên hệ</span>
-                                            </button>
-
-                                            <a
-                                              href={`mailto:${mem.email || ''}`}
-                                              onClick={() => setOpenActionMenuId(null)}
-                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                                            >
-                                              <Mail className="h-3.5 w-3.5 text-[#6B7280] shrink-0" />
-                                              <span>Gửi email liên hệ</span>
-                                            </a>
-
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setOpenActionMenuId(null)
-                                                handleCopyEmail(mem.email || '', mem.id)
-                                              }}
-                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                                            >
-                                              <Copy className="h-3.5 w-3.5 text-[#6B7280] shrink-0" />
-                                              <span>Sao chép email</span>
-                                            </button>
-                                          </>
-                                        )}
-                                      </div>
-                                    )}
                                   </div>
                                 </div>
                               )}
@@ -1631,6 +1521,189 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* 5. Action Menu Portal nổi trên toàn bộ bảng và trang (không bị overflow-x-auto cắt xén) */}
+      {openActionMenuId && activeMenuMember && actionMenuPosition && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={actionMenuRef}
+            style={{
+              position: 'fixed',
+              top: actionMenuPosition.top,
+              bottom: actionMenuPosition.bottom,
+              right: actionMenuPosition.right,
+            }}
+            className="w-60 rounded-xl border border-border bg-card p-1.5 shadow-2xl z-[9999] text-left animate-in fade-in-0 zoom-in-95 select-none"
+          >
+            {(() => {
+              const isSelf = Boolean(
+                (currentUser && (activeMenuMember.id === currentUser.id || String(activeMenuMember.userId) === String(currentUser.userId))) ||
+                (loggedInUser && (String(activeMenuMember.userId) === String(loggedInUser.id) || activeMenuMember.email === loggedInUser.email))
+              )
+
+              if (isSelf) {
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCloseActionMenu()
+                        setViewingMember(activeMenuMember)
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Eye className="h-3.5 w-3.5 text-[#6B7280] shrink-0" />
+                      <span>Xem thông tin của bạn</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCloseActionMenu()
+                        handleCopyEmail(activeMenuMember.email || loggedInUser?.email || '', activeMenuMember.id)
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Copy className="h-3.5 w-3.5 text-[#6B7280] shrink-0" />
+                      <span>Sao chép email của bạn</span>
+                    </button>
+
+                    <div className="h-px bg-[#F1F3F5] dark:bg-border/60 my-1" />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCloseActionMenu()
+                        handleOpenLeaveModal()
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[#DC2626] hover:bg-[#FEE2E2]/50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <LogOut className="h-3.5 w-3.5 text-[#DC2626] shrink-0" />
+                      <span>Rời khỏi ban tổ chức</span>
+                    </button>
+                  </>
+                )
+              }
+
+              if (isCurrentUserAdmin) {
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCloseActionMenu()
+                        setTransferTarget(activeMenuMember)
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <Crown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="whitespace-nowrap">Chuyển quyền chủ nhiệm</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCloseActionMenu()
+                        handleToggleActive(activeMenuMember.id)
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      {activeMenuMember.isActive !== false ? (
+                        <>
+                          <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="whitespace-nowrap">Khóa thành viên</span>
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="whitespace-nowrap">Mở khóa thành viên</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCloseActionMenu()
+                        setViewingMember(activeMenuMember)
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <Eye className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="whitespace-nowrap">Xem thông tin liên hệ</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCloseActionMenu()
+                        handleCopyEmail(activeMenuMember.email || '', activeMenuMember.id)
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Copy className="h-3.5 w-3.5 text-[#6B7280] shrink-0" />
+                      <span>Sao chép email</span>
+                    </button>
+
+                    <div className="h-px bg-[#F1F3F5] dark:bg-border/60 my-1" />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCloseActionMenu()
+                        handleDeleteMember(activeMenuMember)
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-[#DC2626] hover:bg-[#FEE2E2]/50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-[#DC2626] shrink-0" />
+                      <span>Xóa khỏi ban tổ chức</span>
+                    </button>
+                  </>
+                )
+              }
+
+              return (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleCloseActionMenu()
+                      setViewingMember(activeMenuMember)
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Eye className="h-3.5 w-3.5 text-[#6B7280] shrink-0" />
+                    <span>Xem thông tin liên hệ</span>
+                  </button>
+
+                  <a
+                    href={`mailto:${activeMenuMember.email || ''}`}
+                    onClick={() => {
+                      handleCloseActionMenu()
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Mail className="h-3.5 w-3.5 text-[#6B7280] shrink-0" />
+                    <span>Gửi email liên hệ</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleCloseActionMenu()
+                      handleCopyEmail(activeMenuMember.email || '', activeMenuMember.id)
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Copy className="h-3.5 w-3.5 text-[#6B7280] shrink-0" />
+                    <span>Sao chép email</span>
+                  </button>
+                </>
+              )
+            })()}
+          </div>,
+          document.body
+        )}
     </div>
   )
 }
