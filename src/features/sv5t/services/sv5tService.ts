@@ -95,7 +95,13 @@ export const sv5tService = {
         const existingTxs = await this.getCriteriaTransactions(criteriaId, targetYearId)
         const manualTxs = existingTxs.filter((t: any) => t.completionSource === 'MANUAL')
         if (manualTxs.length > 0) {
-          await Promise.all(manualTxs.map((t: any) => this.deleteCriteriaTransaction(t.id)))
+          for (const tx of manualTxs) {
+            try {
+              await this.deleteCriteriaTransaction(tx.id)
+            } catch (err) {
+              console.warn(`Transaction ${tx.id} already deleted or not found:`, err)
+            }
+          }
         }
       } catch (err) {
         console.warn('Lỗi khi hạ trạng thái tiêu chí về chưa đạt:', err)
