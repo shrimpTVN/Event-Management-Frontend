@@ -7,6 +7,7 @@ interface Sv5tTableProps {
   standards: CriteriaProgressNode[]
   academicYearId?: number
   onSaveProgress: (criteriaId: number, completed: boolean, note: string) => Promise<void> | void
+  onDeleteProgress?: (criteriaTransactionId: number, criteriaId: number) => Promise<void> | void
   isLoading?: boolean
   resetKey?: string | number
 }
@@ -15,6 +16,7 @@ export const Sv5tTable: React.FC<Sv5tTableProps> = ({
   standards,
   academicYearId,
   onSaveProgress,
+  onDeleteProgress,
   isLoading,
   resetKey,
 }) => {
@@ -117,6 +119,7 @@ export const Sv5tTable: React.FC<Sv5tTableProps> = ({
               standardIndex={idx + 1}
               academicYearId={academicYearId}
               onSaveProgress={onSaveProgress}
+              onDeleteProgress={onDeleteProgress}
               defaultExpanded={false}
               onToggleExpand={(expanded) => handleToggleStandard(std.criteriaId, expanded)}
             />

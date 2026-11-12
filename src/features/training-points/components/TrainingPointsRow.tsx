@@ -9,10 +9,12 @@ interface TrainingPointsRowProps {
   criteriaCode: string
   recordedPoints: number
   recordedTransactions: PointTransaction[]
+  manualTransaction?: PointTransaction
   selfScore: number
   selfDescription?: string
   isLeaf: boolean
   onSaveSelfScore: (categoryId: number, score: number, description?: string) => Promise<void> | void
+  onDeleteSelfScore?: (transactionId: number, categoryId: number) => Promise<void> | void
 }
 
 export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
@@ -20,10 +22,12 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
   criteriaCode,
   recordedPoints,
   recordedTransactions,
+  manualTransaction,
   selfScore,
   selfDescription = '',
   isLeaf,
   onSaveSelfScore,
+  onDeleteSelfScore,
 }) => {
   const [isSelfModalOpen, setIsSelfModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
@@ -130,6 +134,11 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
           currentScore={selfScore}
           currentDescription={selfDescription}
           onSave={(points, desc) => onSaveSelfScore(item.id, points, desc)}
+          onDelete={
+            manualTransaction && onDeleteSelfScore
+              ? () => onDeleteSelfScore(manualTransaction.id, item.id)
+              : undefined
+          }
         />
       )}
 
@@ -149,6 +158,11 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
             setIsDetailModalOpen(false)
             setIsSelfModalOpen(true)
           }}
+          onDeleteSelfEvaluation={
+            manualTransaction && onDeleteSelfScore
+              ? () => onDeleteSelfScore(manualTransaction.id, item.id)
+              : undefined
+          }
         />
       )}
     </>

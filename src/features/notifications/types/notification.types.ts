@@ -25,3 +25,4 @@ export interface NotificationPageResponse {
   first: boolean
   empty: boolean
 }
+

@@ -1,5 +1,5 @@
-import React from 'react'
-import { X } from 'lucide-react'
+import React, { useState } from 'react'
+import { X, Trash2 } from 'lucide-react'
 import type { PointTransaction } from '../types/trainingPoints.types'
 
 interface CriterionDetailModalProps {
@@ -13,6 +13,7 @@ interface CriterionDetailModalProps {
   selfDescription?: string
   totalPoints: number
   onOpenSelfEvaluation?: () => void
+  onDeleteSelfEvaluation?: () => Promise<void> | void
 }
 
 function formatDate(dateStr?: string): string {
@@ -40,8 +41,25 @@ export const CriterionDetailModal: React.FC<CriterionDetailModalProps> = ({
   selfDescription,
   totalPoints,
   onOpenSelfEvaluation,
+  onDeleteSelfEvaluation,
 }) => {
+  const [isDeleting, setIsDeleting] = useState(false)
+
   if (!isOpen) return null
+
+  const handleDelete = async () => {
+    if (!onDeleteSelfEvaluation) return
+    if (!window.confirm('Bạn có chắc chắn muốn xóa bản ghi tự chấm điểm này không?')) return
+    try {
+      setIsDeleting(true)
+      await onDeleteSelfEvaluation()
+      onClose()
+    } catch (err) {
+      console.error('Failed to delete point transaction:', err)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   const progressPercent = Math.min(
     100,
@@ -155,17 +173,29 @@ export const CriterionDetailModal: React.FC<CriterionDetailModalProps> = ({
                   +{selfScore}
                 </span>
               </div>
-              {onOpenSelfEvaluation && (
-                <div>
+              <div className="flex items-center gap-3 pt-0.5">
+                {onOpenSelfEvaluation && (
                   <button
                     type="button"
                     onClick={onOpenSelfEvaluation}
-                    className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                    disabled={isDeleting}
+                    className="text-xs font-semibold text-primary hover:underline cursor-pointer disabled:opacity-50"
                   >
                     Chỉnh sửa tự chấm
                   </button>
-                </div>
-              )}
+                )}
+                {onDeleteSelfEvaluation && (
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="text-xs font-semibold text-rose-500 hover:text-rose-600 hover:underline cursor-pointer inline-flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>{isDeleting ? 'Đang xóa...' : 'Xóa tự chấm'}</span>
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex items-center justify-between py-0.5">

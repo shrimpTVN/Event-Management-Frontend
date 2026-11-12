@@ -9,6 +9,7 @@ interface TrainingPointsTableProps {
   studentScores: Record<number, number>
   studentDescriptions?: Record<number, string>
   onSaveSelfScore: (categoryId: number, score: number, description?: string) => Promise<void> | void
+  onDeleteSelfScore?: (transactionId: number, categoryId: number) => Promise<void> | void
   isLoading?: boolean
   resetKey?: string | number
   aggregateScores?: Record<number, number>
@@ -22,6 +23,7 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
   studentScores,
   studentDescriptions = {},
   onSaveSelfScore,
+  onDeleteSelfScore,
   isLoading,
   resetKey,
   aggregateScores,
@@ -135,6 +137,7 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
               studentScores={studentScores}
               studentDescriptions={studentDescriptions}
               onSaveSelfScore={onSaveSelfScore}
+              onDeleteSelfScore={onDeleteSelfScore}
               defaultExpanded={false}
               onToggleExpand={(expanded) => handleToggleSection(section.id, expanded)}
               aggregateScore={aggregateScores?.[section.id]}

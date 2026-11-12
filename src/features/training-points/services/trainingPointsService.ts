@@ -89,6 +89,13 @@ export const trainingPointsService = {
   async saveSelfEvaluation(payload: SaveSelfEvaluationPayload): Promise<void> {
     await apiClient.post('/point-transactions/me', payload)
   },
+
+  /**
+   * Xóa bản ghi điểm sinh viên tự đánh giá
+   */
+  async deletePointTransaction(pointTransactionId: number | string): Promise<void> {
+    await apiClient.delete(`/point-transactions/me/${pointTransactionId}`)
+  },
 }
 
 /**

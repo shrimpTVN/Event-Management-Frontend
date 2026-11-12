@@ -85,6 +85,16 @@ export const Sv5tPage: React.FC = () => {
     },
   })
 
+  // Mutation to delete self-evaluation transaction
+  const deleteProgressMutation = useMutation({
+    mutationFn: (criteriaTransactionId: number) =>
+      sv5tService.deleteCriteriaTransaction(criteriaTransactionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student-criteria-progress', appliedYearId] })
+      queryClient.invalidateQueries({ queryKey: ['student-criteria-transactions-all', appliedYearId] })
+    },
+  })
+
   const handleSaveProgress = async (criteriaId: number, completed: boolean, note: string) => {
     // Optimistically update UI
     setLocalCompletedMap((prev) => ({ ...prev, [criteriaId]: completed }))
@@ -93,6 +103,21 @@ export const Sv5tPage: React.FC = () => {
       await progressMutation.mutateAsync({ criteriaId, completed, note })
     } catch (err) {
       console.warn('API sync warning:', err)
+    }
+  }
+
+  const handleDeleteProgress = async (criteriaTransactionId: number, criteriaId: number) => {
+    // Optimistically update UI
+    setLocalCompletedMap((prev) => ({ ...prev, [criteriaId]: false }))
+    setLocalNoteMap((prev) => {
+      const next = { ...prev }
+      delete next[criteriaId]
+      return next
+    })
+    try {
+      await deleteProgressMutation.mutateAsync(criteriaTransactionId)
+    } catch (err) {
+      console.warn('Failed to delete criteria transaction:', err)
     }
   }
 
@@ -164,6 +189,7 @@ export const Sv5tPage: React.FC = () => {
               standards={standards}
               academicYearId={appliedYearId || 2}
               onSaveProgress={handleSaveProgress}
+              onDeleteProgress={handleDeleteProgress}
               isLoading={isLoading}
               resetKey={`${appliedYearId}-${appliedScope}`}
             />

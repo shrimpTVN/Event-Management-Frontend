@@ -132,4 +132,12 @@ export const sv5tService = {
       return []
     }
   },
+
+  /**
+   * Xóa giao dịch / bản ghi sinh viên tự đánh giá tiêu chí SV5T
+   * Backend endpoint: DELETE /criteria-transactions/me/{criteriaTransactionId}
+   */
+  async deleteCriteriaTransaction(criteriaTransactionId: number | string): Promise<void> {
+    await apiClient.delete(`/criteria-transactions/me/${criteriaTransactionId}`)
+  },
 }

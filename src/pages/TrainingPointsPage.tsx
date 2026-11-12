@@ -158,6 +158,16 @@ export const TrainingPointsPage: React.FC = () => {
     },
   })
 
+  // Mutation to delete self evaluation
+  const deleteSelfEvalMutation = useMutation({
+    mutationFn: (transactionId: number) =>
+      trainingPointsService.deletePointTransaction(transactionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['point-transactions', currentSemesterId] })
+      queryClient.invalidateQueries({ queryKey: ['student-semester-points', currentSemesterId] })
+    },
+  })
+
   const handleSaveSelfScore = async (categoryId: number, score: number, description?: string) => {
     // Optimistically update local score & description
     setStudentScores((prev) => ({ ...prev, [categoryId]: score }))
@@ -165,6 +175,21 @@ export const TrainingPointsPage: React.FC = () => {
       setStudentDescriptions((prev) => ({ ...prev, [categoryId]: description }))
     }
     await selfEvalMutation.mutateAsync({ categoryId, score, description })
+  }
+
+  const handleDeleteSelfScore = async (transactionId: number, categoryId: number) => {
+    // Optimistically remove local score & description
+    setStudentScores((prev) => {
+      const next = { ...prev }
+      delete next[categoryId]
+      return next
+    })
+    setStudentDescriptions((prev) => {
+      const next = { ...prev }
+      delete next[categoryId]
+      return next
+    })
+    await deleteSelfEvalMutation.mutateAsync(transactionId)
   }
 
   // Calculate real total score as the exact sum of all 5 sections (capped at section maximums)
@@ -258,6 +283,7 @@ export const TrainingPointsPage: React.FC = () => {
               studentScores={studentScores}
               studentDescriptions={studentDescriptions}
               onSaveSelfScore={handleSaveSelfScore}
+              onDeleteSelfScore={handleDeleteSelfScore}
               isLoading={isLoading}
               resetKey={`${appliedYear}-${appliedSemester}-${currentSemesterId}`}
               aggregateScores={aggregateScores}

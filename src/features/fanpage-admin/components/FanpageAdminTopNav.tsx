@@ -4,7 +4,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Search, Filter, Plus, Menu, X, MessageSquare, Bell } from 'lucide-react'
 import logoSvg from '@/assets/logo.svg'
 import { useAuthStore, isStaffUser } from '@/features/auth'
+import { useFanpageUnreadNotificationCount } from '@/features/notifications'
 import { AccountNavigationPopup } from '@/shared/components/layout/AccountNavigationPopup'
+import { FanpageNotificationDropdown } from './FanpageNotificationDropdown'
 
 interface FanpageAdminTopNavProps {
   onToggleSidebar?: () => void
@@ -34,6 +36,10 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [showAccountPopup, setShowAccountPopup] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+
+  // Số lượng thông báo chưa đọc của Fanpage
+  const { data: unreadNotificationsCount = 0 } = useFanpageUnreadNotificationCount(currentFanpageId)
 
   const isCurrentUserAdmin =
     currentFanpageRole === 'Quản trị viên' ||
@@ -146,14 +152,37 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
           </button>
 
           {/* Notifications Bell */}
-          <button
-            type="button"
-            className="relative flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-            title="Thông báo"
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-card" />
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setShowNotifications((prev) => !prev)
+                setShowAccountPopup(false)
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              title="Thông báo Fanpage"
+              aria-label={`Thông báo ${unreadNotificationsCount > 0 ? `(${unreadNotificationsCount} chưa đọc)` : ''}`}
+            >
+              <div className="relative flex items-center justify-center">
+                <Bell className="h-5 w-5" />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white font-bold text-[9px] leading-none flex items-center justify-center ring-2 ring-card shadow-xs animate-in zoom-in-50">
+                    {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                  </span>
+                )}
+              </div>
+            </button>
+
+            {/* Fanpage Notification Dropdown */}
+            {currentFanpageId && (
+              <FanpageNotificationDropdown
+                isOpen={showNotifications}
+                onClose={() => setShowNotifications(false)}
+                fanpageId={currentFanpageId}
+                fanpageName={currentFanpageName}
+              />
+            )}
+          </div>
 
           {/* Admin Avatar only (No text name/email next to it) */}
           <div className="relative">
@@ -161,7 +190,10 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
               <div>
                 <button
                   type="button"
-                  onClick={() => setShowAccountPopup(!showAccountPopup)}
+                  onClick={() => {
+                    setShowAccountPopup(!showAccountPopup)
+                    setShowNotifications(false)
+                  }}
                   className="flex items-center focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-full cursor-pointer"
                   aria-label="Tài khoản cá nhân"
                 >

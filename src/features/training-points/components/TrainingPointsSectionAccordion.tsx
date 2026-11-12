@@ -11,6 +11,7 @@ interface TrainingPointsSectionAccordionProps {
   studentScores: Record<number, number>
   studentDescriptions?: Record<number, string>
   onSaveSelfScore: (categoryId: number, score: number, description?: string) => Promise<void> | void
+  onDeleteSelfScore?: (transactionId: number, categoryId: number) => Promise<void> | void
   defaultExpanded?: boolean
   onToggleExpand?: (isExpanded: boolean) => void
   aggregateScore?: number
@@ -23,6 +24,7 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
   studentScores,
   studentDescriptions = {},
   onSaveSelfScore,
+  onDeleteSelfScore,
   defaultExpanded = false,
   onToggleExpand,
   aggregateScore,
@@ -67,6 +69,17 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
     transactions.forEach((tx) => {
       if (tx.type === 'MANUAL' && tx.description) {
         map.set(tx.pointCategoryId, tx.description)
+      }
+    })
+    return map
+  }, [transactions])
+
+  // Map of categoryId -> manual transaction
+  const manualTxMap = React.useMemo(() => {
+    const map = new Map<number, PointTransaction>()
+    transactions.forEach((tx) => {
+      if (tx.type === 'MANUAL') {
+        map.set(tx.pointCategoryId, tx)
       }
     })
     return map
@@ -182,10 +195,12 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
               criteriaCode={row.code}
               recordedPoints={recordedMap.get(row.item.id) || 0}
               recordedTransactions={recordedTxMap.get(row.item.id) || []}
+              manualTransaction={manualTxMap.get(row.item.id)}
               selfScore={studentScores[row.item.id] || 0}
               selfDescription={studentDescriptions[row.item.id] || selfTxDescriptionMap.get(row.item.id) || ''}
               isLeaf={row.isLeaf}
               onSaveSelfScore={onSaveSelfScore}
+              onDeleteSelfScore={onDeleteSelfScore}
             />
           ))}
 

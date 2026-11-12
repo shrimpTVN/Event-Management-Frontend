@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, AlertCircle } from 'lucide-react'
+import { X, AlertCircle, Trash2 } from 'lucide-react'
 
 interface SelfEvaluationModalProps {
   isOpen: boolean
@@ -10,6 +10,7 @@ interface SelfEvaluationModalProps {
   currentScore: number
   currentDescription?: string
   onSave: (points: number, description: string) => Promise<void> | void
+  onDelete?: () => Promise<void> | void
 }
 
 export const SelfEvaluationModal: React.FC<SelfEvaluationModalProps> = ({
@@ -21,11 +22,13 @@ export const SelfEvaluationModal: React.FC<SelfEvaluationModalProps> = ({
   currentScore,
   currentDescription = '',
   onSave,
+  onDelete,
 }) => {
   const [points, setPoints] = useState<number>(currentScore)
   const [description, setDescription] = useState<string>(currentDescription)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
@@ -59,6 +62,21 @@ export const SelfEvaluationModal: React.FC<SelfEvaluationModalProps> = ({
       setError('Có lỗi xảy ra khi lưu đánh giá. Vui lòng thử lại.')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleDeleteClick = async () => {
+    if (!onDelete) return
+    if (!window.confirm('Bạn có chắc chắn muốn xóa đánh giá này không?')) return
+    try {
+      setIsDeleting(true)
+      setError(null)
+      await onDelete()
+      onClose()
+    } catch {
+      setError('Có lỗi xảy ra khi xóa đánh giá. Vui lòng thử lại.')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -152,22 +170,37 @@ export const SelfEvaluationModal: React.FC<SelfEvaluationModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSaving}
-              className="px-4 py-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="px-4 py-2 text-xs md:text-sm font-semibold text-white bg-[#1B4B8A] hover:bg-[#153a6b] rounded-md transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
-            >
-              {isSaving ? 'Đang lưu...' : 'Lưu đánh giá'}
-            </button>
+          <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center justify-between">
+            {currentScore > 0 && onDelete ? (
+              <button
+                type="button"
+                onClick={handleDeleteClick}
+                disabled={isSaving || isDeleting}
+                className="px-3 py-1.5 text-xs md:text-sm font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition-colors cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeleting ? 'Đang xóa...' : 'Xóa đánh giá'}</span>
+              </button>
+            ) : (
+              <div />
+            )}
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSaving || isDeleting}
+                className="px-4 py-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving || isDeleting}
+                className="px-4 py-2 text-xs md:text-sm font-semibold text-white bg-[#1B4B8A] hover:bg-[#153a6b] rounded-md transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+              >
+                {isSaving ? 'Đang lưu...' : 'Lưu đánh giá'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

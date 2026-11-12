@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { X, CheckCircle2, Clock } from 'lucide-react'
+import { X, CheckCircle2, Clock, Trash2 } from 'lucide-react'
 import type { CriteriaProgressNode } from '../types/sv5t.types'
 import { sv5tService } from '../services/sv5tService'
 import { SV5T_CRITERIA_GUIDES } from '../utils/sv5tTreeBuilder'
@@ -10,7 +10,8 @@ interface Sv5tDetailModalProps {
   node: CriteriaProgressNode
   criteriaCode: string
   academicYearId?: number
-  onOpenSelfEvaluation?: (currentNote?: string, isCompleted?: boolean) => void
+  onOpenSelfEvaluation?: (currentNote?: string, isCompleted?: boolean, transactionId?: number) => void
+  onDeleteManualTransaction?: (transactionId: number, criteriaId: number) => Promise<void> | void
 }
 
 function formatDate(dateStr?: string | null): string {
@@ -46,8 +47,10 @@ export const Sv5tDetailModal: React.FC<Sv5tDetailModalProps> = ({
   criteriaCode,
   academicYearId,
   onOpenSelfEvaluation,
+  onDeleteManualTransaction,
 }) => {
   const [transactions, setTransactions] = useState<any[]>([])
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -96,6 +99,20 @@ export const Sv5tDetailModal: React.FC<Sv5tDetailModalProps> = ({
 
   const isParent = Boolean(node.children && node.children.length > 0)
   const isPassed = Boolean(node.isCompleted)
+
+  const handleDeleteManualTx = async () => {
+    if (!manualTx?.id || !onDeleteManualTransaction) return
+    if (!window.confirm('Bạn có chắc chắn muốn xóa bản ghi tự đánh giá tiêu chuẩn này không?')) return
+    try {
+      setIsDeleting(true)
+      await onDeleteManualTransaction(manualTx.id, node.criteriaId)
+      onClose()
+    } catch (err) {
+      console.error('Failed to delete criteria transaction:', err)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   // Resolve self-evaluation content: custom student note, criteria note or canonical requirement guide
   const selfEvaluationContent =
@@ -216,8 +233,8 @@ export const Sv5tDetailModal: React.FC<Sv5tDetailModalProps> = ({
                   Đạt
                 </span>
               </div>
-              {onOpenSelfEvaluation && (
-                <div className="pt-0.5">
+              <div className="flex items-center gap-3 pt-0.5">
+                {onOpenSelfEvaluation && (
                   <button
                     type="button"
                     onClick={() =>
@@ -227,15 +244,28 @@ export const Sv5tDetailModal: React.FC<Sv5tDetailModalProps> = ({
                             ? node.selfEvaluationNote
                             : '') ||
                           '',
-                        isPassed
+                        isPassed,
+                        manualTx?.id
                       )
                     }
-                    className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                    disabled={isDeleting}
+                    className="text-xs font-semibold text-primary hover:underline cursor-pointer disabled:opacity-50"
                   >
                     Chỉnh sửa tự chấm
                   </button>
-                </div>
-              )}
+                )}
+                {manualTx?.id && onDeleteManualTransaction && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteManualTx}
+                    disabled={isDeleting}
+                    className="text-xs font-semibold text-rose-500 hover:text-rose-600 hover:underline cursor-pointer inline-flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>{isDeleting ? 'Đang xóa...' : 'Xóa tự chấm'}</span>
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex items-center justify-between py-0.5">

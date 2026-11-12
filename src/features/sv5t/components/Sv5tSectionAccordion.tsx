@@ -8,6 +8,7 @@ interface Sv5tSectionAccordionProps {
   standardIndex: number // 1, 2, 3, 4, 5
   academicYearId?: number
   onSaveProgress: (criteriaId: number, completed: boolean, note: string) => Promise<void> | void
+  onDeleteProgress?: (criteriaTransactionId: number, criteriaId: number) => Promise<void> | void
   defaultExpanded?: boolean
   onToggleExpand?: (isExpanded: boolean) => void
 }
@@ -17,6 +18,7 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
   standardIndex,
   academicYearId,
   onSaveProgress,
+  onDeleteProgress,
   defaultExpanded = false,
   onToggleExpand,
 }) => {
@@ -146,6 +148,7 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
               isGroupBanner={r.isGroupBanner}
               academicYearId={academicYearId}
               onSaveProgress={onSaveProgress}
+              onDeleteProgress={onDeleteProgress}
             />
           ))}
 

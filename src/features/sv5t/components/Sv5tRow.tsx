@@ -11,6 +11,7 @@ interface Sv5tRowProps {
   isGroupBanner?: boolean
   academicYearId?: number
   onSaveProgress: (criteriaId: number, completed: boolean, note: string) => Promise<void> | void
+  onDeleteProgress?: (criteriaTransactionId: number, criteriaId: number) => Promise<void> | void
 }
 
 export const Sv5tRow: React.FC<Sv5tRowProps> = ({
@@ -20,11 +21,13 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
   isGroupBanner = false,
   academicYearId,
   onSaveProgress,
+  onDeleteProgress,
 }) => {
   const [isSelfModalOpen, setIsSelfModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [selfModalInitialNote, setSelfModalInitialNote] = useState<string | null>(null)
   const [selfModalInitialCompleted, setSelfModalInitialCompleted] = useState<boolean | null>(null)
+  const [selfModalTransactionId, setSelfModalTransactionId] = useState<number | null>(null)
 
   // 1. Group banner row (e.g. 1.3: Đạt thêm 01 trong 05 tiêu chí sau:)
   if (isGroupBanner) {
@@ -134,6 +137,15 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
             setSelfModalInitialNote(note)
             setSelfModalInitialCompleted(completed)
           }}
+          onDelete={
+            selfModalTransactionId && onDeleteProgress
+              ? async () => {
+                  await onDeleteProgress(selfModalTransactionId, node.criteriaId)
+                  setSelfModalInitialCompleted(false)
+                  setSelfModalInitialNote('')
+                }
+              : undefined
+          }
         />
       )}
 
@@ -147,14 +159,16 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
           academicYearId={academicYearId}
           onOpenSelfEvaluation={
             isLeaf
-              ? (currentNote?: string, isCompleted?: boolean) => {
+              ? (currentNote?: string, isCompleted?: boolean, transactionId?: number) => {
                   setSelfModalInitialNote(currentNote ?? node.selfEvaluationNote ?? '')
                   setSelfModalInitialCompleted(isCompleted ?? node.isCompleted)
+                  setSelfModalTransactionId(transactionId ?? null)
                   setIsDetailModalOpen(false)
                   setIsSelfModalOpen(true)
                 }
               : undefined
           }
+          onDeleteManualTransaction={onDeleteProgress}
         />
       )}
     </>

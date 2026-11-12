@@ -29,6 +29,8 @@ export function useNotificationStream(onNotificationReceived?: (notification: No
           // Invalidate queries để đồng bộ danh sách và số lượng chưa đọc ngay lập tức
           queryClient.invalidateQueries({ queryKey: ['notifications'] })
           queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+          queryClient.invalidateQueries({ queryKey: ['fanpage-notifications'] })
+          queryClient.invalidateQueries({ queryKey: ['fanpage-notifications-unread-count'] })
           onNotificationReceived?.(data)
         } catch (err) {
           console.error('Lỗi khi phân tích dữ liệu SSE notification:', err)
@@ -116,3 +118,81 @@ export function useNotificationActions() {
     isMarkingAllAsRead: markAllAsReadMutation.isPending,
   }
 }
+
+/**
+ * Hook lấy danh sách thông báo của Fanpage (dành cho Admin / Workspace)
+ */
+export function useFanpageNotifications(
+  fanpageId?: number | string,
+  page = 0,
+  size = 20,
+  status?: NotificationStatus
+) {
+  return useQuery({
+    queryKey: ['fanpage-notifications', fanpageId, page, size, status],
+    queryFn: () => notificationService.getFanpageNotifications(fanpageId!, page, size, status),
+    enabled: Boolean(fanpageId),
+    staleTime: 30 * 1000,
+  })
+}
+
+/**
+ * Hook lấy số lượng thông báo chưa đọc của Fanpage
+ */
+export function useFanpageUnreadNotificationCount(fanpageId?: number | string) {
+  return useQuery({
+    queryKey: ['fanpage-notifications-unread-count', fanpageId],
+    queryFn: () => notificationService.getFanpageUnreadCount(fanpageId!),
+    enabled: Boolean(fanpageId),
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  })
+}
+
+/**
+ * Hook các thao tác thông báo của Fanpage (đánh dấu đã đọc, xóa)
+ */
+export function useFanpageNotificationActions(fanpageId?: number | string) {
+  const queryClient = useQueryClient()
+
+  const markAsReadMutation = useMutation({
+    mutationFn: (id: number | string) => {
+      if (!fanpageId) throw new Error('fanpageId is required')
+      return notificationService.markAsReadByFanpage(id, fanpageId)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fanpage-notifications', fanpageId] })
+      queryClient.invalidateQueries({ queryKey: ['fanpage-notifications-unread-count', fanpageId] })
+    },
+  })
+
+  const markAllAsReadMutation = useMutation({
+    mutationFn: () => {
+      if (!fanpageId) throw new Error('fanpageId is required')
+      return notificationService.markAllAsReadByFanpage(fanpageId)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fanpage-notifications', fanpageId] })
+      queryClient.invalidateQueries({ queryKey: ['fanpage-notifications-unread-count', fanpageId] })
+    },
+  })
+
+  const deleteNotificationMutation = useMutation({
+    mutationFn: (id: number | string) => {
+      if (!fanpageId) throw new Error('fanpageId is required')
+      return notificationService.deleteFanpageNotification(id, fanpageId)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fanpage-notifications', fanpageId] })
+      queryClient.invalidateQueries({ queryKey: ['fanpage-notifications-unread-count', fanpageId] })
+    },
+  })
+
+  return {
+    markAsRead: markAsReadMutation.mutate,
+    markAllAsRead: markAllAsReadMutation.mutate,
+    deleteNotification: deleteNotificationMutation.mutate,
+    isMarkingAllAsRead: markAllAsReadMutation.isPending,
+  }
+}
+
