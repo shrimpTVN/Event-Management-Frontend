@@ -422,12 +422,9 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
             <>
               <div className="space-y-1">
                 {availableSwitchFanpages.length > 0 && (
-                  <div className="flex items-center justify-between px-2 py-1">
+                  <div className="px-2 py-1">
                     <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                       Fanpage khác
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-medium">
-                      {availableSwitchFanpages.length} trang
                     </span>
                   </div>
                 )}
