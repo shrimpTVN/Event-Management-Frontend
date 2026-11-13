@@ -473,7 +473,7 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
                       <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
                         {displayName}
                       </span>
-                      <span className="text-[10px] text-[#1B4B8A] dark:text-blue-400 font-medium block truncate">
+                      <span className="text-[10px] text-muted-foreground block truncate">
                         {studentMssv ? `MSSV: ${studentMssv} · Sinh viên` : 'Tài khoản sinh viên'}
                       </span>
                     </div>
