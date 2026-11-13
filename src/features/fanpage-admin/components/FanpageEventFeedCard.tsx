@@ -14,6 +14,8 @@ import {
   PinOff,
   Eye,
   EyeOff,
+  Tag,
+  Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
@@ -96,6 +98,41 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
     () => getPreviewDescription(post.summary || '', 160),
     [post.summary]
   )
+
+  const closeInfo = useMemo(() => {
+    const rawDate = post.dateClose
+    if (!rawDate) return null
+    const closeDate = new Date(rawDate)
+    if (isNaN(closeDate.getTime())) return null
+
+    const now = new Date()
+    const nowMs = now.getTime()
+    const closeMs = closeDate.getTime()
+    const isClosed = nowMs > closeMs || post.status === 'CLOSED'
+
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const hours = pad(closeDate.getHours())
+    const mins = pad(closeDate.getMinutes())
+    const day = pad(closeDate.getDate())
+    const month = pad(closeDate.getMonth() + 1)
+    const year = closeDate.getFullYear()
+
+    const hasTime = !(hours === '00' && mins === '00')
+    const timeFormatted = `${hours}:${mins}`
+    const fullDateFormatted = `${day}/${month}/${year}`
+    const shortDateFormatted = `${day}/${month}`
+
+    const isCurrentYear = year === now.getFullYear()
+    const datePart = isCurrentYear ? shortDateFormatted : fullDateFormatted
+    const timeText = hasTime ? `${timeFormatted} · ${datePart}` : datePart
+    const fullText = hasTime ? `${timeFormatted} ngày ${fullDateFormatted}` : fullDateFormatted
+
+    return {
+      isClosed,
+      timeText,
+      fullText,
+    }
+  }, [post.dateClose, post.status])
 
   const eventId = post.eventId || post.id.replace('post-', '')
   const locationDisplay = post.location || 'Khu II, Đại học Cần Thơ'
@@ -279,6 +316,12 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
 
       {/* 2. Title & Description (Max 2 lines, inline expandable like student card) */}
       <div className="px-3 py-0 flex flex-col gap-1.5">
+        {!post.bannerUrl && post.eventTypeName && (
+          <div className="inline-flex items-center gap-1.5 self-start px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold select-none">
+            <Tag className="h-3 w-3" />
+            <span>{post.eventTypeName}</span>
+          </div>
+        )}
         <h2 className="font-k2d font-semibold text-base leading-snug text-foreground line-clamp-2">
           {post.title}
         </h2>
@@ -326,6 +369,14 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
           />
           {/* Soft ambient overlay for contrast */}
           <div className="absolute inset-0 bg-slate-900/15 dark:bg-black/35 backdrop-blur-2xs pointer-events-none" />
+
+          {/* Top-Left Badge: Event Type */}
+          {post.eventTypeName && (
+            <div className="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white shadow-md text-xs font-semibold tracking-wide pointer-events-none select-none">
+              <Tag className="h-3 w-3 text-white/90" />
+              <span>{post.eventTypeName}</span>
+            </div>
+          )}
 
           {/* Foreground Sharp Poster Image with true proportions - Click to open Photo Viewer Lightbox */}
           <button
@@ -449,8 +500,29 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
           </button>
         </div>
 
-        {/* Right: "Xem số liệu" (No Like button, removed Chi tiết button) */}
-        <div className="flex items-center gap-2">
+        {/* Right: Close Info + "Xem số liệu" */}
+        <div className="flex items-center gap-2.5">
+          {closeInfo && (
+            <div
+              className="flex flex-col items-end justify-center text-right leading-tight select-none pr-0.5"
+              title={`Hạn đóng đăng ký: ${closeInfo.fullText}`}
+            >
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-medium">
+                <Clock className="h-3 w-3 text-muted-foreground/80 shrink-0" />
+                <span>{closeInfo.isClosed ? 'Đã đóng đơn' : 'Đóng đơn'}</span>
+              </span>
+              <span
+                className={`text-xs font-semibold ${
+                  closeInfo.isClosed
+                    ? 'text-muted-foreground/80 line-through'
+                    : 'text-foreground'
+                }`}
+              >
+                {closeInfo.timeText}
+              </span>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={() => onViewAnalytics?.(post)}

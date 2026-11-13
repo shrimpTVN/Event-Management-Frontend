@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Calendar,
@@ -8,6 +8,8 @@ import {
   MessageCircle,
   Share2,
   Bookmark,
+  Tag,
+  Clock,
 } from 'lucide-react'
 import type { FanpagePublicEventPost } from '../types/fanpage.types'
 import { RegisterButton, EventPhotoViewerModal } from '@/features/events'
@@ -28,6 +30,41 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
   const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false)
   const [isFollowing, setIsFollowing] = useState(post.isFollowingAuthor || false)
   const [isSaved, setIsSaved] = useState(post.isSaved || false)
+
+  const closeInfo = useMemo(() => {
+    const rawDate = post.dateClose
+    if (!rawDate) return null
+    const closeDate = new Date(rawDate)
+    if (isNaN(closeDate.getTime())) return null
+
+    const now = new Date()
+    const nowMs = now.getTime()
+    const closeMs = closeDate.getTime()
+    const isClosed = nowMs > closeMs || post.status === 'CLOSED'
+
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const hours = pad(closeDate.getHours())
+    const mins = pad(closeDate.getMinutes())
+    const day = pad(closeDate.getDate())
+    const month = pad(closeDate.getMonth() + 1)
+    const year = closeDate.getFullYear()
+
+    const hasTime = !(hours === '00' && mins === '00')
+    const timeFormatted = `${hours}:${mins}`
+    const fullDateFormatted = `${day}/${month}/${year}`
+    const shortDateFormatted = `${day}/${month}`
+
+    const isCurrentYear = year === now.getFullYear()
+    const datePart = isCurrentYear ? shortDateFormatted : fullDateFormatted
+    const timeText = hasTime ? `${timeFormatted} · ${datePart}` : datePart
+    const fullText = hasTime ? `${timeFormatted} ngày ${fullDateFormatted}` : fullDateFormatted
+
+    return {
+      isClosed,
+      timeText,
+      fullText,
+    }
+  }, [post.dateClose, post.status])
 
   const handleToggleFollow = () => {
     setIsFollowing((prev) => !prev)
@@ -83,6 +120,12 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
 
       {/* 2. Event Content: Title + Description */}
       <div className="px-4 sm:px-5 pb-3 space-y-2">
+        {!post.bannerUrl && post.eventTypeName && (
+          <div className="inline-flex items-center gap-1.5 self-start px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold select-none">
+            <Tag className="h-3 w-3" />
+            <span>{post.eventTypeName}</span>
+          </div>
+        )}
         <h3 className="font-k2d font-semibold text-base leading-snug text-foreground hover:text-primary transition-colors">
           <Link to={`/events/${post.eventId}`}>{post.title}</Link>
         </h3>
@@ -104,7 +147,13 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
       </div>
 
       {/* 3. Banner Image - Click to open Photo Viewer Lightbox */}
-      <div className="w-full overflow-hidden bg-slate-100 dark:bg-muted/40 border-y border-border/50">
+      <div className="relative w-full overflow-hidden bg-slate-100 dark:bg-muted/40 border-y border-border/50">
+        {post.eventTypeName && (
+          <div className="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white shadow-md text-xs font-semibold tracking-wide pointer-events-none select-none">
+            <Tag className="h-3 w-3 text-white/90" />
+            <span>{post.eventTypeName}</span>
+          </div>
+        )}
         <button
           type="button"
           onClick={() => setIsPhotoViewerOpen(true)}
@@ -214,8 +263,29 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
           </button>
         </div>
 
-        {/* Right: Bookmark + Register Button */}
-        <div className="flex items-center gap-3">
+        {/* Right: Close Info + Bookmark + Register Button */}
+        <div className="flex items-center gap-2.5">
+          {closeInfo && (
+            <div
+              className="flex flex-col items-end justify-center text-right leading-tight select-none pr-0.5"
+              title={`Hạn đóng đăng ký: ${closeInfo.fullText}`}
+            >
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-medium">
+                <Clock className="h-3 w-3 text-muted-foreground/80 shrink-0" />
+                <span>{closeInfo.isClosed ? 'Đã đóng đơn' : 'Đóng đơn'}</span>
+              </span>
+              <span
+                className={`text-xs font-semibold ${
+                  closeInfo.isClosed
+                    ? 'text-muted-foreground/80 line-through'
+                    : 'text-foreground'
+                }`}
+              >
+                {closeInfo.timeText}
+              </span>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleToggleSave}
@@ -233,7 +303,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             eventId={post.eventId}
             eventTitle={post.title}
             isRegistered={Boolean(post.isFollowingAuthor && false)}
-            disabled={!post.canRegister}
+            disabled={!post.canRegister || closeInfo?.isClosed}
             className="min-w-[120px] whitespace-nowrap"
           />
         </div>

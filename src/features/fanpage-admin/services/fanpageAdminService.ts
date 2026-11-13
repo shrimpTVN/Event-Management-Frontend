@@ -226,6 +226,10 @@ export const fanpageAdminService = {
         commentsCount: ev.commentsCount ?? 0,
         sharesCount: ev.sharesCount ?? 0,
         isLiked: Boolean(ev.isLiked),
+        eventTypeName: ev.eventTypeName || ev.eventType?.name,
+        dateOpen: ev.dateOpen,
+        dateClose: ev.dateClose,
+        status: ev.status,
       }))
     } catch {
       return []

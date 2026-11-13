@@ -59,6 +59,10 @@ export interface FanpageFeedPost {
   isLiked?: boolean
   isPinned?: boolean
   isHidden?: boolean
+  eventTypeName?: string
+  dateOpen?: string
+  dateClose?: string
+  status?: string
 }
 
 export type EventStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'CANCELLED'

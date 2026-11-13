@@ -35,4 +35,8 @@ export interface FanpagePublicEventPost {
   sharesCount?: number
   isSaved?: boolean
   canRegister?: boolean
+  eventTypeName?: string
+  dateClose?: string
+  dateOpen?: string
+  status?: string
 }
