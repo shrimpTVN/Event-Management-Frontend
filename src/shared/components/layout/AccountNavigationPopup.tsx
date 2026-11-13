@@ -371,8 +371,8 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
             title="Xem thông tin cá nhân"
           >
             {/* Avatar cá nhân với logo fanpage nhỏ ở góc dưới */}
-            <div className="relative shrink-0 w-11 h-11">
-              <div className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden border border-border/60 bg-[#1B4B8A] text-white shadow-xs">
+            <div className="relative shrink-0 w-12 h-12">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden border border-border/60 bg-[#1B4B8A] text-white shadow-xs">
                 {userAvatarUrl ? (
                   <img
                     src={userAvatarUrl}
@@ -384,18 +384,18 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
                 )}
               </div>
 
-              {/* Logo fanpage hiện tại nhỏ ở góc dưới avatar */}
+              {/* Logo fanpage hiện tại nhỏ ở góc dưới avatar (kích thước 20px rõ nét) */}
               {currentFanpage?.avatarUrl ? (
                 <img
                   src={currentFanpage.avatarUrl}
                   alt={currentFanpage.name}
                   title={`Fanpage: ${currentFanpage.name}`}
-                  className="absolute -bottom-0.5 -right-0.5 w-4 h-4 min-w-[16px] max-w-[16px] min-h-[16px] max-h-[16px] rounded-full object-cover border-2 border-white dark:border-card shadow-xs"
+                  className="absolute -bottom-1 -right-1 w-5 h-5 min-w-[20px] max-w-[20px] min-h-[20px] max-h-[20px] rounded-full object-cover border-2 border-white dark:border-card shadow-xs"
                 />
               ) : (
                 <div
                   title={`Fanpage: ${currentFanpage?.name}`}
-                  className="absolute -bottom-0.5 -right-0.5 w-4 h-4 min-w-[16px] max-w-[16px] min-h-[16px] max-h-[16px] rounded-full bg-[#374151] text-white text-[8px] font-bold flex items-center justify-center border-2 border-white dark:border-card shadow-xs"
+                  className="absolute -bottom-1 -right-1 w-5 h-5 min-w-[20px] max-w-[20px] min-h-[20px] max-h-[20px] rounded-full bg-[#374151] text-white text-[9px] font-bold flex items-center justify-center border-2 border-white dark:border-card shadow-xs"
                 >
                   {(currentFanpage?.name || 'FP').slice(0, 1).toUpperCase()}
                 </div>
