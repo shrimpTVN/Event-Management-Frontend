@@ -439,26 +439,9 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
           </button>
         </div>
 
-        {/* Right: Bookmark + Close Info + Register CTA (Figma gap: 8px) */}
+        {/* Right: Close Info + Bookmark + Register CTA */}
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={handleSaveClick}
-            className={`flex h-8 w-8 items-center justify-center transition-colors cursor-pointer ${
-              isSaved
-                ? 'text-amber-500 hover:text-amber-600'
-                : 'text-[#6B7280] hover:text-amber-500'
-            }`}
-            title={isSaved ? 'Đã lưu (nhấn để bỏ lưu)' : 'Lưu sự kiện'}
-          >
-            <Bookmark
-              className={`h-6 w-6 transition-all ${
-                isSaved ? 'fill-amber-500 text-amber-500 drop-shadow-xs' : ''
-              }`}
-            />
-          </button>
-
-          {/* Registration close info to the left of register button */}
+          {/* Registration close info to the left of bookmark */}
           {closeInfo && (
             <div
               className="flex flex-col items-end justify-center text-right leading-tight select-none pr-0.5"
@@ -479,6 +462,23 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
               </span>
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={handleSaveClick}
+            className={`flex h-8 w-8 items-center justify-center transition-colors cursor-pointer ${
+              isSaved
+                ? 'text-amber-500 hover:text-amber-600'
+                : 'text-[#6B7280] hover:text-amber-500'
+            }`}
+            title={isSaved ? 'Đã lưu (nhấn để bỏ lưu)' : 'Lưu sự kiện'}
+          >
+            <Bookmark
+              className={`h-6 w-6 transition-all ${
+                isSaved ? 'fill-amber-500 text-amber-500 drop-shadow-xs' : ''
+              }`}
+            />
+          </button>
 
           <RegisterButton
             eventId={event.id}

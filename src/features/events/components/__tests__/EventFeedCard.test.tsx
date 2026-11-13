@@ -67,7 +67,7 @@ describe('EventFeedCard', () => {
     })
   })
 
-  it('renders event type badge on poster and registration close date next to register button', () => {
+  it('renders event type badge on poster and registration close date to the left of bookmark', () => {
     const eventWithDetails: Event = {
       ...mockEvent,
       bannerUrl: 'https://example.com/poster.jpg',
