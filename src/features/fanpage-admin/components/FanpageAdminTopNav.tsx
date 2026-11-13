@@ -219,10 +219,10 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
                     <img
                       src={currentFanpageAvatarUrl}
                       alt={currentFanpageName || 'Fanpage'}
-                      className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full object-cover border-2 border-white dark:border-card shadow-xs"
+                      className="absolute -bottom-0.5 -right-0.5 w-4 h-4 min-w-[16px] max-w-[16px] min-h-[16px] max-h-[16px] rounded-full object-cover border-2 border-white dark:border-card shadow-xs"
                     />
                   ) : currentFanpageName ? (
-                    <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-slate-700 text-white text-[8px] font-bold flex items-center justify-center border-2 border-white dark:border-card shadow-xs">
+                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 min-w-[16px] max-w-[16px] min-h-[16px] max-h-[16px] rounded-full bg-slate-700 text-white text-[8px] font-bold flex items-center justify-center border-2 border-white dark:border-card shadow-xs">
                       {currentFanpageName.slice(0, 1).toUpperCase()}
                     </div>
                   ) : null}
