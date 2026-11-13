@@ -15,7 +15,11 @@ import {
   eventFilterOptionsService,
   type EventFilterOptions,
 } from '../services/eventFilterOptionsService'
-import { eventService } from '../services/eventService'
+import {
+  eventService,
+  isEventMatchingRegistrationStatus,
+  resolveAllowedPointCategoryIds,
+} from '../services/eventService'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -82,8 +86,9 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
   })
 
   // Combobox open states for Searchable inputs
-  const [openCombobox, setOpenCombobox] = useState<'fanpage' | null>(null)
+  const [openCombobox, setOpenCombobox] = useState<'fanpage' | 'eventType' | null>(null)
   const [fanpageSearch, setFanpageSearch] = useState('')
+  const [eventTypeSearch, setEventTypeSearch] = useState('')
 
   const modalRef = useRef<HTMLDivElement>(null)
   const advancedRef = useRef<HTMLDivElement>(null)
@@ -127,6 +132,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
       setFormValues(initialValues)
       setOpenCombobox(null)
       setFanpageSearch('')
+      setEventTypeSearch('')
 
       if (initialValues.fanpageIds && initialValues.fanpageIds.length > 0) {
         setSelectedFanpageIds(initialValues.fanpageIds)
@@ -279,6 +285,17 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     }))
   }
 
+  const handleClearTypes = () => {
+    setFormValues((prev) => ({ ...prev, eventTypeId: undefined }))
+  }
+
+  const eventTypeSearchLower = eventTypeSearch.trim().toLowerCase()
+  const filteredEventTypes = useMemo(() => {
+    if (!options?.eventTypes) return []
+    if (!eventTypeSearchLower) return options.eventTypes
+    return options.eventTypes.filter((et) => et.label.toLowerCase().includes(eventTypeSearchLower))
+  }, [options?.eventTypes, eventTypeSearchLower])
+
   // Tách Point Categories thành 5 Mục lớn (Level 0) và Mục con (Level 1)
   const rootPointCategories = useMemo(() => {
     if (!options?.pointCategories) return []
@@ -297,16 +314,49 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
   }, [formValues.pointCategoryId])
 
   const handleTogglePointCategory = (catId: string) => {
-    let next: string[]
-    if (selectedPointCategoryIds.includes(catId)) {
-      next = selectedPointCategoryIds.filter((id) => id !== catId)
-    } else {
-      next = [...selectedPointCategoryIds, catId]
-    }
-    setFormValues((prev) => ({
-      ...prev,
-      pointCategoryId: next.length > 0 ? next.join(',') : undefined,
-    }))
+    const isRoot = rootPointCategories.some((r) => String(r.id) === catId)
+
+    setFormValues((prev) => {
+      const currentList = prev.pointCategoryId ? prev.pointCategoryId.split(',').filter(Boolean) : []
+
+      if (isRoot) {
+        // Toggle root: if root or any of its children are selected, clear all of them
+        const childIdsOfRoot = childPointCategories
+          .filter((cpc) => String(cpc.parentCategoryId) === catId)
+          .map((cpc) => String(cpc.id))
+        const isAnySelected = currentList.includes(catId) || childIdsOfRoot.some((cid) => currentList.includes(cid))
+
+        let next: string[]
+        if (isAnySelected) {
+          next = currentList.filter((id) => id !== catId && !childIdsOfRoot.includes(id))
+        } else {
+          next = [...currentList, catId]
+        }
+        return {
+          ...prev,
+          pointCategoryId: next.length > 0 ? next.join(',') : undefined,
+        }
+      } else {
+        // Child category toggled (e.g. IV.a)
+        const childObj = childPointCategories.find((cpc) => String(cpc.id) === catId)
+        const parentId = childObj?.parentCategoryId ? String(childObj.parentCategoryId) : null
+
+        let next: string[]
+        if (currentList.includes(catId)) {
+          // Unselect child
+          next = currentList.filter((id) => id !== catId)
+        } else {
+          // Select child: add child ID; also keep parentId so child row stays open
+          next = parentId && !currentList.includes(parentId)
+            ? [...currentList, parentId, catId]
+            : [...currentList, catId]
+        }
+        return {
+          ...prev,
+          pointCategoryId: next.length > 0 ? next.join(',') : undefined,
+        }
+      }
+    })
   }
 
   // Toggle Chip Tiêu chuẩn SV5T (Hỗ trợ multi-select)
@@ -358,6 +408,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     setSelectedFanpageIds([])
     setTimePreset(null)
     setFanpageSearch('')
+    setEventTypeSearch('')
     setOpenCombobox(null)
   }
 
@@ -386,38 +437,54 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
   // Tính số lượng sự kiện khớp theo thời gian thực (Live Preview Count)
   const previewMatchingCount = useMemo(() => {
     if (!previewSourceEvents || previewSourceEvents.length === 0) return 0
+    const now = new Date()
+
+    // 1. Resolve allowed point category IDs respecting parent/child hierarchy
+    const allowedPointCatIds = resolveAllowedPointCategoryIds(
+      selectedPointCategoryIds,
+      options?.pointCategories
+    )
+
+    // 2. Resolve academic year matching semester IDs
+    const matchingYearSemesterIds = new Set<string>()
+    if (selectedAcademicYear && selectedAcademicYear !== 'ALL' && options?.semesters) {
+      options.semesters.forEach((s) => {
+        const cleanSemYear = (s.academicYear || '').replace(/\s+/g, '')
+        const cleanTargetYear = selectedAcademicYear.replace(/\s+/g, '')
+        if (cleanSemYear && cleanSemYear === cleanTargetYear) {
+          matchingYearSemesterIds.add(String(s.id))
+        }
+      })
+    }
 
     return previewSourceEvents.filter((evt: any) => {
-      // 1. Trạng thái
+      // 1. Trạng thái sự kiện (Đang mở đăng ký, Sắp diễn ra, Đã kết thúc)
       if (selectedStatuses.length > 0) {
-        if (!selectedStatuses.includes(evt.status)) return false
+        const matches = selectedStatuses.some((st) => isEventMatchingRegistrationStatus(evt, st, now))
+        if (!matches) return false
       }
 
-      // 2. Loại hình
+      // 2. Loại hình sự kiện (Combobox multi-select)
       if (selectedTypeIds.length > 0) {
-        const evtTypeId = String(evt.eventTypeId || evt.categoryId || '')
+        const evtTypeId = String(evt.eventTypeId ?? evt.categoryId ?? '')
         if (!selectedTypeIds.includes(evtTypeId)) return false
       }
 
       // 3. Quyền lợi ĐRL
       if (selectedPointCategoryIds.length > 0) {
-        // Collect all allowed IDs including descendant childIds
-        const allowedIds = new Set<string>()
-        selectedPointCategoryIds.forEach((cid) => {
-          allowedIds.add(cid)
-          const cat = options?.pointCategories?.find((pc) => String(pc.id) === cid)
-          if (cat?.childIds) {
-            cat.childIds.forEach((id) => allowedIds.add(String(id)))
-          }
-        })
-
-        const hasMatch = Array.from(allowedIds).some((cid) => {
+        if (allowedPointCatIds.size > 0) {
+          let hasMatch = false
           if (Array.isArray(evt.eventPoints) && evt.eventPoints.length > 0) {
-            return evt.eventPoints.some((ep: any) => String(ep.pointCategoryId || ep.id) === cid)
+            hasMatch = evt.eventPoints.some((ep: any) =>
+              allowedPointCatIds.has(Number(ep.pointCategoryId || ep.id))
+            )
+          } else if (evt.pointCategoryId) {
+            hasMatch = allowedPointCatIds.has(Number(evt.pointCategoryId))
           }
-          return String(evt.pointCategoryId || '') === cid
-        })
-        if (!hasMatch) return false
+          if (!hasMatch) return false
+        } else {
+          return false
+        }
       }
 
       // 4. Tiêu chuẩn SV5T (Hỗ trợ multi-select)
@@ -452,12 +519,21 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
         if (String(evt.organizerId || evt.fanpageId || '') !== String(formValues.fanpageId)) return false
       }
 
-      // 6. Học kỳ
-      if (formValues.semesterId) {
-        if (String(evt.semesterId || '') !== String(formValues.semesterId)) return false
+      // 6. Năm học (Nâng cao)
+      if (selectedAcademicYear && selectedAcademicYear !== 'ALL') {
+        const evtSemId = String(evt.semesterId || evt.semester?.id || '')
+        if (evtSemId && matchingYearSemesterIds.size > 0) {
+          if (!matchingYearSemesterIds.has(evtSemId)) return false
+        }
       }
 
-      // 7. Khoảng thời gian
+      // 7. Học kỳ (Nâng cao)
+      if (formValues.semesterId && formValues.semesterId !== 'ALL') {
+        const evtSemId = String(evt.semesterId || evt.semester?.id || '')
+        if (evtSemId !== String(formValues.semesterId)) return false
+      }
+
+      // 8. Khoảng thời gian
       if (formValues.dateHappenFrom) {
         const evtDate = evt.startTime || evt.dateHappen || evt.createdAt
         if (evtDate && evtDate < formValues.dateHappenFrom) return false
@@ -476,9 +552,11 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     selectedPointCategoryIds,
     selectedCriteriaIds,
     selectedFanpageIds,
+    selectedAcademicYear,
     formValues,
     options?.pointCategories,
     options?.criterias,
+    options?.semesters,
   ])
 
   const activeCount = Object.values({
@@ -682,27 +760,123 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           </div>
 
           {/* ============================================================ */}
-          {/* 3. Loại hình sự kiện (Chip multi-select)                     */}
+          {/* 3. Loại hình sự kiện (Combobox multi-select)                 */}
           {/* ============================================================ */}
-          <div className="pt-3.5 space-y-2">
-            <span className="text-xs font-semibold text-foreground/80 block">
-              Loại hình sự kiện
-            </span>
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-              {(options?.eventTypes || []).map((et) => {
-                const isSelected = selectedTypeIds.includes(String(et.id))
-                return (
-                  <button
-                    key={et.id}
-                    type="button"
-                    onClick={() => handleToggleType(String(et.id))}
-                    className={getChipClass(isSelected)}
-                  >
-                    {et.label}
-                  </button>
-                )
-              })}
+          <div className="pt-3.5 space-y-1 relative">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-foreground/80 block">
+                Loại hình sự kiện
+              </span>
+              {selectedTypeIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearTypes}
+                  className="text-[11px] text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
+                >
+                  Xóa chọn ({selectedTypeIds.length})
+                </button>
+              )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => setOpenCombobox(openCombobox === 'eventType' ? null : 'eventType')}
+              className={`w-full h-9 px-3 rounded-xl border bg-background text-xs text-foreground flex items-center justify-between gap-2 hover:bg-accent/40 focus:outline-none transition-all cursor-pointer text-left ${
+                selectedTypeIds.length > 0
+                  ? 'border-primary/60 text-primary font-semibold ring-1 ring-primary/20'
+                  : 'border-input text-muted-foreground'
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                {selectedTypeIds.length === 0 ? (
+                  <span className="truncate">Tất cả loại hình</span>
+                ) : selectedTypeIds.length === 1 ? (
+                  (() => {
+                    const et = options?.eventTypes?.find((t) => String(t.id) === selectedTypeIds[0])
+                    return <span className="truncate">{et?.label || `Loại hình #${selectedTypeIds[0]}`}</span>
+                  })()
+                ) : (
+                  (() => {
+                    const et = options?.eventTypes?.find((t) => String(t.id) === selectedTypeIds[0])
+                    return (
+                      <>
+                        <span className="truncate font-semibold">{et?.label || 'Loại hình'}</span>
+                        <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[10px]">
+                          +{selectedTypeIds.length - 1}
+                        </span>
+                      </>
+                    )
+                  })()
+                )}
+              </div>
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </button>
+
+            {openCombobox === 'eventType' && (
+              <div className="absolute top-full mt-1.5 left-0 right-0 bg-popover border border-border rounded-xl shadow-xl z-50 max-h-56 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+                <div className="p-2 border-b border-border bg-muted/30 flex items-center gap-2 shrink-0">
+                  <SearchIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <input
+                    type="text"
+                    value={eventTypeSearch}
+                    onChange={(e) => setEventTypeSearch(e.target.value)}
+                    placeholder="Tìm loại hình sự kiện..."
+                    className="w-full text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
+                    autoFocus
+                  />
+                </div>
+                <div className="overflow-y-auto custom-scrollbar p-1 flex-1 space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={handleClearTypes}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${
+                      selectedTypeIds.length === 0
+                        ? 'bg-primary/10 text-primary font-semibold'
+                        : 'text-foreground/80 hover:text-foreground hover:bg-muted/40'
+                    }`}
+                  >
+                    <span>Tất cả loại hình</span>
+                    {selectedTypeIds.length === 0 && (
+                      <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                    )}
+                  </button>
+
+                  {filteredEventTypes.length === 0 ? (
+                    <div className="py-6 px-3 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-1.5">
+                      <SearchIcon className="h-4 w-4 text-muted-foreground/50" />
+                      <span>Không tìm thấy loại hình nào</span>
+                    </div>
+                  ) : (
+                    filteredEventTypes.map((et) => {
+                      const isSelected = selectedTypeIds.includes(String(et.id))
+                      return (
+                        <button
+                          key={et.id}
+                          type="button"
+                          onClick={() => handleToggleType(String(et.id))}
+                          className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${
+                            isSelected
+                              ? 'bg-primary/10 text-primary font-semibold'
+                              : 'text-foreground/80 hover:text-foreground hover:bg-muted/40'
+                          }`}
+                        >
+                          <span className="truncate">{et.label}</span>
+                          <div
+                            className={`h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                              isSelected
+                                ? 'bg-primary border-primary text-primary-foreground'
+                                : 'border-muted-foreground/30 bg-background'
+                            }`}
+                          >
+                            {isSelected && <Check className="h-2.5 w-2.5 stroke-[2.5]" />}
+                          </div>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ============================================================ */}
@@ -716,7 +890,14 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
               </span>
               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 {rootPointCategories.map((pc) => {
-                  const isSelected = selectedPointCategoryIds.includes(String(pc.id))
+                  const isDirectlySelected = selectedPointCategoryIds.includes(String(pc.id))
+                  const hasSelectedChildren = childPointCategories.some(
+                    (cpc) =>
+                      String(cpc.parentCategoryId) === String(pc.id) &&
+                      selectedPointCategoryIds.includes(String(cpc.id))
+                  )
+                  const isSelected = isDirectlySelected || hasSelectedChildren
+
                   return (
                     <button
                       key={pc.id}
@@ -732,35 +913,58 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
               </div>
 
               {/* Nếu có mục con chi tiết (I.a, I.b...) và người dùng đang chọn mục lớn */}
-              {childPointCategories.length > 0 && selectedPointCategoryIds.length > 0 && (
-                <div className="pt-1.5 pl-1 border-l-2 border-primary/30 space-y-1 animate-in fade-in duration-150">
-                  <span className="text-[11px] font-medium text-muted-foreground block">
-                    Chi tiết theo mục con:
-                  </span>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {childPointCategories
-                      .filter((cpc) =>
-                        selectedPointCategoryIds.includes(String(cpc.parentCategoryId))
-                      )
-                      .map((cpc) => {
-                        const isSubSelected = selectedPointCategoryIds.includes(String(cpc.id))
-                        return (
-                          <button
-                            key={cpc.id}
-                            type="button"
-                            title={cpc.note || cpc.label}
-                            onClick={() => handleTogglePointCategory(String(cpc.id))}
-                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${isSubSelected
-                                ? 'bg-primary text-primary-foreground font-semibold border-primary ring-1 ring-primary/20'
-                                : 'bg-muted/30 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
-                              }`}
-                          >
-                            {cpc.label}
-                          </button>
+              {childPointCategories.length > 0 && (
+                (() => {
+                  const activeRootIds = rootPointCategories
+                    .filter((rpc) => {
+                      const rootIdStr = String(rpc.id)
+                      return (
+                        selectedPointCategoryIds.includes(rootIdStr) ||
+                        childPointCategories.some(
+                          (cpc) =>
+                            String(cpc.parentCategoryId) === rootIdStr &&
+                            selectedPointCategoryIds.includes(String(cpc.id))
                         )
-                      })}
-                  </div>
-                </div>
+                      )
+                    })
+                    .map((rpc) => String(rpc.id))
+
+                  if (activeRootIds.length === 0) return null
+
+                  const relevantChildren = childPointCategories.filter((cpc) =>
+                    activeRootIds.includes(String(cpc.parentCategoryId))
+                  )
+
+                  if (relevantChildren.length === 0) return null
+
+                  return (
+                    <div className="pt-1.5 pl-1 border-l-2 border-primary/30 space-y-1 animate-in fade-in duration-150">
+                      <span className="text-[11px] font-medium text-muted-foreground block">
+                        Chi tiết theo mục con:
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {relevantChildren.map((cpc) => {
+                          const isSubSelected = selectedPointCategoryIds.includes(String(cpc.id))
+                          return (
+                            <button
+                              key={cpc.id}
+                              type="button"
+                              title={cpc.note || cpc.label}
+                              onClick={() => handleTogglePointCategory(String(cpc.id))}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${
+                                isSubSelected
+                                  ? 'bg-primary text-primary-foreground font-semibold border-primary ring-1 ring-primary/20'
+                                  : 'bg-muted/30 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
+                              }`}
+                            >
+                              {cpc.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })()
               )}
             </div>
 
@@ -1083,17 +1287,13 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           <Button
             type="button"
             onClick={handleApply}
-            disabled={previewMatchingCount === 0}
-            className={`h-10 px-6 rounded-xl text-xs font-semibold shadow-md flex items-center justify-center gap-2 transition-all ${previewMatchingCount > 0
-                ? 'bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer active:scale-[0.98]'
-                : 'bg-muted text-muted-foreground/60 border border-border/50 cursor-not-allowed opacity-60'
-              }`}
+            className="h-10 px-6 rounded-xl text-xs font-semibold shadow-md flex items-center justify-center gap-2 transition-all bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer active:scale-[0.98]"
           >
             <Check className="h-4 w-4" />
             <span>
               {previewMatchingCount > 0
                 ? `Xem ${previewMatchingCount} sự kiện`
-                : 'Không có sự kiện phù hợp'}
+                : 'Xem kết quả'}
             </span>
           </Button>
         </div>

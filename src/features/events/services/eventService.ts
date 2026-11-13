@@ -268,9 +268,121 @@ export function normalizeEvent(raw: Partial<EventResponseDto> & Record<string, a
     timeAgo: raw.timeAgo || formatEventTimeAgo(raw.createdAt || raw.updatedAt || raw.dateOpen),
     tags: Array.isArray(raw.tags) ? raw.tags : (raw.eventTypeName ? [raw.eventTypeName] : []),
     isModerationRequired: Boolean(raw.isModerationRequired),
+    dateOpen: raw.dateOpen,
+    dateClose: raw.dateClose,
+    dateHappen: raw.dateHappen,
+    eventTypeId: raw.eventTypeId ?? (raw.eventType?.id ? Number(raw.eventType.id) : undefined),
+    eventTypeName: raw.eventTypeName || raw.eventType?.name,
+    semesterId: raw.semester?.id ? Number(raw.semester.id) : (raw.semesterId ? Number(raw.semesterId) : undefined),
+    semester: raw.semester || undefined,
+    criteriaId: raw.criteria?.id ? Number(raw.criteria.id) : (raw.criteriaId ? Number(raw.criteriaId) : undefined),
+    fanpageId: raw.fanpageId ? Number(raw.fanpageId) : (raw.organizerId ? Number(raw.organizerId) : undefined),
     createdAt: raw.createdAt || raw.updatedAt || '',
     updatedAt: raw.updatedAt || raw.createdAt || '',
   }
+}
+
+/**
+ * Validates if an event matches a selected registration/lifecycle status filter key.
+ * Handles:
+ * - 'OPEN_REGISTRATION': published event where current date is within dateOpen and dateClose
+ * - 'PUBLISHED': published event where dateHappen is in the future
+ * - 'COMPLETED': event is closed/completed or dateHappen/dateClose has passed
+ */
+export function isEventMatchingRegistrationStatus(
+  evt: any,
+  statusKey?: string,
+  now: Date = new Date()
+): boolean {
+  if (!statusKey) return true
+
+  const nowMs = now.getTime()
+  const dateOpenMs = evt.dateOpen ? new Date(evt.dateOpen).getTime() : (evt.startTime ? new Date(evt.startTime).getTime() : 0)
+  const dateCloseMs = evt.dateClose ? new Date(evt.dateClose).getTime() : (evt.endTime ? new Date(evt.endTime).getTime() : 0)
+  const dateHappenMs = evt.dateHappen ? new Date(evt.dateHappen).getTime() : (evt.startTime ? new Date(evt.startTime).getTime() : 0)
+
+  if (statusKey === 'OPEN_REGISTRATION') {
+    if (evt.status !== 'PUBLISHED' && evt.status !== 'OPEN_REGISTRATION') return false
+    const hasStarted = dateOpenMs ? nowMs >= dateOpenMs : true
+    const hasNotEnded = dateCloseMs ? nowMs <= dateCloseMs : true
+    return hasStarted && hasNotEnded
+  }
+
+  if (statusKey === 'PUBLISHED') {
+    if (evt.status !== 'PUBLISHED' && evt.status !== 'UPCOMING') return false
+    return dateHappenMs ? dateHappenMs >= nowMs : true
+  }
+
+  if (statusKey === 'COMPLETED') {
+    if (evt.status === 'CLOSED' || evt.status === 'COMPLETED' || evt.status === 'FINISHED') return true
+    if (dateHappenMs && dateHappenMs < nowMs) return true
+    if (dateCloseMs && dateCloseMs < nowMs && (!dateHappenMs || dateHappenMs < nowMs)) return true
+    return false
+  }
+
+  return evt.status === statusKey
+}
+
+/**
+ * Resolves allowed Training Point Category IDs respecting parent/child hierarchy.
+ * When a child (e.g. IV.a) is selected, its unselected siblings (e.g. IV.b) will NOT match.
+ * When only a root category (e.g. Mục IV) is selected, all its descendants match.
+ */
+export function resolveAllowedPointCategoryIds(
+  selectedIds: string[],
+  pointCategories?: any[]
+): Set<number> {
+  const allowed = new Set<number>()
+  if (!selectedIds.length || !pointCategories?.length) return allowed
+
+  const roots = pointCategories.filter((pc: any) => pc.level === 0 || !pc.parentCategoryId)
+
+  roots.forEach((root: any) => {
+    const rootIdStr = String(root.id)
+    const isRootSelected = selectedIds.includes(rootIdStr)
+
+    // Find all level-1 children of this root that are selected
+    const selectedChildIds = pointCategories
+      .filter((pc: any) => String(pc.parentCategoryId) === rootIdStr && selectedIds.includes(String(pc.id)))
+      .map((pc: any) => pc.id)
+
+    if (selectedChildIds.length > 0) {
+      // User specifically selected sub-categories (e.g. IV.a)
+      // Only include descendants of the selected sub-categories, NOT unselected siblings!
+      selectedChildIds.forEach((cid: any) => {
+        const cat = pointCategories.find((pc: any) => String(pc.id) === String(cid))
+        if (cat?.childIds && Array.isArray(cat.childIds)) {
+          cat.childIds.forEach((id: any) => allowed.add(Number(id)))
+        } else {
+          allowed.add(Number(cid))
+        }
+      })
+    } else if (isRootSelected) {
+      // User selected the entire root category (e.g. Mục IV) with NO sub-categories
+      // Include all descendants of the root
+      if (root.childIds && Array.isArray(root.childIds)) {
+        root.childIds.forEach((id: any) => allowed.add(Number(id)))
+      } else {
+        allowed.add(Number(root.id))
+      }
+    }
+  })
+
+  // Also handle any selected category that is not under recognized roots
+  selectedIds.forEach((cid: string) => {
+    const cat = pointCategories.find((pc: any) => String(pc.id) === cid)
+    if (cat && !allowed.has(Number(cid))) {
+      if (!cat.parentCategoryId && !roots.some((r: any) => String(r.id) === cid)) {
+        if (cat.childIds && Array.isArray(cat.childIds)) {
+          cat.childIds.forEach((id: any) => allowed.add(Number(id)))
+        } else {
+          allowed.add(Number(cid))
+        }
+      }
+    }
+  })
+
+  return allowed
 }
 
 /**
@@ -283,7 +395,15 @@ function buildEventFilterParams(filters?: EventFilters): Record<string, any> {
 
   const keyword = filters.keyword || filters.search
   if (keyword) params.keyword = keyword
-  if (filters.status) params.status = filters.status
+  if (filters.status) {
+    if (filters.status === 'OPEN_REGISTRATION' || filters.status === 'PUBLISHED') {
+      params.status = 'PUBLISHED'
+    } else if (filters.status === 'COMPLETED' || filters.status === 'CLOSED') {
+      params.status = 'CLOSED'
+    } else {
+      params.status = filters.status
+    }
+  }
   if (filters.semesterId !== undefined) params.semesterId = filters.semesterId
   if (filters.fanpageId !== undefined) params.fanpageId = filters.fanpageId
   if (filters.eventTypeId !== undefined) params.eventTypeId = filters.eventTypeId

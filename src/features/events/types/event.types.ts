@@ -76,6 +76,15 @@ export interface Event {
   timeAgo?: string
   tags?: string[]
   isModerationRequired: boolean
+  dateOpen?: string
+  dateClose?: string
+  dateHappen?: string
+  eventTypeId?: number
+  eventTypeName?: string
+  semesterId?: number
+  semester?: EventSemester | null
+  criteriaId?: number
+  fanpageId?: number
   createdAt: string
   updatedAt: string
 }

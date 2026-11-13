@@ -8,6 +8,8 @@ import {
   eventService,
   EventFilterModal,
   eventFilterOptionsService,
+  isEventMatchingRegistrationStatus,
+  resolveAllowedPointCategoryIds,
   type Event,
   type EventFilterFormValues,
 } from '@/features/events'
@@ -48,20 +50,24 @@ export const SearchPage: React.FC = () => {
   const dateHappenFrom = searchParams.get('dateHappenFrom') || undefined
   const dateHappenTo = searchParams.get('dateHappenTo') || undefined
 
-  // Active filter payload
+  // Active filter payload for BE query:
+  // Note: Backend /events specification performs exact matching on pointCategoryId and criteriaId,
+  // without recursively expanding category parent/child hierarchy.
+  // To support selecting parent categories (e.g. Mục IV) or multi-selection without returning 0 events,
+  // we let BE fetch the events (by keyword, semester, type, fanpage, dates) and resolve hierarchical criteria/categories on client.
   const filters = useMemo(
     () => ({
       keyword: keyword || undefined,
       semesterId,
       eventTypeId: eventTypeId?.includes(',') ? undefined : (eventTypeId ? Number(eventTypeId) : undefined),
       fanpageId,
-      criteriaId: criteriaId?.includes(',') ? undefined : (criteriaId ? Number(criteriaId) : undefined),
-      pointCategoryId: pointCategoryId?.includes(',') ? undefined : (pointCategoryId ? Number(pointCategoryId) : undefined),
+      criteriaId: undefined,
+      pointCategoryId: undefined,
       status: (status?.includes(',') ? undefined : status) as any,
       dateHappenFrom,
       dateHappenTo,
     }),
-    [keyword, semesterId, eventTypeId, fanpageId, criteriaId, pointCategoryId, status, dateHappenFrom, dateHappenTo]
+    [keyword, semesterId, eventTypeId, fanpageId, status, dateHappenFrom, dateHappenTo]
   )
 
   // Fetch events matching search/filter
@@ -153,11 +159,32 @@ export const SearchPage: React.FC = () => {
   // Hierarchical matching for major categories and criteria
   const finalFilteredEvents = useMemo(() => {
     let result = eventsWithFollowState
+    const now = new Date()
 
-    // Multi-status filter
+    // Multi-status filter (supports OPEN_REGISTRATION, PUBLISHED, COMPLETED)
     if (status) {
       const statuses = status.split(',').filter(Boolean)
-      result = result.filter((evt: any) => statuses.includes(evt.status))
+      result = result.filter((evt: any) =>
+        statuses.some((st) => isEventMatchingRegistrationStatus(evt, st, now))
+      )
+    }
+
+    // Academic Year filter
+    if (academicYear && academicYear !== 'ALL' && filterOptions?.semesters) {
+      const matchingYearSemesterIds = new Set<number>()
+      filterOptions.semesters.forEach((s) => {
+        const cleanSemYear = (s.academicYear || '').replace(/\s+/g, '')
+        const cleanTargetYear = academicYear.replace(/\s+/g, '')
+        if (cleanSemYear && cleanSemYear === cleanTargetYear) {
+          matchingYearSemesterIds.add(Number(s.id))
+        }
+      })
+      if (matchingYearSemesterIds.size > 0) {
+        result = result.filter((evt: any) => {
+          const semId = Number(evt.semesterId || evt.semester?.id)
+          return semId ? matchingYearSemesterIds.has(semId) : true
+        })
+      }
     }
 
     // Multi-type filter
@@ -171,30 +198,27 @@ export const SearchPage: React.FC = () => {
 
     if (pointCategoryId && filterOptions?.pointCategories) {
       const catIdList = pointCategoryId.split(',').filter(Boolean)
-      const allowedCatIds = new Set<number>()
+      const allowedCatIds = resolveAllowedPointCategoryIds(
+        catIdList,
+        filterOptions.pointCategories
+      )
 
-      catIdList.forEach((cid) => {
-        const found = filterOptions.pointCategories.find((pc) => String(pc.id) === String(cid))
-        if (found?.childIds) {
-          found.childIds.forEach((id) => allowedCatIds.add(Number(id)))
-        } else {
-          allowedCatIds.add(Number(cid))
-        }
-      })
-
-      result = result.filter((evt: any) => {
-        if (Array.isArray(evt.eventPoints) && evt.eventPoints.length > 0) {
-          const hasMatch = evt.eventPoints.some((ep: any) => {
-            const cid = Number(ep.pointCategoryId || ep.pointCategory?.id || ep.id)
-            return allowedCatIds.has(cid)
-          })
-          if (hasMatch) return true
-        }
-        if (evt.pointCategoryId && allowedCatIds.has(Number(evt.pointCategoryId))) {
-          return true
-        }
-        return false
-      })
+      if (allowedCatIds.size > 0) {
+        result = result.filter((evt: any) => {
+          if (Array.isArray(evt.eventPoints) && evt.eventPoints.length > 0) {
+            return evt.eventPoints.some((ep: any) => {
+              const cid = Number(ep.pointCategoryId || ep.pointCategory?.id || ep.id)
+              return allowedCatIds.has(cid)
+            })
+          }
+          if (evt.pointCategoryId && allowedCatIds.has(Number(evt.pointCategoryId))) {
+            return true
+          }
+          return false
+        })
+      } else {
+        result = []
+      }
     }
 
     if (criteriaId && filterOptions?.criterias) {
@@ -234,7 +258,16 @@ export const SearchPage: React.FC = () => {
     }
 
     return result
-  }, [eventsWithFollowState, status, eventTypeId, pointCategoryId, criteriaId, fanpageIds, filterOptions])
+  }, [
+    eventsWithFollowState,
+    status,
+    academicYear,
+    eventTypeId,
+    pointCategoryId,
+    criteriaId,
+    fanpageIds,
+    filterOptions,
+  ])
 
   // Handlers for EventFeedCard actions
   const handleRegister = (eventId: string) => {

@@ -38,28 +38,7 @@ export const eventFilterOptionsService = {
         apiClient.get('/point-categories'),
       ])
 
-    // 1. Semesters
-    const rawSemesters =
-      semestersRes.status === 'fulfilled'
-        ? Array.isArray(semestersRes.value)
-          ? semestersRes.value
-          : (semestersRes.value as any)?.data || []
-        : []
-
-    const semesters: SemesterOption[] = rawSemesters.map((s: any) => {
-      const numStr = s.number === 3 ? 'Hè' : String(s.number || 1)
-      const yearStr = s.academicYear ? s.academicYear.replace('-', ' - ') : ''
-      return {
-        id: s.id,
-        number: s.number,
-        label: yearStr ? `HK${numStr} - NH ${yearStr}`.trim() : `HK${numStr}`,
-        shortLabel: `HK${numStr}`,
-        academicYear: yearStr,
-        academicYearId: s.academicYearId,
-      }
-    })
-
-    // 2. Academic Years
+    // 1. Academic Years
     const rawAcademicYears =
       academicYearsRes.status === 'fulfilled'
         ? Array.isArray(academicYearsRes.value)
@@ -73,6 +52,29 @@ export const eventFilterOptionsService = {
         id: ay.id,
         label: codeStr,
         note: ay.code,
+      }
+    })
+
+    // 2. Semesters
+    const rawSemesters =
+      semestersRes.status === 'fulfilled'
+        ? Array.isArray(semestersRes.value)
+          ? semestersRes.value
+          : (semestersRes.value as any)?.data || []
+        : []
+
+    const semesters: SemesterOption[] = rawSemesters.map((s: any) => {
+      const numStr = s.number === 3 ? 'Hè' : String(s.number || 1)
+      const matchedYear = rawAcademicYears.find((ay: any) => ay.id === s.academicYearId)
+      const rawYearCode = s.academicYear || matchedYear?.code || ''
+      const yearStr = rawYearCode ? rawYearCode.replace('-', ' - ') : ''
+      return {
+        id: s.id,
+        number: s.number,
+        label: yearStr ? `HK${numStr} - NH ${yearStr}`.trim() : `HK${numStr}`,
+        shortLabel: `HK${numStr}`,
+        academicYear: yearStr,
+        academicYearId: s.academicYearId,
       }
     })
 
