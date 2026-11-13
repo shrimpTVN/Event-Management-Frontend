@@ -1,10 +1,17 @@
 import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Pencil, X, Users, SlidersHorizontal, CalendarPlus, Plus, RotateCcw } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { useAuthStore, isStaffUser } from '@/features/auth'
 import { Skeleton } from '@/components/ui/skeleton'
-import { EventFilterModal, type EventFilterFormValues, isEventMatchingRegistrationStatus } from '@/features/events'
+import {
+  EventFilterModal,
+  type EventFilterFormValues,
+  isEventMatchingRegistrationStatus,
+  eventFilterOptionsService,
+  type EventFilterOptions,
+} from '@/features/events'
 import type {
   FanpageSummary,
   FanpageActivityStats,
@@ -49,6 +56,12 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false)
   const [filterValues, setFilterValues] = useState<EventFilterFormValues>({})
 
+  const { data: filterOptions } = useQuery<EventFilterOptions>({
+    queryKey: ['event-filter-options'],
+    queryFn: () => eventFilterOptionsService.getFilterOptions(),
+    staleTime: 5 * 60 * 1000,
+  })
+
   const activeDrawerFiltersCount = useMemo(() => {
     return [
       filterValues.status,
@@ -65,6 +78,18 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
   const filteredPosts = useMemo(() => {
     const rawTypeIds = filterValues.eventTypeId ? filterValues.eventTypeId.split(',').filter(Boolean) : []
     const rawStatus = filterValues.status ? filterValues.status.split(',').filter(Boolean) : []
+    const rawPointCatIds = filterValues.pointCategoryId ? filterValues.pointCategoryId.split(',').filter(Boolean) : []
+    const rawCritIds = filterValues.criteriaId ? filterValues.criteriaId.split(',').filter(Boolean) : []
+
+    const selectedTypeLabels = rawTypeIds.map((tid) => {
+      const found = filterOptions?.eventTypes?.find((et) => String(et.id) === String(tid))
+      return (found?.label || tid).toLowerCase()
+    })
+
+    const selectedCritLabels = rawCritIds.map((cid) => {
+      const found = filterOptions?.criterias?.find((c) => String(c.id) === String(cid))
+      return (found?.label || cid).toLowerCase().replace('tiêu chuẩn', '').trim()
+    })
 
     return posts.filter((post) => {
       // 1. Status Filter
@@ -87,15 +112,47 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
 
       // 2. Event Types
       if (rawTypeIds.length > 0) {
-        const matchesType = rawTypeIds.some(
-          (tid) =>
-            ((post as any).eventTypeId && String((post as any).eventTypeId) === String(tid)) ||
-            (post.eventTypeName && post.eventTypeName.toLowerCase().includes(tid.toLowerCase()))
-        )
+        const pTypeId = String((post as any).eventTypeId || '')
+        const pTypeName = (post.eventTypeName || (post as any).category || '').toLowerCase()
+        const pTitle = (post.title || '').toLowerCase()
+
+        const matchesType =
+          (pTypeId && rawTypeIds.includes(pTypeId)) ||
+          selectedTypeLabels.some(
+            (lbl) => lbl && (pTypeName.includes(lbl) || lbl.includes(pTypeName) || pTitle.includes(lbl))
+          ) ||
+          rawTypeIds.some((tid) => pTypeName.includes(tid.toLowerCase()) || pTitle.includes(tid.toLowerCase()))
+
         if (!matchesType) return false
       }
 
-      // 3. Date Happen Range
+      // 3. Point Category (ĐRL)
+      if (rawPointCatIds.length > 0) {
+        const pPoints = (post as any).eventPoints || []
+        const hasPointMatch = pPoints.some((ep: any) =>
+          rawPointCatIds.includes(String(ep.pointCategoryId || ep.id))
+        )
+        if (!hasPointMatch) return false
+      }
+
+      // 4. SV5T Criteria
+      if (rawCritIds.length > 0) {
+        const pCritId = String((post as any).criteriaId || '')
+        const pCritName = ((post as any).criteriaName || '').toLowerCase()
+        const matchesCrit =
+          (pCritId && rawCritIds.includes(pCritId)) ||
+          selectedCritLabels.some((lbl) => lbl && pCritName && (pCritName.includes(lbl) || lbl.includes(pCritName)))
+
+        if (!matchesCrit) return false
+      }
+
+      // 5. Semester
+      if (filterValues.semesterId && filterValues.semesterId !== 'ALL') {
+        const pSemId = String((post as any).semesterId || '')
+        if (pSemId && pSemId !== String(filterValues.semesterId)) return false
+      }
+
+      // 6. Date Happen Range
       if (filterValues.dateHappenFrom) {
         const d = post.startTime
         if (d && d < filterValues.dateHappenFrom) return false
@@ -107,7 +164,7 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
 
       return true
     })
-  }, [posts, filterValues])
+  }, [posts, filterValues, filterOptions])
 
   const { user } = useAuthStore()
   const isCurrentUserAdmin =

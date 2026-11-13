@@ -469,7 +469,16 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
       // 2. Loại hình sự kiện (Combobox multi-select)
       if (selectedTypeIds.length > 0) {
         const evtTypeId = String(evt.eventTypeId ?? evt.categoryId ?? '')
-        if (!selectedTypeIds.includes(evtTypeId)) return false
+        const evtTypeName = (evt.eventTypeName || evt.category || evt.name || evt.title || '').toLowerCase()
+        const selectedLabels = options?.eventTypes
+          ?.filter((et) => selectedTypeIds.includes(String(et.id)))
+          .map((et) => et.label.toLowerCase()) || []
+
+        const matchesId = evtTypeId && selectedTypeIds.includes(evtTypeId)
+        const matchesName = selectedLabels.some((lbl) => lbl && evtTypeName.includes(lbl))
+        const matchesFallback = selectedTypeIds.some((tid) => evtTypeName.includes(tid.toLowerCase()))
+
+        if (!matchesId && !matchesName && !matchesFallback) return false
       }
 
       // 3. Quyền lợi ĐRL

@@ -190,9 +190,17 @@ export const SearchPage: React.FC = () => {
     // Multi-type filter
     if (eventTypeId) {
       const typeIds = eventTypeId.split(',').filter(Boolean)
+      const selectedLabels = filterOptions?.eventTypes
+        ?.filter((et) => typeIds.includes(String(et.id)))
+        .map((et) => et.label.toLowerCase()) || []
+
       result = result.filter((evt: any) => {
         const tid = String(evt.eventTypeId || evt.categoryId || '')
-        return typeIds.includes(tid)
+        const tName = (evt.eventTypeName || evt.category || evt.name || evt.title || '').toLowerCase()
+        const matchesId = tid && typeIds.includes(tid)
+        const matchesName = selectedLabels.some((lbl) => lbl && tName.includes(lbl))
+        const matchesFallback = typeIds.some((t) => tName.includes(t.toLowerCase()))
+        return matchesId || matchesName || matchesFallback
       })
     }
 

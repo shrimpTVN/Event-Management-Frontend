@@ -10,10 +10,16 @@ import {
   RotateCcw,
   Pencil,
 } from 'lucide-react'
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import { cn } from '@/shared/utils/cn'
 import { Skeleton } from '@/components/ui/skeleton'
-import { EventFilterModal, type EventFilterFormValues, isEventMatchingRegistrationStatus } from '@/features/events'
+import {
+  EventFilterModal,
+  type EventFilterFormValues,
+  isEventMatchingRegistrationStatus,
+  eventFilterOptionsService,
+  type EventFilterOptions,
+} from '@/features/events'
 import type { AdminEvent, EventStatus } from '../types/fanpageAdmin.types'
 import { MOCK_ADMIN_EVENTS, fanpageAdminService } from '../services/fanpageAdminService'
 
@@ -87,6 +93,12 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
 
   const validEvents = useMemo(() => events, [events])
 
+  const { data: filterOptions } = useQuery<EventFilterOptions>({
+    queryKey: ['event-filter-options'],
+    queryFn: () => eventFilterOptionsService.getFilterOptions(),
+    staleTime: 5 * 60 * 1000,
+  })
+
   const activeFilterCount = useMemo(() => {
     return [
       drawerFilterValues.status,
@@ -114,6 +126,11 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
     const rawCritIds = drawerFilterValues.criteriaId
       ? drawerFilterValues.criteriaId.split(',').filter(Boolean)
       : []
+
+    const selectedTypeLabels = rawTypeIds.map((tid) => {
+      const found = filterOptions?.eventTypes?.find((et) => String(et.id) === String(tid))
+      return (found?.label || tid).toLowerCase()
+    })
 
     return validEvents.filter((evt) => {
       // 1. Text search
@@ -157,11 +174,17 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
 
       // 4. Event Types (Multi-select)
       if (rawTypeIds.length > 0) {
-        const matchesType = rawTypeIds.some(
-          (tid) =>
-            String(evt.eventTypeId) === String(tid) ||
-            (evt.eventTypeName && evt.eventTypeName.toLowerCase().includes(tid.toLowerCase()))
-        )
+        const evtTypeId = String(evt.eventTypeId || '')
+        const evtTypeName = (evt.eventTypeName || '').toLowerCase()
+        const evtTitle = (evt.name || '').toLowerCase()
+
+        const matchesType =
+          (evtTypeId && rawTypeIds.includes(evtTypeId)) ||
+          selectedTypeLabels.some(
+            (lbl) => lbl && (evtTypeName.includes(lbl) || lbl.includes(evtTypeName) || evtTitle.includes(lbl))
+          ) ||
+          rawTypeIds.some((tid) => evtTypeName.includes(tid.toLowerCase()) || evtTitle.includes(tid.toLowerCase()))
+
         if (!matchesType) return false
       }
 

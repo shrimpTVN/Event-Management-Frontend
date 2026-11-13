@@ -59,7 +59,13 @@ export interface FanpageFeedPost {
   isLiked?: boolean
   isPinned?: boolean
   isHidden?: boolean
+  eventTypeId?: number | string
   eventTypeName?: string
+  criteriaId?: number | string
+  criteriaName?: string
+  semesterId?: number | string
+  academicYear?: string
+  eventPoints?: any[]
   dateOpen?: string
   dateClose?: string
   status?: string
