@@ -604,13 +604,11 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
             onClose()
             onLogout()
           }}
-          className="w-full flex items-center gap-3 p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors font-medium text-xs cursor-pointer text-left group"
+          className="w-full py-2.5 px-3 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors font-semibold text-xs cursor-pointer flex items-center justify-center gap-2 group"
           role="menuitem"
         >
-          <div className="w-8 h-8 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center shrink-0 group-hover:bg-rose-100 transition-colors">
-            <LogOut className="w-4 h-4" />
-          </div>
-          <span className="font-semibold text-xs">Đăng xuất</span>
+          <LogOut className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110" />
+          <span>Đăng xuất</span>
         </button>
       </div>
     </div>
