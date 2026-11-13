@@ -7,6 +7,7 @@ import { useAuthStore, isStaffUser } from '@/features/auth'
 import { useFanpageUnreadNotificationCount } from '@/features/notifications'
 import { AccountNavigationPopup } from '@/shared/components/layout/AccountNavigationPopup'
 import { FanpageNotificationDropdown } from './FanpageNotificationDropdown'
+import type { FanpageSummary } from '../types/fanpageAdmin.types'
 
 interface FanpageAdminTopNavProps {
   onToggleSidebar?: () => void
@@ -15,6 +16,8 @@ interface FanpageAdminTopNavProps {
   currentFanpageRole?: string
   currentFanpageName?: string
   currentFanpageAvatarUrl?: string
+  availableFanpages?: FanpageSummary[]
+  onSelectFanpage?: (fanpage: FanpageSummary) => void
   onLogoClick?: () => void
   onCreateEventClick?: () => void
   onPersonalProfileClick?: () => void
@@ -27,6 +30,8 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
   currentFanpageRole,
   currentFanpageName,
   currentFanpageAvatarUrl,
+  availableFanpages,
+  onSelectFanpage,
   onLogoClick,
   onCreateEventClick,
   onPersonalProfileClick,
@@ -184,7 +189,7 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
             )}
           </div>
 
-          {/* Admin Avatar only (No text name/email next to it) */}
+          {/* Admin Avatar only with small fanpage badge at corner */}
           <div className="relative">
             {user ? (
               <div>
@@ -194,7 +199,7 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
                     setShowAccountPopup(!showAccountPopup)
                     setShowNotifications(false)
                   }}
-                  className="flex items-center focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-full cursor-pointer"
+                  className="relative flex items-center focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-full cursor-pointer"
                   aria-label="Tài khoản cá nhân"
                 >
                   {user.avatarUrl ? (
@@ -208,6 +213,19 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
                       {user.name ? user.name.charAt(0).toUpperCase() : 'Q'}
                     </div>
                   )}
+
+                  {/* Logo fanpage nhỏ ở góc dưới avatar */}
+                  {currentFanpageAvatarUrl ? (
+                    <img
+                      src={currentFanpageAvatarUrl}
+                      alt={currentFanpageName || 'Fanpage'}
+                      className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full object-cover border-2 border-white dark:border-card shadow-xs"
+                    />
+                  ) : currentFanpageName ? (
+                    <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-slate-700 text-white text-[8px] font-bold flex items-center justify-center border-2 border-white dark:border-card shadow-xs">
+                      {currentFanpageName.slice(0, 1).toUpperCase()}
+                    </div>
+                  ) : null}
                 </button>
 
                 {/* Account Navigation Popup */}
@@ -220,6 +238,8 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
                   currentFanpageRole={currentFanpageRole}
                   currentFanpageName={currentFanpageName}
                   currentFanpageAvatarUrl={currentFanpageAvatarUrl}
+                  availableFanpages={availableFanpages}
+                  onSelectFanpage={onSelectFanpage}
                   onProfileClick={() => {
                     setShowAccountPopup(false)
                     if (onPersonalProfileClick) {

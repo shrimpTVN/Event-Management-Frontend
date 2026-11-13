@@ -18,6 +18,8 @@ interface AccountNavigationPopupProps {
   currentFanpageRole?: string
   currentFanpageName?: string
   currentFanpageAvatarUrl?: string
+  availableFanpages?: any[]
+  onSelectFanpage?: (fanpage: any) => void
 }
 
 /**
@@ -84,6 +86,8 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
   currentFanpageRole,
   currentFanpageName,
   currentFanpageAvatarUrl,
+  availableFanpages: propAvailableFanpages,
+  onSelectFanpage,
 }) => {
   const popupRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
@@ -182,10 +186,26 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
     refetchOnWindowFocus: true,
   })
 
-  // Dữ liệu fanpage chuẩn xác từ cơ sở dữ liệu (tự động loại bỏ fanpage đã bị xóa/rời khỏi)
+  // Dữ liệu fanpage chuẩn xác từ cơ sở dữ liệu và props
   const allFanpages = useMemo(() => {
-    return dbFanpages
-  }, [dbFanpages])
+    const map = new Map<string, any>()
+    if (Array.isArray(propAvailableFanpages)) {
+      for (const fp of propAvailableFanpages) {
+        map.set(String(fp.id), {
+          id: String(fp.id),
+          name: fp.name,
+          fullName: fp.fullName || fp.name,
+          avatarUrl: fp.avatarUrl,
+          role: fp.role || 'Quản trị viên',
+          isAdmin: fp.role === 'Quản trị viên' || fp.role === 'ADMIN',
+        })
+      }
+    }
+    for (const fp of dbFanpages) {
+      map.set(String(fp.id), fp)
+    }
+    return Array.from(map.values())
+  }, [propAvailableFanpages, dbFanpages])
 
   // Fetch real student profile from backend (/users/me/profile)
   const { data: profile } = useQuery({
@@ -292,8 +312,11 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
   // Chuyển sang không gian làm việc của Fanpage:
   // - Nếu là Admin: /fanpage/admin
   // - Nếu là Member / Sinh viên cộng tác viên: /fanpage/workspace (tránh /admin)
-  const handleSwitchToFanpage = (fp: { id: string; role?: string; isAdmin?: boolean }) => {
+  const handleSwitchToFanpage = (fp: { id: string; role?: string; isAdmin?: boolean; name?: string }) => {
     onClose()
+    if (onSelectFanpage) {
+      onSelectFanpage(fp)
+    }
     const isTargetAdmin = fp.isAdmin || fp.role === 'ADMIN' || fp.role === 'Quản trị viên' || isStaff
     const path = isTargetAdmin ? '/fanpage/admin' : '/fanpage/workspace'
     navigate(path, { state: { fanpageId: String(fp.id) } })
@@ -337,29 +360,55 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
           - Nếu là cán bộ: Nút quay lại Trung tâm quản lý Fanpage '/staff/fanpages'
           - Danh sách các fanpage khác có thể chuyển đổi
          ========================================================================= */}
-      {isStudent && isFanpageWorkspace ? (
+      {isFanpageWorkspace ? (
         <>
-          {/* Thông tin Fanpage / Tài khoản hiện tại đang truy cập (chỉ để nhận biết, không cần xem profile) */}
-          <div className="w-full flex items-center gap-3 p-2 rounded-xl bg-muted/40 border border-border/50 text-left">
-            <div className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center overflow-hidden border border-border/60 bg-[#4B5563] text-white shadow-xs">
+          {/* Thông tin tài khoản cá nhân & Fanpage đang quản lý với logo fanpage nhỏ dưới avatar */}
+          <div className="w-full flex items-center gap-3 p-2.5 rounded-2xl bg-muted/40 dark:bg-muted/30 border border-border/60 text-left">
+            {/* Avatar cá nhân với logo fanpage nhỏ ở góc dưới */}
+            <div className="relative shrink-0">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden border-2 border-primary/20 bg-[#1B4B8A] text-white shadow-xs">
+                {userAvatarUrl ? (
+                  <img
+                    src={userAvatarUrl}
+                    alt={displayName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="font-bold text-sm text-white">{userInitial}</span>
+                )}
+              </div>
+
+              {/* Logo fanpage hiện tại nhỏ ở dưới/góc avatar */}
               {currentFanpage?.avatarUrl ? (
                 <img
                   src={currentFanpage.avatarUrl}
                   alt={currentFanpage.name}
-                  className="w-full h-full object-cover"
+                  title={`Fanpage: ${currentFanpage.name}`}
+                  className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full object-cover border-2 border-white dark:border-card shadow-xs"
                 />
               ) : (
-                <span className="font-bold text-sm text-white">
-                  {(currentFanpage?.name || 'FP').trim().charAt(0).toUpperCase()}
-                </span>
+                <div
+                  title={`Fanpage: ${currentFanpage?.name}`}
+                  className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#374151] text-white text-[9px] font-bold flex items-center justify-center border-2 border-white dark:border-card shadow-xs"
+                >
+                  {(currentFanpage?.name || 'FP').slice(0, 1).toUpperCase()}
+                </div>
               )}
             </div>
 
             <div className="min-w-0 flex-1">
-              <span className="font-bold text-sm text-foreground block truncate">
+              <button
+                type="button"
+                onClick={handleGoToProfile}
+                className="font-bold text-sm text-foreground hover:text-primary transition-colors block truncate cursor-pointer text-left"
+                title="Xem thông tin cá nhân"
+              >
+                {displayName}
+              </button>
+              <span className="font-medium text-xs text-foreground/90 block truncate" title={currentFanpage?.name}>
                 {currentFanpage?.name || 'Không gian Fanpage'}
               </span>
-              <span className="font-medium text-[11px] text-muted-foreground block truncate">
+              <span className="text-[11px] text-muted-foreground block truncate">
                 {currentFanpage?.role || currentFanpageRole || 'Quản trị viên'}
               </span>
             </div>
@@ -367,8 +416,48 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
 
           <div className="w-full h-px bg-[#EDF0F4] dark:bg-border/60 my-2" />
 
-          {/* Nút chuyển đổi tài khoản với avatar xoay xoay */}
+          {/* Danh sách chuyển đổi sang fanpage khác và tài khoản cá nhân */}
           <div className="space-y-1">
+            <div className="flex items-center justify-between px-2 py-1">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                Chuyển đổi fanpage
+              </span>
+              {availableSwitchFanpages.length > 0 && (
+                <span className="text-[10px] text-muted-foreground font-medium">
+                  {availableSwitchFanpages.length} fanpage khác
+                </span>
+              )}
+            </div>
+
+            {/* Các Fanpage khác mà user có quyền quản lý/tham gia */}
+            {availableSwitchFanpages.map((fp) => (
+              <button
+                key={fp.id}
+                type="button"
+                onClick={() => handleSwitchToFanpage(fp)}
+                className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
+                role="menuitem"
+                title={`Chuyển sang ${fp.name}`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <SwitchAvatar avatarUrl={fp.avatarUrl} name={fp.name} />
+                  <div className="min-w-0 flex-1">
+                    <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
+                      {fp.name}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground block truncate">
+                      {fp.role || (fp.isAdmin ? 'Quản trị viên' : 'Cộng tác viên')}
+                    </span>
+                  </div>
+                </div>
+
+                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold text-primary bg-primary/10 group-hover:bg-primary group-hover:text-white transition-all shrink-0">
+                  Chuyển đổi
+                </span>
+              </button>
+            ))}
+
+            {/* Chuyển lại tài khoản cá nhân (Sinh viên hoặc Cán bộ) */}
             {isStudent ? (
               <button
                 type="button"
@@ -376,76 +465,64 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
                   onClose()
                   navigate('/')
                 }}
-                className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
+                className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
                 role="menuitem"
-                title="Quay lại trang chủ dành cho sinh viên"
+                title="Quay lại trang chủ sinh viên"
               >
-                <SwitchAvatar
-                  avatarUrl={userAvatarUrl}
-                  name={displayName}
-                  bgClassName="bg-[#1B4B8A] text-white"
-                  textClassName="text-[11px] font-bold text-white"
-                />
-
-                <div className="min-w-0 flex-1">
-                  <span className="font-bold text-sm text-foreground block truncate">
-                    {displayName}
-                  </span>
-                  <span className="text-[11px] text-[#1B4B8A] dark:text-blue-400 font-medium block truncate">
-                    {studentMssv ? `MSSV: ${studentMssv} • Sinh viên` : 'Tài khoản cá nhân sinh viên'}
-                  </span>
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <SwitchAvatar
+                    avatarUrl={userAvatarUrl}
+                    name={displayName}
+                    bgClassName="bg-[#1B4B8A] text-white"
+                    textClassName="text-[11px] font-bold text-white"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
+                      {displayName}
+                    </span>
+                    <span className="text-[10px] text-[#1B4B8A] dark:text-blue-400 font-medium block truncate">
+                      {studentMssv ? `MSSV: ${studentMssv} · Sinh viên` : 'Tài khoản sinh viên'}
+                    </span>
+                  </div>
                 </div>
+
+                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold text-primary bg-primary/10 group-hover:bg-primary group-hover:text-white transition-all shrink-0">
+                  Chuyển đổi
+                </span>
               </button>
-            ) : (
+            ) : isStaff ? (
               <button
                 type="button"
                 onClick={() => {
                   onClose()
                   navigate('/staff/fanpages')
                 }}
-                className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
+                className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
                 role="menuitem"
                 title="Quay lại Trung tâm Fanpage cán bộ"
               >
-                <SwitchAvatar
-                  avatarUrl={userAvatarUrl}
-                  name={displayName}
-                  bgClassName="bg-[#1B4B8A] text-white"
-                  textClassName="text-[11px] font-bold text-white"
-                />
-
-                <div className="min-w-0 flex-1">
-                  <span className="font-bold text-sm text-foreground block truncate">
-                    {displayName}
-                  </span>
-                  <span className="text-[11px] text-[#1B4B8A] dark:text-blue-400 font-medium block truncate">
-                    Trung tâm quản lý Fanpage
-                  </span>
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <SwitchAvatar
+                    avatarUrl={userAvatarUrl}
+                    name={displayName}
+                    bgClassName="bg-[#1B4B8A] text-white"
+                    textClassName="text-[11px] font-bold text-white"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
+                      {displayName}
+                    </span>
+                    <span className="text-[10px] text-[#1B4B8A] dark:text-blue-400 font-medium block truncate">
+                      Trung tâm quản lý Fanpage
+                    </span>
+                  </div>
                 </div>
-              </button>
-            )}
 
-            {/* Các Fanpage khác mà sinh viên tham gia */}
-            {availableSwitchFanpages.map((fp) => (
-              <button
-                key={fp.id}
-                type="button"
-                onClick={() => handleSwitchToFanpage(fp)}
-                className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
-                role="menuitem"
-              >
-                <SwitchAvatar avatarUrl={fp.avatarUrl} name={fp.name} />
-
-                <div className="min-w-0 flex-1">
-                  <span className="font-bold text-sm text-foreground block truncate">
-                    {fp.name}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground block truncate">
-                    {fp.role || (fp.isAdmin ? 'Quản trị viên' : 'Cộng tác viên')}
-                  </span>
-                </div>
+                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold text-primary bg-primary/10 group-hover:bg-primary group-hover:text-white transition-all shrink-0">
+                  Chuyển đổi
+                </span>
               </button>
-            ))}
+            ) : null}
           </div>
 
           <div className="w-full h-px bg-[#EDF0F4] dark:bg-border/60 my-2" />
