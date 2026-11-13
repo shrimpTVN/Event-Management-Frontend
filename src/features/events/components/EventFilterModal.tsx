@@ -620,21 +620,21 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
   if (!isOpen) return null
 
   const modalContent = (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 pointer-events-none">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-stretch sm:justify-end pointer-events-none">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity pointer-events-auto"
+        className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity pointer-events-auto"
         onClick={() => {
           setOpenCombobox(null)
           onClose()
         }}
       />
 
-      {/* Filter Modal: Canh giữa màn hình trên Desktop (không che header), Bottom sheet trên Mobile */}
+      {/* Filter Drawer: Right Slide-over on Desktop, Bottom Sheet on Mobile */}
       <div
         ref={modalRef}
         onClick={(e) => e.stopPropagation()}
-        className="relative pointer-events-auto w-full sm:w-[95vw] sm:max-w-[580px] max-h-[85vh] overflow-hidden bg-white dark:bg-card border-t sm:border border-border/80 rounded-t-3xl sm:rounded-2xl shadow-2xl text-left animate-in slide-in-from-bottom-6 sm:fade-in sm:zoom-in-95 duration-200 select-none flex flex-col"
+        className="relative pointer-events-auto w-full sm:w-[480px] sm:max-w-[480px] h-auto max-h-[90vh] sm:max-h-full sm:h-full overflow-hidden bg-white dark:bg-card border-t sm:border-t-0 sm:border-l border-border/80 rounded-t-3xl sm:rounded-none shadow-2xl text-left animate-in slide-in-from-bottom-6 sm:slide-in-from-right duration-300 select-none flex flex-col"
       >
         {/* Mobile Swipe Handle Indicator */}
         <div className="pt-2.5 pb-1 sm:hidden flex justify-center">
@@ -642,14 +642,26 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 border-b border-border/50 shrink-0">
-          <div>
-            <h2 className="font-k2d font-bold text-base sm:text-lg text-foreground tracking-tight">
-              Bộ lọc sự kiện
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Tìm nhanh theo trạng thái, thời gian, loại hình và quyền lợi
-            </p>
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-border/50 shrink-0 bg-muted/20">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <SlidersHorizontal className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-k2d font-bold text-base sm:text-lg text-foreground tracking-tight">
+                  Bộ lọc sự kiện
+                </h2>
+                {activeCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[11px]">
+                    {activeCount} đang chọn
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Tùy chỉnh tiêu chí tìm kiếm sự kiện phù hợp
+              </p>
+            </div>
           </div>
           <button
             type="button"
@@ -1305,3 +1317,5 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     ? createPortal(modalContent, document.body)
     : modalContent
 }
+
+export const EventFilterDrawer = EventFilterModal
