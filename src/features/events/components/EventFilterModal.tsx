@@ -643,25 +643,20 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-border/50 shrink-0 bg-muted/20">
-          <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-              <SlidersHorizontal className="h-4 w-4" />
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="font-k2d font-bold text-base sm:text-lg text-foreground tracking-tight">
+                Bộ lọc sự kiện
+              </h2>
+              {activeCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[11px]">
+                  {activeCount} đang chọn
+                </span>
+              )}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-k2d font-bold text-base sm:text-lg text-foreground tracking-tight">
-                  Bộ lọc sự kiện
-                </h2>
-                {activeCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[11px]">
-                    {activeCount} đang chọn
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Tùy chỉnh tiêu chí tìm kiếm sự kiện phù hợp
-              </p>
-            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Tùy chỉnh tiêu chí tìm kiếm sự kiện phù hợp
+            </p>
           </div>
           <button
             type="button"
