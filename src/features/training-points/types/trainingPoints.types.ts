@@ -14,6 +14,88 @@ export interface PointCategoryNode extends PointCategory {
   children?: PointCategoryNode[]
 }
 
+/**
+ * Tiêu chí con đã được Backend trải phẳng theo thứ tự DFS
+ * Từ API: GET /student-semester-points/grouped-tree/{semesterId}
+ */
+export interface StudentSemesterPointFlattenedItem {
+  id: number
+  name: string
+  note: string | null
+  maximum: number
+  dateApply?: string
+  level: number
+  parentCategoryId: number | null
+  isActive: boolean
+  childrenOrder: number
+  isLeaf: boolean
+  isMaxChild?: boolean
+  studentSemesterPointId?: number | null
+  totalPoint: number
+  systemPointRecord: number
+  manualPointRecord: number
+  finalizedAt?: string | null
+}
+
+/**
+ * 5 Mục lớn (Mục I, II, III, IV, V) ở gốc kèm mảng items trải phẳng
+ * Từ API: GET /student-semester-points/grouped-tree/{semesterId}
+ */
+export interface StudentSemesterPointGroupedTree {
+  id: number
+  name: string
+  note: string | null
+  maximum: number
+  dateApply?: string
+  level: number
+  parentCategoryId: number | null
+  isActive: boolean
+  childrenOrder: number
+  isMaxChild?: boolean
+  studentSemesterPointId?: number | null
+  totalPoint: number
+  systemPointRecord: number
+  manualPointRecord: number
+  finalizedAt?: string | null
+  items: StudentSemesterPointFlattenedItem[]
+}
+
+/**
+ * Tiêu chí con khung danh mục chuẩn từ BE (không kèm điểm sinh viên)
+ * Từ API: GET /point-categories/grouped-tree
+ */
+export interface PointCategoryFlattenedItem {
+  id: number
+  name: string
+  note: string | null
+  maximum: number
+  dateApply?: string
+  level: number
+  parentCategoryId: number | null
+  isActive: boolean
+  childrenOrder: number
+  isLeaf: boolean
+  isMaxChild?: boolean
+}
+
+/**
+ * 5 Mục lớn khung danh mục chuẩn từ BE (không kèm điểm sinh viên)
+ * Từ API: GET /point-categories/grouped-tree
+ */
+export interface PointCategoryGroupedTree {
+  id: number
+  name: string
+  note: string | null
+  maximum: number
+  dateApply?: string
+  level: number
+  parentCategoryId: number | null
+  isActive: boolean
+  childrenOrder: number
+  isMaxChild?: boolean
+  items: PointCategoryFlattenedItem[]
+}
+
 export interface StudentSemesterPoint {
   id: number
   userId: number

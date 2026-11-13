@@ -1,15 +1,22 @@
 import React, { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { TrainingPointsRow } from './TrainingPointsRow'
-import type { PointCategoryNode, PointTransaction } from '../types/trainingPoints.types'
+import type {
+  PointCategoryNode,
+  PointTransaction,
+  StudentSemesterPointGroupedTree,
+  PointCategoryGroupedTree,
+  StudentSemesterPointFlattenedItem,
+} from '../types/trainingPoints.types'
 import { computeCategoryScore } from '../utils/scoreCalculator'
 
 interface TrainingPointsSectionAccordionProps {
-  section: PointCategoryNode
+  section: PointCategoryNode | StudentSemesterPointGroupedTree | PointCategoryGroupedTree
   sectionRoman: string // 'I', 'II', 'III', 'IV', 'V'
-  transactions: PointTransaction[]
+  transactions?: PointTransaction[]
   studentScores: Record<number, number>
   studentDescriptions?: Record<number, string>
+  semesterId?: number
   onSaveSelfScore: (categoryId: number, score: number, description?: string) => Promise<void> | void
   onDeleteSelfScore?: (transactionId: number, categoryId: number) => Promise<void> | void
   defaultExpanded?: boolean
@@ -20,9 +27,10 @@ interface TrainingPointsSectionAccordionProps {
 export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccordionProps> = ({
   section,
   sectionRoman,
-  transactions,
+  transactions = [],
   studentScores,
   studentDescriptions = {},
+  semesterId,
   onSaveSelfScore,
   onDeleteSelfScore,
   defaultExpanded = false,
@@ -87,13 +95,50 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
 
   // Flatten rows to render in sequence with generated codes like I.a, I.a.1, I.a.2.1
   const rows = React.useMemo(() => {
+    // 1. ƯU TIÊN: Dùng mảng items đã được Backend phân cấp và trải phẳng DFS sẵn
+    if ('items' in section && Array.isArray((section as any).items) && (section as any).items.length > 0) {
+      const items: StudentSemesterPointFlattenedItem[] = (section as any).items
+      const list: Array<{
+        item: StudentSemesterPointFlattenedItem
+        code: string
+        isLeaf: boolean
+      }> = []
+
+      const codeMap = new Map<number, string>()
+      const childCountMap = new Map<number, number>()
+      let level1Index = 0
+
+      items.forEach((item) => {
+        let code = ''
+        if (item.level === 1 || !item.parentCategoryId || item.parentCategoryId === section.id) {
+          code = `${sectionRoman}.${String.fromCharCode(97 + level1Index)}`
+          level1Index++
+        } else {
+          const parentCode = codeMap.get(item.parentCategoryId) || sectionRoman
+          const siblingCount = (childCountMap.get(item.parentCategoryId) || 0) + 1
+          childCountMap.set(item.parentCategoryId, siblingCount)
+          code = `${parentCode}.${siblingCount}`
+        }
+        codeMap.set(item.id, code)
+
+        list.push({
+          item,
+          code,
+          isLeaf: item.isLeaf,
+        })
+      })
+
+      return list
+    }
+
+    // 2. FALLBACK: Cấu trúc cây đệ quy truyền thống qua children
     const list: Array<{
-      item: PointCategoryNode
+      item: any
       code: string
       isLeaf: boolean
     }> = []
 
-    function traverse(node: PointCategoryNode, parentCode: string, depth: number) {
+    function traverse(node: any, parentCode: string, depth: number) {
       if (!node.children || node.children.length === 0) {
         list.push({ item: node, code: parentCode, isLeaf: true })
         return
@@ -102,7 +147,7 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
       // Group header
       list.push({ item: node, code: parentCode, isLeaf: false })
 
-      node.children.forEach((child, idx) => {
+      node.children.forEach((child: any, idx: number) => {
         const childCode =
           depth === 1
             ? `${parentCode}.${String.fromCharCode(97 + idx)}`
@@ -111,8 +156,8 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
       })
     }
 
-    if (section.children) {
-      section.children.forEach((child, idx) => {
+    if ((section as any).children) {
+      (section as any).children.forEach((child: any, idx: number) => {
         const char = String.fromCharCode(97 + idx)
         traverse(child, `${sectionRoman}.${char}`, 2)
       })
@@ -128,20 +173,49 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
 
     rows.forEach((r) => {
       if (r.isLeaf) {
-        rec += recordedMap.get(r.item.id) || 0
-        self += studentScores[r.item.id] || 0
+        const itemRec =
+          (r.item as any).systemPointRecord !== undefined
+            ? (r.item as any).systemPointRecord
+            : recordedMap.get(r.item.id) || 0
+        const itemSelf =
+          studentScores[r.item.id] !== undefined
+            ? studentScores[r.item.id]
+            : (r.item as any).manualPointRecord || 0
+
+        rec += itemRec
+        self += itemSelf
       }
     })
 
     return { totalRecorded: rec, totalSelf: self }
   }, [rows, recordedMap, studentScores])
 
-  // Final section score computed by recursively capping each node and sub-tree at its own maximum
-  const computedScore = React.useMemo(() => {
-    return computeCategoryScore(section, recordedMap, studentScores)
-  }, [section, recordedMap, studentScores])
+  // Final section score computed by BE or recursively capping at section maximum
+  const finalSectionScore = React.useMemo(() => {
+    // Nếu BE đã tính sẵn totalPoint và sinh viên chưa sửa đổi cục bộ
+    const beTotal = (section as any).totalPoint
+    if (
+      beTotal !== undefined &&
+      beTotal !== null &&
+      totalSelf === ((section as any).manualPointRecord || 0)
+    ) {
+      return beTotal
+    }
 
-  const finalSectionScore = computedScore > 0 ? computedScore : (aggregateScore ?? 0)
+    // Nếu có children (cấu trúc cây cũ)
+    if ((section as any).children && (section as any).children.length > 0) {
+      const computed = computeCategoryScore(section as any, recordedMap, studentScores)
+      if (computed > 0) return computed
+    }
+
+    // Nếu dùng items từ BE có chỉnh sửa điểm tự chấm ở client
+    if ('items' in section && Array.isArray((section as any).items)) {
+      return Math.min(section.maximum, totalRecorded + totalSelf)
+    }
+
+    return aggregateScore ?? (section as any).totalPoint ?? 0
+  }, [section, totalRecorded, totalSelf, aggregateScore, recordedMap, studentScores])
+
   const progressPercent = section.maximum > 0
     ? Math.min(100, Math.round((finalSectionScore / section.maximum) * 100))
     : 0
@@ -193,12 +267,23 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
               key={row.item.id}
               item={row.item}
               criteriaCode={row.code}
-              recordedPoints={recordedMap.get(row.item.id) || 0}
+              recordedPoints={
+                (row.item as any).systemPointRecord !== undefined
+                  ? (row.item as any).systemPointRecord
+                  : recordedMap.get(row.item.id) || 0
+              }
               recordedTransactions={recordedTxMap.get(row.item.id) || []}
               manualTransaction={manualTxMap.get(row.item.id)}
-              selfScore={studentScores[row.item.id] || 0}
-              selfDescription={studentDescriptions[row.item.id] || selfTxDescriptionMap.get(row.item.id) || ''}
+              selfScore={
+                studentScores[row.item.id] !== undefined
+                  ? studentScores[row.item.id]
+                  : (row.item as any).manualPointRecord || 0
+              }
+              selfDescription={
+                studentDescriptions[row.item.id] || selfTxDescriptionMap.get(row.item.id) || ''
+              }
               isLeaf={row.isLeaf}
+              semesterId={semesterId}
               onSaveSelfScore={onSaveSelfScore}
               onDeleteSelfScore={onDeleteSelfScore}
             />

@@ -6,11 +6,7 @@ import { useAuthStore } from '@/features/auth'
 import { historyService, type RegisteredEventItem } from '@/features/registration-history'
 import {
   trainingPointsService,
-  buildPointCategoryTree,
-  computeCategoryScore,
-  type PointCategory,
-  type PointTransaction,
-  type StudentSemesterPoint,
+  type StudentSemesterPointGroupedTree,
 } from '@/features/training-points'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EventCalendarWidget } from './EventCalendarWidget'
@@ -44,27 +40,14 @@ export const StudentRightSidebar: React.FC = () => {
 
   const activeSemesterId = activeSemester?.id || 1
 
-  // 2. Fetch training semester points dynamically based on active semester
-  const { data: semesterPoints, isLoading: isSemesterPointsLoading } = useQuery<StudentSemesterPoint[]>({
-    queryKey: ['student-semester-points', activeSemesterId],
-    queryFn: () => trainingPointsService.getStudentSemesterPoints(activeSemesterId),
+  // 2. Fetch training semester points dynamically based on active semester using grouped tree API
+  const { data: semesterPointsTree, isLoading: isSemesterPointsLoading } = useQuery<StudentSemesterPointGroupedTree[]>({
+    queryKey: ['student-semester-points-tree', activeSemesterId],
+    queryFn: () => trainingPointsService.getSemesterPointGroupedTree(activeSemesterId),
     enabled: Boolean(activeSemesterId) && isAuthenticated,
   })
 
-  // 3. Fetch point categories from server dynamically
-  const { data: pointCategories = [], isLoading: isCategoriesLoading } = useQuery<PointCategory[]>({
-    queryKey: ['point-categories'],
-    queryFn: () => trainingPointsService.getPointCategories(),
-  })
-
-  // 4. Fetch point transactions for current student & semester
-  const { data: transactions = [], isLoading: isTransactionsLoading } = useQuery<PointTransaction[]>({
-    queryKey: ['point-transactions', activeSemesterId],
-    queryFn: () => trainingPointsService.getPointTransactions(activeSemesterId),
-    enabled: Boolean(activeSemesterId) && isAuthenticated,
-  })
-
-  // 5. Fetch registered events to render calendar dots strictly for events the student has actually registered for
+  // 3. Fetch registered events to render calendar dots strictly for events the student has actually registered for
   const { data: registeredEvents = [] } = useQuery<RegisteredEventItem[]>({
     queryKey: ['registrations', 'history'],
     queryFn: () => historyService.getMyHistory(),
@@ -84,66 +67,14 @@ export const StudentRightSidebar: React.FC = () => {
     return `HK${semNum} NH ${formattedYear}`
   }, [semestersList, activeSemester, academicYears])
 
-  // Filter root point categories (level 0 or without parent)
-  const rootCategories = useMemo(() => {
-    const roots = pointCategories.filter((c: any) => c.level === 0 || !c.parentCategoryId)
-    return roots.sort((a: any, b: any) => (a.childrenOrder || 0) - (b.childrenOrder || 0))
-  }, [pointCategories])
-
-  // Build tree for hierarchical score calculation
-  const categoryTree = useMemo(() => {
-    if (!pointCategories || pointCategories.length === 0) return []
-    return buildPointCategoryTree(pointCategories)
-  }, [pointCategories])
-
-  // Process transactions and leaf semester points
-  const { recordedMap, studentScores } = useMemo(() => {
-    const recMap = new Map<number, number>()
-    const stScores: Record<number, number> = {}
-
-    // 1. Process real transactions
-    transactions.forEach((tx) => {
-      if (tx.type === 'MANUAL') {
-        stScores[tx.pointCategoryId] = tx.points
-      } else {
-        const cur = recMap.get(tx.pointCategoryId) || 0
-        recMap.set(tx.pointCategoryId, cur + tx.points)
-      }
-    })
-
-    // 2. Incorporate leaf entries from semesterPoints if not already represented in transactions
-    if (Array.isArray(semesterPoints)) {
-      semesterPoints.forEach((sp: any) => {
-        const catId = Number(sp.pointCategoryId)
-        if (!recMap.has(catId) && !stScores[catId]) {
-          recMap.set(catId, sp.totalPoint || 0)
-        }
-      })
-    }
-
-    return { recordedMap: recMap, studentScores: stScores }
-  }, [transactions, semesterPoints])
-
-  // Compute criteria items and total points strictly with rollup & maximum caps
+  // Compute criteria items and total points strictly from BE grouped tree
   const { criteriaList, currentScore, classification, pointsNeeded } = useMemo(() => {
-    const pointsArray = Array.isArray(semesterPoints) ? semesterPoints : []
-
-    const list: CriteriaItem[] = rootCategories.map((cat: any) => {
-      const treeNode = categoryTree.find((node) => node.id === cat.id)
-      const computedScore = treeNode
-        ? computeCategoryScore(treeNode, recordedMap, studentScores)
-        : 0
-
-      // Direct aggregate from semesterPoints as fallback
-      const rootSp = pointsArray.find((p: any) => p.pointCategoryId === cat.id)
-      const aggScore = rootSp ? rootSp.totalPoint : 0
-
-      // Final score for this section is capped at section maximum
-      const current = Math.min(cat.maximum || 20, Math.max(computedScore, aggScore))
-      const max = cat.maximum || 20
+    const list: CriteriaItem[] = (semesterPointsTree || []).map((root) => {
+      const current = root.totalPoint || 0
+      const max = root.maximum || 20
       return {
-        id: String(cat.id),
-        name: cat.name,
+        id: String(root.id),
+        name: root.name,
         current,
         max,
         isCompleted: current >= max,
@@ -174,7 +105,7 @@ export const StudentRightSidebar: React.FC = () => {
       classification: rank,
       pointsNeeded: Math.max(0, needed),
     }
-  }, [rootCategories, categoryTree, recordedMap, studentScores, semesterPoints])
+  }, [semesterPointsTree])
 
   const maxScore = 100
   const scorePercentage = Math.min(100, (currentScore / maxScore) * 100)
@@ -185,8 +116,7 @@ export const StudentRightSidebar: React.FC = () => {
   const strokeDashoffset = circumference - (scorePercentage / 100) * circumference
 
   const isPointsLoading =
-    isAuthenticated &&
-    (isSemestersLoading || isSemesterPointsLoading || isCategoriesLoading || isTransactionsLoading)
+    isAuthenticated && (isSemestersLoading || isSemesterPointsLoading)
 
   return (
     <aside className="w-full flex flex-col gap-6 text-sm">

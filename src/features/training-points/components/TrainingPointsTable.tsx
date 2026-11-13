@@ -1,13 +1,19 @@
 import React from 'react'
 import { TrainingPointsSectionAccordion } from './TrainingPointsSectionAccordion'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { PointCategoryNode, PointTransaction } from '../types/trainingPoints.types'
+import type {
+  PointCategoryNode,
+  PointTransaction,
+  StudentSemesterPointGroupedTree,
+  PointCategoryGroupedTree,
+} from '../types/trainingPoints.types'
 
 interface TrainingPointsTableProps {
-  sections: PointCategoryNode[]
-  transactions: PointTransaction[]
+  sections: (PointCategoryNode | StudentSemesterPointGroupedTree | PointCategoryGroupedTree)[]
+  transactions?: PointTransaction[]
   studentScores: Record<number, number>
   studentDescriptions?: Record<number, string>
+  semesterId?: number
   onSaveSelfScore: (categoryId: number, score: number, description?: string) => Promise<void> | void
   onDeleteSelfScore?: (transactionId: number, categoryId: number) => Promise<void> | void
   isLoading?: boolean
@@ -19,9 +25,10 @@ const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V']
 
 export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
   sections,
-  transactions,
+  transactions = [],
   studentScores,
   studentDescriptions = {},
+  semesterId,
   onSaveSelfScore,
   onDeleteSelfScore,
   isLoading,
@@ -136,6 +143,7 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
               transactions={transactions}
               studentScores={studentScores}
               studentDescriptions={studentDescriptions}
+              semesterId={semesterId}
               onSaveSelfScore={onSaveSelfScore}
               onDeleteSelfScore={onDeleteSelfScore}
               defaultExpanded={false}

@@ -1,18 +1,24 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Pencil, Eye } from 'lucide-react'
 import { SelfEvaluationModal } from './SelfEvaluationModal'
 import { CriterionDetailModal } from './CriterionDetailModal'
-import type { PointCategoryNode, PointTransaction } from '../types/trainingPoints.types'
+import type {
+  PointCategoryNode,
+  PointTransaction,
+  StudentSemesterPointFlattenedItem,
+} from '../types/trainingPoints.types'
+import { trainingPointsService } from '../services/trainingPointsService'
 
 interface TrainingPointsRowProps {
-  item: PointCategoryNode
+  item: PointCategoryNode | StudentSemesterPointFlattenedItem
   criteriaCode: string
   recordedPoints: number
-  recordedTransactions: PointTransaction[]
+  recordedTransactions?: PointTransaction[]
   manualTransaction?: PointTransaction
   selfScore: number
   selfDescription?: string
   isLeaf: boolean
+  semesterId?: number
   onSaveSelfScore: (categoryId: number, score: number, description?: string) => Promise<void> | void
   onDeleteSelfScore?: (transactionId: number, categoryId: number) => Promise<void> | void
 }
@@ -26,11 +32,52 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
   selfScore,
   selfDescription = '',
   isLeaf,
+  semesterId,
   onSaveSelfScore,
   onDeleteSelfScore,
 }) => {
   const [isSelfModalOpen, setIsSelfModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+
+  // Lazy-load transactions for this category on demand when modal opens
+  const [lazyTransactions, setLazyTransactions] = useState<PointTransaction[]>([])
+  const [, setIsLoadingTxs] = useState(false)
+
+  useEffect(() => {
+    let isMounted = true
+    if ((isDetailModalOpen || isSelfModalOpen) && isLeaf && semesterId) {
+      if (recordedTransactions && recordedTransactions.length > 0) {
+        setLazyTransactions(recordedTransactions)
+      } else {
+        setIsLoadingTxs(true)
+        trainingPointsService
+          .getPointTransactionsByCategory(semesterId, item.id)
+          .then((txs) => {
+            if (isMounted) setLazyTransactions(txs)
+          })
+          .catch(() => {
+            if (isMounted) setLazyTransactions([])
+          })
+          .finally(() => {
+            if (isMounted) setIsLoadingTxs(false)
+          })
+      }
+    }
+    return () => {
+      isMounted = false
+    }
+  }, [isDetailModalOpen, isSelfModalOpen, isLeaf, semesterId, item.id, recordedTransactions])
+
+  const effectiveRecordedTxs =
+    recordedTransactions && recordedTransactions.length > 0
+      ? recordedTransactions
+      : lazyTransactions.filter((t) => t.type !== 'MANUAL')
+
+  const effectiveManualTx =
+    manualTransaction || lazyTransactions.find((t) => t.type === 'MANUAL')
+
+  const effectiveDescription =
+    selfDescription || effectiveManualTx?.description || ''
 
   // Row background and indent styling based on hierarchy level
   const isGroupHeader = !isLeaf && item.level <= 2
@@ -132,11 +179,11 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
           criteriaCode={criteriaCode}
           maxPoints={item.maximum}
           currentScore={selfScore}
-          currentDescription={selfDescription}
+          currentDescription={effectiveDescription}
           onSave={(points, desc) => onSaveSelfScore(item.id, points, desc)}
           onDelete={
-            manualTransaction && onDeleteSelfScore
-              ? () => onDeleteSelfScore(manualTransaction.id, item.id)
+            effectiveManualTx && onDeleteSelfScore
+              ? () => onDeleteSelfScore(effectiveManualTx.id, item.id)
               : undefined
           }
         />
@@ -150,17 +197,17 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
           criterionName={item.name}
           criteriaCode={criteriaCode}
           maxPoints={item.maximum}
-          recordedTransactions={recordedTransactions}
+          recordedTransactions={effectiveRecordedTxs}
           selfScore={selfScore}
-          selfDescription={selfDescription}
+          selfDescription={effectiveDescription}
           totalPoints={rowTotal}
           onOpenSelfEvaluation={() => {
             setIsDetailModalOpen(false)
             setIsSelfModalOpen(true)
           }}
           onDeleteSelfEvaluation={
-            manualTransaction && onDeleteSelfScore
-              ? () => onDeleteSelfScore(manualTransaction.id, item.id)
+            effectiveManualTx && onDeleteSelfScore
+              ? () => onDeleteSelfScore(effectiveManualTx.id, item.id)
               : undefined
           }
         />

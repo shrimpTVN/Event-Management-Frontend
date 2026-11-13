@@ -7,9 +7,42 @@ import type {
   StudentSemesterPoint,
   PointTransaction,
   SaveSelfEvaluationPayload,
+  StudentSemesterPointGroupedTree,
+  PointCategoryGroupedTree,
 } from '../types/trainingPoints.types'
 
 export const trainingPointsService = {
+  /**
+   * [API MỚI] Lấy toàn bộ cây điểm rèn luyện gom nhóm sẵn theo học kỳ
+   * Endpoint: GET /student-semester-points/grouped-tree/{semesterId}
+   */
+  async getSemesterPointGroupedTree(
+    semesterId: number
+  ): Promise<StudentSemesterPointGroupedTree[]> {
+    try {
+      const res = await apiClient.get<unknown, StudentSemesterPointGroupedTree[]>(
+        `/student-semester-points/grouped-tree/${semesterId}`
+      )
+      return Array.isArray(res) ? res : []
+    } catch {
+      return []
+    }
+  },
+
+  /**
+   * [API MỚI] Lấy danh mục cây điểm rèn luyện chuẩn từ Backend
+   * Endpoint: GET /point-categories/grouped-tree
+   */
+  async getPointCategoriesGroupedTree(): Promise<PointCategoryGroupedTree[]> {
+    try {
+      const res = await apiClient.get<unknown, PointCategoryGroupedTree[]>(
+        `/point-categories/grouped-tree`
+      )
+      return Array.isArray(res) ? res : []
+    } catch {
+      return []
+    }
+  },
   /**
    * Lấy danh sách tất cả năm học đang hoạt động
    */

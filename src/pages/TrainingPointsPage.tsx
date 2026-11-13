@@ -4,13 +4,11 @@ import { StudentLeftSidebar } from '@/features/events'
 import { historyService, normalizeHistoryStatus } from '@/features/registration-history'
 import {
   trainingPointsService,
-  buildPointCategoryTree,
   TrainingPointsHeader,
   TrainingPointsNoticeBanner,
   TrainingPointsSummary,
   TrainingPointsTable,
   formatYearLabel,
-  computeCategoryScore,
 } from '@/features/training-points'
 
 export const TrainingPointsPage: React.FC = () => {
@@ -76,72 +74,53 @@ export const TrainingPointsPage: React.FC = () => {
     return found ? found.id : 1
   }, [semesters, academicYears, appliedYear, appliedSemester])
 
-  // 3. Fetch Point Categories (All levels)
-  const { data: rawCategories = [], isLoading: isLoadingCategories } = useQuery({
-    queryKey: ['point-categories'],
-    queryFn: () => trainingPointsService.getPointCategories(),
-  })
-
-  // Leaf category IDs for fetching transactions
-  const leafCategoryIds = useMemo(() => {
-    const parentIds = new Set(rawCategories.map((c) => c.parentCategoryId).filter(Boolean))
-    return rawCategories.filter((c) => !parentIds.has(c.id)).map((c) => c.id)
-  }, [rawCategories])
-
-  // 4. Fetch Point Transactions (System & manual check-in points)
-  const { data: transactions = [], isLoading: isLoadingTransactions } = useQuery({
-    queryKey: ['point-transactions', currentSemesterId, leafCategoryIds],
-    queryFn: () => trainingPointsService.getPointTransactions(currentSemesterId, leafCategoryIds),
-    enabled: Boolean(currentSemesterId) && leafCategoryIds.length > 0,
-  })
-
-  // 5. Fetch Aggregate Semester Points (Directly from student_semester_points)
-  const { data: aggregatePoints = [] } = useQuery({
-    queryKey: ['student-semester-points', currentSemesterId],
-    queryFn: () => trainingPointsService.getStudentSemesterPoints(currentSemesterId),
+  // 3. Fetch Grouped Tree Semester Points (API MỚI: GET /student-semester-points/grouped-tree/{semesterId})
+  const { data: groupedTree = [], isLoading: isLoadingTree } = useQuery({
+    queryKey: ['student-semester-points-tree', currentSemesterId],
+    queryFn: () => trainingPointsService.getSemesterPointGroupedTree(currentSemesterId),
     enabled: Boolean(currentSemesterId),
   })
 
-  const aggregateScores = useMemo(() => {
-    const map: Record<number, number> = {}
-    aggregatePoints.forEach((p) => {
-      map[p.pointCategoryId] = p.totalPoint
-    })
-    return map
-  }, [aggregatePoints])
+  // 4. Fallback to standard point categories grouped tree if student has no tree records yet
+  const { data: fallbackCategories = [] } = useQuery({
+    queryKey: ['point-categories-grouped-tree'],
+    queryFn: () => trainingPointsService.getPointCategoriesGroupedTree(),
+    enabled: groupedTree.length === 0,
+  })
 
-  // 6. Fetch Registration History to get completed events count
+  // Normalize sections: prefer groupedTree, fallback to categories
+  const sections = useMemo(() => {
+    if (groupedTree && groupedTree.length > 0) return groupedTree
+    if (fallbackCategories && fallbackCategories.length > 0) return fallbackCategories
+    return []
+  }, [groupedTree, fallbackCategories])
+
+  // 5. Fetch Registration History to get completed events count
   const { data: historyEvents = [] } = useQuery({
     queryKey: ['registrations', 'history'],
     queryFn: () => historyService.getMyHistory(),
   })
 
-  // Build hierarchical category tree (Roots are Mục I -> V)
-  const categoryTree = useMemo(() => {
-    return buildPointCategoryTree(rawCategories)
-  }, [rawCategories])
-
   // Track student self-evaluated scores and descriptions in local state
   const [studentScores, setStudentScores] = useState<Record<number, number>>({})
   const [studentDescriptions, setStudentDescriptions] = useState<Record<number, string>>({})
 
-  // Initialize self-evaluated scores and descriptions from manual transactions
+  // Initialize self-evaluated scores from manualPointRecord in groupedTree
   useEffect(() => {
-    if (transactions.length > 0) {
+    if (groupedTree.length > 0) {
       const initialScores: Record<number, number> = {}
-      const initialDescriptions: Record<number, string> = {}
-      transactions.forEach((tx) => {
-        if (tx.type === 'MANUAL') {
-          initialScores[tx.pointCategoryId] = tx.points
-          if (tx.description) {
-            initialDescriptions[tx.pointCategoryId] = tx.description
-          }
+      groupedTree.forEach((root) => {
+        if (root.items) {
+          root.items.forEach((item) => {
+            if (item.manualPointRecord > 0) {
+              initialScores[item.id] = item.manualPointRecord
+            }
+          })
         }
       })
       setStudentScores(initialScores)
-      setStudentDescriptions(initialDescriptions)
     }
-  }, [transactions])
+  }, [groupedTree])
 
   // Mutation to save self evaluation
   const selfEvalMutation = useMutation({
@@ -153,7 +132,7 @@ export const TrainingPointsPage: React.FC = () => {
         description: payload.description || 'Sinh viên tự đánh giá',
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['point-transactions', currentSemesterId] })
+      queryClient.invalidateQueries({ queryKey: ['student-semester-points-tree', currentSemesterId] })
       queryClient.invalidateQueries({ queryKey: ['student-semester-points', currentSemesterId] })
     },
   })
@@ -163,7 +142,7 @@ export const TrainingPointsPage: React.FC = () => {
     mutationFn: (transactionId: number) =>
       trainingPointsService.deletePointTransaction(transactionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['point-transactions', currentSemesterId] })
+      queryClient.invalidateQueries({ queryKey: ['student-semester-points-tree', currentSemesterId] })
       queryClient.invalidateQueries({ queryKey: ['student-semester-points', currentSemesterId] })
     },
   })
@@ -189,39 +168,30 @@ export const TrainingPointsPage: React.FC = () => {
       delete next[categoryId]
       return next
     })
-    await deleteSelfEvalMutation.mutateAsync(transactionId)
+
+    let targetTxId = transactionId
+    if (!targetTxId || targetTxId <= 0) {
+      try {
+        const txs = await trainingPointsService.getPointTransactionsByCategory(currentSemesterId, categoryId)
+        const manual = txs.find((t) => t.type === 'MANUAL')
+        if (manual) targetTxId = manual.id
+      } catch (err) {
+        console.warn('Could not find manual transaction to delete:', err)
+      }
+    }
+
+    if (targetTxId && targetTxId > 0) {
+      await deleteSelfEvalMutation.mutateAsync(targetTxId)
+    }
   }
 
-  // Calculate real total score as the exact sum of all 5 sections (capped at section maximums)
+  // Calculate real total score as sum of 5 sections pre-capped by Backend
   const totalScore = useMemo(() => {
-    if (categoryTree.length === 0) {
-      return aggregatePoints.reduce((acc, p) => acc + (p.totalPoint || 0), 0)
+    if (groupedTree && groupedTree.length > 0) {
+      return groupedTree.reduce((sum, root) => sum + (root.totalPoint || 0), 0)
     }
-
-    // Map recorded event transactions (excluding manual self-evaluations)
-    const recordedMap = new Map<number, number>()
-    transactions.forEach((tx) => {
-      if (tx.type !== 'MANUAL') {
-        const cur = recordedMap.get(tx.pointCategoryId) || 0
-        recordedMap.set(tx.pointCategoryId, cur + tx.points)
-      }
-    })
-
-    let realSum = 0
-
-    categoryTree.forEach((rootSection) => {
-      const computedScore = computeCategoryScore(rootSection, recordedMap, studentScores)
-      const agg = aggregateScores[rootSection.id] || 0
-      const finalSectionScore = computedScore > 0 ? computedScore : agg
-      realSum += finalSectionScore
-    })
-
-    if (realSum === 0 && aggregatePoints.length > 0) {
-      return aggregatePoints.reduce((acc, p) => acc + (p.totalPoint || 0), 0)
-    }
-
-    return realSum
-  }, [categoryTree, transactions, studentScores, aggregateScores, aggregatePoints])
+    return 0
+  }, [groupedTree])
 
   // Hoạt động đã tham gia: lấy tổng số sự kiện đã hoàn thành từ lịch sử đăng ký của sinh viên
   const activitiesCount = useMemo(() => {
@@ -234,7 +204,7 @@ export const TrainingPointsPage: React.FC = () => {
     setAppliedSemester(selectedSemester)
   }
 
-  const isLoading = isLoadingCategories || isLoadingTransactions
+  const isLoading = isLoadingTree && fallbackCategories.length === 0
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-[#F0F2F5] dark:bg-background">
@@ -278,15 +248,14 @@ export const TrainingPointsPage: React.FC = () => {
 
             {/* 4. Detailed Evaluation Table */}
             <TrainingPointsTable
-              sections={categoryTree}
-              transactions={transactions}
+              sections={sections}
               studentScores={studentScores}
               studentDescriptions={studentDescriptions}
+              semesterId={currentSemesterId}
               onSaveSelfScore={handleSaveSelfScore}
               onDeleteSelfScore={handleDeleteSelfScore}
               isLoading={isLoading}
               resetKey={`${appliedYear}-${appliedSemester}-${currentSemesterId}`}
-              aggregateScores={aggregateScores}
             />
           </div>
         </main>
