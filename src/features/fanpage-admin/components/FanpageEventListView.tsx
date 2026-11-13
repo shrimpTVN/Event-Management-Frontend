@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   Search,
   SlidersHorizontal,
@@ -13,8 +13,9 @@ import {
 import { useQueries } from '@tanstack/react-query'
 import { cn } from '@/shared/utils/cn'
 import { Skeleton } from '@/components/ui/skeleton'
+import { EventFilterModal, type EventFilterFormValues, isEventMatchingRegistrationStatus } from '@/features/events'
 import type { AdminEvent, EventStatus } from '../types/fanpageAdmin.types'
-import { MOCK_ADMIN_EVENTS, MOCK_EVENT_TYPES, fanpageAdminService } from '../services/fanpageAdminService'
+import { MOCK_ADMIN_EVENTS, fanpageAdminService } from '../services/fanpageAdminService'
 
 // Định dạng thời gian: "04/11/2026 · 07:00" (không hiển thị "07:00 - 07:00" khi giờ bắt đầu và kết thúc giống nhau)
 function formatEventTime(dateStart: string, timeStart: string, timeEnd: string): string {
@@ -61,11 +62,9 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
   onEditClick,
 }) => {
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedType, setSelectedType] = useState<string>('ALL')
-  const [selectedBenefit, setSelectedBenefit] = useState<string>('ALL')
   const [activeStatusTab, setActiveStatusTab] = useState<string>('ALL')
   const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const filterRef = useRef<HTMLDivElement>(null)
+  const [drawerFilterValues, setDrawerFilterValues] = useState<EventFilterFormValues>({})
 
   // Fetch số lượng đăng ký thực tế cho từng sự kiện
   const registeredCountQueries = useQueries({
@@ -86,55 +85,116 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
     return map
   }, [events, registeredCountQueries])
 
-  // Đóng popover bộ lọc khi click ra ngoài
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
-        setIsFilterOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
   const validEvents = useMemo(() => events, [events])
 
-  // Lọc sự kiện theo tab trạng thái, từ khóa, loại sự kiện, quyền lợi
+  const activeFilterCount = useMemo(() => {
+    return [
+      drawerFilterValues.status,
+      drawerFilterValues.eventTypeId,
+      drawerFilterValues.pointCategoryId,
+      drawerFilterValues.criteriaId,
+      drawerFilterValues.semesterId && drawerFilterValues.semesterId !== 'ALL' ? drawerFilterValues.semesterId : null,
+      drawerFilterValues.academicYear && drawerFilterValues.academicYear !== 'ALL' ? drawerFilterValues.academicYear : null,
+      drawerFilterValues.dateHappenFrom,
+      drawerFilterValues.dateHappenTo,
+    ].filter(Boolean).length
+  }, [drawerFilterValues])
+
+  // Lọc sự kiện theo tab trạng thái, từ khóa, bộ lọc drawer nâng cao
   const filteredEvents = useMemo(() => {
+    const rawTypeIds = drawerFilterValues.eventTypeId
+      ? drawerFilterValues.eventTypeId.split(',').filter(Boolean)
+      : []
+    const rawStatus = drawerFilterValues.status
+      ? drawerFilterValues.status.split(',').filter(Boolean)
+      : []
+    const rawPointCatIds = drawerFilterValues.pointCategoryId
+      ? drawerFilterValues.pointCategoryId.split(',').filter(Boolean)
+      : []
+    const rawCritIds = drawerFilterValues.criteriaId
+      ? drawerFilterValues.criteriaId.split(',').filter(Boolean)
+      : []
+
     return validEvents.filter((evt) => {
+      // 1. Text search
       const q = searchTerm.trim().toLowerCase()
-      const matchSearch =
-        !q ||
-        evt.name.toLowerCase().includes(q) ||
-        evt.code.toLowerCase().includes(q) ||
-        evt.location.toLowerCase().includes(q)
-
-      const matchType =
-        selectedType === 'ALL' || evt.eventTypeId.toString() === selectedType
-
-      let matchBenefit = true
-      if (selectedBenefit === 'DRL') {
-        matchBenefit = Boolean(evt.trainingPoints && evt.trainingPoints > 0)
-      } else if (selectedBenefit === 'SV5T') {
-        matchBenefit = Boolean(evt.sv5tCriteriaName)
-      } else if (selectedBenefit === 'CERT') {
-        matchBenefit = Boolean(evt.hasCertificate)
+      if (q) {
+        const matchSearch =
+          evt.name.toLowerCase().includes(q) ||
+          evt.code.toLowerCase().includes(q) ||
+          evt.location.toLowerCase().includes(q)
+        if (!matchSearch) return false
       }
 
-      let matchStatus = true
+      // 2. Tab status (ALL, UPCOMING, PUBLISHED, CLOSED, DRAFT)
       if (activeStatusTab === 'UPCOMING') {
-        matchStatus = evt.status !== 'CLOSED' && evt.status !== 'CANCELLED' && evt.status !== 'DRAFT'
+        if (evt.status === 'CLOSED' || evt.status === 'CANCELLED' || evt.status === 'DRAFT') return false
       } else if (activeStatusTab === 'DRAFT') {
-        matchStatus = evt.status === 'DRAFT'
+        if (evt.status !== 'DRAFT') return false
       } else if (activeStatusTab === 'PUBLISHED') {
-        matchStatus = evt.status === 'PUBLISHED'
+        if (evt.status !== 'PUBLISHED') return false
       } else if (activeStatusTab === 'CLOSED') {
-        matchStatus = evt.status === 'CLOSED'
+        if (evt.status !== 'CLOSED') return false
       }
 
-      return matchSearch && matchType && matchBenefit && matchStatus
+      // 3. Drawer Status (OPEN_REGISTRATION, PUBLISHED, COMPLETED...)
+      if (rawStatus.length > 0) {
+        const matchesStatus = rawStatus.some((sKey) =>
+          isEventMatchingRegistrationStatus(
+            {
+              status: evt.status,
+              dateOpen: (evt as any).dateOpen || evt.dateStart,
+              dateClose: (evt as any).dateClose || evt.dateEnd,
+              dateHappen: evt.dateHappen || evt.dateStart,
+              startTime: evt.dateStart,
+              endTime: evt.dateEnd,
+            } as any,
+            sKey
+          )
+        )
+        if (!matchesStatus) return false
+      }
+
+      // 4. Event Types (Multi-select)
+      if (rawTypeIds.length > 0) {
+        const matchesType = rawTypeIds.some(
+          (tid) =>
+            String(evt.eventTypeId) === String(tid) ||
+            (evt.eventTypeName && evt.eventTypeName.toLowerCase().includes(tid.toLowerCase()))
+        )
+        if (!matchesType) return false
+      }
+
+      // 5. Point Categories (ĐRL)
+      if (rawPointCatIds.length > 0) {
+        const evtCatId = String((evt as any).pointCategoryId || (evt as any).eventPoints?.[0]?.pointCategoryId || '')
+        if (!rawPointCatIds.includes(evtCatId)) return false
+      }
+
+      // 6. SV5T Criteria
+      if (rawCritIds.length > 0) {
+        const evtCritId = String(evt.sv5tCriteriaId || (evt as any).criteriaId || '')
+        if (!rawCritIds.includes(evtCritId)) return false
+      }
+
+      // 7. Date Happen Range
+      if (drawerFilterValues.dateHappenFrom) {
+        const d = evt.dateStart || evt.dateHappen
+        if (d && d < drawerFilterValues.dateHappenFrom) return false
+      }
+      if (drawerFilterValues.dateHappenTo) {
+        const d = evt.dateEnd || evt.dateStart || evt.dateHappen
+        if (d && d > drawerFilterValues.dateHappenTo) return false
+      }
+
+      // 8. Semester
+      if (drawerFilterValues.semesterId && drawerFilterValues.semesterId !== 'ALL') {
+        if (String(evt.semesterId) !== String(drawerFilterValues.semesterId)) return false
+      }
+
+      return true
     })
-  }, [validEvents, searchTerm, selectedType, selectedBenefit, activeStatusTab])
+  }, [validEvents, searchTerm, activeStatusTab, drawerFilterValues])
 
   // Đếm số lượng theo trạng thái
   const counts = useMemo(() => {
@@ -184,8 +244,6 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
         return null
     }
   }
-
-  const activeFilterCount = (selectedType !== 'ALL' ? 1 : 0) + (selectedBenefit !== 'ALL' ? 1 : 0)
 
   return (
     <div className="w-full space-y-6 text-left animate-in fade-in duration-300">
@@ -286,122 +344,25 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                 )}
               </div>
 
-              {/* Nút Bộ lọc */}
-              <div className="relative" ref={filterRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={cn(
-                    'flex items-center gap-2 px-3.5 h-9 text-xs sm:text-sm font-medium rounded-xl border transition-colors shrink-0 cursor-pointer',
-                    activeFilterCount > 0 || isFilterOpen
-                      ? 'border-primary text-primary bg-primary/5'
-                      : 'border-[#E5E7EB] dark:border-border text-foreground bg-white dark:bg-card hover:bg-muted/50'
-                  )}
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                  <span>Bộ lọc</span>
-                  {activeFilterCount > 0 && (
-                    <span className="h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                      {activeFilterCount}
-                    </span>
-                  )}
-                </button>
-
-                {isFilterOpen && (
-                  <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-72 bg-card border border-border rounded-xl shadow-lg p-3 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-border">
-                      <span className="text-xs font-semibold text-foreground">Bộ lọc nâng cao</span>
-                      {activeFilterCount > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedType('ALL')
-                            setSelectedBenefit('ALL')
-                          }}
-                          className="text-[11px] text-primary hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <RotateCcw className="h-3 w-3" />
-                          <span>Đặt lại</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Lọc loại sự kiện */}
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                        Loại sự kiện
-                      </span>
-                      <div className="flex flex-col gap-0.5 max-h-40 overflow-y-auto no-scrollbar">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedType('ALL')}
-                          className={cn(
-                            'w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer flex items-center justify-between',
-                            selectedType === 'ALL'
-                              ? 'bg-primary text-primary-foreground font-semibold'
-                              : 'text-foreground hover:bg-muted'
-                          )}
-                        >
-                          <span>Tất cả loại</span>
-                          {selectedType === 'ALL' && <span>✓</span>}
-                        </button>
-                        {MOCK_EVENT_TYPES.map((t) => {
-                          const isSelected = selectedType === t.id.toString()
-                          return (
-                            <button
-                              key={t.id}
-                              type="button"
-                              onClick={() => setSelectedType(t.id.toString())}
-                              className={cn(
-                                'w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer flex items-center justify-between',
-                                isSelected
-                              ? 'bg-primary text-primary-foreground font-semibold'
-                              : 'text-foreground hover:bg-muted'
-                              )}
-                            >
-                              <span>{t.name}</span>
-                              {isSelected && <span>✓</span>}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Lọc quyền lợi */}
-                    <div className="space-y-1 pt-1 border-t border-border">
-                      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                        Quyền lợi
-                      </span>
-                      <div className="flex flex-col gap-0.5">
-                        {[
-                          { id: 'ALL', label: 'Tất cả quyền lợi' },
-                          { id: 'DRL', label: 'Có điểm rèn luyện (ĐRL)' },
-                          { id: 'SV5T', label: 'Có tiêu chí SV5T' },
-                          { id: 'CERT', label: 'Có giấy chứng nhận' },
-                        ].map((b) => {
-                          const isSelected = selectedBenefit === b.id
-                          return (
-                            <button
-                              key={b.id}
-                              type="button"
-                              onClick={() => setSelectedBenefit(b.id)}
-                              className={cn(
-                                'w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer flex items-center justify-between',
-                                isSelected
-                                  ? 'bg-primary text-primary-foreground font-semibold'
-                                  : 'text-foreground hover:bg-muted'
-                              )}
-                            >
-                              <span>{b.label}</span>
-                              {isSelected && <span>✓</span>}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  </div>
+              {/* Nút Bộ lọc Drawer */}
+              <button
+                type="button"
+                onClick={() => setIsFilterOpen(true)}
+                className={cn(
+                  'flex items-center gap-2 px-3.5 h-9 text-xs sm:text-sm font-medium rounded-xl border transition-colors shrink-0 cursor-pointer',
+                  activeFilterCount > 0
+                    ? 'border-primary text-primary bg-primary/5'
+                    : 'border-[#E5E7EB] dark:border-border text-foreground bg-white dark:bg-card hover:bg-muted/50'
                 )}
-              </div>
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                <span>Bộ lọc</span>
+                {activeFilterCount > 0 && (
+                  <span className="h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
             </div>
 
             {/* Dòng tóm tắt góc phải */}
@@ -409,6 +370,23 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
               {filteredEvents.length} sự kiện {activeStatusTab !== 'ALL' ? 'trong mục này' : 'tổng cộng'}
             </div>
           </div>
+
+          {/* Thanh tóm tắt tiêu chí lọc đang áp dụng */}
+          {activeFilterCount > 0 && (
+            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-primary/5 border border-primary/20 text-xs">
+              <span className="text-primary font-medium">
+                Đang áp dụng {activeFilterCount} tiêu chí lọc ({filteredEvents.length} sự kiện phù hợp)
+              </span>
+              <button
+                type="button"
+                onClick={() => setDrawerFilterValues({})}
+                className="text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>Đặt lại</span>
+              </button>
+            </div>
+          )}
 
           {/* 3. Vùng chứa các card sự kiện bo tròn cách nhau */}
           <div className="p-3 sm:p-4 bg-[#F9FAFB]/60 dark:bg-background/40 overflow-x-auto rounded-xl">
@@ -672,6 +650,16 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Bộ lọc Drawer */}
+      <EventFilterModal
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        initialValues={drawerFilterValues}
+        onApply={(values) => setDrawerFilterValues(values)}
+        events={validEvents as any}
+        hideFanpageFilter={true}
+      />
     </div>
   )
 }

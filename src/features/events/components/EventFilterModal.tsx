@@ -53,6 +53,7 @@ interface EventFilterModalProps {
   initialValues?: EventFilterFormValues
   onApply: (values: EventFilterFormValues) => void
   events?: any[]
+  hideFanpageFilter?: boolean
 }
 
 // Preset trạng thái sự kiện (không có chip "Tất cả" - mặc định để trống là tất cả)
@@ -68,6 +69,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
   initialValues = {},
   onApply,
   events,
+  hideFanpageFilter = false,
 }) => {
   const { isAuthenticated } = useAuthStore()
   const [formValues, setFormValues] = useState<EventFilterFormValues>(initialValues)
@@ -512,11 +514,13 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
       }
 
       // 5. Đơn vị tổ chức (Hỗ trợ multi-select)
-      if (selectedFanpageIds.length > 0) {
-        const evtOrgId = String(evt.organizerId || evt.fanpageId || '')
-        if (!selectedFanpageIds.includes(evtOrgId)) return false
-      } else if (formValues.fanpageId) {
-        if (String(evt.organizerId || evt.fanpageId || '') !== String(formValues.fanpageId)) return false
+      if (!hideFanpageFilter) {
+        if (selectedFanpageIds.length > 0) {
+          const evtOrgId = String(evt.organizerId || evt.fanpageId || '')
+          if (!selectedFanpageIds.includes(evtOrgId)) return false
+        } else if (formValues.fanpageId) {
+          if (String(evt.organizerId || evt.fanpageId || '') !== String(formValues.fanpageId)) return false
+        }
       }
 
       // 6. Năm học (Nâng cao)
@@ -569,7 +573,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
   const advancedActiveCount = [
     selectedAcademicYear !== 'ALL' ? selectedAcademicYear : null,
     formValues.semesterId && formValues.semesterId !== 'ALL' ? formValues.semesterId : null,
-    selectedFanpageIds.length > 0 ? true : null,
+    !hideFanpageFilter && selectedFanpageIds.length > 0 ? true : null,
   ].filter(Boolean).length
 
   const hasActiveFilters =
@@ -1010,7 +1014,11 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
             >
               <div className="flex items-center gap-1.5">
                 <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
-                <span>Nâng cao (Năm học, Học kỳ, Đơn vị tổ chức)</span>
+                <span>
+                  {hideFanpageFilter
+                    ? 'Nâng cao (Năm học, Học kỳ)'
+                    : 'Nâng cao (Năm học, Học kỳ, Đơn vị tổ chức)'}
+                </span>
                 {advancedActiveCount > 0 && (
                   <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[10px]">
                     · {advancedActiveCount}
@@ -1088,10 +1096,11 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
               </div>
 
               {/* Đơn vị tổ chức (Fanpage Combobox - Hỗ trợ multi-select, Nhóm Đang theo dõi, Mở lên trên tránh bị cắt) */}
-              <div className="space-y-1 relative">
-                <label className="text-[11px] font-medium text-muted-foreground block">
-                  Đơn vị tổ chức (Fanpage)
-                </label>
+              {!hideFanpageFilter && (
+                <div className="space-y-1 relative">
+                  <label className="text-[11px] font-medium text-muted-foreground block">
+                    Đơn vị tổ chức (Fanpage)
+                  </label>
                 <button
                   type="button"
                   onClick={() => setOpenCombobox(openCombobox === 'fanpage' ? null : 'fanpage')}
@@ -1272,6 +1281,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                   </div>
                 )}
               </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,8 +1,10 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Pencil, X, Users, SlidersHorizontal, CalendarPlus, Plus } from 'lucide-react'
+import { Pencil, X, Users, SlidersHorizontal, CalendarPlus, Plus, RotateCcw } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useAuthStore, isStaffUser } from '@/features/auth'
 import { Skeleton } from '@/components/ui/skeleton'
+import { EventFilterModal, type EventFilterFormValues, isEventMatchingRegistrationStatus } from '@/features/events'
 import type {
   FanpageSummary,
   FanpageActivityStats,
@@ -44,6 +46,68 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
 }) => {
   const navigate = useNavigate()
   const [selectedPostForAnalytics, setSelectedPostForAnalytics] = useState<FanpageFeedPost | null>(null)
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false)
+  const [filterValues, setFilterValues] = useState<EventFilterFormValues>({})
+
+  const activeDrawerFiltersCount = useMemo(() => {
+    return [
+      filterValues.status,
+      filterValues.eventTypeId,
+      filterValues.pointCategoryId,
+      filterValues.criteriaId,
+      filterValues.semesterId && filterValues.semesterId !== 'ALL' ? filterValues.semesterId : null,
+      filterValues.academicYear && filterValues.academicYear !== 'ALL' ? filterValues.academicYear : null,
+      filterValues.dateHappenFrom,
+      filterValues.dateHappenTo,
+    ].filter(Boolean).length
+  }, [filterValues])
+
+  const filteredPosts = useMemo(() => {
+    const rawTypeIds = filterValues.eventTypeId ? filterValues.eventTypeId.split(',').filter(Boolean) : []
+    const rawStatus = filterValues.status ? filterValues.status.split(',').filter(Boolean) : []
+
+    return posts.filter((post) => {
+      // 1. Status Filter
+      if (rawStatus.length > 0) {
+        const matchesStatus = rawStatus.some((sKey) =>
+          isEventMatchingRegistrationStatus(
+            {
+              status: post.status || 'PUBLISHED',
+              dateOpen: post.dateOpen,
+              dateClose: post.dateClose,
+              dateHappen: post.startTime,
+              startTime: post.startTime,
+              endTime: post.endTime,
+            } as any,
+            sKey
+          )
+        )
+        if (!matchesStatus) return false
+      }
+
+      // 2. Event Types
+      if (rawTypeIds.length > 0) {
+        const matchesType = rawTypeIds.some(
+          (tid) =>
+            ((post as any).eventTypeId && String((post as any).eventTypeId) === String(tid)) ||
+            (post.eventTypeName && post.eventTypeName.toLowerCase().includes(tid.toLowerCase()))
+        )
+        if (!matchesType) return false
+      }
+
+      // 3. Date Happen Range
+      if (filterValues.dateHappenFrom) {
+        const d = post.startTime
+        if (d && d < filterValues.dateHappenFrom) return false
+      }
+      if (filterValues.dateHappenTo) {
+        const d = post.endTime || post.startTime
+        if (d && d > filterValues.dateHappenTo) return false
+      }
+
+      return true
+    })
+  }, [posts, filterValues])
 
   const { user } = useAuthStore()
   const isCurrentUserAdmin =
@@ -106,21 +170,66 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
         <div className="flex-1 min-w-0 w-full flex flex-col gap-3.5">
           {/* Section Header: Title + Button to open Events Manager */}
           <div className="flex items-center justify-between gap-3 px-1">
-            <h2 className="font-k2d font-medium text-lg text-foreground tracking-tight">
-              Sự kiện đã đăng
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-k2d font-medium text-lg text-foreground tracking-tight">
+                Sự kiện đã đăng
+              </h2>
+              {activeDrawerFiltersCount > 0 && (
+                <span className="text-xs text-muted-foreground font-medium">
+                  ({filteredPosts.length}/{posts.length})
+                </span>
+              )}
+            </div>
 
-            {onOpenEventsTab && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={onOpenEventsTab}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-[#374151] dark:text-foreground bg-white dark:bg-card border border-border/80 rounded-lg hover:bg-muted/60 transition-colors shadow-2xs cursor-pointer"
+                onClick={() => setIsFilterDrawerOpen(true)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg border transition-colors shadow-2xs cursor-pointer',
+                  activeDrawerFiltersCount > 0
+                    ? 'border-primary text-primary bg-primary/5'
+                    : 'text-[#374151] dark:text-foreground bg-white dark:bg-card border border-border/80 hover:bg-muted/60'
+                )}
               >
-                <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>Quản lý sự kiện</span>
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span>Bộ lọc</span>
+                {activeDrawerFiltersCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-primary text-white text-[10px] font-bold">
+                    {activeDrawerFiltersCount}
+                  </span>
+                )}
               </button>
-            )}
+
+              {onOpenEventsTab && (
+                <button
+                  type="button"
+                  onClick={onOpenEventsTab}
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-[#374151] dark:text-foreground bg-white dark:bg-card border border-border/80 rounded-lg hover:bg-muted/60 transition-colors shadow-2xs cursor-pointer"
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>Quản lý sự kiện</span>
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Active filter summary bar */}
+          {activeDrawerFiltersCount > 0 && (
+            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-primary/5 border border-primary/20 text-xs">
+              <span className="text-primary font-medium">
+                Đang áp dụng {activeDrawerFiltersCount} tiêu chí lọc ({filteredPosts.length} kết quả)
+              </span>
+              <button
+                type="button"
+                onClick={() => setFilterValues({})}
+                className="text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>Đặt lại</span>
+              </button>
+            </div>
+          )}
 
           {/* Event Feed Posts or Empty State */}
           {isLoadingPosts ? (
@@ -142,9 +251,9 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
                 </div>
               ))}
             </div>
-          ) : posts.length > 0 ? (
+          ) : filteredPosts.length > 0 ? (
             <div className="flex flex-col gap-3.5">
-              {posts.map((post) => (
+              {filteredPosts.map((post) => (
                 <FanpageEventFeedCard
                   key={post.id}
                   post={{
@@ -158,6 +267,19 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
                   onToggleHide={onHideEvent}
                 />
               ))}
+            </div>
+          ) : posts.length > 0 ? (
+            <div className="w-full rounded-2xl border border-dashed border-border/90 bg-white dark:bg-card p-8 sm:p-10 flex flex-col items-center justify-center text-center gap-3 shadow-2xs">
+              <p className="text-sm font-semibold text-foreground">Không tìm thấy sự kiện phù hợp</p>
+              <p className="text-xs text-muted-foreground">Hãy thử điều chỉnh lại các tiêu chí bộ lọc của bạn.</p>
+              <button
+                type="button"
+                onClick={() => setFilterValues({})}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>Đặt lại bộ lọc</span>
+              </button>
             </div>
           ) : (
             <div className="w-full rounded-2xl border border-dashed border-border/90 bg-white dark:bg-card p-10 sm:p-12 flex flex-col items-center justify-center text-center gap-3.5 shadow-2xs">
@@ -259,6 +381,16 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Bộ lọc Drawer */}
+      <EventFilterModal
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        initialValues={filterValues}
+        onApply={(values) => setFilterValues(values)}
+        events={posts}
+        hideFanpageFilter={true}
+      />
     </div>
   )
 }
