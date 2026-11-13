@@ -363,10 +363,16 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
       {isFanpageWorkspace ? (
         <>
           {/* Thông tin tài khoản cá nhân & Fanpage đang quản lý với logo fanpage nhỏ dưới avatar */}
-          <div className="w-full flex items-center gap-3 p-2.5 rounded-2xl bg-muted/40 dark:bg-muted/30 border border-border/60 text-left">
+          <button
+            type="button"
+            onClick={handleGoToProfile}
+            className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left"
+            role="menuitem"
+            title="Xem thông tin cá nhân"
+          >
             {/* Avatar cá nhân với logo fanpage nhỏ ở góc dưới */}
             <div className="relative shrink-0">
-              <div className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden border-2 border-primary/20 bg-[#1B4B8A] text-white shadow-xs">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden border border-border/60 bg-[#1B4B8A] text-white shadow-xs">
                 {userAvatarUrl ? (
                   <img
                     src={userAvatarUrl}
@@ -384,12 +390,12 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
                   src={currentFanpage.avatarUrl}
                   alt={currentFanpage.name}
                   title={`Fanpage: ${currentFanpage.name}`}
-                  className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full object-cover border-2 border-white dark:border-card shadow-xs"
+                  className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full object-cover border-2 border-white dark:border-card shadow-xs"
                 />
               ) : (
                 <div
                   title={`Fanpage: ${currentFanpage?.name}`}
-                  className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#374151] text-white text-[9px] font-bold flex items-center justify-center border-2 border-white dark:border-card shadow-xs"
+                  className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-[#374151] text-white text-[8px] font-bold flex items-center justify-center border-2 border-white dark:border-card shadow-xs"
                 >
                   {(currentFanpage?.name || 'FP').slice(0, 1).toUpperCase()}
                 </div>
@@ -397,14 +403,9 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
             </div>
 
             <div className="min-w-0 flex-1">
-              <button
-                type="button"
-                onClick={handleGoToProfile}
-                className="font-bold text-sm text-foreground hover:text-primary transition-colors block truncate cursor-pointer text-left"
-                title="Xem thông tin cá nhân"
-              >
+              <span className="font-bold text-sm text-foreground block truncate">
                 {displayName}
-              </button>
+              </span>
               <span className="font-medium text-xs text-foreground/90 block truncate" title={currentFanpage?.name}>
                 {currentFanpage?.name || 'Không gian Fanpage'}
               </span>
@@ -412,7 +413,7 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
                 {currentFanpage?.role || currentFanpageRole || 'Quản trị viên'}
               </span>
             </div>
-          </div>
+          </button>
 
           <div className="w-full h-px bg-[#EDF0F4] dark:bg-border/60 my-2" />
 
