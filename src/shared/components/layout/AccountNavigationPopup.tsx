@@ -544,10 +544,10 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
                     <SwitchAvatar avatarUrl={fp.avatarUrl} name={fp.name} />
 
                     <div className="min-w-0 flex-1">
-                      <span className="font-bold text-sm text-foreground block truncate">
+                      <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
                         {fp.name}
                       </span>
-                      <span className="text-[11px] text-muted-foreground block truncate">
+                      <span className="text-[10px] text-muted-foreground block truncate">
                         {fp.role || (fp.isAdmin ? 'Quản trị viên' : 'Cộng tác viên')}
                       </span>
                     </div>
