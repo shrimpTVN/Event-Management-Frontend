@@ -257,17 +257,6 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
                   </span>
                 )}
               </button>
-
-              {onOpenEventsTab && (
-                <button
-                  type="button"
-                  onClick={onOpenEventsTab}
-                  className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-[#374151] dark:text-foreground bg-white dark:bg-card border border-border/80 rounded-lg hover:bg-muted/60 transition-colors shadow-2xs cursor-pointer"
-                >
-                  <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>Quản lý sự kiện</span>
-                </button>
-              )}
             </div>
           </div>
 
