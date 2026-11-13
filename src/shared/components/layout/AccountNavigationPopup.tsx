@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Users, LogOut, Shield } from 'lucide-react'
+import { Users, LogOut } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { type User, isStaffUser, isStaffEmail } from '@/features/auth'
 import { profileService } from '@/features/profile/services/profileService'
@@ -109,12 +109,6 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
   }, [user])
 
   const isStaff = !isStudent && isStaffUser(user)
-  const isAdmin =
-    user.role === 'ADMIN' ||
-    user.role === 'ROLE_ADMIN' ||
-    (user as any).roles?.includes('ADMIN') ||
-    (user as any).roles?.includes('ROLE_ADMIN') ||
-    user.email?.includes('admin')
 
   // Kiểm tra xem hiện tại có đang trong không gian làm việc Fanpage hay không
   // Lưu ý: /fanpage/:id hay /fanpages/:id là trang xem công khai của sinh viên, KHÔNG PHẢI không gian quản trị!
@@ -577,24 +571,7 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
         </button>
       </div>
 
-      <div className="pt-2 border-t border-[#EDF0F4] dark:border-border/60 mt-2 space-y-1">
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={() => {
-              onClose()
-              navigate('/admin')
-            }}
-            className="w-full flex items-center gap-3 p-2 rounded-xl text-[#1B4B8A] dark:text-blue-400 hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors font-medium text-xs cursor-pointer text-left"
-            role="menuitem"
-          >
-            <div className="w-8 h-8 rounded-full bg-[#1B4B8A]/10 text-[#1B4B8A] dark:text-blue-400 flex items-center justify-center shrink-0">
-              <Shield className="w-4 h-4" />
-            </div>
-            <span className="font-semibold text-xs">Quản trị hệ thống</span>
-          </button>
-        )}
-
+      <div className="pt-2 border-t border-[#EDF0F4] dark:border-border/60 mt-2">
         <button
           type="button"
           onClick={() => {
