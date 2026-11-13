@@ -416,116 +416,76 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
 
           <div className="w-full h-px bg-[#EDF0F4] dark:bg-border/60 my-2" />
 
-          {/* Danh sách chuyển đổi sang fanpage khác và tài khoản cá nhân */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between px-2 py-1">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                Chuyển đổi fanpage
-              </span>
-              {availableSwitchFanpages.length > 0 && (
-                <span className="text-[10px] text-muted-foreground font-medium">
-                  {availableSwitchFanpages.length} fanpage khác
-                </span>
-              )}
-            </div>
-
-            {/* Các Fanpage khác mà user có quyền quản lý/tham gia */}
-            {availableSwitchFanpages.map((fp) => (
-              <button
-                key={fp.id}
-                type="button"
-                onClick={() => handleSwitchToFanpage(fp)}
-                className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
-                role="menuitem"
-                title={`Chuyển sang ${fp.name}`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <SwitchAvatar avatarUrl={fp.avatarUrl} name={fp.name} />
-                  <div className="min-w-0 flex-1">
-                    <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
-                      {fp.name}
+          {/* Danh sách các fanpage khác có thể chuyển sang */}
+          {(availableSwitchFanpages.length > 0 || isStudent) && (
+            <>
+              <div className="space-y-1">
+                {availableSwitchFanpages.length > 0 && (
+                  <div className="flex items-center justify-between px-2 py-1">
+                    <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Fanpage khác
                     </span>
-                    <span className="text-[10px] text-muted-foreground block truncate">
-                      {fp.role || (fp.isAdmin ? 'Quản trị viên' : 'Cộng tác viên')}
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                      {availableSwitchFanpages.length} trang
                     </span>
                   </div>
-                </div>
+                )}
 
-                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold text-primary bg-primary/10 group-hover:bg-primary group-hover:text-white transition-all shrink-0">
-                  Chuyển đổi
-                </span>
-              </button>
-            ))}
+                {/* Các Fanpage khác mà user có quyền quản lý/tham gia */}
+                {availableSwitchFanpages.map((fp) => (
+                  <button
+                    key={fp.id}
+                    type="button"
+                    onClick={() => handleSwitchToFanpage(fp)}
+                    className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
+                    role="menuitem"
+                    title={`Chuyển sang ${fp.name}`}
+                  >
+                    <SwitchAvatar avatarUrl={fp.avatarUrl} name={fp.name} />
+                    <div className="min-w-0 flex-1">
+                      <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
+                        {fp.name}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block truncate">
+                        {fp.role || (fp.isAdmin ? 'Quản trị viên' : 'Cộng tác viên')}
+                      </span>
+                    </div>
+                  </button>
+                ))}
 
-            {/* Chuyển lại tài khoản cá nhân (Sinh viên hoặc Cán bộ) */}
-            {isStudent ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose()
-                  navigate('/')
-                }}
-                className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
-                role="menuitem"
-                title="Quay lại trang chủ sinh viên"
-              >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <SwitchAvatar
-                    avatarUrl={userAvatarUrl}
-                    name={displayName}
-                    bgClassName="bg-[#1B4B8A] text-white"
-                    textClassName="text-[11px] font-bold text-white"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
-                      {displayName}
-                    </span>
-                    <span className="text-[10px] text-[#1B4B8A] dark:text-blue-400 font-medium block truncate">
-                      {studentMssv ? `MSSV: ${studentMssv} · Sinh viên` : 'Tài khoản sinh viên'}
-                    </span>
-                  </div>
-                </div>
+                {/* Chuyển lại tài khoản sinh viên (nếu là sinh viên) */}
+                {isStudent && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose()
+                      navigate('/')
+                    }}
+                    className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
+                    role="menuitem"
+                    title="Quay lại trang chủ sinh viên"
+                  >
+                    <SwitchAvatar
+                      avatarUrl={userAvatarUrl}
+                      name={displayName}
+                      bgClassName="bg-[#1B4B8A] text-white"
+                      textClassName="text-[11px] font-bold text-white"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
+                        {displayName}
+                      </span>
+                      <span className="text-[10px] text-[#1B4B8A] dark:text-blue-400 font-medium block truncate">
+                        {studentMssv ? `MSSV: ${studentMssv} · Sinh viên` : 'Tài khoản sinh viên'}
+                      </span>
+                    </div>
+                  </button>
+                )}
+              </div>
 
-                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold text-primary bg-primary/10 group-hover:bg-primary group-hover:text-white transition-all shrink-0">
-                  Chuyển đổi
-                </span>
-              </button>
-            ) : isStaff ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose()
-                  navigate('/staff/fanpages')
-                }}
-                className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
-                role="menuitem"
-                title="Quay lại Trung tâm Fanpage cán bộ"
-              >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <SwitchAvatar
-                    avatarUrl={userAvatarUrl}
-                    name={displayName}
-                    bgClassName="bg-[#1B4B8A] text-white"
-                    textClassName="text-[11px] font-bold text-white"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
-                      {displayName}
-                    </span>
-                    <span className="text-[10px] text-[#1B4B8A] dark:text-blue-400 font-medium block truncate">
-                      Trung tâm quản lý Fanpage
-                    </span>
-                  </div>
-                </div>
-
-                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold text-primary bg-primary/10 group-hover:bg-primary group-hover:text-white transition-all shrink-0">
-                  Chuyển đổi
-                </span>
-              </button>
-            ) : null}
-          </div>
-
-          <div className="w-full h-px bg-[#EDF0F4] dark:bg-border/60 my-2" />
+              <div className="w-full h-px bg-[#EDF0F4] dark:bg-border/60 my-2" />
+            </>
+          )}
         </>
       ) : (
         /* =========================================================================
