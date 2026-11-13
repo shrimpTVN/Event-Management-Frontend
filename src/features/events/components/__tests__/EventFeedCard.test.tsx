@@ -66,4 +66,33 @@ describe('EventFeedCard', () => {
       expect(link).toHaveAttribute('href', '/fanpage/1')
     })
   })
+
+  it('renders event type badge on poster and registration close date next to register button', () => {
+    const eventWithDetails: Event = {
+      ...mockEvent,
+      bannerUrl: 'https://example.com/poster.jpg',
+      eventTypeName: 'Workshop',
+      dateClose: '2026-11-20T23:59:00',
+    }
+    renderWithProviders(<EventFeedCard event={eventWithDetails} />)
+
+    // Event type badge
+    expect(screen.getByText('Workshop')).toBeInTheDocument()
+
+    // Registration close info
+    expect(screen.getByText('Đóng đơn')).toBeInTheDocument()
+    expect(screen.getByText(/23:59/)).toBeInTheDocument()
+    expect(screen.getByText(/20\/11/)).toBeInTheDocument()
+  })
+
+  it('renders event type chip above title when event has no banner', () => {
+    const eventWithoutBanner: Event = {
+      ...mockEvent,
+      bannerUrl: undefined,
+      eventTypeName: 'Thể thao',
+    }
+    renderWithProviders(<EventFeedCard event={eventWithoutBanner} />)
+
+    expect(screen.getByText('Thể thao')).toBeInTheDocument()
+  })
 })

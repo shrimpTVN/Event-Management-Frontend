@@ -8,6 +8,8 @@ import {
   Share2,
   Bookmark,
   BellRing,
+  Tag,
+  Clock,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import type { Event } from '../types/event.types'
@@ -96,6 +98,45 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
     () => getPreviewDescription(event.description || '', 160),
     [event.description]
   )
+
+  const eventTypeDisplay = useMemo(() => {
+    return event.eventTypeName || (event.category && event.category !== 'OTHER' ? event.category : null)
+  }, [event.eventTypeName, event.category])
+
+  const closeInfo = useMemo(() => {
+    const rawDate = event.dateClose || (event as any).registrationEndDate
+    if (!rawDate) return null
+    const closeDate = new Date(rawDate)
+    if (isNaN(closeDate.getTime())) return null
+
+    const now = new Date()
+    const nowMs = now.getTime()
+    const closeMs = closeDate.getTime()
+    const isClosed = nowMs > closeMs || event.status === 'CLOSED'
+
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const hours = pad(closeDate.getHours())
+    const mins = pad(closeDate.getMinutes())
+    const day = pad(closeDate.getDate())
+    const month = pad(closeDate.getMonth() + 1)
+    const year = closeDate.getFullYear()
+
+    const hasTime = !(hours === '00' && mins === '00')
+    const timeFormatted = `${hours}:${mins}`
+    const fullDateFormatted = `${day}/${month}/${year}`
+    const shortDateFormatted = `${day}/${month}`
+
+    const isCurrentYear = year === now.getFullYear()
+    const datePart = isCurrentYear ? shortDateFormatted : fullDateFormatted
+    const timeText = hasTime ? `${timeFormatted} · ${datePart}` : datePart
+    const fullText = hasTime ? `${timeFormatted} ngày ${fullDateFormatted}` : fullDateFormatted
+
+    return {
+      isClosed,
+      timeText,
+      fullText,
+    }
+  }, [event.dateClose, event.status])
 
   // Helper to format ISO strings cleanly into e.g. "29/09/2026 · 19:30"
   const formatDisplayDateTime = (startStr?: string, endStr?: string): string => {
@@ -203,6 +244,12 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
 
       {/* 2. Title & Description (Max 2 lines, collapses naturally for 1-line titles without blank gap) */}
       <div className="px-3 py-0 flex flex-col gap-1.5">
+        {!event.bannerUrl && eventTypeDisplay && (
+          <div className="inline-flex items-center gap-1.5 self-start px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold select-none">
+            <Tag className="h-3 w-3" />
+            <span>{eventTypeDisplay}</span>
+          </div>
+        )}
         <h2 className="font-k2d font-semibold text-base leading-snug text-foreground hover:text-[#1F5CA9] transition-colors line-clamp-2">
           <Link
             to={`/events/${event.id}`}
@@ -255,6 +302,14 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
           />
           {/* Soft ambient overlay for contrast */}
           <div className="absolute inset-0 bg-slate-900/15 dark:bg-black/35 backdrop-blur-2xs pointer-events-none" />
+
+          {/* Top-Left Badge: Event Type */}
+          {eventTypeDisplay && (
+            <div className="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white shadow-md text-xs font-semibold tracking-wide pointer-events-none select-none">
+              <Tag className="h-3 w-3 text-white/90" />
+              <span>{eventTypeDisplay}</span>
+            </div>
+          )}
 
           {/* Foreground Sharp Poster Image with true proportions - Click to open Photo Viewer Lightbox */}
           <button
@@ -384,8 +439,8 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
           </button>
         </div>
 
-        {/* Right: Bookmark + Register CTA (Figma gap: 8px) */}
-        <div className="flex items-center gap-2">
+        {/* Right: Bookmark + Close Info + Register CTA (Figma gap: 8px) */}
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={handleSaveClick}
@@ -403,12 +458,34 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             />
           </button>
 
+          {/* Registration close info to the left of register button */}
+          {closeInfo && (
+            <div
+              className="flex flex-col items-end justify-center text-right leading-tight select-none pr-0.5"
+              title={`Hạn đóng đăng ký: ${closeInfo.fullText}`}
+            >
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-medium">
+                <Clock className="h-3 w-3 text-muted-foreground/80 shrink-0" />
+                <span>{closeInfo.isClosed ? 'Đã đóng đơn' : 'Đóng đơn'}</span>
+              </span>
+              <span
+                className={`text-xs font-semibold ${
+                  closeInfo.isClosed
+                    ? 'text-muted-foreground/80 line-through'
+                    : 'text-foreground'
+                }`}
+              >
+                {closeInfo.timeText}
+              </span>
+            </div>
+          )}
+
           <RegisterButton
             eventId={event.id}
             eventTitle={event.title}
             isRegistered={isRegistered}
             registrationStatus={registrationStatus}
-            disabled={event.status === 'CLOSED'}
+            disabled={event.status === 'CLOSED' || closeInfo?.isClosed}
             onRegisterSuccess={() => {
               setIsRegistered(true)
               setRegistrationStatus('REGISTERED')
