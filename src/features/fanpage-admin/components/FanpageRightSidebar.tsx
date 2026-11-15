@@ -1,8 +1,13 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Users, ShieldCheck, ChevronRight, UserPlus } from 'lucide-react'
 import { useAuthStore } from '@/features/auth'
-import type { FanpageSummary, FanpageActivityStats, FanpageMember } from '../types/fanpageAdmin.types'
+import type {
+  FanpageSummary,
+  FanpageActivityStats,
+  FanpageMember,
+} from '../types/fanpageAdmin.types'
 import { fanpageAdminService, MOCK_FANPAGE_MEMBERS } from '../services/fanpageAdminService'
 import { FanpageActivityStatsCard } from './FanpageActivityStatsCard'
 
@@ -27,8 +32,7 @@ export const FanpageRightSidebar: React.FC<FanpageRightSidebarProps> = ({
     enabled: Boolean(targetFpId),
   })
 
-  const members: FanpageMember[] =
-    serverMembers.length > 0 ? serverMembers : MOCK_FANPAGE_MEMBERS
+  const members: FanpageMember[] = serverMembers.length > 0 ? serverMembers : MOCK_FANPAGE_MEMBERS
 
   return (
     <div className="w-full flex flex-col gap-3.5 select-none text-left">
@@ -51,14 +55,16 @@ export const FanpageRightSidebar: React.FC<FanpageRightSidebarProps> = ({
           </div>
 
           {onManageMembersClick && (
-            <button
-              type="button"
-              onClick={onManageMembersClick}
-              title="Quản lý thành viên"
-              className="p-1 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted/60 transition-colors cursor-pointer"
-            >
-              <UserPlus className="h-4 w-4" />
-            </button>
+            <Tooltip content="Quản lý thành viên">
+              <button
+                type="button"
+                onClick={onManageMembersClick}
+                aria-label="Quản lý thành viên"
+                className="p-1 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted/60 transition-colors cursor-pointer"
+              >
+                <UserPlus className="h-4 w-4" />
+              </button>
+            </Tooltip>
           )}
         </div>
 
@@ -75,8 +81,12 @@ export const FanpageRightSidebar: React.FC<FanpageRightSidebarProps> = ({
 
             // Xác định tài khoản của người dùng hiện tại
             const isCurrentUser = Boolean(
-              (user?.id && (String(member.userId) === String(user.id) || String(member.id) === String(user.id))) ||
-              (user?.email && member.email && user.email.toLowerCase() === member.email.toLowerCase()) ||
+              (user?.id &&
+                (String(member.userId) === String(user.id) ||
+                  String(member.id) === String(user.id))) ||
+              (user?.email &&
+                member.email &&
+                user.email.toLowerCase() === member.email.toLowerCase()) ||
               (!user?.email && member.email === 'organizer@ctu.edu.vn')
             )
 
@@ -100,12 +110,11 @@ export const FanpageRightSidebar: React.FC<FanpageRightSidebarProps> = ({
                   )}
 
                   <div className="min-w-0 flex flex-col justify-center flex-1">
-                    <span
-                      className="text-xs font-semibold text-foreground truncate"
-                      title={displayName}
-                    >
-                      {displayName}
-                    </span>
+                    <Tooltip content={displayName}>
+                      <span className="text-xs font-semibold text-foreground truncate">
+                        {displayName}
+                      </span>
+                    </Tooltip>
 
                     {/* Dòng 2 dưới tên: Chữ Admin nằm riêng bên dưới để không che tên thành viên */}
                     <div className="flex items-center gap-1 mt-0.5">

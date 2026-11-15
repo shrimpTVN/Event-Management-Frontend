@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useRef, useEffect } from 'react'
 import { Clock, ChevronDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -184,22 +185,26 @@ export const TimeSelect: React.FC<TimeSelectProps> = ({
           onBlur={handleBlur}
           placeholder={placeholder}
           maxLength={5}
-          className={cn(
-            'pl-9 pr-8 bg-white dark:bg-card text-foreground font-sans',
-            className
-          )}
+          className={cn('pl-9 pr-8 bg-white dark:bg-card text-foreground font-sans', className)}
         />
         <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => !disabled && setIsOpen((prev) => !prev)}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          title="Chọn giờ và phút"
-          tabIndex={-1}
-        >
-          <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-200', isOpen && 'rotate-180')} />
-        </button>
+        <Tooltip content="Chọn giờ và phút">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => !disabled && setIsOpen((prev) => !prev)}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            aria-label="Chọn giờ và phút"
+            tabIndex={-1}
+          >
+            <ChevronDown
+              className={cn(
+                'h-3.5 w-3.5 transition-transform duration-200',
+                isOpen && 'rotate-180'
+              )}
+            />
+          </button>
+        </Tooltip>
       </div>
 
       {/* Dropdown 2 Columns: Giờ (00-23) & Phút (00-59) */}

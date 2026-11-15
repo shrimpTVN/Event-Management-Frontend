@@ -1,6 +1,15 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, UploadCloud, CheckCircle2, FileText, Trash2, Camera, Upload } from 'lucide-react'
+import {
+  ArrowLeft,
+  UploadCloud,
+  CheckCircle2,
+  FileText,
+  Trash2,
+  Camera,
+  Upload,
+} from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -101,16 +110,17 @@ export const FanpageRegistrationForm: React.FC = () => {
             Đã gửi yêu cầu đăng ký fanpage!
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Hồ sơ thành lập <span className="font-semibold text-foreground">"{fanpageName || 'Fanpage mới'}"</span> đã
-            được gửi đến Ban Quản trị hệ thống CTU để thẩm định trong 03 ngày làm việc. Kết quả sẽ được
-            thông báo qua email <span className="font-medium text-foreground">{user?.email || helpEmail || 'của bạn'}</span>.
+            Hồ sơ thành lập{' '}
+            <span className="font-semibold text-foreground">"{fanpageName || 'Fanpage mới'}"</span>{' '}
+            đã được gửi đến Ban Quản trị hệ thống CTU để thẩm định trong 03 ngày làm việc. Kết quả
+            sẽ được thông báo qua email{' '}
+            <span className="font-medium text-foreground">
+              {user?.email || helpEmail || 'của bạn'}
+            </span>
+            .
           </p>
           <div className="pt-2">
-            <Button
-              type="button"
-              onClick={() => navigate('/staff/fanpages')}
-              className="px-6 h-10"
-            >
+            <Button type="button" onClick={() => navigate('/staff/fanpages')} className="px-6 h-10">
               Về danh sách fanpage
             </Button>
           </div>
@@ -142,7 +152,8 @@ export const FanpageRegistrationForm: React.FC = () => {
               Đăng ký thành lập fanpage mới
             </h1>
             <p className="font-sans text-sm text-[#4B5563] dark:text-muted-foreground mt-1.5 leading-relaxed">
-              Cung cấp thông tin để gửi hồ sơ thành lập fanpage trên Cổng sự kiện CTU. Ban Quản trị hệ thống sẽ thẩm định hồ sơ trong 03 ngày làm việc.
+              Cung cấp thông tin để gửi hồ sơ thành lập fanpage trên Cổng sự kiện CTU. Ban Quản trị
+              hệ thống sẽ thẩm định hồ sơ trong 03 ngày làm việc.
             </p>
           </div>
 
@@ -162,12 +173,16 @@ export const FanpageRegistrationForm: React.FC = () => {
               )}
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-foreground text-sm truncate">{user?.name || 'Nguyễn Minh Anh'}</span>
+                  <span className="font-bold text-foreground text-sm truncate">
+                    {user?.name || 'Nguyễn Minh Anh'}
+                  </span>
                   <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold shrink-0">
                     Người đăng ký
                   </span>
                 </div>
-                <p className="text-muted-foreground truncate">{user?.email || 'canbo@ctu.edu.vn'}</p>
+                <p className="text-muted-foreground truncate">
+                  {user?.email || 'canbo@ctu.edu.vn'}
+                </p>
               </div>
             </div>
 
@@ -176,7 +191,11 @@ export const FanpageRegistrationForm: React.FC = () => {
               <div className="relative shrink-0">
                 <div className="h-20 w-20 rounded-full border border-[#D1D5DB] dark:border-border bg-[#F9FAFB] dark:bg-muted overflow-hidden flex items-center justify-center shadow-xs">
                   {avatarPreview ? (
-                    <img src={avatarPreview} alt="Logo fanpage" className="h-full w-full object-cover" />
+                    <img
+                      src={avatarPreview}
+                      alt="Logo fanpage"
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <div className="flex flex-col items-center justify-center text-muted-foreground/70">
                       <Camera className="h-6 w-6 mb-1 text-primary/70" />
@@ -184,23 +203,24 @@ export const FanpageRegistrationForm: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <label
-                  title="Tải ảnh lên"
-                  className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-[#1B4B8A] hover:bg-[#1E40AF] text-white shadow-md cursor-pointer transition-transform hover:scale-110 flex items-center justify-center"
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/jpg,image/webp"
-                    onChange={handleAvatarFileChange}
-                    className="hidden"
-                  />
-                </label>
+                <Tooltip content="Tải ảnh lên">
+                  <label className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-[#1B4B8A] hover:bg-[#1E40AF] text-white shadow-md cursor-pointer transition-transform hover:scale-110 flex items-center justify-center">
+                    <Upload className="h-3.5 w-3.5" />
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg,image/webp"
+                      onChange={handleAvatarFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </Tooltip>
               </div>
 
               <div className="space-y-1 text-center sm:text-left flex-1 min-w-0">
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                  <span className="font-semibold text-sm text-foreground">Ảnh đại diện / Logo fanpage</span>
+                  <span className="font-semibold text-sm text-foreground">
+                    Ảnh đại diện / Logo fanpage
+                  </span>
                   <span className="text-xs text-muted-foreground">(Không bắt buộc)</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -352,7 +372,8 @@ export const FanpageRegistrationForm: React.FC = () => {
               {/* Minh chứng thành lập */}
               <div className="space-y-2 md:col-span-2">
                 <Label>
-                  Minh chứng thành lập / quyết định ủy quyền <span className="text-destructive">*</span>
+                  Minh chứng thành lập / quyết định ủy quyền{' '}
+                  <span className="text-destructive">*</span>
                 </Label>
                 <div className="relative border-2 border-dashed border-[#D1D5DB] dark:border-border rounded-xl p-5 text-center hover:bg-muted/30 transition-colors flex flex-col items-center justify-center cursor-pointer">
                   <input

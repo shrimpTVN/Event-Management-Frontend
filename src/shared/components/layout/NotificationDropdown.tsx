@@ -1,15 +1,7 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  Flag,
-  Check,
-  Bell,
-  Award,
-  Calendar,
-  ShieldCheck,
-  X,
-  CheckCheck,
-} from 'lucide-react'
+import { Flag, Check, Bell, Award, Calendar, ShieldCheck, X, CheckCheck } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/features/auth/store/authStore'
 import { fanpageService } from '@/features/fanpage/services/fanpageService'
@@ -204,31 +196,19 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         icon: <Award className="w-2.5 h-2.5 text-white" />,
       }
     }
-    if (
-      text.includes('approved') ||
-      text.includes('duyệt') ||
-      text.includes('chấp thuận')
-    ) {
+    if (text.includes('approved') || text.includes('duyệt') || text.includes('chấp thuận')) {
       return {
         bgColor: 'bg-emerald-500',
         icon: <ShieldCheck className="w-2.5 h-2.5 text-white" />,
       }
     }
-    if (
-      text.includes('rejected') ||
-      text.includes('từ chối') ||
-      text.includes('suspended')
-    ) {
+    if (text.includes('rejected') || text.includes('từ chối') || text.includes('suspended')) {
       return {
         bgColor: 'bg-rose-500',
         icon: <X className="w-2.5 h-2.5 text-white" />,
       }
     }
-    if (
-      text.includes('event') ||
-      text.includes('sự kiện') ||
-      text.includes('lịch trình')
-    ) {
+    if (text.includes('event') || text.includes('sự kiện') || text.includes('lịch trình')) {
       return {
         bgColor: 'bg-[#0866FF]',
         icon: <Calendar className="w-2.5 h-2.5 text-white" />,
@@ -254,9 +234,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
 
   // Lọc lời mời theo tab
   const filteredInvitations =
-    filterTab === 'UNREAD'
-      ? invitations.filter((i: any) => i.status === 'PENDING')
-      : invitations
+    filterTab === 'UNREAD' ? invitations.filter((i: any) => i.status === 'PENDING') : invitations
 
   // Lọc thông báo theo tab
   const filteredNotifications =
@@ -281,9 +259,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
       <div className="px-2 pt-1 pb-2 border-b border-[#EDF0F4] dark:border-border/60 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="font-sans font-bold text-base text-foreground">
-              Thông báo
-            </h3>
+            <h3 className="font-sans font-bold text-base text-foreground">Thông báo</h3>
             {totalUnread > 0 && (
               <span className="px-1.5 py-0.5 text-[11px] font-semibold bg-primary/10 text-primary rounded-full">
                 {totalUnread} mới
@@ -292,16 +268,17 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           </div>
 
           {unreadNotificationsCount > 0 && (
-            <button
-              type="button"
-              onClick={() => markAllAsRead()}
-              disabled={isMarkingAllAsRead}
-              className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-medium cursor-pointer transition-colors"
-              title="Đánh dấu tất cả là đã đọc"
-            >
-              <CheckCheck className="w-3.5 h-3.5" />
-              <span>Đã đọc tất cả</span>
-            </button>
+            <Tooltip content="Đánh dấu tất cả là đã đọc">
+              <button
+                type="button"
+                onClick={() => markAllAsRead()}
+                disabled={isMarkingAllAsRead}
+                className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-medium cursor-pointer transition-colors"
+              >
+                <CheckCheck className="w-3.5 h-3.5" />
+                <span>Đã đọc tất cả</span>
+              </button>
+            </Tooltip>
           )}
         </div>
 
@@ -329,9 +306,11 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           >
             <span>Chưa đọc</span>
             {totalUnread > 0 && (
-              <span className={`text-[10px] px-1 rounded-full ${
-                filterTab === 'UNREAD' ? 'bg-white/20 text-white' : 'bg-primary text-white'
-              }`}>
+              <span
+                className={`text-[10px] px-1 rounded-full ${
+                  filterTab === 'UNREAD' ? 'bg-white/20 text-white' : 'bg-primary text-white'
+                }`}
+              >
                 {totalUnread}
               </span>
             )}
@@ -360,25 +339,30 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
               const isAccepted = inv.status === 'ACCEPTED'
               const isDeclined = inv.status === 'DECLINED' || inv.status === 'REJECTED'
 
-              const recipientFullName = `${inv.userLastName || ''} ${inv.userFirstName || ''}`.trim()
+              const recipientFullName =
+                `${inv.userLastName || ''} ${inv.userFirstName || ''}`.trim()
               const isRecipientSelf =
-                (user?.email && inv.userEmail && user.email.toLowerCase() === inv.userEmail.toLowerCase()) ||
+                (user?.email &&
+                  inv.userEmail &&
+                  user.email.toLowerCase() === inv.userEmail.toLowerCase()) ||
                 (user?.id && inv.userId && String(user.id) === String(inv.userId)) ||
-                (user?.name && recipientFullName && user.name.toLowerCase() === recipientFullName.toLowerCase())
+                (user?.name &&
+                  recipientFullName &&
+                  user.name.toLowerCase() === recipientFullName.toLowerCase())
 
               const inviterName =
                 inv.inviterName ||
                 inv.createdByName ||
                 (!isRecipientSelf && recipientFullName ? recipientFullName : '') ||
-                (Number(inv.fanpageId) === 1 || inv.fanpageName?.includes('CNTT') ? 'Nguyễn Minh Anh' : 'Ban quản trị')
+                (Number(inv.fanpageId) === 1 || inv.fanpageName?.includes('CNTT')
+                  ? 'Nguyễn Minh Anh'
+                  : 'Ban quản trị')
 
               return (
                 <div
                   key={`inv-${inv.id}`}
                   className={`p-2.5 rounded-xl transition-colors flex items-start gap-3 ${
-                    isPending
-                      ? 'bg-blue-50/50 dark:bg-blue-950/20'
-                      : 'hover:bg-muted/50'
+                    isPending ? 'bg-blue-50/50 dark:bg-blue-950/20' : 'hover:bg-muted/50'
                   }`}
                 >
                   {/* Inviter Avatar with Flag Badge */}
@@ -470,9 +454,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                   key={`notif-${item.id}`}
                   onClick={() => handleNotificationClick(item)}
                   className={`p-2.5 rounded-xl transition-colors flex items-start gap-3 cursor-pointer ${
-                    isUnread
-                      ? 'bg-blue-50/50 dark:bg-blue-950/20'
-                      : 'hover:bg-muted/50'
+                    isUnread ? 'bg-blue-50/50 dark:bg-blue-950/20' : 'hover:bg-muted/50'
                   }`}
                 >
                   {/* Avatar / Icon with mini badge */}

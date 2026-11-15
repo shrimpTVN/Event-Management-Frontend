@@ -1,4 +1,7 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useMemo } from 'react'
+import { LayoutList, PanelsTopLeft } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/features/auth'
 import { apiClient } from '@/shared'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -17,6 +20,21 @@ import { Skeleton } from '@/components/ui/skeleton'
 export const HomePage: React.FC = () => {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<FeedTabType>('DISCOVER')
+  const [viewMode, setViewMode] = useState<'post' | 'list'>(() => {
+    try {
+      return localStorage.getItem('student-home-view') === 'list' ? 'list' : 'post'
+    } catch {
+      return 'post'
+    }
+  })
+  const changeView = (mode: 'post' | 'list') => {
+    setViewMode(mode)
+    try {
+      localStorage.setItem('student-home-view', mode)
+    } catch {
+      /* The view remains usable without storage. */
+    }
+  }
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
 
   const { isAuthenticated } = useAuthStore()
@@ -167,7 +185,9 @@ export const HomePage: React.FC = () => {
       )
     )
     queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) =>
-      (Array.isArray(old) ? old : []).filter((r: any) => String(r.eventId || r.id) !== String(eventId))
+      (Array.isArray(old) ? old : []).filter(
+        (r: any) => String(r.eventId || r.id) !== String(eventId)
+      )
     )
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
@@ -206,9 +226,7 @@ export const HomePage: React.FC = () => {
     const nextState = !isCurrentlyFollowed
 
     queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
-      old.map((evt) =>
-        evt.organizerId === organizerId ? { ...evt, isFollowed: nextState } : evt
-      )
+      old.map((evt) => (evt.organizerId === organizerId ? { ...evt, isFollowed: nextState } : evt))
     )
 
     try {
@@ -315,11 +333,64 @@ export const HomePage: React.FC = () => {
           {/* Feed Container with bottom breathing room when scrolled to end */}
           <div className="w-full max-w-[680px] flex flex-col gap-2 pb-28 sm:pb-36">
             {/* Feed Filter Tabs */}
-            <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
+            <div className="flex min-w-0 items-center justify-between gap-1 sm:gap-3">
+              <div className="min-w-0 flex-1">
+                <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
+              </div>
+              <div
+                role="group"
+                aria-label="Kiểu hiển thị sự kiện"
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border/70 bg-white p-0.5 dark:bg-card"
+              >
+                <Tooltip content="Bài viết">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Bài viết"
+                    aria-pressed={viewMode === 'post'}
+                    onClick={() => changeView('post')}
+                    className={`h-8 w-8 ${viewMode === 'post' ? 'bg-primary/10 text-primary hover:bg-primary/15' : 'text-muted-foreground'}`}
+                  >
+                    <PanelsTopLeft className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </Tooltip>
+                <Tooltip content="Danh sách">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Danh sách"
+                    aria-pressed={viewMode === 'list'}
+                    onClick={() => changeView('list')}
+                    className={`h-8 w-8 ${viewMode === 'list' ? 'bg-primary/10 text-primary hover:bg-primary/15' : 'text-muted-foreground'}`}
+                  >
+                    <LayoutList className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </Tooltip>
+              </div>
+            </div>
 
             {/* Feed List (Figma gap: 8px between consecutive cards) */}
             <div className="flex flex-col gap-2">
-              {isLoading ? (
+              {isLoading && viewMode === 'list' ? (
+                <div className="flex flex-col gap-2" aria-label="Đang tải danh sách sự kiện">
+                  {[1, 2, 3].map((index) => (
+                    <div
+                      key={index}
+                      className="flex gap-3 rounded-xl border border-border/70 bg-card p-4"
+                    >
+                      <Skeleton className="h-28 w-20 shrink-0 rounded-lg" />
+                      <div className="flex flex-1 flex-col gap-3">
+                        <Skeleton className="h-3 w-1/3" />
+                        <Skeleton className="h-5 w-full" />
+                        <Skeleton className="h-3 w-2/3" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : isLoading ? (
                 <div className="flex flex-col gap-3">
                   {[1, 2, 3].map((n) => (
                     <div
@@ -342,6 +413,7 @@ export const HomePage: React.FC = () => {
                 filteredEvents.map((event) => (
                   <EventFeedCard
                     key={event.id}
+                    variant={viewMode}
                     event={event}
                     onRegister={handleRegister}
                     onCancelRegister={handleCancelRegister}
@@ -356,7 +428,8 @@ export const HomePage: React.FC = () => {
                     Chưa có sự kiện trong mục này
                   </h3>
                   <p className="text-xs text-muted-foreground max-w-sm">
-                    Hãy thử chuyển sang tab "Khám phá" để xem các hoạt động mới nhất từ các Đoàn - Hội và CLB.
+                    Hãy thử chuyển sang tab "Khám phá" để xem các hoạt động mới nhất từ các Đoàn -
+                    Hội và CLB.
                   </p>
                 </div>
               )}

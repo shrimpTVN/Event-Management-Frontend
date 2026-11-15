@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -43,14 +44,17 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
   const [showAccountPopup, setShowAccountPopup] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
 
-  // Số lượng thông báo chưa đọc của Fanpage
-  const { data: unreadNotificationsCount = 0 } = useFanpageUnreadNotificationCount(currentFanpageId)
-
   const isCurrentUserAdmin =
     currentFanpageRole === 'Quản trị viên' ||
     currentFanpageRole === 'ADMIN' ||
     (user ? isStaffUser(user) : false)
   const homePath = isCurrentUserAdmin ? '/fanpage/admin' : '/fanpage/workspace'
+
+  // Số lượng thông báo chưa đọc của Fanpage (chỉ truy vấn khi người dùng có quyền Quản trị viên)
+  const { data: unreadNotificationsCount = 0 } = useFanpageUnreadNotificationCount(
+    currentFanpageId,
+    isCurrentUserAdmin
+  )
 
   const handleLogout = () => {
     // Xóa toàn bộ TanStack query cache khi đăng xuất
@@ -82,31 +86,33 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
           </button>
 
           {onLogoClick ? (
-            <button
-              type="button"
-              onClick={onLogoClick}
-              className="flex items-center shrink-0 group transition-transform hover:opacity-95 cursor-pointer bg-transparent border-none p-0 text-left"
-              title="Về trang quản trị Fanpage hiện tại"
-            >
-              <img
-                src={logoSvg}
-                alt="CTU Event - HTQL Sự Kiện"
-                className="h-10 w-auto object-contain"
-              />
-            </button>
+            <Tooltip content="Về trang quản trị Fanpage hiện tại">
+              <button
+                type="button"
+                onClick={onLogoClick}
+                className="flex items-center shrink-0 group transition-transform hover:opacity-95 cursor-pointer bg-transparent border-none p-0 text-left"
+              >
+                <img
+                  src={logoSvg}
+                  alt="CTU Event - HTQL Sự Kiện"
+                  className="h-10 w-auto object-contain"
+                />
+              </button>
+            </Tooltip>
           ) : (
-            <Link
-              to={homePath}
-              state={currentFanpageId ? { fanpageId: currentFanpageId } : undefined}
-              className="flex items-center shrink-0 group transition-transform hover:opacity-95"
-              title="Trang Fanpage"
-            >
-              <img
-                src={logoSvg}
-                alt="CTU Event - HTQL Sự Kiện"
-                className="h-10 w-auto object-contain"
-              />
-            </Link>
+            <Tooltip content="Trang Fanpage">
+              <Link
+                to={homePath}
+                state={currentFanpageId ? { fanpageId: currentFanpageId } : undefined}
+                className="flex items-center shrink-0 group transition-transform hover:opacity-95"
+              >
+                <img
+                  src={logoSvg}
+                  alt="CTU Event - HTQL Sự Kiện"
+                  className="h-10 w-auto object-contain"
+                />
+              </Link>
+            </Tooltip>
           )}
         </div>
 
@@ -124,14 +130,16 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
               placeholder="Tìm kiếm sự kiện, hoạt động..."
               className="w-full h-10 rounded-xl border border-[#E5E7EB] dark:border-border bg-[#F9FAFB] dark:bg-background pl-10 pr-12 text-sm text-[#374151] dark:text-foreground placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-sans"
             />
-            <button
-              type="button"
-              onClick={() => navigate('/events')}
-              className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-              title="Bộ lọc nâng cao"
-            >
-              <Filter className="h-3.5 w-3.5" />
-            </button>
+            <Tooltip content="Bộ lọc nâng cao">
+              <button
+                type="button"
+                onClick={() => navigate('/events')}
+                className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                aria-label="Bộ lọc nâng cao"
+              >
+                <Filter className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
           </div>
         </form>
 
@@ -140,7 +148,11 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
           {/* Quick Create Event CTA Button */}
           <button
             type="button"
-            onClick={onCreateEventClick ? onCreateEventClick : () => navigate(`${homePath}?tab=create-event`)}
+            onClick={
+              onCreateEventClick
+                ? onCreateEventClick
+                : () => navigate(`${homePath}?tab=create-event`)
+            }
             className="hidden sm:inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
           >
             <Plus className="h-4 w-4" />
@@ -148,46 +160,51 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
           </button>
 
           {/* Messages */}
-          <button
-            type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-            title="Tin nhắn & Hỗ trợ"
-          >
-            <MessageSquare className="h-5 w-5" />
-          </button>
-
-          {/* Notifications Bell */}
-          <div className="relative">
+          <Tooltip content="Tin nhắn & Hỗ trợ">
             <button
               type="button"
-              onClick={() => {
-                setShowNotifications((prev) => !prev)
-                setShowAccountPopup(false)
-              }}
               className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-              title="Thông báo Fanpage"
-              aria-label={`Thông báo ${unreadNotificationsCount > 0 ? `(${unreadNotificationsCount} chưa đọc)` : ''}`}
+              aria-label="Tin nhắn & Hỗ trợ"
             >
-              <div className="relative flex items-center justify-center">
-                <Bell className="h-5 w-5" />
-                {unreadNotificationsCount > 0 && (
-                  <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white font-bold text-[9px] leading-none flex items-center justify-center ring-2 ring-card shadow-xs animate-in zoom-in-50">
-                    {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
-                  </span>
-                )}
-              </div>
+              <MessageSquare className="h-5 w-5" />
             </button>
+          </Tooltip>
 
-            {/* Fanpage Notification Dropdown */}
-            {currentFanpageId && (
-              <FanpageNotificationDropdown
-                isOpen={showNotifications}
-                onClose={() => setShowNotifications(false)}
-                fanpageId={currentFanpageId}
-                fanpageName={currentFanpageName}
-              />
-            )}
-          </div>
+          {/* Notifications Bell (chỉ dành cho Quản trị viên của Fanpage) */}
+          {isCurrentUserAdmin && (
+            <div className="relative">
+              <Tooltip content="Thông báo Fanpage">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNotifications((prev) => !prev)
+                    setShowAccountPopup(false)
+                  }}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                  aria-label={`Thông báo ${unreadNotificationsCount > 0 ? `(${unreadNotificationsCount} chưa đọc)` : ''}`}
+                >
+                  <div className="relative flex items-center justify-center">
+                    <Bell className="h-5 w-5" />
+                    {unreadNotificationsCount > 0 && (
+                      <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white font-bold text-[9px] leading-none flex items-center justify-center ring-2 ring-card shadow-xs animate-in zoom-in-50">
+                        {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              </Tooltip>
+
+              {/* Fanpage Notification Dropdown */}
+              {currentFanpageId && (
+                <FanpageNotificationDropdown
+                  isOpen={showNotifications}
+                  onClose={() => setShowNotifications(false)}
+                  fanpageId={currentFanpageId}
+                  fanpageName={currentFanpageName}
+                />
+              )}
+            </div>
+          )}
 
           {/* Admin Avatar only with small fanpage badge at corner */}
           <div className="relative">

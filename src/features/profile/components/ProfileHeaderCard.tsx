@@ -1,5 +1,15 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useRef } from 'react'
-import { SquarePen, X, Check, Loader2, Camera, Upload, AlertCircle, Link as LinkIcon } from 'lucide-react'
+import {
+  SquarePen,
+  X,
+  Check,
+  Loader2,
+  Camera,
+  Upload,
+  AlertCircle,
+  Link as LinkIcon,
+} from 'lucide-react'
 import { mediaService } from '@/shared/services/mediaService'
 import type { StudentProfile } from '../types/profile.types'
 
@@ -122,19 +132,21 @@ export const ProfileHeaderCard: React.FC<ProfileHeaderCardProps> = ({
           </div>
 
           {/* Quick Upload action button pinned to bottom-right of avatar */}
-          <button
-            type="button"
-            onClick={triggerUpload}
-            disabled={isUploadingAvatar}
-            title="Tải ảnh đại diện lên Cloudinary"
-            className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-[#1B365D] hover:bg-[#1B4B8A] dark:bg-primary dark:hover:bg-primary/90 text-white flex items-center justify-center shadow-md cursor-pointer transition-colors border-2 border-background"
-          >
-            {isUploadingAvatar ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
-            ) : (
-              <Camera className="h-3.5 w-3.5" />
-            )}
-          </button>
+          <Tooltip content="Tải ảnh đại diện lên Cloudinary">
+            <button
+              type="button"
+              onClick={triggerUpload}
+              disabled={isUploadingAvatar}
+              aria-label="Tải ảnh đại diện lên Cloudinary"
+              className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-[#1B365D] hover:bg-[#1B4B8A] dark:bg-primary dark:hover:bg-primary/90 text-white flex items-center justify-center shadow-md cursor-pointer transition-colors border-2 border-background"
+            >
+              {isUploadingAvatar ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
+              ) : (
+                <Camera className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </Tooltip>
         </div>
 
         {/* Info Stack */}

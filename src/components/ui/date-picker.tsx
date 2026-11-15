@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useRef, useEffect } from 'react'
 import {
   format,
@@ -180,21 +181,20 @@ export const DatePicker: React.FC<DatePickerProps> = ({
           onBlur={handleBlur}
           placeholder={placeholder}
           maxLength={10}
-          className={cn(
-            'pr-10 bg-white dark:bg-card text-foreground font-sans',
-            className
-          )}
+          className={cn('pr-10 bg-white dark:bg-card text-foreground font-sans', className)}
         />
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => !disabled && setIsOpen((prev) => !prev)}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/60 transition-colors cursor-pointer"
-          title="Mở lịch chọn ngày"
-          tabIndex={-1}
-        >
-          <CalendarIcon className="h-4 w-4" />
-        </button>
+        <Tooltip content="Mở lịch chọn ngày">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => !disabled && setIsOpen((prev) => !prev)}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/60 transition-colors cursor-pointer"
+            aria-label="Mở lịch chọn ngày"
+            tabIndex={-1}
+          >
+            <CalendarIcon className="h-4 w-4" />
+          </button>
+        </Tooltip>
       </div>
 
       {/* Popover Calendar Dropdown */}
@@ -206,22 +206,26 @@ export const DatePicker: React.FC<DatePickerProps> = ({
               Tháng {format(currentMonth, 'M, yyyy')}
             </span>
             <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setCurrentMonth((prev) => subMonths(prev, 1))}
-                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-                title="Tháng trước"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentMonth((prev) => addMonths(prev, 1))}
-                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-                title="Tháng sau"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              <Tooltip content="Tháng trước">
+                <button
+                  type="button"
+                  onClick={() => setCurrentMonth((prev) => subMonths(prev, 1))}
+                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                  aria-label="Tháng trước"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              </Tooltip>
+              <Tooltip content="Tháng sau">
+                <button
+                  type="button"
+                  onClick={() => setCurrentMonth((prev) => addMonths(prev, 1))}
+                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                  aria-label="Tháng sau"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </Tooltip>
             </div>
           </div>
 
@@ -253,8 +257,8 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                     isSelected
                       ? 'bg-primary text-white font-bold shadow-xs'
                       : inCurrentMonth
-                      ? 'text-foreground hover:bg-muted'
-                      : 'text-muted-foreground/30 hover:bg-muted/40',
+                        ? 'text-foreground hover:bg-muted'
+                        : 'text-muted-foreground/30 hover:bg-muted/40',
                     isToday && !isSelected && 'border border-primary/40 font-semibold'
                   )}
                 >

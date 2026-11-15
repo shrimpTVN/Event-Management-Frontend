@@ -8,7 +8,21 @@ export type SuperAdminNavTab =
   | 'sv5t-criterias'
   | 'schools'
 
-export type UserRole = 'STUDENT' | 'STAFF' | 'ORGANIZER' | 'SUPERADMIN'
+export type UserRole = 'STUDENT' | 'STAFF' | 'SUPERADMIN'
+export type UserSystemRole = 'ADMIN' | 'STUDENT' | 'FANPAGE_ADMIN'
+export interface AdminStudentProfile {
+  studentId: string
+  schoolName: string
+  majorName: string
+  kNumber: string
+  associationName: string
+}
+export interface AdminStaffProfile {
+  staffId: string
+  orgName: string
+  title: string
+  phoneNumber: string
+}
 export type UserStatus = 'ACTIVE' | 'LOCKED' | 'PENDING'
 
 export interface SuperAdminUser {
@@ -17,13 +31,24 @@ export interface SuperAdminUser {
   code: string // MSSV hoặc Mã cán bộ
   email: string
   role: UserRole
+  baseRole?: 'STUDENT' | 'STAFF' | null
+  systemRoles?: UserSystemRole[]
+  studentProfile?: AdminStudentProfile
+  staffProfile?: AdminStaffProfile
   schoolName: string
   majorName?: string
   status: UserStatus
   avatarUrl?: string
   phone?: string
   createdAt: string
-  eventsParticipatedCount: number
+  eventsParticipatedCount: number | null
+}
+
+export interface UserFanpageMembership {
+  id: string
+  name: string
+  avatarUrl?: string
+  role: 'ADMIN' | 'MEMBER'
 }
 
 export type FanpageStatus = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'LOCKED'
@@ -35,6 +60,8 @@ export interface SuperAdminFanpage {
   representativeCode: string
   representativePhone: string
   representativeEmail: string
+  contactEmail?: string
+  contactPhone?: string
   schoolName: string
   proofFileUrl?: string
   proofFileName?: string
@@ -44,16 +71,12 @@ export interface SuperAdminFanpage {
   coverUrl?: string
   description?: string
   rejectionReason?: string
-  eventsCount: number
-  followersCount: number
+  eventsCount: number | null
+  followersCount: number | null
 }
 
 export type AdminEventStatus =
-  | 'OPEN'
-  | 'HAPPENING'
-  | 'COMPLETED'
-  | 'VIOLATED'
-  | 'HIDDEN'
+  'OPEN' | 'HAPPENING' | 'COMPLETED' | 'VIOLATED' | 'HIDDEN' | 'DRAFT' | 'CANCELLED'
 
 export interface SuperAdminEvent {
   id: string
@@ -63,8 +86,9 @@ export interface SuperAdminEvent {
   startDateTime: string
   endDateTime: string
   location: string
-  capacity: number
-  registeredCount: number
+  capacity: number | null
+  registeredCount: number | null
+  eventPoints?: { pointCategoryId: number; name: string; code?: string; point: number }[]
   trainingPoint: number
   trainingPointCategoryName: string
   sv5tCriteriaName?: string
@@ -136,11 +160,11 @@ export interface SuperAdminOverviewStats {
   totalUsers: number
   totalFanpages: number
   totalEvents: number
-  totalParticipations: number
+  totalParticipations: number | null
   pendingFanpagesCount: number
   violationReportsCount: number
-  userGrowthRate: number
-  eventGrowthRate: number
+  userGrowthRate: number | null
+  eventGrowthRate: number | null
 }
 
 export interface FanpageRankItem {

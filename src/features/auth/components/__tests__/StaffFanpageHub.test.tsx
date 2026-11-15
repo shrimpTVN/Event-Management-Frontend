@@ -57,7 +57,7 @@ describe('StaffFanpageHub', () => {
     expect(await screen.findByText('Fanpage Thử Nghiệm API')).toBeInTheDocument()
     expect(screen.getByTestId('role-badge-101')).toHaveTextContent('Quản trị viên')
     expect(screen.getByText(/Fanpage đang quản trị \(1\)/i)).toBeInTheDocument()
-    expect(screen.getByTitle(/Đăng xuất khỏi hệ thống/i)).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Đăng xuất' })[0]).toBeInTheDocument()
   })
 
   it('renders empty state when staff has no fanpages yet', async () => {
@@ -73,9 +73,7 @@ describe('StaffFanpageHub', () => {
 
     expect(await screen.findByText(/Hiện tại bạn chưa có fanpage nào/i)).toBeInTheDocument()
     expect(
-      screen.getByText(
-        /Tài khoản cán bộ của bạn hiện chưa tham gia hoặc sở hữu fanpage nào/i
-      )
+      screen.getByText(/Tài khoản cán bộ của bạn hiện chưa tham gia hoặc sở hữu fanpage nào/i)
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Đăng ký tạo fanpage ngay/i })).toBeInTheDocument()
   })
@@ -102,7 +100,7 @@ describe('StaffFanpageHub', () => {
       </AppProviders>
     )
 
-    const logoutBtn = screen.getByTitle(/Đăng xuất khỏi hệ thống/i)
+    const logoutBtn = screen.getAllByRole('button', { name: 'Đăng xuất' })[0]
     fireEvent.click(logoutBtn)
 
     await waitFor(() => {

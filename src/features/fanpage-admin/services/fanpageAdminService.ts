@@ -1,4 +1,6 @@
 import { apiClient } from '@/shared'
+import { normalizeAttendanceConfig } from '@/shared/utils/attendanceConfig'
+import { resolveEventTypeId } from '@/features/events'
 import type {
   FanpageSummary,
   FanpageActivityStats,
@@ -22,7 +24,6 @@ export const EMPTY_ACTIVITY_STATS: FanpageActivityStats = {
   responseRatePercent: 100,
   pendingCommentsCount: 0,
 }
-
 
 const CTU_CRITERIA_CODE_MAP: Record<number, string> = {
   10: 'mục I.a',
@@ -64,7 +65,8 @@ function formatEventPointsReward(ev: any): string {
   }
 
   if (ev.trainingPoints && ev.trainingPoints > 0) {
-    const pointsFormatted = ev.trainingPoints < 10 ? `0${ev.trainingPoints}` : `${ev.trainingPoints}`
+    const pointsFormatted =
+      ev.trainingPoints < 10 ? `0${ev.trainingPoints}` : `${ev.trainingPoints}`
     const code = ev.trainingPointCategoryCode ? `mục ${ev.trainingPointCategoryCode}` : ''
     return `Cộng ${pointsFormatted} điểm rèn luyện ${code}`.trim()
   }
@@ -97,6 +99,29 @@ function formatPostTimeAgo(dateInput?: string): string {
 }
 
 export const fanpageAdminService = {
+  exportAttendeesCsv: async (
+    fanpageId: string | number,
+    eventId: string | number
+  ): Promise<Blob> => {
+    const file = await apiClient.get<Blob, Blob>(
+      `/registrations/fanpage-member/fanpages/${encodeURIComponent(fanpageId)}/events/${encodeURIComponent(eventId)}/attendees/export`,
+      { responseType: 'blob', headers: { Accept: 'text/csv' } }
+    )
+    if (!(file instanceof Blob) || file.size === 0 || file.type.includes('json')) {
+      throw new Error('Máy chủ chưa trả về tệp CSV hợp lệ.')
+    }
+    return file
+  },
+  confirmAttendance: async (eventId: string | number, userIds: string[]): Promise<void> => {
+    if (!userIds.length) return
+    const studentUserIds = userIds.map(Number)
+    if (studentUserIds.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+      throw new Error('ID tài khoản sinh viên không hợp lệ.')
+    }
+    await apiClient.patch(`/registrations/fanpage-member/events/${eventId}/confirm-attendance`, {
+      studentUserIds,
+    })
+  },
   /**
    * Fetches real follower count of fanpage
    */
@@ -185,7 +210,9 @@ export const fanpageAdminService = {
   /**
    * Fetches the nearest upcoming event reminder for the dashboard
    */
-  getUpcomingReminder: async (fanpageId?: string | number): Promise<UpcomingEventReminder | null> => {
+  getUpcomingReminder: async (
+    fanpageId?: string | number
+  ): Promise<UpcomingEventReminder | null> => {
     const targetId = fanpageId || '1'
     try {
       const res: any = await apiClient.get(`/fanpages/${targetId}/upcoming-reminder`)
@@ -202,15 +229,26 @@ export const fanpageAdminService = {
     const targetId = fanpageId || '1'
     try {
       const res: any = await apiClient.get(`/events/fanpage/${targetId}?size=100`)
-      const list = res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
+      const list =
+        res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
       const isCntt = String(targetId) === '1'
       return list.map((ev: any) => ({
         id: `post-${ev.id}`,
         eventId: String(ev.id),
-        authorName: ev.authorName || (isCntt || ev.fanpageName?.includes('CNTT') ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông' : ev.fanpageName) || 'Ban Tổ Chức',
+        authorName:
+          ev.authorName ||
+          (isCntt || ev.fanpageName?.includes('CNTT')
+            ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông'
+            : ev.fanpageName) ||
+          'Ban Tổ Chức',
         authorCode: 'BTC',
         authorAvatarText: (ev.authorName || 'FP').substring(0, 2).toUpperCase(),
-        authorAvatarUrl: ev.authorAvatarUrl || ev.organizerAvatarUrl || (isCntt || ev.fanpageName?.includes('CNTT') ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg' : ''),
+        authorAvatarUrl:
+          ev.authorAvatarUrl ||
+          ev.organizerAvatarUrl ||
+          (isCntt || ev.fanpageName?.includes('CNTT')
+            ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
+            : ''),
         timeAgo: formatPostTimeAgo(ev.createdAt || ev.updatedAt || ev.dateOpen),
         isPublic: true,
         title: ev.name || ev.title,
@@ -218,7 +256,10 @@ export const fanpageAdminService = {
         bannerUrl: ev.bannerUrl || '',
         startTime: ev.startTime || ev.dateHappen,
         endTime: ev.endTime,
-        location: typeof ev.location === 'string' ? ev.location : (ev.location?.address || 'Khu II, Đại học Cần Thơ'),
+        location:
+          typeof ev.location === 'string'
+            ? ev.location
+            : ev.location?.address || 'Khu II, Đại học Cần Thơ',
         pointsReward: formatEventPointsReward(ev),
         capacity: ev.capacity,
         quotaText: ev.capacityText || (ev.capacity ? `${ev.capacity} sinh viên` : 'Không giới hạn'),
@@ -226,7 +267,7 @@ export const fanpageAdminService = {
         commentsCount: ev.commentsCount ?? 0,
         sharesCount: ev.sharesCount ?? 0,
         isLiked: Boolean(ev.isLiked),
-        eventTypeId: ev.eventTypeId || ev.eventType?.id,
+        eventTypeId: resolveEventTypeId(ev),
         eventTypeName: ev.eventTypeName || ev.eventType?.name,
         criteriaId: ev.criteriaId || ev.criteria?.id,
         criteriaName: ev.criteriaName || ev.criteria?.name,
@@ -268,7 +309,8 @@ export const fanpageAdminService = {
     const targetId = fanpageId || '1'
     try {
       const res: any = await apiClient.get(`/events/fanpage/${targetId}?size=100`)
-      const list = res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
+      const list =
+        res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
       return list.map((ev: any, idx: number) => {
         const start = ev.startTime || ev.dateHappen || '2026-10-15T08:00:00Z'
         const end = ev.endTime || ev.dateHappen || '2026-10-15T11:30:00Z'
@@ -288,16 +330,20 @@ export const fanpageAdminService = {
           ? `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`
           : '11:30'
 
-        const dateOpenStr = ev.dateOpen ? (typeof ev.dateOpen === 'string' ? ev.dateOpen : `${ev.dateOpen}`) : dateStart
-        const dateCloseStr = ev.dateClose ? (typeof ev.dateClose === 'string' ? ev.dateClose : `${ev.dateClose}`) : dateEnd
-        const dateHappenStr = ev.dateHappen ? (typeof ev.dateHappen === 'string' ? ev.dateHappen : `${ev.dateHappen}`) : dateStart
+        const dateOpenStr = ev.dateOpen ? String(ev.dateOpen) : undefined
+        const dateCloseStr = ev.dateClose ? String(ev.dateClose) : undefined
+        const dateHappenStr = ev.dateHappen
+          ? typeof ev.dateHappen === 'string'
+            ? ev.dateHappen
+            : `${ev.dateHappen}`
+          : dateStart
 
         return {
           id: String(ev.id),
           code: ev.code || `EVT-${String(ev.id || idx).padStart(4, '0')}`,
           name: ev.name || ev.title,
           description: ev.description || '',
-          eventTypeId: ev.eventTypeId || 1,
+          eventTypeId: resolveEventTypeId(ev) || ev.eventTypeId || 1,
           eventTypeName: ev.eventTypeName || ev.category || 'Học thuật · Công nghệ',
           fanpageId: String(targetId),
           organizerName: ev.authorName || ev.fanpageName || 'Đoàn Trường CNTT & TT',
@@ -309,7 +355,10 @@ export const fanpageAdminService = {
           timeStart,
           timeEnd,
           format: (ev.location?.type as any) || 'OFFLINE',
-          location: typeof ev.location === 'string' ? ev.location : (ev.location?.address || 'Hội trường Lớn Khu II ĐHCT'),
+          location:
+            typeof ev.location === 'string'
+              ? ev.location
+              : ev.location?.address || 'Hội trường Lớn Khu II ĐHCT',
           capacity: ev.capacity || 200,
           maleQuantity: ev.maleQuantity !== undefined ? ev.maleQuantity : 0,
           femaleQuantity: ev.femaleQuantity !== undefined ? ev.femaleQuantity : 0,
@@ -318,21 +367,26 @@ export const fanpageAdminService = {
           status: (ev.status as any) || 'PUBLISHED',
           bannerUrl: ev.bannerUrl || '',
           requiresApproval: Boolean(ev.requiresApproval),
-          attendanceMethod: ev.attendanceMethod || 'MANUAL',
-          attendanceSessionType: ev.attendanceSessionType || 'BOTH',
+          ...normalizeAttendanceConfig(ev),
           autoEmail: true,
           isPublic: true,
           trainingPoints:
             Array.isArray(ev.eventPoints) && ev.eventPoints.length > 0
               ? ev.eventPoints.reduce((sum: number, p: any) => sum + (p.point || 0), 0)
-              : (ev.trainingPoints !== undefined ? ev.trainingPoints : null),
+              : ev.trainingPoints !== undefined
+                ? ev.trainingPoints
+                : null,
           trainingPointCategoryName:
             ev.eventPoints?.[0]?.pointCategoryName || ev.trainingPointCategoryName || '',
           trainingPointCategoryCode:
             ev.eventPoints?.[0]?.pointCategoryCode || ev.trainingPointCategoryCode || '',
           sv5tCriteriaId: ev.criteriaId ? Number(ev.criteriaId) : undefined,
           sv5tCriteriaName: ev.criteriaName || ev.sv5tCriteriaName || null,
-          semesterId: ev.semester?.id ? Number(ev.semester.id) : (ev.semesterId ? Number(ev.semesterId) : 1),
+          semesterId: ev.semester?.id
+            ? Number(ev.semester.id)
+            : ev.semesterId
+              ? Number(ev.semesterId)
+              : 1,
           semesterName: ev.semester?.name || ev.semesterName,
           hasCertificate: Boolean(ev.hasCertificate),
           tags: Array.isArray(ev.tags) ? ev.tags : [],
@@ -341,7 +395,7 @@ export const fanpageAdminService = {
                 pointCategoryId: p.pointCategoryId,
                 pointCategoryName: p.pointCategoryName || 'Điểm rèn luyện',
                 pointCategoryCode: p.pointCategoryCode || '',
-                point: p.point || 5,
+                point: Number(p.point ?? 0),
               }))
             : [],
           createdAt: ev.createdAt || '2026-10-01',
@@ -367,7 +421,7 @@ export const fanpageAdminService = {
       )
       const list: any[] = Array.isArray(res)
         ? res
-        : res?.data?.content ?? res?.content ?? res?.data ?? []
+        : (res?.data?.content ?? res?.content ?? res?.data ?? [])
       // Lọc bỏ CANCELLED trước khi đếm
       return list.filter((item: any) => (item.status ?? '').toUpperCase() !== 'CANCELLED').length
     } catch {
@@ -376,12 +430,8 @@ export const fanpageAdminService = {
   },
 
   /**
-   * Fetches attendee registration list for a specific event.
-   * Maps BE response (firstName + lastName, majorName, studentId, kNumber)
-   * to the EventRegistrationItem shape expected by the UI.
-   * - Lọc bỏ bản ghi CANCELLED (sinh viên đã hủy đăng ký)
-   * - Map checkInAt/checkOutAt (Instant) sang giờ hiển thị
-   * - studentId/kNumber/major: sẽ có khi BE uncomment trong AttendeeInfoDto
+   * Reads the paginated registration API, including evidence URLs and studentProfile.
+   * Keeps registration status/account IDs intact; excludes cancelled registrations.
    */
   getEventAttendees: async (
     fanpageId: string | number,
@@ -389,87 +439,95 @@ export const fanpageAdminService = {
   ): Promise<EventRegistrationItem[]> => {
     const targetFpId = fanpageId || '1'
     try {
-      // size=200 để lấy đủ danh sách (BE mặc định chỉ trả 10)
-      const res: any = await apiClient.get(
-        `/registrations/fanpage-member/fanpages/${targetFpId}/events/${eventId}/attendees?size=200&sortBy=regDate&sortDir=asc`
+      const size = 200
+      const list: any[] = []
+      for (let page = 0; ; page++) {
+        const res: any = await apiClient.get(
+          `/registrations/fanpage-member/fanpages/${targetFpId}/events/${eventId}/registrations?size=${size}&page=${page}&sortBy=regDate&sortDir=asc`
+        )
+        const items = Array.isArray(res) ? res : (res?.data?.content ?? res?.content ?? res?.data)
+        if (!Array.isArray(items)) throw new Error('Danh sách đăng ký không hợp lệ.')
+        list.push(...items)
+        const pagination = res?.data ?? res
+        if (typeof pagination?.last === 'boolean') {
+          if (pagination.last) break
+          if (!items.length) throw new Error('Phân trang danh sách đăng ký không hợp lệ.')
+        } else if (items.length < size) break
+      }
+
+      return (
+        list
+          // ❌ Lọc bỏ sinh viên đã hủy đăng ký — BE (findAllByEventId) trả cả CANCELLED
+          .filter((item: any) => {
+            const st = (item.status ?? '').toUpperCase()
+            return st !== 'CANCELLED'
+          })
+          .map((item: any): EventRegistrationItem => {
+            const profile = item.studentProfile ?? item
+            const fullName =
+              profile.fullName ||
+              [profile.lastName, profile.firstName].filter(Boolean).join(' ') ||
+              item.name ||
+              `Người dùng #${item.userId ?? item.id ?? '?'}`
+
+            // regDate từ BE (Instant) → format sang chuỗi dễ đọc
+            const registeredAt =
+              item.registeredAt ||
+              (item.regDate ? new Date(item.regDate).toLocaleString('vi-VN') : '')
+
+            // Preserve statuses such as SELF_CHECKED_IN, SPENDING_CONFIRM and CONFIRMED.
+            const rawStatus = (item.status ?? '').toUpperCase()
+            const status: EventRegistrationItem['status'] =
+              (rawStatus as EventRegistrationItem['status']) || 'REGISTERED'
+
+            // checkInAt / checkOutAt từ BE (Instant) → HH:mm
+            const toTime = (val?: string | null) => {
+              if (!val) return undefined
+              const d = new Date(val)
+              return isNaN(d.getTime())
+                ? undefined
+                : d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+            }
+
+            // BE field names: checkInAt, checkOutAt (RegistrationJpaEntity)
+            const entryCheckInTime =
+              item.entryCheckInTime || toTime(item.checkInAt ?? item.checkInTime)
+
+            const checkOutTime =
+              item.checkOutTime || toTime(item.checkOutAt ?? item.checkOutInstant)
+
+            const studentId = profile.studentId ?? profile.studentCode ?? profile.mssv ?? ''
+
+            return {
+              id: String(item.userId ?? item.registrationId ?? item.id ?? ''),
+              userId: String(item.userId ?? ''),
+              studentId,
+              fullName,
+              major: profile.major ?? profile.majorName ?? profile.nganhHoc ?? '',
+              kNumber: Number(profile.kNumber ?? profile.knumber ?? profile.khoaHoc ?? 0),
+              email: profile.email ?? '',
+              phone: profile.phone ?? profile.phoneNumber ?? '',
+              avatarUrl: profile.avatarUrl ?? undefined,
+              registeredAt,
+              registeredAtRaw: item.regDate ?? item.registeredAt ?? undefined,
+              status,
+              entryCheckInTime,
+              checkOutTime,
+              pinCheckInTime: item.pinCheckInTime ?? undefined,
+              checkInTime: item.checkInAt
+                ? new Date(item.checkInAt).toLocaleString('vi-VN')
+                : item.checkInTime
+                  ? new Date(item.checkInTime).toLocaleString('vi-VN')
+                  : undefined,
+              evidenceUrl: item.checkInEvidenceUrl ?? item.evidenceUrl ?? undefined,
+              startEvidenceUrl: item.checkInEvidenceUrl ?? item.startEvidenceUrl ?? undefined,
+              endEvidenceUrl: item.checkOutEvidenceUrl ?? item.endEvidenceUrl ?? undefined,
+            }
+          })
       )
-      // BE có thể trả Array thẳng, hoặc bọc trong data/content (Page object)
-      const list: any[] = Array.isArray(res)
-        ? res
-        : res?.data?.content ?? res?.content ?? res?.data ?? []
-
-      return list
-        // ❌ Lọc bỏ sinh viên đã hủy đăng ký — BE (findAllByEventId) trả cả CANCELLED
-        .filter((item: any) => {
-          const st = (item.status ?? '').toUpperCase()
-          return st !== 'CANCELLED'
-        })
-        .map((item: any): EventRegistrationItem => {
-          // BE trả firstName + lastName riêng → ghép fullName (họ trước, tên sau)
-          const fullName =
-            item.fullName ||
-            [item.lastName, item.firstName].filter(Boolean).join(' ') ||
-            item.name ||
-            `Người dùng #${item.userId ?? item.id ?? '?'}`
-
-          // regDate từ BE (Instant) → format sang chuỗi dễ đọc
-          const registeredAt =
-            item.registeredAt ||
-            (item.regDate ? new Date(item.regDate).toLocaleString('vi-VN') : '')
-
-          // Preserve exact status from BE: REGISTERED | CHECKED_IN | COMPLETED | CANCELLED
-          const rawStatus = (item.status ?? '').toUpperCase()
-          const status: EventRegistrationItem['status'] =
-            (rawStatus as EventRegistrationItem['status']) || 'REGISTERED'
-
-          // checkInAt / checkOutAt từ BE (Instant) → HH:mm
-          const toTime = (val?: string | null) => {
-            if (!val) return undefined
-            const d = new Date(val)
-            return isNaN(d.getTime())
-              ? undefined
-              : d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-          }
-
-          // BE field names: checkInAt, checkOutAt (RegistrationJpaEntity)
-          const entryCheckInTime =
-            item.entryCheckInTime || toTime(item.checkInAt ?? item.checkInTime)
-
-          const checkOutTime =
-            item.checkOutTime || toTime(item.checkOutAt ?? item.checkOutInstant)
-
-          // studentId: sẽ có khi BE join StudentProfile và uncomment trong AttendeeInfoDto
-          const studentId =
-            item.studentId ?? item.studentCode ?? item.mssv ?? ''
-
-          return {
-            id: String(item.id ?? item.registrationId ?? item.userId ?? Math.random()),
-            userId: String(item.userId ?? item.id ?? ''),
-            studentId,
-            fullName,
-            major: item.major ?? item.majorName ?? item.nganhHoc ?? '',
-            kNumber: Number(item.kNumber ?? item.knumber ?? item.khoaHoc ?? 0),
-            email: item.email ?? '',
-            phone: item.phone ?? item.phoneNumber ?? '',
-            avatarUrl: item.avatarUrl ?? undefined,
-            registeredAt,
-            status,
-            entryCheckInTime,
-            checkOutTime,
-            pinCheckInTime: item.pinCheckInTime ?? undefined,
-            checkInTime: item.checkInAt
-              ? new Date(item.checkInAt).toLocaleString('vi-VN')
-              : item.checkInTime
-              ? new Date(item.checkInTime).toLocaleString('vi-VN')
-              : undefined,
-            evidenceUrl: item.checkInEvidenceUrl ?? item.evidenceUrl ?? undefined,
-            startEvidenceUrl: item.startEvidenceUrl ?? undefined,
-            endEvidenceUrl: item.checkOutEvidenceUrl ?? item.endEvidenceUrl ?? undefined,
-          }
-        })
     } catch (err) {
       console.error('Failed to fetch event attendees', err)
-      return []
+      throw err
     }
   },
 
@@ -541,7 +599,9 @@ export const fanpageAdminService = {
   ): Promise<void> => {
     // 1. Identify all attendees who should be completed / checked out
     const completedUserIds = attendees
-      .filter((a) => a.status === 'COMPLETED' || a.status === 'CHECKED_IN' || a.status === 'ENTRY_CHECKED')
+      .filter(
+        (a) => a.status === 'COMPLETED' || a.status === 'CHECKED_IN' || a.status === 'ENTRY_CHECKED'
+      )
       .map((a) => Number(a.userId || a.id))
       .filter((id) => !isNaN(id) && id > 0)
 
@@ -627,6 +687,10 @@ export const fanpageAdminService = {
   /**
    * Updates the lifecycle status of an event (DRAFT, PUBLISHED, CLOSED, CANCELLED)
    */
+  completeEventAttendance: async (id: string | number): Promise<void> => {
+    await apiClient.patch(`/registrations/fanpage-member/events/${id}/event-completed`)
+  },
+
   changeEventStatus: async (
     id: string | number,
     status: 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'CANCELLED'
@@ -753,13 +817,14 @@ export const fanpageAdminService = {
           [item.lastName, item.firstName].filter(Boolean).join(' ') ||
           item.name ||
           (item.email ? item.email.split('@')[0] : `Thành viên ${idx + 1}`)
-        const avatarText = fullName
-          .split(' ')
-          .filter(Boolean)
-          .slice(-2)
-          .map((w: string) => w[0])
-          .join('')
-          .toUpperCase() || 'TV'
+        const avatarText =
+          fullName
+            .split(' ')
+            .filter(Boolean)
+            .slice(-2)
+            .map((w: string) => w[0])
+            .join('')
+            .toUpperCase() || 'TV'
 
         const rawRole = (item.role || 'MEMBER').toUpperCase()
         const role = rawRole === 'ADMIN' ? 'ADMIN' : 'COLLABORATOR'
@@ -773,7 +838,7 @@ export const fanpageAdminService = {
           avatarText,
           role,
           title: item.title || (role === 'ADMIN' ? 'Quản trị viên' : 'Cộng tác viên'),
-          joinedAt: item.joinedAt || item.createdAt || new Date().toISOString(),
+          joinedAt: item.joinedAt || item.createdAt || '',
           isActive: item.isActive !== false,
         }
       })
@@ -805,13 +870,17 @@ export const fanpageAdminService = {
    * Tìm kiếm danh sách tài khoản người dùng thực tế trong hệ thống để gửi lời mời
    * GET /api/users/search-users?keyword={keyword}
    */
-  searchUsersForInvitation: async (keyword: string): Promise<Array<{
-    id: string
-    email: string
-    fullName: string
-    studentId?: string
-    avatarUrl?: string
-  }>> => {
+  searchUsersForInvitation: async (
+    keyword: string
+  ): Promise<
+    Array<{
+      id: string
+      email: string
+      fullName: string
+      studentId?: string
+      avatarUrl?: string
+    }>
+  > => {
     if (!keyword || !keyword.trim()) return []
     try {
       const res: any = await apiClient.get('/users/search-users', {
@@ -844,10 +913,7 @@ export const fanpageAdminService = {
    * Gửi lời mời tham gia Ban tổ chức Fanpage qua email
    * POST /api/fanpages/fanpage-admin/{fanpageId}/invite-member?email={email}
    */
-  inviteFanpageMember: async (
-    fanpageId: string | number,
-    email: string
-  ): Promise<boolean> => {
+  inviteFanpageMember: async (fanpageId: string | number, email: string): Promise<boolean> => {
     const targetId = fanpageId || '1'
     try {
       await apiClient.post(
@@ -870,16 +936,16 @@ export const fanpageAdminService = {
     email?: string
   ): Promise<boolean> => {
     const targetId = fanpageId || '1'
-    const targetEmail = email || (typeof userIdOrEmail === 'string' && userIdOrEmail.includes('@') ? userIdOrEmail : '')
+    const targetEmail =
+      email ||
+      (typeof userIdOrEmail === 'string' && userIdOrEmail.includes('@') ? userIdOrEmail : '')
     try {
       if (targetEmail) {
         await apiClient.delete(
           `/fanpages/fanpage-admin/${targetId}/remove-member?email=${encodeURIComponent(targetEmail)}`
         )
       } else {
-        await apiClient.delete(
-          `/fanpages/fanpage-admin/${targetId}/remove-member/${userIdOrEmail}`
-        )
+        await apiClient.delete(`/fanpages/fanpage-admin/${targetId}/remove-member/${userIdOrEmail}`)
       }
       return true
     } catch (err) {
@@ -907,10 +973,7 @@ export const fanpageAdminService = {
    * Chuyển quyền Quản trị viên Fanpage cho thành viên khác
    * PATCH /api/fanpages/fanpage-admin/{fanpageId}/appoint-fanpage-admin?email={email}
    */
-  appointFanpageAdmin: async (
-    fanpageId: string | number,
-    email: string
-  ): Promise<boolean> => {
+  appointFanpageAdmin: async (fanpageId: string | number, email: string): Promise<boolean> => {
     const targetId = fanpageId || '1'
     try {
       await apiClient.patch(
@@ -936,9 +999,7 @@ export const fanpageAdminService = {
       const res: any = await apiClient.get(`/fanpage-member-invitations/fanpage/${targetId}`, {
         params: { status, size: 50, sortDir: 'DESC' },
       })
-      const list = Array.isArray(res)
-        ? res
-        : res?.content || res?.data?.content || res?.data || []
+      const list = Array.isArray(res) ? res : res?.content || res?.data?.content || res?.data || []
 
       return list.map((item: any, idx: number) => {
         const fullName =
@@ -954,7 +1015,7 @@ export const fanpageAdminService = {
           name: fullName,
           role: 'COLLABORATOR',
           invitedBy: item.invitedBy || 'Nguyễn Minh Anh (Admin)',
-          invitedAt: item.createdAt || new Date().toISOString(),
+          invitedAt: item.createdAt || '',
           status: item.status || 'PENDING',
           avatarUrl: item.userAvatarUrl || '',
         }
@@ -1134,7 +1195,8 @@ export const MOCK_FANPAGE_MEMBERS: FanpageMember[] = [
     fullName: 'Nguyễn Minh Anh',
     email: 'organizer@ctu.edu.vn',
     avatarText: 'MA',
-    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
     role: 'ADMIN',
     title: 'Quản trị viên (Trưởng ban)',
     phone: '0912 345 678',

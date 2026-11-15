@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useMemo, useEffect } from 'react'
 import {
   Search,
@@ -11,7 +12,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { Sv5tCriteriaItem } from '../types/fanpageAdmin.types'
-import { SV5T_CRITERIA_GUIDES, CANONICAL_SV5T_STANDARDS } from '@/features/sv5t/utils/sv5tTreeBuilder'
+import {
+  SV5T_CRITERIA_GUIDES,
+  CANONICAL_SV5T_STANDARDS,
+} from '@/features/sv5t/utils/sv5tTreeBuilder'
 
 export interface SelectedSv5tCriteria {
   id: number
@@ -65,8 +69,8 @@ function buildSv5tStandardTree(inputCriterias: Sv5tCriteriaItem[]): CriteriaTree
   const sourceItems: any[] = hasValidNestedItems
     ? inputCriterias
     : inputCriterias && inputCriterias.length >= 5
-    ? inputCriterias
-    : CANONICAL_SV5T_STANDARDS
+      ? inputCriterias
+      : CANONICAL_SV5T_STANDARDS
 
   // Standard index counter (1 to 5)
   const standards: CriteriaTreeNode[] = []
@@ -97,10 +101,7 @@ function buildSv5tStandardTree(inputCriterias: Sv5tCriteriaItem[]): CriteriaTree
       const childNode: CriteriaTreeNode = {
         id: childItem.id || childItem.criteriaId,
         name: childItem.name,
-        note:
-          childItem.note ||
-          SV5T_CRITERIA_GUIDES[childItem.id || childItem.criteriaId] ||
-          null,
+        note: childItem.note || SV5T_CRITERIA_GUIDES[childItem.id || childItem.criteriaId] || null,
         code: childCode,
         standardId: stdNode.id,
         standardName: fullStdName,
@@ -115,10 +116,7 @@ function buildSv5tStandardTree(inputCriterias: Sv5tCriteriaItem[]): CriteriaTree
           const subNode: CriteriaTreeNode = {
             id: subItem.id || subItem.criteriaId,
             name: subItem.name,
-            note:
-              subItem.note ||
-              SV5T_CRITERIA_GUIDES[subItem.id || subItem.criteriaId] ||
-              null,
+            note: subItem.note || SV5T_CRITERIA_GUIDES[subItem.id || subItem.criteriaId] || null,
             code: subCode,
             standardId: stdNode.id,
             standardName: fullStdName,
@@ -307,7 +305,8 @@ export const SelectSv5tCriteriaModal: React.FC<SelectSv5tCriteriaModalProps> = (
               Bảng danh mục Tiêu chí Sinh viên 5 Tốt (SV5T)
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Nhấp vào từng Tiêu chuẩn (TC 1 - TC 5) để mở chi tiết, chọn tiêu chí để sinh viên được ghi nhận khi tham gia sự kiện.
+              Nhấp vào từng Tiêu chuẩn (TC 1 - TC 5) để mở chi tiết, chọn tiêu chí để sinh viên được
+              ghi nhận khi tham gia sự kiện.
             </p>
           </div>
 
@@ -343,17 +342,23 @@ export const SelectSv5tCriteriaModal: React.FC<SelectSv5tCriteriaModalProps> = (
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={toggleAllSections}
-              className="h-9 px-3 rounded-lg border border-border hover:bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
-              title={areAllExpanded ? 'Thu gọn tất cả tiêu chuẩn' : 'Mở rộng tất cả tiêu chuẩn'}
+            <Tooltip
+              content={areAllExpanded ? 'Thu gọn tất cả tiêu chuẩn' : 'Mở rộng tất cả tiêu chuẩn'}
             >
-              <ChevronsUpDown className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">
-                {areAllExpanded ? 'Thu gọn tất cả' : 'Mở tất cả'}
-              </span>
-            </button>
+              <button
+                type="button"
+                onClick={toggleAllSections}
+                className="h-9 px-3 rounded-lg border border-border hover:bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                aria-label={
+                  areAllExpanded ? 'Thu gọn tất cả tiêu chuẩn' : 'Mở rộng tất cả tiêu chuẩn'
+                }
+              >
+                <ChevronsUpDown className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">
+                  {areAllExpanded ? 'Thu gọn tất cả' : 'Mở tất cả'}
+                </span>
+              </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -431,7 +436,9 @@ export const SelectSv5tCriteriaModal: React.FC<SelectSv5tCriteriaModalProps> = (
                       <div className="w-10 shrink-0 text-center">Chọn</div>
                       <div className="w-20 shrink-0 text-center">Mã TC</div>
                       <div className="flex-1 min-w-[220px] px-3">Nội dung tiêu chí xét duyệt</div>
-                      <div className="w-56 sm:w-72 shrink-0 px-2 text-left">Ghi chú / Hướng dẫn xét</div>
+                      <div className="w-56 sm:w-72 shrink-0 px-2 text-left">
+                        Ghi chú / Hướng dẫn xét
+                      </div>
                     </div>
 
                     {/* Table Rows */}
@@ -503,12 +510,12 @@ export const SelectSv5tCriteriaModal: React.FC<SelectSv5tCriteriaModalProps> = (
                             </div>
 
                             {/* Criteria Title */}
-                            <div className={`flex-1 min-w-[220px] px-3 pr-4 ${indentPadding} space-y-0.5`}>
+                            <div
+                              className={`flex-1 min-w-[220px] px-3 pr-4 ${indentPadding} space-y-0.5`}
+                            >
                               <p
                                 className={`leading-relaxed ${
-                                  isSelected
-                                    ? 'font-semibold text-primary'
-                                    : 'text-foreground/90'
+                                  isSelected ? 'font-semibold text-primary' : 'text-foreground/90'
                                 }`}
                               >
                                 {node.name}
@@ -541,14 +548,16 @@ export const SelectSv5tCriteriaModal: React.FC<SelectSv5tCriteriaModalProps> = (
                 <span className="text-xs font-semibold text-foreground truncate max-w-[280px] sm:max-w-[400px]">
                   {selectedNode.name}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(null)}
-                  className="p-1 text-muted-foreground hover:text-rose-600 rounded cursor-pointer transition-colors"
-                  title="Bỏ chọn tiêu chí này"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                </button>
+                <Tooltip content="Bỏ chọn tiêu chí này">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(null)}
+                    className="p-1 text-muted-foreground hover:text-rose-600 rounded cursor-pointer transition-colors"
+                    aria-label="Bỏ chọn tiêu chí này"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
               </div>
             ) : (
               <span className="text-xs text-muted-foreground italic">

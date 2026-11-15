@@ -81,6 +81,62 @@ const mockEvents: AdminEvent[] = [
 ]
 
 describe('FanpageEventListView Redesign', () => {
+  it('sorts by event date and start time in both directions, keeps missing dates last and does not mutate input', () => {
+    const events: AdminEvent[] = [
+      {
+        ...mockEvents[0],
+        id: '1',
+        name: 'Sớm',
+        dateHappen: undefined,
+        dateStart: '2026-11-15',
+        timeStart: '08:00',
+      },
+      {
+        ...mockEvents[0],
+        id: '2',
+        name: 'Muộn',
+        dateHappen: '2026-11-15T10:00:00+07:00',
+        dateStart: '2026-11-15',
+        timeStart: '10:00',
+      },
+      {
+        ...mockEvents[0],
+        id: '3',
+        name: 'Cũ',
+        dateHappen: undefined,
+        dateStart: '2026-11-14',
+        timeStart: '15:00',
+      },
+      { ...mockEvents[0], id: '4', name: 'Không có ngày', dateHappen: undefined, dateStart: '' },
+    ]
+    renderWithQueryClient(<FanpageEventListView events={events} />)
+    const before = (first: string, second: string) =>
+      Boolean(
+        screen.getAllByText(first)[0].compareDocumentPosition(screen.getAllByText(second)[0]) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+      )
+    fireEvent.click(screen.getByRole('button', { name: 'Thời gian & Địa điểm: chưa sắp xếp' }))
+    expect(before('Muộn', 'Sớm')).toBe(true)
+    expect(before('Sớm', 'Cũ')).toBe(true)
+    expect(before('Cũ', 'Không có ngày')).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Thời gian & Địa điểm: mới nhất trước' }))
+    expect(before('Cũ', 'Sớm')).toBe(true)
+    expect(before('Sớm', 'Muộn')).toBe(true)
+    expect(before('Muộn', 'Không có ngày')).toBe(true)
+    expect(
+      screen.getByRole('button', { name: 'Thời gian & Địa điểm: cũ nhất trước' })
+    ).toBeInTheDocument()
+    expect(events.map((event) => event.id)).toEqual(['1', '2', '3', '4'])
+  })
+  it('includes completed events in the ended tab and excludes them from upcoming', () => {
+    renderWithQueryClient(
+      <FanpageEventListView events={[{ ...mockEvents[1], status: 'COMPLETED' }]} />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Đã kết thúc/i }))
+    expect(screen.getAllByText(mockEvents[1].name).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: /Sắp diễn ra/i }))
+    expect(screen.queryAllByText(mockEvents[1].name)).toHaveLength(0)
+  })
   it('renders top layout with breadcrumb, header, and create button', () => {
     renderWithQueryClient(<FanpageEventListView events={mockEvents} />)
 

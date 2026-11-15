@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useMemo } from 'react'
 import {
   Search,
@@ -9,14 +10,19 @@ import {
   Clock,
   RotateCcw,
   Pencil,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
 } from 'lucide-react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { cn } from '@/shared/utils/cn'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import {
   EventFilterModal,
   type EventFilterFormValues,
   isEventMatchingRegistrationStatus,
+  resolveAllowedPointCategoryIds,
   eventFilterOptionsService,
   type EventFilterOptions,
 } from '@/features/events'
@@ -25,7 +31,7 @@ import { MOCK_ADMIN_EVENTS, fanpageAdminService } from '../services/fanpageAdmin
 
 // Định dạng thời gian: "04/11/2026 · 07:00" (không hiển thị "07:00 - 07:00" khi giờ bắt đầu và kết thúc giống nhau)
 function formatEventTime(dateStart: string, timeStart: string, timeEnd: string): string {
-  let datePart = ''
+  let datePart: string
   const match = dateStart.match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (match) {
     const [, yyyy, mm, dd] = match
@@ -68,6 +74,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
   onEditClick,
 }) => {
   const [searchTerm, setSearchTerm] = useState('')
+  const [dateSort, setDateSort] = useState<'asc' | 'desc' | null>(null)
   const [activeStatusTab, setActiveStatusTab] = useState<string>('ALL')
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [drawerFilterValues, setDrawerFilterValues] = useState<EventFilterFormValues>({})
@@ -105,8 +112,12 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
       drawerFilterValues.eventTypeId,
       drawerFilterValues.pointCategoryId,
       drawerFilterValues.criteriaId,
-      drawerFilterValues.semesterId && drawerFilterValues.semesterId !== 'ALL' ? drawerFilterValues.semesterId : null,
-      drawerFilterValues.academicYear && drawerFilterValues.academicYear !== 'ALL' ? drawerFilterValues.academicYear : null,
+      drawerFilterValues.semesterId && drawerFilterValues.semesterId !== 'ALL'
+        ? drawerFilterValues.semesterId
+        : null,
+      drawerFilterValues.academicYear && drawerFilterValues.academicYear !== 'ALL'
+        ? drawerFilterValues.academicYear
+        : null,
       drawerFilterValues.dateHappenFrom,
       drawerFilterValues.dateHappenTo,
     ].filter(Boolean).length
@@ -132,6 +143,58 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
       return (found?.label || tid).toLowerCase()
     })
 
+    const selectedCritLabels = rawCritIds.map((cid) => {
+      const found = filterOptions?.criterias?.find((c) => String(c.id) === String(cid))
+      return (found?.label || cid).toLowerCase().replace('tiêu chuẩn', '').trim()
+    })
+
+    // Resolve allowed point categories respecting parent/child hierarchy
+    const allowedPointCatIds = resolveAllowedPointCategoryIds(
+      rawPointCatIds,
+      filterOptions?.pointCategories
+    )
+
+    // Resolve allowed SV5T criteria respecting parent/child hierarchy
+    const allowedCritIds = new Set<string>()
+    const critNames: string[] = []
+    const keywords: string[] = []
+    rawCritIds.forEach((cid) => {
+      allowedCritIds.add(cid)
+      const crit = filterOptions?.criterias?.find((c) => String(c.id) === cid)
+      if (crit?.childIds) {
+        crit.childIds.forEach((id) => allowedCritIds.add(String(id)))
+      }
+      if (crit?.childNames) {
+        crit.childNames.forEach((cn) => critNames.push(cn.toLowerCase()))
+      }
+      if (crit?.keywords) {
+        crit.keywords.forEach((kw) => keywords.push(kw.toLowerCase()))
+      }
+      if (crit?.label) {
+        const clean = crit.label.toLowerCase().replace('tiêu chuẩn', '').trim()
+        critNames.push(clean)
+        if (clean.includes('tình nguyện')) keywords.push('tình nguyện', 'hiến máu')
+        else if (clean.includes('đạo đức')) keywords.push('đạo đức', 'lối sống')
+        else if (clean.includes('thể lực')) keywords.push('thể lực', 'thể thao')
+        else if (clean.includes('học tập')) keywords.push('học tập')
+        else if (clean.includes('hội nhập')) keywords.push('hội nhập', 'ngoại ngữ', 'tin học')
+      }
+    })
+
+    // Resolve academic year matching semester IDs
+    const matchingYearSemesterIds = new Set<string>()
+    if (
+      drawerFilterValues.academicYear &&
+      drawerFilterValues.academicYear !== 'ALL' &&
+      filterOptions?.semesters
+    ) {
+      filterOptions.semesters.forEach((s) => {
+        if (s.academicYear === drawerFilterValues.academicYear) {
+          matchingYearSemesterIds.add(String(s.id))
+        }
+      })
+    }
+
     return validEvents.filter((evt) => {
       // 1. Text search
       const q = searchTerm.trim().toLowerCase()
@@ -145,13 +208,19 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
 
       // 2. Tab status (ALL, UPCOMING, PUBLISHED, CLOSED, DRAFT)
       if (activeStatusTab === 'UPCOMING') {
-        if (evt.status === 'CLOSED' || evt.status === 'CANCELLED' || evt.status === 'DRAFT') return false
+        if (
+          evt.status === 'CLOSED' ||
+          evt.status === 'COMPLETED' ||
+          evt.status === 'CANCELLED' ||
+          evt.status === 'DRAFT'
+        )
+          return false
       } else if (activeStatusTab === 'DRAFT') {
         if (evt.status !== 'DRAFT') return false
       } else if (activeStatusTab === 'PUBLISHED') {
         if (evt.status !== 'PUBLISHED') return false
       } else if (activeStatusTab === 'CLOSED') {
-        if (evt.status !== 'CLOSED') return false
+        if (evt.status !== 'CLOSED' && evt.status !== 'COMPLETED') return false
       }
 
       // 3. Drawer Status (OPEN_REGISTRATION, PUBLISHED, COMPLETED...)
@@ -181,53 +250,111 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
         const matchesType =
           (evtTypeId && rawTypeIds.includes(evtTypeId)) ||
           selectedTypeLabels.some(
-            (lbl) => lbl && (evtTypeName.includes(lbl) || lbl.includes(evtTypeName) || evtTitle.includes(lbl))
+            (lbl) =>
+              lbl &&
+              (evtTypeName.includes(lbl) || lbl.includes(evtTypeName) || evtTitle.includes(lbl))
           ) ||
-          rawTypeIds.some((tid) => evtTypeName.includes(tid.toLowerCase()) || evtTitle.includes(tid.toLowerCase()))
+          rawTypeIds.some(
+            (tid) => evtTypeName.includes(tid.toLowerCase()) || evtTitle.includes(tid.toLowerCase())
+          )
 
         if (!matchesType) return false
       }
 
       // 5. Point Categories (ĐRL)
       if (rawPointCatIds.length > 0) {
-        const evtCatId = String((evt as any).pointCategoryId || (evt as any).eventPoints?.[0]?.pointCategoryId || '')
-        if (!rawPointCatIds.includes(evtCatId)) return false
+        const pPoints = (evt as any).eventPoints || []
+        const evtCatId = Number((evt as any).pointCategoryId || '')
+        const hasPointMatch =
+          (allowedPointCatIds.size > 0 &&
+            (allowedPointCatIds.has(evtCatId) ||
+              pPoints.some((ep: any) =>
+                allowedPointCatIds.has(Number(ep.pointCategoryId || ep.id))
+              ))) ||
+          rawPointCatIds.includes(String((evt as any).pointCategoryId || '')) ||
+          pPoints.some((ep: any) => rawPointCatIds.includes(String(ep.pointCategoryId || ep.id)))
+
+        if (!hasPointMatch) return false
       }
 
       // 6. SV5T Criteria
       if (rawCritIds.length > 0) {
         const evtCritId = String(evt.sv5tCriteriaId || (evt as any).criteriaId || '')
-        if (!rawCritIds.includes(evtCritId)) return false
+        const evtCritName = (evt.sv5tCriteriaName || (evt as any).criteriaName || '').toLowerCase()
+        const hasCritMatch =
+          (evtCritId && allowedCritIds.has(evtCritId)) ||
+          (evtCritName && critNames.some((cn) => cn && (evtCritName.includes(cn) || cn.includes(evtCritName)))) ||
+          (evtCritName && keywords.some((kw) => kw && evtCritName.includes(kw))) ||
+          selectedCritLabels.some(
+            (lbl) => lbl && evtCritName && (evtCritName.includes(lbl) || lbl.includes(evtCritName))
+          )
+
+        if (!hasCritMatch) return false
       }
 
-      // 7. Date Happen Range
-      if (drawerFilterValues.dateHappenFrom) {
-        const d = evt.dateStart || evt.dateHappen
-        if (d && d < drawerFilterValues.dateHappenFrom) return false
-      }
-      if (drawerFilterValues.dateHappenTo) {
-        const d = evt.dateEnd || evt.dateStart || evt.dateHappen
-        if (d && d > drawerFilterValues.dateHappenTo) return false
+      // 7. Academic Year & Semester
+      if (drawerFilterValues.academicYear && drawerFilterValues.academicYear !== 'ALL') {
+        const pSemId = String(evt.semesterId || '')
+        const pYear = String((evt as any).academicYear || '')
+        if (pYear && pYear === drawerFilterValues.academicYear) {
+          // match directly
+        } else if (pSemId && matchingYearSemesterIds.size > 0) {
+          if (!matchingYearSemesterIds.has(pSemId)) return false
+        }
       }
 
-      // 8. Semester
       if (drawerFilterValues.semesterId && drawerFilterValues.semesterId !== 'ALL') {
         if (String(evt.semesterId) !== String(drawerFilterValues.semesterId)) return false
       }
 
+      // 8. Date Happen Range
+      if (drawerFilterValues.dateHappenFrom) {
+        const d = evt.dateStart || evt.dateHappen
+        if (d && d.slice(0, 10) < drawerFilterValues.dateHappenFrom) return false
+      }
+      if (drawerFilterValues.dateHappenTo) {
+        const d = evt.dateEnd || evt.dateStart || evt.dateHappen
+        if (d && d.slice(0, 10) > drawerFilterValues.dateHappenTo) return false
+      }
+
       return true
     })
-  }, [validEvents, searchTerm, activeStatusTab, drawerFilterValues])
+  }, [validEvents, searchTerm, activeStatusTab, drawerFilterValues, filterOptions])
+
+  const sortedEvents = useMemo(() => {
+    if (!dateSort) return filteredEvents
+    const eventTime = (event: AdminEvent) => {
+      for (const value of [event.dateHappen, event.dateStart]) {
+        if (!value) continue
+        const timestamp = Date.parse(
+          /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T${event.timeStart || '00:00'}` : value
+        )
+        if (Number.isFinite(timestamp)) return timestamp
+      }
+      return null
+    }
+    return [...filteredEvents].sort((a, b) => {
+      const left = eventTime(a)
+      const right = eventTime(b)
+      if (left == null) return right == null ? 0 : 1
+      if (right == null) return -1
+      return dateSort === 'desc' ? right - left : left - right
+    })
+  }, [filteredEvents, dateSort])
 
   // Đếm số lượng theo trạng thái
   const counts = useMemo(() => {
     return {
       all: validEvents.length,
       upcoming: validEvents.filter(
-        (e) => e.status !== 'CLOSED' && e.status !== 'CANCELLED' && e.status !== 'DRAFT'
+        (e) =>
+          e.status !== 'CLOSED' &&
+          e.status !== 'COMPLETED' &&
+          e.status !== 'CANCELLED' &&
+          e.status !== 'DRAFT'
       ).length,
       published: validEvents.filter((e) => e.status === 'PUBLISHED').length,
-      closed: validEvents.filter((e) => e.status === 'CLOSED').length,
+      closed: validEvents.filter((e) => e.status === 'CLOSED' || e.status === 'COMPLETED').length,
       draft: validEvents.filter((e) => e.status === 'DRAFT').length,
     }
   }, [validEvents])
@@ -242,6 +369,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
             <span>Đang mở</span>
           </span>
         )
+      case 'COMPLETED':
       case 'CLOSED':
         return (
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-normal whitespace-nowrap">
@@ -279,9 +407,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
         </p>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
           <div>
-            <h1 className="font-k2d font-bold text-2xl text-foreground">
-              Quản lý sự kiện
-            </h1>
+            <h1 className="font-k2d font-bold text-2xl text-foreground">Quản lý sự kiện</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
               Tạo, theo dõi số lượng đăng ký và cập nhật toàn bộ sự kiện của fanpage trong hệ thống.
             </p>
@@ -390,7 +516,8 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
 
             {/* Dòng tóm tắt góc phải */}
             <div className="text-xs text-muted-foreground font-normal">
-              {filteredEvents.length} sự kiện {activeStatusTab !== 'ALL' ? 'trong mục này' : 'tổng cộng'}
+              {filteredEvents.length} sự kiện{' '}
+              {activeStatusTab !== 'ALL' ? 'trong mục này' : 'tổng cộng'}
             </div>
           </div>
 
@@ -398,7 +525,8 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
           {activeFilterCount > 0 && (
             <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-primary/5 border border-primary/20 text-xs">
               <span className="text-primary font-medium">
-                Đang áp dụng {activeFilterCount} tiêu chí lọc ({filteredEvents.length} sự kiện phù hợp)
+                Đang áp dụng {activeFilterCount} tiêu chí lọc ({filteredEvents.length} sự kiện phù
+                hợp)
               </span>
               <button
                 type="button"
@@ -424,7 +552,33 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                 )}
               >
                 <div>Tên sự kiện</div>
-                <div>Thời gian &amp; Địa điểm</div>
+                <div>
+                  <Tooltip
+                    content={
+                      dateSort === 'desc' ? 'Sắp xếp cũ nhất trước' : 'Sắp xếp mới nhất trước'
+                    }
+                  >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="-ml-2 h-8 gap-1.5 px-2 text-xs font-normal text-muted-foreground hover:text-foreground"
+                      aria-label={`Thời gian & Địa điểm: ${dateSort === 'desc' ? 'mới nhất trước' : dateSort === 'asc' ? 'cũ nhất trước' : 'chưa sắp xếp'}`}
+                      onClick={() =>
+                        setDateSort((previous) => (previous === 'desc' ? 'asc' : 'desc'))
+                      }
+                    >
+                      Thời gian &amp; Địa điểm
+                      {dateSort === 'desc' ? (
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      ) : dateSort === 'asc' ? (
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ArrowUpDown className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </Tooltip>
+                </div>
                 <div>Đăng ký</div>
                 {activeStatusTab !== 'CLOSED' && <div className="text-center">Trạng thái</div>}
                 <div className="text-right">Thao tác</div>
@@ -477,10 +631,12 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                     Không tìm thấy sự kiện nào phù hợp với bộ lọc.
                   </div>
                 ) : (
-                  filteredEvents.map((evt) => {
-                    const realRegisteredCount = registeredCountMap[evt.id] ?? evt.registeredCount ?? 0
-                    const isNearlyFull = evt.capacity > 0 && realRegisteredCount / evt.capacity >= 0.9
-                    const isClosed = evt.status === 'CLOSED'
+                  sortedEvents.map((evt) => {
+                    const realRegisteredCount =
+                      registeredCountMap[evt.id] ?? evt.registeredCount ?? 0
+                    const isNearlyFull =
+                      evt.capacity > 0 && realRegisteredCount / evt.capacity >= 0.9
+                    const isClosed = evt.status === 'CLOSED' || evt.status === 'COMPLETED'
                     const eventTime = formatEventTime(evt.dateStart, evt.timeStart, evt.timeEnd)
                     const displayName = cleanEventName(evt.name)
 
@@ -498,12 +654,11 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                       >
                         {/* Cột 1: Tên sự kiện (chỉ 1 hàng + tooltip, dòng phụ: mã + loại sự kiện) */}
                         <div className="min-w-0 pr-4">
-                          <p
-                            title={displayName}
-                            className="font-semibold text-foreground text-xs group-hover:text-primary transition-colors truncate leading-snug"
-                          >
-                            {displayName}
-                          </p>
+                          <Tooltip content={displayName}>
+                            <p className="font-semibold text-foreground text-xs group-hover:text-primary transition-colors truncate leading-snug">
+                              {displayName}
+                            </p>
+                          </Tooltip>
                           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
                             <span className="font-mono tracking-wide">{evt.code}</span>
                             <span>·</span>
@@ -519,9 +674,9 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                           </div>
                           <div className="flex items-center gap-1.5 text-muted-foreground">
                             <MapPin className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate" title={evt.location}>
-                              {evt.location}
-                            </span>
+                            <Tooltip content={evt.location}>
+                              <span className="truncate">{evt.location}</span>
+                            </Tooltip>
                           </div>
                         </div>
 
@@ -539,9 +694,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
 
                         {/* Cột 4: Trạng thái (chấm màu nhỏ + chữ; ẨN khi đang ở tab "Đã kết thúc") */}
                         {activeStatusTab !== 'CLOSED' && (
-                          <div className="flex justify-center">
-                            {renderStatus(evt.status)}
-                          </div>
+                          <div className="flex justify-center">{renderStatus(evt.status)}</div>
                         )}
 
                         {/* Cột 5: Thao tác */}
@@ -550,23 +703,27 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                           onClick={(e) => e.stopPropagation()}
                         >
                           {onEditClick && (
+                            <Tooltip content="Chỉnh sửa sự kiện">
+                              <button
+                                type="button"
+                                aria-label="Chỉnh sửa sự kiện"
+                                onClick={() => onEditClick(evt)}
+                                className="w-8 h-8 rounded-full border border-border/80 flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer shadow-2xs shrink-0"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            </Tooltip>
+                          )}
+                          <Tooltip content="Xem chi tiết sự kiện">
                             <button
                               type="button"
-                              title="Chỉnh sửa sự kiện"
-                              onClick={() => onEditClick(evt)}
-                              className="w-8 h-8 rounded-full border border-border/80 flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer shadow-2xs shrink-0"
+                              aria-label="Xem chi tiết sự kiện"
+                              onClick={() => onEventClick && onEventClick(evt.id)}
+                              className="w-8 h-8 rounded-full border border-border/80 flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary/50 group-hover:bg-primary/5 transition-all cursor-pointer shadow-2xs shrink-0"
                             >
-                              <Pencil className="h-3.5 w-3.5" />
+                              <ChevronRight className="h-4 w-4" />
                             </button>
-                          )}
-                          <button
-                            type="button"
-                            title="Xem chi tiết sự kiện"
-                            onClick={() => onEventClick && onEventClick(evt.id)}
-                            className="w-8 h-8 rounded-full border border-border/80 flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary/50 group-hover:bg-primary/5 transition-all cursor-pointer shadow-2xs shrink-0"
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </button>
+                          </Tooltip>
                         </div>
                       </div>
                     )
@@ -586,7 +743,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                 Không tìm thấy sự kiện nào phù hợp với bộ lọc.
               </div>
             ) : (
-              filteredEvents.map((evt) => {
+              sortedEvents.map((evt) => {
                 const realRegisteredCount = registeredCountMap[evt.id] ?? evt.registeredCount ?? 0
                 const isNearlyFull = evt.capacity > 0 && realRegisteredCount / evt.capacity >= 0.9
                 const eventTime = formatEventTime(evt.dateStart, evt.timeStart, evt.timeEnd)
@@ -599,12 +756,11 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                     className="bg-white dark:bg-card border border-border/80 rounded-2xl p-4 space-y-2.5 shadow-2xs hover:border-primary/40 transition-all cursor-pointer"
                   >
                     <div>
-                      <p
-                        title={displayName}
-                        className="font-semibold text-foreground text-xs truncate leading-snug"
-                      >
-                        {displayName}
-                      </p>
+                      <Tooltip content={displayName}>
+                        <p className="font-semibold text-foreground text-xs truncate leading-snug">
+                          {displayName}
+                        </p>
+                      </Tooltip>
                       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
                         <span className="font-mono tracking-wide">{evt.code}</span>
                         <span>·</span>
@@ -619,9 +775,9 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                       </div>
                       <div className="flex items-center gap-1.5 text-muted-foreground">
                         <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate" title={evt.location}>
-                          {evt.location}
-                        </span>
+                        <Tooltip content={evt.location}>
+                          <span className="truncate">{evt.location}</span>
+                        </Tooltip>
                       </div>
                     </div>
 

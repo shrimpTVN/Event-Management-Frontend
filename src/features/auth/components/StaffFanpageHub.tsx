@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -142,7 +143,10 @@ export const StaffFanpageHub: React.FC = () => {
             fp.code ||
             (name.includes('CNTT')
               ? 'CNTT'
-              : name.includes('Đoàn TN') || name.includes('Hội SV') || name.includes('Cần Thơ') || name.includes('CTU')
+              : name.includes('Đoàn TN') ||
+                  name.includes('Hội SV') ||
+                  name.includes('Cần Thơ') ||
+                  name.includes('CTU')
                 ? 'ĐHCT'
                 : (name || 'FP').substring(0, 4).toUpperCase())
 
@@ -225,7 +229,9 @@ export const StaffFanpageHub: React.FC = () => {
                 </div>
               )}
               <span className="font-semibold text-foreground">{user.name || user.email}</span>
-              {user.email && <span className="hidden sm:inline text-muted-foreground">({user.email})</span>}
+              {user.email && (
+                <span className="hidden sm:inline text-muted-foreground">({user.email})</span>
+              )}
             </div>
             <button
               type="button"
@@ -247,7 +253,8 @@ export const StaffFanpageHub: React.FC = () => {
                 Chọn fanpage để quản lý sự kiện
               </h1>
               <p className="font-sans text-sm text-[#4B5563] dark:text-muted-foreground mt-1.5 leading-relaxed">
-                Chọn fanpage bạn muốn làm việc để vào trang quản lý sự kiện, hoặc đăng ký fanpage mới.
+                Chọn fanpage bạn muốn làm việc để vào trang quản lý sự kiện, hoặc đăng ký fanpage
+                mới.
               </p>
             </div>
 
@@ -259,15 +266,16 @@ export const StaffFanpageHub: React.FC = () => {
                 <Plus className="h-3.5 w-3.5" />
                 <span>Đăng ký fanpage mới</span>
               </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="px-3.5 h-9 rounded-lg border border-[#E5E7EB] dark:border-border hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-950/30 dark:hover:text-red-400 text-[#4B5563] dark:text-muted-foreground font-medium text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                title="Đăng xuất khỏi hệ thống"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                <span>Đăng xuất</span>
-              </button>
+              <Tooltip content="Đăng xuất khỏi hệ thống">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="px-3.5 h-9 rounded-lg border border-[#E5E7EB] dark:border-border hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-950/30 dark:hover:text-red-400 text-[#4B5563] dark:text-muted-foreground font-medium text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Đăng xuất</span>
+                </button>
+              </Tooltip>
             </div>
           </div>
 
@@ -306,7 +314,8 @@ export const StaffFanpageHub: React.FC = () => {
                           {inv.name}
                         </h4>
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          Người mời: <span className="font-medium text-foreground">{inv.inviter}</span>
+                          Người mời:{' '}
+                          <span className="font-medium text-foreground">{inv.inviter}</span>
                         </p>
                       </div>
                     </div>
@@ -360,7 +369,8 @@ export const StaffFanpageHub: React.FC = () => {
                     Hiện tại bạn chưa có fanpage nào
                   </h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Tài khoản cán bộ của bạn hiện chưa tham gia hoặc sở hữu fanpage nào. Vui lòng đăng ký để tạo fanpage và bắt đầu tổ chức sự kiện nhé!
+                    Tài khoản cán bộ của bạn hiện chưa tham gia hoặc sở hữu fanpage nào. Vui lòng
+                    đăng ký để tạo fanpage và bắt đầu tổ chức sự kiện nhé!
                   </p>
                 </div>
                 <Link

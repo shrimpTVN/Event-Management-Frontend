@@ -1,13 +1,17 @@
+import { Tooltip } from '@/components/ui/tooltip'
+import { RegisteredEventBenefits } from './RegisteredEventBenefits'
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { formatEventTitle } from '@/shared'
-import {
-  type RegisteredEventItem,
-  normalizeHistoryStatus,
-} from '../types/history.types'
+import { type RegisteredEventItem, normalizeHistoryStatus } from '../types/history.types'
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
 import { Calendar, MapPin, Gift } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  studentAttendanceStep,
+  studentAttendanceLabel,
+  studentAttendanceBadgeClass,
+} from '@/shared/utils/attendanceState'
 
 interface RegisteredEventCardProps {
   event: RegisteredEventItem
@@ -35,9 +39,14 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
     switch (normalizedStatus) {
       case 'UPCOMING':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#E9F1FC] text-[#1E5790] dark:bg-blue-950/60 dark:text-blue-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#1E5790] dark:bg-blue-400" />
-            <span>Đã đăng ký</span>
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium',
+              studentAttendanceBadgeClass(event.status)
+            )}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+            <span>{studentAttendanceLabel(event.status)}</span>
           </span>
         )
       case 'COMPLETED':
@@ -66,31 +75,10 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
     }
   }
 
-  // Fallback benefits if not provided or empty
-  const rawBenefits = Array.isArray(event.benefits) ? event.benefits : []
-  const benefitsList =
-    rawBenefits.length > 0
-      ? rawBenefits
-      : ([event.pointsCategory, event.criteriaSv5t].filter(Boolean) as string[])
-
-  const extraCount =
-    typeof event.extraBenefitsCount === 'number'
-      ? event.extraBenefitsCount
-      : Math.max(0, benefitsList.length - 2)
-
-  // Show at most 2 benefits chips if there is an extra count
-  const displayedBenefits = extraCount > 0 ? benefitsList.slice(0, 2) : benefitsList
-
-  const canCancel = event.canCancel ?? (normalizedStatus === 'UPCOMING')
-  const isSelfAttendance = event.attendanceMethod === 'STUDENT_PROOF'
-
-  // Tinh gọn quyền lợi: Bỏ các từ schema dài dòng như "Mã tiêu chí:"
-  const cleanBenefitText = (text: string): string => {
-    return text
-      .replace(/Mã tiêu chí:\s*/gi, 'Điều ')
-      .replace(/Tiêu chí\s*/gi, '')
-      .trim()
-  }
+  const canCancel =
+    (event.canCancel ?? normalizedStatus === 'UPCOMING') &&
+    ['REGISTERED', 'UPCOMING', 'APPROVED'].includes(event.status)
+  const isSelfAttendance = studentAttendanceStep(event.status) != null
 
   const handleCardClick = () => {
     navigate(`/events/${eventId}`)
@@ -154,39 +142,16 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
           {/* Địa điểm */}
           <div className="flex items-center gap-2 text-xs text-foreground min-w-0">
             <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span
-              className="truncate"
-              title={event.location || 'Hội trường Rùa'}
-            >
-              {event.location || 'Hội trường Rùa'}
-            </span>
+            <Tooltip content={event.location || 'Hội trường Rùa'}>
+              <span className="truncate">{event.location || 'Hội trường Rùa'}</span>
+            </Tooltip>
           </div>
 
           {/* Quyền lợi */}
           <div className="flex items-start gap-2 text-xs min-w-0 pt-0.5">
             <Gift className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
             <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
-              {displayedBenefits.length > 0 ? (
-                <>
-                  {displayedBenefits.map((benefit, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium bg-[#EFF5FC] text-[#065C85] dark:bg-blue-950/60 dark:text-blue-300"
-                    >
-                      {cleanBenefitText(benefit)}
-                    </span>
-                  ))}
-                  {extraCount > 0 ? (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[11px] font-medium bg-[#E5E7EB] text-[#6B7280] dark:bg-muted dark:text-muted-foreground">
-                      +{extraCount}
-                    </span>
-                  ) : null}
-                </>
-              ) : (
-                <span className="text-xs text-muted-foreground italic">
-                  Theo thông báo của ban tổ chức
-                </span>
-              )}
+              <RegisteredEventBenefits event={event} />
             </div>
           </div>
         </div>
@@ -205,7 +170,9 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
                 }}
                 className="flex-1 inline-flex items-center justify-center py-2 px-3 text-xs font-semibold text-white bg-[#1B4B8A] hover:bg-[#153a6b] rounded-[6px] transition-colors shadow-2xs text-center cursor-pointer"
               >
-                Điểm danh
+                {studentAttendanceStep(event.status) === 'check-out'
+                  ? 'Gửi ảnh cuối buổi'
+                  : 'Điểm danh'}
               </button>
             )}
 
@@ -225,9 +192,9 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
               </button>
             )}
 
-            {!isSelfAttendance && !canCancel && (
+            {!isSelfAttendance && !canCancel && event.status !== 'SPENDING_CONFIRM' && (
               <div className="w-full py-1.5 px-2 text-[11px] font-medium text-muted-foreground bg-muted/40 rounded-[6px] text-center">
-                Đã đăng ký tham gia
+                {studentAttendanceLabel(event.status)}
               </div>
             )}
           </>

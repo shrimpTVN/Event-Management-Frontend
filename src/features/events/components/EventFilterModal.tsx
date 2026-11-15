@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -77,7 +78,9 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     initialValues.academicYear || 'ALL'
   )
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
-  const [timePreset, setTimePreset] = useState<'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'CUSTOM' | null>(null)
+  const [timePreset, setTimePreset] = useState<
+    'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'CUSTOM' | null
+  >(null)
 
   // Multi-select for Fanpages
   const [selectedFanpageIds, setSelectedFanpageIds] = useState<string[]>(() => {
@@ -147,7 +150,9 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
       if (initialValues.academicYear) {
         setSelectedAcademicYear(initialValues.academicYear)
       } else if (initialValues.semesterId && options?.semesters) {
-        const matchingSem = options.semesters.find((s) => String(s.id) === String(initialValues.semesterId))
+        const matchingSem = options.semesters.find(
+          (s) => String(s.id) === String(initialValues.semesterId)
+        )
         setSelectedAcademicYear(matchingSem?.academicYear || 'ALL')
       } else {
         setSelectedAcademicYear('ALL')
@@ -176,9 +181,15 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
 
         if (initialValues.dateHappenFrom === todayStr && initialValues.dateHappenTo === todayStr) {
           setTimePreset('TODAY')
-        } else if (initialValues.dateHappenFrom === weekStartStr && initialValues.dateHappenTo === weekEndStr) {
+        } else if (
+          initialValues.dateHappenFrom === weekStartStr &&
+          initialValues.dateHappenTo === weekEndStr
+        ) {
           setTimePreset('THIS_WEEK')
-        } else if (initialValues.dateHappenFrom === monthStartStr && initialValues.dateHappenTo === monthEndStr) {
+        } else if (
+          initialValues.dateHappenFrom === monthStartStr &&
+          initialValues.dateHappenTo === monthEndStr
+        ) {
           setTimePreset('THIS_MONTH')
         } else {
           setTimePreset('CUSTOM')
@@ -247,7 +258,11 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     } else if (preset === 'THIS_MONTH') {
       const monthStartStr = format(startOfMonth(today), 'yyyy-MM-dd')
       const monthEndStr = format(endOfMonth(today), 'yyyy-MM-dd')
-      setFormValues((prev) => ({ ...prev, dateHappenFrom: monthStartStr, dateHappenTo: monthEndStr }))
+      setFormValues((prev) => ({
+        ...prev,
+        dateHappenFrom: monthStartStr,
+        dateHappenTo: monthEndStr,
+      }))
     }
   }
 
@@ -319,14 +334,17 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     const isRoot = rootPointCategories.some((r) => String(r.id) === catId)
 
     setFormValues((prev) => {
-      const currentList = prev.pointCategoryId ? prev.pointCategoryId.split(',').filter(Boolean) : []
+      const currentList = prev.pointCategoryId
+        ? prev.pointCategoryId.split(',').filter(Boolean)
+        : []
 
       if (isRoot) {
         // Toggle root: if root or any of its children are selected, clear all of them
         const childIdsOfRoot = childPointCategories
           .filter((cpc) => String(cpc.parentCategoryId) === catId)
           .map((cpc) => String(cpc.id))
-        const isAnySelected = currentList.includes(catId) || childIdsOfRoot.some((cid) => currentList.includes(cid))
+        const isAnySelected =
+          currentList.includes(catId) || childIdsOfRoot.some((cid) => currentList.includes(cid))
 
         let next: string[]
         if (isAnySelected) {
@@ -349,9 +367,10 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           next = currentList.filter((id) => id !== catId)
         } else {
           // Select child: add child ID; also keep parentId so child row stays open
-          next = parentId && !currentList.includes(parentId)
-            ? [...currentList, parentId, catId]
-            : [...currentList, catId]
+          next =
+            parentId && !currentList.includes(parentId)
+              ? [...currentList, parentId, catId]
+              : [...currentList, catId]
         }
         return {
           ...prev,
@@ -416,17 +435,28 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
 
   // Áp dụng bộ lọc
   const handleApply = () => {
-    const selectedCriteria = options?.criterias.find((c) => String(c.id) === String(formValues.criteriaId))
+    const allChildCriteriaIds = new Set<string>()
+    selectedCriteriaIds.forEach((cid) => {
+      allChildCriteriaIds.add(cid)
+      const found = options?.criterias.find((c) => String(c.id) === cid)
+      if (found?.childIds) {
+        found.childIds.forEach((id) => allChildCriteriaIds.add(String(id)))
+      }
+    })
+
     const selectedPointCategory = options?.pointCategories.find(
       (pc) => String(pc.id) === String(formValues.pointCategoryId)
     )
 
     const finalValues: EventFilterFormValues = {
       ...formValues,
+      criteriaId: selectedCriteriaIds.join(',') || undefined,
       fanpageId: selectedFanpageIds[0] || undefined,
       fanpageIds: selectedFanpageIds.length > 0 ? selectedFanpageIds : undefined,
       academicYear: selectedAcademicYear !== 'ALL' ? selectedAcademicYear : undefined,
-      childCriteriaIds: selectedCriteria?.childIds ? selectedCriteria.childIds.map(String) : undefined,
+      childCriteriaIds: allChildCriteriaIds.size > 0
+        ? Array.from(allChildCriteriaIds)
+        : undefined,
       childCategoryIds: selectedPointCategory?.childIds
         ? selectedPointCategory.childIds.map(String)
         : undefined,
@@ -462,21 +492,32 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     return previewSourceEvents.filter((evt: any) => {
       // 1. Trạng thái sự kiện (Đang mở đăng ký, Sắp diễn ra, Đã kết thúc)
       if (selectedStatuses.length > 0) {
-        const matches = selectedStatuses.some((st) => isEventMatchingRegistrationStatus(evt, st, now))
+        const matches = selectedStatuses.some((st) =>
+          isEventMatchingRegistrationStatus(evt, st, now)
+        )
         if (!matches) return false
       }
 
       // 2. Loại hình sự kiện (Combobox multi-select)
       if (selectedTypeIds.length > 0) {
         const evtTypeId = String(evt.eventTypeId ?? evt.categoryId ?? '')
-        const evtTypeName = (evt.eventTypeName || evt.category || evt.name || evt.title || '').toLowerCase()
-        const selectedLabels = options?.eventTypes
-          ?.filter((et) => selectedTypeIds.includes(String(et.id)))
-          .map((et) => et.label.toLowerCase()) || []
+        const evtTypeName = (
+          evt.eventTypeName ||
+          evt.category ||
+          evt.name ||
+          evt.title ||
+          ''
+        ).toLowerCase()
+        const selectedLabels =
+          options?.eventTypes
+            ?.filter((et) => selectedTypeIds.includes(String(et.id)))
+            .map((et) => et.label.toLowerCase()) || []
 
         const matchesId = evtTypeId && selectedTypeIds.includes(evtTypeId)
         const matchesName = selectedLabels.some((lbl) => lbl && evtTypeName.includes(lbl))
-        const matchesFallback = selectedTypeIds.some((tid) => evtTypeName.includes(tid.toLowerCase()))
+        const matchesFallback = selectedTypeIds.some((tid) =>
+          evtTypeName.includes(tid.toLowerCase())
+        )
 
         if (!matchesId && !matchesName && !matchesFallback) return false
       }
@@ -502,6 +543,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
       if (selectedCriteriaIds.length > 0) {
         const allowedCritIds = new Set<string>()
         const critNames: string[] = []
+        const keywords: string[] = []
 
         selectedCriteriaIds.forEach((cid) => {
           allowedCritIds.add(cid)
@@ -509,17 +551,33 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           if (crit?.childIds) {
             crit.childIds.forEach((id) => allowedCritIds.add(String(id)))
           }
+          if (crit?.childNames) {
+            crit.childNames.forEach((cn) => critNames.push(cn.toLowerCase()))
+          }
+          if (crit?.keywords) {
+            crit.keywords.forEach((kw) => keywords.push(kw.toLowerCase()))
+          }
           if (crit?.label) {
-            critNames.push(crit.label.toLowerCase().replace('tiêu chuẩn', '').trim())
+            const clean = crit.label.toLowerCase().replace('tiêu chuẩn', '').trim()
+            critNames.push(clean)
+            if (clean.includes('tình nguyện')) keywords.push('tình nguyện', 'hiến máu')
+            else if (clean.includes('đạo đức')) keywords.push('đạo đức', 'lối sống')
+            else if (clean.includes('thể lực')) keywords.push('thể lực', 'thể thao')
+            else if (clean.includes('học tập')) keywords.push('học tập')
+            else if (clean.includes('hội nhập')) keywords.push('hội nhập', 'ngoại ngữ', 'tin học')
           }
         })
 
-        const hasCritMatch =
-          (evt.criteriaId && allowedCritIds.has(String(evt.criteriaId))) ||
-          (evt.criteriaName &&
-            critNames.some((cn) => cn && evt.criteriaName.toLowerCase().includes(cn)))
+        const evtCritId = evt.criteriaId != null ? String(evt.criteriaId) : ''
+        const evtCritName = (evt.criteriaName || evt.sv5tCriteriaName || '').toLowerCase()
 
-        if (!hasCritMatch) return false
+        const hasIdMatch = evtCritId && allowedCritIds.has(evtCritId)
+        const hasNameMatch =
+          evtCritName &&
+          (critNames.some((cn) => cn && (evtCritName.includes(cn) || cn.includes(evtCritName))) ||
+           keywords.some((kw) => kw && evtCritName.includes(kw)))
+
+        if (!hasIdMatch && !hasNameMatch) return false
       }
 
       // 5. Đơn vị tổ chức (Hỗ trợ multi-select)
@@ -528,7 +586,8 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           const evtOrgId = String(evt.organizerId || evt.fanpageId || '')
           if (!selectedFanpageIds.includes(evtOrgId)) return false
         } else if (formValues.fanpageId) {
-          if (String(evt.organizerId || evt.fanpageId || '') !== String(formValues.fanpageId)) return false
+          if (String(evt.organizerId || evt.fanpageId || '') !== String(formValues.fanpageId))
+            return false
         }
       }
 
@@ -549,7 +608,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
       // 8. Khoảng thời gian
       if (formValues.dateHappenFrom) {
         const evtDate = evt.startTime || evt.dateHappen || evt.createdAt
-        if (evtDate && evtDate < formValues.dateHappenFrom) return false
+        if (evtDate && evtDate.slice(0, 10) < formValues.dateHappenFrom) return false
       }
       if (formValues.dateHappenTo) {
         const evtDate = evt.endTime || evt.startTime || evt.dateHappen || evt.createdAt
@@ -572,11 +631,12 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     options?.semesters,
   ])
 
-  const activeCount = Object.values({
-    ...formValues,
-    academicYear: selectedAcademicYear !== 'ALL' ? selectedAcademicYear : undefined,
-    fanpageId: undefined,
-  }).filter(Boolean).length + (selectedFanpageIds.length > 0 ? 1 : 0)
+  const activeCount =
+    Object.values({
+      ...formValues,
+      academicYear: selectedAcademicYear !== 'ALL' ? selectedAcademicYear : undefined,
+      fanpageId: undefined,
+    }).filter(Boolean).length + (selectedFanpageIds.length > 0 ? 1 : 0)
 
   // Đếm số lượng bộ lọc đang bật bên trong phần Nâng cao
   const advancedActiveCount = [
@@ -712,9 +772,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           {/* ============================================================ */}
           <div className="pt-3.5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-foreground/80 block">
-                Thời gian
-              </span>
+              <span className="text-xs font-semibold text-foreground/80 block">Thời gian</span>
               {(formValues.dateHappenFrom || formValues.dateHappenTo) && (
                 <span className="text-[11px] text-primary font-medium">
                   {formValues.dateHappenFrom && formValues.dateHappenTo
@@ -813,7 +871,11 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                 ) : selectedTypeIds.length === 1 ? (
                   (() => {
                     const et = options?.eventTypes?.find((t) => String(t.id) === selectedTypeIds[0])
-                    return <span className="truncate">{et?.label || `Loại hình #${selectedTypeIds[0]}`}</span>
+                    return (
+                      <span className="truncate">
+                        {et?.label || `Loại hình #${selectedTypeIds[0]}`}
+                      </span>
+                    )
                   })()
                 ) : (
                   (() => {
@@ -919,21 +981,21 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                   const isSelected = isDirectlySelected || hasSelectedChildren
 
                   return (
-                    <button
-                      key={pc.id}
-                      type="button"
-                      title={pc.note || pc.label}
-                      onClick={() => handleTogglePointCategory(String(pc.id))}
-                      className={getChipClass(isSelected)}
-                    >
-                      {pc.label}
-                    </button>
+                    <Tooltip content={pc.note || pc.label} key={pc.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePointCategory(String(pc.id))}
+                        className={getChipClass(isSelected)}
+                      >
+                        {pc.label}
+                      </button>
+                    </Tooltip>
                   )
                 })}
               </div>
 
               {/* Nếu có mục con chi tiết (I.a, I.b...) và người dùng đang chọn mục lớn */}
-              {childPointCategories.length > 0 && (
+              {childPointCategories.length > 0 &&
                 (() => {
                   const activeRootIds = rootPointCategories
                     .filter((rpc) => {
@@ -966,26 +1028,25 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                         {relevantChildren.map((cpc) => {
                           const isSubSelected = selectedPointCategoryIds.includes(String(cpc.id))
                           return (
-                            <button
-                              key={cpc.id}
-                              type="button"
-                              title={cpc.note || cpc.label}
-                              onClick={() => handleTogglePointCategory(String(cpc.id))}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${
-                                isSubSelected
-                                  ? 'bg-primary text-primary-foreground font-semibold border-primary ring-1 ring-primary/20'
-                                  : 'bg-muted/30 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
-                              }`}
-                            >
-                              {cpc.label}
-                            </button>
+                            <Tooltip content={cpc.note || cpc.label} key={cpc.id}>
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePointCategory(String(cpc.id))}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${
+                                  isSubSelected
+                                    ? 'bg-primary text-primary-foreground font-semibold border-primary ring-1 ring-primary/20'
+                                    : 'bg-muted/30 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
+                                }`}
+                              >
+                                {cpc.label}
+                              </button>
+                            </Tooltip>
                           )
                         })}
                       </div>
                     </div>
                   )
-                })()
-              )}
+                })()}
             </div>
 
             {/* 4.2 Tiêu chuẩn SV5T - Dạng chip multi-select */}
@@ -997,15 +1058,15 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                 {(options?.criterias || []).map((c) => {
                   const isSelected = selectedCriteriaIds.includes(String(c.id))
                   return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      title={c.note || c.label}
-                      onClick={() => handleToggleCriteria(String(c.id))}
-                      className={getChipClass(isSelected)}
-                    >
-                      {c.label}
-                    </button>
+                    <Tooltip content={c.note || c.label} key={c.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCriteria(String(c.id))}
+                        className={getChipClass(isSelected)}
+                      >
+                        {c.label}
+                      </button>
+                    </Tooltip>
                   )
                 })}
               </div>
@@ -1042,8 +1103,11 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
             </button>
 
             <div
-              className={`pt-2 space-y-3 transition-all ${isAdvancedOpen ? 'block animate-in fade-in slide-in-from-top-1 duration-150' : 'hidden'
-                }`}
+              className={`pt-2 space-y-3 transition-all ${
+                isAdvancedOpen
+                  ? 'block animate-in fade-in slide-in-from-top-1 duration-150'
+                  : 'hidden'
+              }`}
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Năm học */}
@@ -1096,7 +1160,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                       <SelectItem value="ALL">Tất cả học kỳ</SelectItem>
                       {availableSemesters.map((s) => (
                         <SelectItem key={s.id} value={String(s.id)}>
-                          {s.shortLabel || `HK${s.number === 3 ? 'Hè' : (s.number || 1)}`}
+                          {s.shortLabel || `HK${s.number === 3 ? 'Hè' : s.number || 1}`}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1110,186 +1174,204 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                   <label className="text-[11px] font-medium text-muted-foreground block">
                     Đơn vị tổ chức (Fanpage)
                   </label>
-                <button
-                  type="button"
-                  onClick={() => setOpenCombobox(openCombobox === 'fanpage' ? null : 'fanpage')}
-                  className={`w-full h-9 px-3 rounded-xl border bg-background text-xs text-foreground flex items-center justify-between gap-2 hover:bg-accent/40 focus:outline-none transition-all cursor-pointer text-left ${selectedFanpageIds.length > 0
-                      ? 'border-primary/60 text-primary font-semibold ring-1 ring-primary/20'
-                      : 'border-input text-muted-foreground'
+                  <button
+                    type="button"
+                    onClick={() => setOpenCombobox(openCombobox === 'fanpage' ? null : 'fanpage')}
+                    className={`w-full h-9 px-3 rounded-xl border bg-background text-xs text-foreground flex items-center justify-between gap-2 hover:bg-accent/40 focus:outline-none transition-all cursor-pointer text-left ${
+                      selectedFanpageIds.length > 0
+                        ? 'border-primary/60 text-primary font-semibold ring-1 ring-primary/20'
+                        : 'border-input text-muted-foreground'
                     }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    {selectedFanpageIds.length === 0 ? (
-                      <span className="truncate">Tất cả đơn vị</span>
-                    ) : selectedFanpageIds.length === 1 ? (
-                      (() => {
-                        const fp = options?.fanpages?.find((f) => String(f.id) === selectedFanpageIds[0])
-                        return (
-                          <>
-                            {fp?.avatarUrl && (
-                              <img
-                                src={fp.avatarUrl}
-                                alt={fp.label}
-                                className="h-4 w-4 rounded-full object-cover shrink-0 border border-border"
-                              />
-                            )}
-                            <span className="truncate">{fp?.label || `Đơn vị #${selectedFanpageIds[0]}`}</span>
-                          </>
-                        )
-                      })()
-                    ) : (
-                      (() => {
-                        const fp = options?.fanpages?.find((f) => String(f.id) === selectedFanpageIds[0])
-                        return (
-                          <>
-                            {fp?.avatarUrl && (
-                              <img
-                                src={fp.avatarUrl}
-                                alt={fp.label}
-                                className="h-4 w-4 rounded-full object-cover shrink-0 border border-border"
-                              />
-                            )}
-                            <span className="truncate font-semibold">{fp?.label || 'Đơn vị'}</span>
-                            <span className="shrink-0 px-1.5 py-0.2 rounded-full bg-primary/10 text-primary font-bold text-[10px]">
-                              +{selectedFanpageIds.length - 1}
-                            </span>
-                          </>
-                        )
-                      })()
-                    )}
-                  </div>
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                </button>
-
-                {openCombobox === 'fanpage' && (
-                  <div className="absolute bottom-full mb-1.5 left-0 right-0 bg-popover border border-border rounded-xl shadow-xl z-50 max-h-52 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
-                    {/* Header ô tìm kiếm cố định */}
-                    <div className="p-2 border-b border-border bg-muted/30 flex items-center gap-2 shrink-0">
-                      <SearchIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <input
-                        type="text"
-                        value={fanpageSearch}
-                        onChange={(e) => setFanpageSearch(e.target.value)}
-                        placeholder="Tìm đơn vị tổ chức..."
-                        className="w-full text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
-                        autoFocus
-                      />
-                    </div>
-
-                    {/* Danh sách cuộn mượt mà có giới hạn chiều cao */}
-                    <div className="overflow-y-auto custom-scrollbar p-1 flex-1 space-y-0.5">
-                      {/* Tùy chọn: Tất cả đơn vị */}
-                      <button
-                        type="button"
-                        onClick={handleClearFanpages}
-                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${selectedFanpageIds.length === 0
-                            ? 'bg-primary/10 text-primary font-semibold'
-                            : 'text-foreground/80 hover:text-foreground hover:bg-muted/40'
-                          }`}
-                      >
-                        <span>Tất cả đơn vị</span>
-                        {selectedFanpageIds.length === 0 && (
-                          <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                        )}
-                      </button>
-
-                      {totalFilteredCount === 0 ? (
-                        <div className="py-6 px-3 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-1.5">
-                          <SearchIcon className="h-4 w-4 text-muted-foreground/50" />
-                          <span>Không tìm thấy đơn vị nào</span>
-                        </div>
-                      ) : (
-                        <>
-                          {/* Nhóm: Đang theo dõi */}
-                          {filteredFollowed.length > 0 && (
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {selectedFanpageIds.length === 0 ? (
+                        <span className="truncate">Tất cả đơn vị</span>
+                      ) : selectedFanpageIds.length === 1 ? (
+                        (() => {
+                          const fp = options?.fanpages?.find(
+                            (f) => String(f.id) === selectedFanpageIds[0]
+                          )
+                          return (
                             <>
-                              <div className="px-2.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-primary/80 flex items-center justify-between">
-                                <span>Đang theo dõi</span>
-                                <span className="text-[10px] font-normal text-muted-foreground">
-                                  ({filteredFollowed.length})
-                                </span>
-                              </div>
-                              {filteredFollowed.map((fp) => {
-                                const isSelected = selectedFanpageIds.includes(String(fp.id))
-                                return (
-                                  <button
-                                    key={fp.id}
-                                    type="button"
-                                    onClick={() => handleToggleFanpage(String(fp.id))}
-                                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${isSelected
-                                        ? 'bg-primary/10 text-primary font-semibold'
-                                        : 'text-foreground/80 hover:text-foreground hover:bg-muted/40'
-                                      }`}
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <img
-                                        src={fp.avatarUrl}
-                                        alt={fp.label}
-                                        className="h-4 w-4 rounded-full object-cover shrink-0 border border-border"
-                                      />
-                                      <span className="truncate">{fp.label}</span>
-                                    </div>
-                                    <div
-                                      className={`h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected
-                                          ? 'bg-primary border-primary text-primary-foreground'
-                                          : 'border-muted-foreground/30 bg-background'
-                                        }`}
-                                    >
-                                      {isSelected && <Check className="h-2.5 w-2.5 stroke-[2.5]" />}
-                                    </div>
-                                  </button>
-                                )
-                              })}
-                            </>
-                          )}
-
-                          {/* Nhóm: Đơn vị khác / Tất cả đơn vị */}
-                          {filteredOthers.length > 0 && (
-                            <>
-                              {followedFanpagesList.length > 0 && (
-                                <div className="px-2.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between border-t border-border/40 mt-1">
-                                  <span>Đơn vị khác</span>
-                                </div>
+                              {fp?.avatarUrl && (
+                                <img
+                                  src={fp.avatarUrl}
+                                  alt={fp.label}
+                                  className="h-4 w-4 rounded-full object-cover shrink-0 border border-border"
+                                />
                               )}
-                              {filteredOthers.map((fp) => {
-                                const isSelected = selectedFanpageIds.includes(String(fp.id))
-                                return (
-                                  <button
-                                    key={fp.id}
-                                    type="button"
-                                    onClick={() => handleToggleFanpage(String(fp.id))}
-                                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${isSelected
-                                        ? 'bg-primary/10 text-primary font-semibold'
-                                        : 'text-foreground/80 hover:text-foreground hover:bg-muted/40'
-                                      }`}
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <img
-                                        src={fp.avatarUrl}
-                                        alt={fp.label}
-                                        className="h-4 w-4 rounded-full object-cover shrink-0 border border-border"
-                                      />
-                                      <span className="truncate">{fp.label}</span>
-                                    </div>
-                                    <div
-                                      className={`h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected
-                                          ? 'bg-primary border-primary text-primary-foreground'
-                                          : 'border-muted-foreground/30 bg-background'
-                                        }`}
-                                    >
-                                      {isSelected && <Check className="h-2.5 w-2.5 stroke-[2.5]" />}
-                                    </div>
-                                  </button>
-                                )
-                              })}
+                              <span className="truncate">
+                                {fp?.label || `Đơn vị #${selectedFanpageIds[0]}`}
+                              </span>
                             </>
-                          )}
-                        </>
+                          )
+                        })()
+                      ) : (
+                        (() => {
+                          const fp = options?.fanpages?.find(
+                            (f) => String(f.id) === selectedFanpageIds[0]
+                          )
+                          return (
+                            <>
+                              {fp?.avatarUrl && (
+                                <img
+                                  src={fp.avatarUrl}
+                                  alt={fp.label}
+                                  className="h-4 w-4 rounded-full object-cover shrink-0 border border-border"
+                                />
+                              )}
+                              <span className="truncate font-semibold">
+                                {fp?.label || 'Đơn vị'}
+                              </span>
+                              <span className="shrink-0 px-1.5 py-0.2 rounded-full bg-primary/10 text-primary font-bold text-[10px]">
+                                +{selectedFanpageIds.length - 1}
+                              </span>
+                            </>
+                          )
+                        })()
                       )}
                     </div>
-                  </div>
-                )}
-              </div>
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  </button>
+
+                  {openCombobox === 'fanpage' && (
+                    <div className="absolute bottom-full mb-1.5 left-0 right-0 bg-popover border border-border rounded-xl shadow-xl z-50 max-h-52 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+                      {/* Header ô tìm kiếm cố định */}
+                      <div className="p-2 border-b border-border bg-muted/30 flex items-center gap-2 shrink-0">
+                        <SearchIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <input
+                          type="text"
+                          value={fanpageSearch}
+                          onChange={(e) => setFanpageSearch(e.target.value)}
+                          placeholder="Tìm đơn vị tổ chức..."
+                          className="w-full text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
+                          autoFocus
+                        />
+                      </div>
+
+                      {/* Danh sách cuộn mượt mà có giới hạn chiều cao */}
+                      <div className="overflow-y-auto custom-scrollbar p-1 flex-1 space-y-0.5">
+                        {/* Tùy chọn: Tất cả đơn vị */}
+                        <button
+                          type="button"
+                          onClick={handleClearFanpages}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${
+                            selectedFanpageIds.length === 0
+                              ? 'bg-primary/10 text-primary font-semibold'
+                              : 'text-foreground/80 hover:text-foreground hover:bg-muted/40'
+                          }`}
+                        >
+                          <span>Tất cả đơn vị</span>
+                          {selectedFanpageIds.length === 0 && (
+                            <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                          )}
+                        </button>
+
+                        {totalFilteredCount === 0 ? (
+                          <div className="py-6 px-3 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-1.5">
+                            <SearchIcon className="h-4 w-4 text-muted-foreground/50" />
+                            <span>Không tìm thấy đơn vị nào</span>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Nhóm: Đang theo dõi */}
+                            {filteredFollowed.length > 0 && (
+                              <>
+                                <div className="px-2.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-primary/80 flex items-center justify-between">
+                                  <span>Đang theo dõi</span>
+                                  <span className="text-[10px] font-normal text-muted-foreground">
+                                    ({filteredFollowed.length})
+                                  </span>
+                                </div>
+                                {filteredFollowed.map((fp) => {
+                                  const isSelected = selectedFanpageIds.includes(String(fp.id))
+                                  return (
+                                    <button
+                                      key={fp.id}
+                                      type="button"
+                                      onClick={() => handleToggleFanpage(String(fp.id))}
+                                      className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${
+                                        isSelected
+                                          ? 'bg-primary/10 text-primary font-semibold'
+                                          : 'text-foreground/80 hover:text-foreground hover:bg-muted/40'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <img
+                                          src={fp.avatarUrl}
+                                          alt={fp.label}
+                                          className="h-4 w-4 rounded-full object-cover shrink-0 border border-border"
+                                        />
+                                        <span className="truncate">{fp.label}</span>
+                                      </div>
+                                      <div
+                                        className={`h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                                          isSelected
+                                            ? 'bg-primary border-primary text-primary-foreground'
+                                            : 'border-muted-foreground/30 bg-background'
+                                        }`}
+                                      >
+                                        {isSelected && (
+                                          <Check className="h-2.5 w-2.5 stroke-[2.5]" />
+                                        )}
+                                      </div>
+                                    </button>
+                                  )
+                                })}
+                              </>
+                            )}
+
+                            {/* Nhóm: Đơn vị khác / Tất cả đơn vị */}
+                            {filteredOthers.length > 0 && (
+                              <>
+                                {followedFanpagesList.length > 0 && (
+                                  <div className="px-2.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between border-t border-border/40 mt-1">
+                                    <span>Đơn vị khác</span>
+                                  </div>
+                                )}
+                                {filteredOthers.map((fp) => {
+                                  const isSelected = selectedFanpageIds.includes(String(fp.id))
+                                  return (
+                                    <button
+                                      key={fp.id}
+                                      type="button"
+                                      onClick={() => handleToggleFanpage(String(fp.id))}
+                                      className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${
+                                        isSelected
+                                          ? 'bg-primary/10 text-primary font-semibold'
+                                          : 'text-foreground/80 hover:text-foreground hover:bg-muted/40'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <img
+                                          src={fp.avatarUrl}
+                                          alt={fp.label}
+                                          className="h-4 w-4 rounded-full object-cover shrink-0 border border-border"
+                                        />
+                                        <span className="truncate">{fp.label}</span>
+                                      </div>
+                                      <div
+                                        className={`h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                                          isSelected
+                                            ? 'bg-primary border-primary text-primary-foreground'
+                                            : 'border-muted-foreground/30 bg-background'
+                                        }`}
+                                      >
+                                        {isSelected && (
+                                          <Check className="h-2.5 w-2.5 stroke-[2.5]" />
+                                        )}
+                                      </div>
+                                    </button>
+                                  )
+                                })}
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -1301,10 +1383,11 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
             type="button"
             onClick={handleReset}
             disabled={!hasActiveFilters}
-            className={`text-xs flex items-center gap-1.5 py-1 transition-colors ${hasActiveFilters
+            className={`text-xs flex items-center gap-1.5 py-1 transition-colors ${
+              hasActiveFilters
                 ? 'text-muted-foreground hover:text-foreground hover:underline cursor-pointer'
                 : 'text-muted-foreground/40 cursor-not-allowed pointer-events-none'
-              }`}
+            }`}
           >
             <RotateCcw className="h-3.5 w-3.5" />
             <span>Thiết lập lại {activeCount > 0 ? `(${activeCount})` : ''}</span>
@@ -1317,9 +1400,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           >
             <Check className="h-4 w-4" />
             <span>
-              {previewMatchingCount > 0
-                ? `Xem ${previewMatchingCount} sự kiện`
-                : 'Xem kết quả'}
+              {previewMatchingCount > 0 ? `Xem ${previewMatchingCount} sự kiện` : 'Xem kết quả'}
             </span>
           </Button>
         </div>
@@ -1327,9 +1408,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     </div>
   )
 
-  return typeof document !== 'undefined'
-    ? createPortal(modalContent, document.body)
-    : modalContent
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent
 }
 
 export const EventFilterDrawer = EventFilterModal

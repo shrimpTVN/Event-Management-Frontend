@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  HistoryStatsCards,
   HistoryTabBar,
   HistorySearchBar,
   RegisteredEventCard,
@@ -12,11 +11,9 @@ import {
   StudentAttendanceModal,
   historyService,
   normalizeHistoryStatus,
-  calculateRealHistoryStats,
   getEventTerm,
   type RegisteredEventItem,
   type HistoryStatus,
-  type HistoryStats,
   type AbsenceFormData,
 } from '@/features/registration-history'
 import { StudentLeftSidebar } from '@/features/events'
@@ -82,11 +79,6 @@ export const EventHistoryPage: React.FC = () => {
       setNotification(null)
     }, 4000)
   }
-
-  // Calculate dynamic stats merged with real trend indicators calculated from actual data
-  const stats: HistoryStats = useMemo(() => {
-    return calculateRealHistoryStats(events, appliedYear, appliedSemester)
-  }, [events, appliedYear, appliedSemester])
 
   // Filter events by applied academic year and semester if dates are available
   const termFilteredList = useMemo(() => {
@@ -274,9 +266,6 @@ export const EventHistoryPage: React.FC = () => {
               </div>
             </div>
 
-            {/* 4 Summary Stat Cards (Frame 227) */}
-            <HistoryStatsCards stats={stats} />
-
             {/* Main Section: Folder-style Tab Bar above White Container */}
             <div className="flex flex-col mt-2">
               <HistoryTabBar
@@ -451,7 +440,8 @@ export const EventHistoryPage: React.FC = () => {
         event={attendanceModalEvent}
         onSuccess={(msg) => {
           showToast(msg, 'success')
-          queryClient.invalidateQueries({ queryKey: ['registrations', 'history'] })
+          queryClient.invalidateQueries({ queryKey: ['registrations'] })
+          queryClient.invalidateQueries({ queryKey: ['event-attendees'] })
           queryClient.invalidateQueries({ queryKey: ['student-semester-points'] })
           queryClient.invalidateQueries({ queryKey: ['point-transactions'] })
           queryClient.invalidateQueries({ queryKey: ['criteria-progress'] })

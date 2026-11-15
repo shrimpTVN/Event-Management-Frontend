@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Sv5tRow } from './Sv5tRow'
@@ -112,15 +113,18 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
           <div className="flex items-center gap-1.5">
             <div className="flex items-center gap-1">
               {standard.children.map((child) => (
-                <span
+                <Tooltip
+                  content={`${child.name}: ${child.isCompleted ? 'Đạt' : 'Chưa đạt'}`}
                   key={child.criteriaId}
-                  title={`${child.name}: ${child.isCompleted ? 'Đạt' : 'Chưa đạt'}`}
-                  className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full transition-colors ${
-                    child.isCompleted
-                      ? 'bg-[#15803D] dark:bg-emerald-400 border border-[#15803D]'
-                      : 'bg-[#D1D5DB] dark:bg-muted-foreground/40 border border-[#D1D5DB] dark:border-border'
-                  }`}
-                />
+                >
+                  <span
+                    className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full transition-colors ${
+                      child.isCompleted
+                        ? 'bg-[#15803D] dark:bg-emerald-400 border border-[#15803D]'
+                        : 'bg-[#D1D5DB] dark:bg-muted-foreground/40 border border-[#D1D5DB] dark:border-border'
+                    }`}
+                  />
+                </Tooltip>
               ))}
             </div>
             <span

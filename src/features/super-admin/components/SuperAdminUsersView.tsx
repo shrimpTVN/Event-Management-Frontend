@@ -1,17 +1,11 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react'
-import {
-  Search,
-  X,
-  Lock,
-  Unlock,
-  Eye,
-  GraduationCap,
-  Briefcase,
-  Users,
-  Copy,
-  Check,
-  MoreHorizontal,
-} from 'lucide-react'
+import { Tooltip } from '@/components/ui/tooltip'
+import { AdminActionMenu } from './AdminActionMenu'
+import { getUserDisplayRole, isValidUserId } from '../services/superAdminService'
+import { UserPermissionBadges, UserStatusBadge } from './AdminDetails'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import React, { useState, useMemo } from 'react'
+import { Search, X, Lock, Unlock, Eye, Copy, Check, MoreHorizontal } from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
 import type { SuperAdminUser, UserRole, UserStatus } from '../types/superAdmin.types'
 
@@ -30,18 +24,7 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
   const [activeTab, setActiveTab] = useState<'ALL' | UserRole | UserStatus>('ALL')
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null)
   const [copiedUserId, setCopiedUserId] = useState<string | null>(null)
-  const actionMenuRef = useRef<HTMLDivElement | null>(null)
-
-  // Click outside listener for action menu
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
-        setOpenActionMenuId(null)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  const [actionMenuAnchor, setActionMenuAnchor] = useState<HTMLButtonElement | null>(null)
 
   const handleCopyEmail = (email: string, userId: string, e?: React.MouseEvent) => {
     e?.stopPropagation()
@@ -54,9 +37,9 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
   }
 
   const totalCount = users.length
-  const studentCount = users.filter((u) => u.role === 'STUDENT').length
-  const staffCount = users.filter((u) => u.role === 'STAFF').length
-  const organizerCount = users.filter((u) => u.role === 'ORGANIZER').length
+  const studentCount = users.filter((u) => getUserDisplayRole(u) === 'STUDENT').length
+  const staffCount = users.filter((u) => getUserDisplayRole(u) === 'STAFF').length
+  const adminCount = users.filter((u) => getUserDisplayRole(u) === 'SUPERADMIN').length
   const lockedCount = users.filter((u) => u.status === 'LOCKED').length
 
   const filteredUsers = useMemo(() => {
@@ -73,7 +56,7 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
           ? true
           : activeTab === 'LOCKED'
             ? u.status === 'LOCKED'
-            : u.role === activeTab
+            : getUserDisplayRole(u) === activeTab
 
       return matchSearch && matchTab
     })
@@ -83,30 +66,29 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
     { id: 'ALL' as const, label: 'Tất cả tài khoản', count: totalCount },
     { id: 'STUDENT' as const, label: 'Sinh viên', count: studentCount },
     { id: 'STAFF' as const, label: 'Cán bộ', count: staffCount },
-    { id: 'ORGANIZER' as const, label: 'Ban tổ chức', count: organizerCount },
+    { id: 'SUPERADMIN' as const, label: 'Super admin', count: adminCount },
     { id: 'LOCKED' as const, label: 'Bị khóa', count: lockedCount },
   ]
 
   return (
-    <div className="w-full space-y-6 text-left animate-in fade-in duration-300">
+    <div className="w-full flex flex-col gap-6 text-left animate-in fade-in duration-300">
       {/* 1. Header with Breadcrumb */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
         <div>
           <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
             <span>Quản trị hệ thống</span>
             <span>/</span>
-            <span className="text-primary font-bold">Người dùng</span>
+            <span className="text-foreground font-semibold">Người dùng</span>
           </p>
-          <h1 className="font-k2d font-bold text-2xl text-foreground mt-1">
-            Quản lý người dùng
-          </h1>
+          <h1 className="font-k2d font-bold text-2xl text-foreground mt-1">Quản lý người dùng</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Tra cứu, phân quyền vai trò và quản lý trạng thái tài khoản sinh viên & cán bộ toàn trường.
+            Tra cứu, phân quyền vai trò và quản lý trạng thái tài khoản sinh viên & cán bộ toàn
+            trường.
           </p>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-[#1B4B8A] dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+          <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-muted/40 dark:bg-muted/40 text-muted-foreground border border-border dark:border-border">
             Tổng {users.length} tài khoản
           </span>
         </div>
@@ -119,12 +101,14 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id
             return (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'px-4 sm:px-5 py-2.5 text-xs sm:text-sm transition-all duration-150 cursor-pointer whitespace-nowrap select-none flex items-center gap-1.5',
+                  'h-auto rounded-b-none px-4 sm:px-5 py-2.5 text-xs sm:text-sm transition-all duration-150 cursor-pointer whitespace-nowrap select-none flex items-center gap-1.5',
                   isActive
                     ? 'bg-white dark:bg-card text-foreground font-semibold rounded-t-xl border-t border-x border-[#E5E7EB] dark:border-border shadow-2xs pb-3'
                     : 'text-muted-foreground hover:text-foreground font-medium bg-transparent hover:bg-black/5 dark:hover:bg-white/5 rounded-t-lg'
@@ -139,7 +123,7 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                 >
                   ({tab.count})
                 </span>
-              </button>
+              </Button>
             )
           })}
         </div>
@@ -155,21 +139,23 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-border/60">
             <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <input
+              <Input
                 type="text"
-                placeholder="Tìm MSSV, họ tên, email, khoa viện..."
+                placeholder="Tìm họ tên, email, MSSV, mã cán bộ..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-8 h-9 text-xs sm:text-sm bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary transition-colors"
+                className="w-full pl-9 pr-8 h-9 text-xs sm:text-sm bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-xl text-foreground placeholder:text-gray-400 focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary transition-colors"
               />
               {searchQuery && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   type="button"
                   onClick={() => setSearchQuery('')}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded cursor-pointer"
                 >
                   <X className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               )}
             </div>
 
@@ -184,8 +170,8 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
               {/* Header hàng cột phẳng */}
               <div className="grid grid-cols-[2.5fr_1.2fr_2fr_1.4fr_1.1fr_130px] items-center px-5 py-2 text-xs font-normal text-[#6B7280] dark:text-muted-foreground">
                 <div>Người dùng &amp; Email</div>
-                <div>Mã số</div>
-                <div>Đơn vị / Khoa</div>
+                <div>Mã định danh</div>
+                <div>Thông tin hồ sơ</div>
                 <div>Vai trò</div>
                 <div className="text-center">Trạng thái</div>
                 <div className="text-right min-w-[130px]">Thao tác</div>
@@ -200,15 +186,16 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                 ) : (
                   filteredUsers.map((u) => {
                     const isLocked = u.status === 'LOCKED'
+                    const userKey = u.id || u.email
 
                     return (
                       <div
-                        key={u.id}
+                        key={userKey}
                         onClick={() => onSelectUser(u)}
                         className={cn(
-                          'bg-white dark:bg-card border border-border/80 dark:border-border/60 rounded-2xl shadow-2xs hover:shadow-xs hover:border-[#1B4B8A]/30 dark:hover:border-blue-500/30 hover:bg-slate-50/40 dark:hover:bg-slate-800/30 transition-all px-5 py-3.5 grid grid-cols-[2.5fr_1.2fr_2fr_1.4fr_1.1fr_130px] items-center group relative cursor-pointer',
+                          'bg-white dark:bg-card border border-border/80 dark:border-border/60 rounded-xl hover:border-border dark:hover:border-border hover:bg-slate-50/40 dark:hover:bg-slate-800/30 transition-all px-5 py-3.5 grid grid-cols-[2.5fr_1.2fr_2fr_1.4fr_1.1fr_130px] items-center group relative cursor-pointer',
                           isLocked && 'bg-slate-50/60 dark:bg-slate-900/30 opacity-75',
-                          openActionMenuId === u.id ? 'z-50 border-[#1B4B8A]/40' : 'z-10'
+                          openActionMenuId === userKey ? 'z-50 border-[#1B4B8A]/40' : 'z-10'
                         )}
                       >
                         {/* 1. Người dùng & Avatar & Email */}
@@ -220,86 +207,86 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                               className="h-10 w-10 rounded-full object-cover shrink-0 border border-border/60"
                             />
                           ) : (
-                            <div className="h-10 w-10 rounded-full bg-[#1B4B8A] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                            <div className="h-10 w-10 rounded-full bg-muted text-muted-foreground font-semibold text-xs flex items-center justify-center shrink-0 shadow-2xs">
                               {u.name ? u.name.substring(0, 2).toUpperCase() : 'ND'}
                             </div>
                           )}
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-foreground text-xs leading-snug truncate hover:text-primary transition-colors">
-                              {u.name}
-                            </p>
-                            <p className="text-[11px] text-[#6B7280] dark:text-muted-foreground truncate mt-0.5">
-                              {u.email}
-                            </p>
+                            <Tooltip content={u.name}>
+                              <p className="font-semibold text-foreground text-xs leading-snug truncate hover:text-primary transition-colors">
+                                {u.name}
+                              </p>
+                            </Tooltip>
+                            <Tooltip content={u.email}>
+                              <p className="text-[11px] text-[#6B7280] dark:text-muted-foreground truncate mt-0.5">
+                                {u.email}
+                              </p>
+                            </Tooltip>
                           </div>
                         </div>
 
                         {/* 2. Mã số */}
-                        <div className="text-xs font-semibold text-foreground">
-                          {u.code}
+                        <div className="flex min-w-0 flex-col gap-1 text-xs">
+                          {u.studentProfile && (
+                            <span className="font-medium">
+                              MSSV: {u.studentProfile.studentId || '—'}
+                            </span>
+                          )}
+                          {u.staffProfile && (
+                            <span className="font-medium">
+                              Mã CB: {u.staffProfile.staffId || '—'}
+                            </span>
+                          )}
+                          {!u.studentProfile && !u.staffProfile && (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </div>
 
-                        {/* 3. Đơn vị / Khoa */}
-                        <div className="space-y-0.5 text-xs pr-2 min-w-0">
-                          <p className="text-foreground font-medium truncate">
-                            {u.schoolName || 'Trường ĐH Cần Thơ'}
-                          </p>
-                          {u.majorName && (
-                            <p className="text-[11px] text-[#6B7280] dark:text-muted-foreground truncate">
-                              {u.majorName}
-                            </p>
+                        <div className="flex min-w-0 flex-col gap-1 pr-3 text-xs">
+                          {u.studentProfile && (
+                            <>
+                              <Tooltip content={u.studentProfile.schoolName}>
+                                <p className="truncate font-medium">
+                                  {u.studentProfile.schoolName || 'Chưa cập nhật khoa / trường'}
+                                </p>
+                              </Tooltip>
+                              {u.studentProfile.majorName && (
+                                <Tooltip content={u.studentProfile.majorName}>
+                                  <p className="truncate text-muted-foreground">
+                                    {u.studentProfile.majorName}
+                                  </p>
+                                </Tooltip>
+                              )}
+                            </>
+                          )}
+                          {u.staffProfile && (
+                            <>
+                              <Tooltip content={u.staffProfile.orgName}>
+                                <p className="truncate font-medium">
+                                  {u.staffProfile.orgName || 'Chưa cập nhật đơn vị'}
+                                </p>
+                              </Tooltip>
+                              {u.staffProfile.title && (
+                                <Tooltip content={u.staffProfile.title}>
+                                  <p className="truncate text-muted-foreground">
+                                    {u.staffProfile.title}
+                                  </p>
+                                </Tooltip>
+                              )}
+                            </>
+                          )}
+                          {!u.studentProfile && !u.staffProfile && (
+                            <p className="text-muted-foreground">Chưa có thông tin hồ sơ</p>
                           )}
                         </div>
 
                         {/* 4. Vai trò */}
                         <div>
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap border',
-                              u.role === 'STUDENT'
-                                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-                                : u.role === 'STAFF'
-                                  ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800'
-                                  : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                            )}
-                          >
-                            {u.role === 'STUDENT' ? (
-                              <GraduationCap className="w-3 h-3 shrink-0" />
-                            ) : u.role === 'STAFF' ? (
-                              <Briefcase className="w-3 h-3 shrink-0" />
-                            ) : (
-                              <Users className="w-3 h-3 shrink-0" />
-                            )}
-                            <span>
-                              {u.role === 'STUDENT'
-                                ? 'Sinh viên'
-                                : u.role === 'STAFF'
-                                  ? 'Cán bộ'
-                                  : 'Ban tổ chức'}
-                            </span>
-                          </span>
+                          <UserPermissionBadges user={u} />
                         </div>
-
-                        {/* 5. Trạng thái */}
                         <div className="flex justify-center">
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap border',
-                              u.status === 'ACTIVE'
-                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                                : 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border-red-200 dark:border-red-800'
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                'w-1.5 h-1.5 rounded-full',
-                                u.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-red-500'
-                              )}
-                            />
-                            <span>{u.status === 'ACTIVE' ? 'Hoạt động' : 'Bị khóa'}</span>
-                          </span>
+                          <UserStatusBadge status={u.status} />
                         </div>
-
                         {/* 6. Thao tác hover kiểu Google Drive */}
                         <div className="text-right min-w-[130px] relative flex items-center justify-end">
                           <div className="flex items-center justify-end gap-1">
@@ -307,85 +294,112 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                             <div
                               className={cn(
                                 'items-center gap-1 transition-all duration-150',
-                                openActionMenuId === u.id
+                                openActionMenuId === userKey
                                   ? 'flex opacity-100'
                                   : 'flex opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
                               )}
                             >
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  onSelectUser(u)
-                                }}
-                                title="Xem hồ sơ chi tiết (Mở Drawer)"
-                                className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#1B4B8A] hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors cursor-pointer"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
+                              <Tooltip content="Xem hồ sơ chi tiết (Mở Drawer)">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    onSelectUser(u)
+                                  }}
+                                  aria-label="Xem hồ sơ chi tiết (Mở Drawer)"
+                                  className="h-8 w-8 rounded-lg p-0 flex items-center justify-center text-[#6B7280] hover:text-primary hover:bg-muted/40 dark:hover:bg-muted/40 dark:hover:text-muted-foreground transition-colors cursor-pointer"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </Tooltip>
 
-                              <button
-                                type="button"
-                                onClick={(e) => handleCopyEmail(u.email, u.id, e)}
-                                title={copiedUserId === u.id ? 'Đã sao chép!' : 'Sao chép email'}
-                                className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#1B4B8A] hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                              <Tooltip
+                                content={
+                                  copiedUserId === userKey ? 'Đã sao chép!' : 'Sao chép email'
+                                }
                               >
-                                {copiedUserId === u.id ? (
-                                  <Check className="h-4 w-4 text-emerald-600" />
-                                ) : (
-                                  <Copy className="h-4 w-4" />
-                                )}
-                              </button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  type="button"
+                                  onClick={(e) => handleCopyEmail(u.email, userKey, e)}
+                                  aria-label={
+                                    copiedUserId === userKey ? 'Đã sao chép!' : 'Sao chép email'
+                                  }
+                                  className="h-8 w-8 rounded-lg p-0 flex items-center justify-center text-[#6B7280] hover:text-primary hover:bg-muted/40 dark:hover:bg-muted/40 dark:hover:text-muted-foreground transition-colors cursor-pointer"
+                                >
+                                  {copiedUserId === userKey ? (
+                                    <Check className="h-4 w-4 text-muted-foreground" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </Tooltip>
                             </div>
 
                             {/* Nút ba chấm chứa các tùy chọn còn lại */}
                             <div className="inline-block relative">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setOpenActionMenuId(openActionMenuId === u.id ? null : u.id)
-                                }}
-                                className={cn(
-                                  'h-8 w-8 rounded-full flex items-center justify-center transition-colors cursor-pointer',
-                                  openActionMenuId === u.id
-                                    ? 'bg-[#F3F4F6] dark:bg-muted text-foreground'
-                                    : 'text-[#6B7280] hover:text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted opacity-60 group-hover:opacity-100'
-                                )}
-                                title="Tùy chọn khác"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </button>
-
-                              {openActionMenuId === u.id && (
-                                <div
-                                  ref={actionMenuRef}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="absolute right-0 top-full mt-1.5 w-52 rounded-xl border border-border bg-card p-1.5 shadow-2xl z-50 text-left animate-in fade-in-0 zoom-in-95 select-none"
+                              <Tooltip content="Tùy chọn khác">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setActionMenuAnchor(e.currentTarget)
+                                    setOpenActionMenuId(
+                                      openActionMenuId === userKey ? null : userKey
+                                    )
+                                  }}
+                                  className={cn(
+                                    'h-8 w-8 rounded-lg p-0 flex items-center justify-center transition-colors cursor-pointer',
+                                    openActionMenuId === userKey
+                                      ? 'bg-[#F3F4F6] dark:bg-muted text-foreground'
+                                      : 'text-[#6B7280] hover:text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted opacity-60 group-hover:opacity-100'
+                                  )}
+                                  aria-label="Tùy chọn khác"
                                 >
-                                  <button
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </Tooltip>
+
+                              {openActionMenuId === userKey && (
+                                <AdminActionMenu
+                                  anchor={actionMenuAnchor}
+                                  onClose={() => setOpenActionMenuId(null)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-52 rounded-xl border border-border bg-card p-1.5 shadow-2xl z-50 text-left animate-in fade-in-0 zoom-in-95 select-none"
+                                >
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
                                     type="button"
                                     onClick={() => {
                                       setOpenActionMenuId(null)
                                       onSelectUser(u)
                                     }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                                    className="w-full flex items-center justify-start gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
                                   >
                                     <Eye className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                     <span>Xem hồ sơ chi tiết</span>
-                                  </button>
+                                  </Button>
 
-                                  <button
+                                  <Button
+                                    disabled={!isValidUserId(u.id)}
+                                    variant="ghost"
+                                    size="sm"
                                     type="button"
                                     onClick={() => {
                                       setOpenActionMenuId(null)
                                       onToggleStatus(u.id)
                                     }}
                                     className={cn(
-                                      'w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer',
+                                      'w-full flex items-center justify-start gap-2.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer',
                                       isLocked
-                                        ? 'text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
-                                        : 'text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30'
+                                        ? 'text-muted-foreground hover:bg-muted/40 dark:hover:bg-muted/40'
+                                        : 'text-muted-foreground hover:bg-muted/40 dark:hover:bg-muted/40'
                                     )}
                                   >
                                     {isLocked ? (
@@ -399,36 +413,47 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                                         <span>Khóa tài khoản này</span>
                                       </>
                                     )}
-                                  </button>
+                                  </Button>
 
                                   <div className="h-px bg-border/60 my-1" />
 
-                                  <button
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
                                     type="button"
                                     onClick={() => {
                                       setOpenActionMenuId(null)
-                                      handleCopyEmail(u.email, u.id)
+                                      handleCopyEmail(u.email, userKey)
                                     }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                                    className="w-full flex items-center justify-start gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
                                   >
                                     <Copy className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                     <span>Sao chép email</span>
-                                  </button>
+                                  </Button>
 
-                                  <button
+                                  <Button
+                                    disabled={
+                                      !u.studentProfile?.studentId && !u.staffProfile?.staffId
+                                    }
+                                    variant="ghost"
+                                    size="sm"
                                     type="button"
                                     onClick={() => {
                                       setOpenActionMenuId(null)
                                       if (navigator?.clipboard) {
-                                        navigator.clipboard.writeText(u.code)
+                                        navigator.clipboard.writeText(
+                                          [u.studentProfile?.studentId, u.staffProfile?.staffId]
+                                            .filter(Boolean)
+                                            .join(', ')
+                                        )
                                       }
                                     }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                                    className="w-full flex items-center justify-start gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
                                   >
                                     <Copy className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                    <span>Sao chép mã số ({u.code})</span>
-                                  </button>
-                                </div>
+                                    <span>Sao chép mã định danh</span>
+                                  </Button>
+                                </AdminActionMenu>
                               )}
                             </div>
                           </div>

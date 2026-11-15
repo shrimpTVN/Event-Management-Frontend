@@ -137,15 +137,18 @@ export function useFanpageNotifications(
 }
 
 /**
- * Hook lấy số lượng thông báo chưa đọc của Fanpage
+ * Hook lấy số lượng thông báo chưa đọc của Fanpage (chỉ gọi khi có quyền quản trị)
  */
-export function useFanpageUnreadNotificationCount(fanpageId?: number | string) {
+export function useFanpageUnreadNotificationCount(
+  fanpageId?: number | string,
+  enabled: boolean = true
+) {
   return useQuery({
     queryKey: ['fanpage-notifications-unread-count', fanpageId],
     queryFn: () => notificationService.getFanpageUnreadCount(fanpageId!),
-    enabled: Boolean(fanpageId),
+    enabled: Boolean(fanpageId) && enabled,
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: enabled ? 60 * 1000 : false,
   })
 }
 

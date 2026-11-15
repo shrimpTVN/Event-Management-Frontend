@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { Calendar, MapPin, Users, Award, ShieldCheck, Clock, Building } from 'lucide-react'
@@ -20,8 +21,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
   const criteriaText = event.criteriaName || 'Không áp dụng tiêu chí SV5T'
   const organizerName = event.organizerName || event.fanpageName || 'Ban Tổ Chức'
   const organizerAvatar =
-    event.organizerAvatarUrl ||
-    'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'
+    event.organizerAvatarUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'
 
   return (
     <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-sm space-y-6 text-left">
@@ -34,8 +34,8 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
           {event.status === 'PUBLISHED'
             ? 'Đang mở đăng ký'
             : event.status === 'COMPLETED' || (event.status as string) === 'CLOSED'
-            ? 'Đã đóng'
-            : 'Sắp diễn ra'}
+              ? 'Đã đóng'
+              : 'Sắp diễn ra'}
         </span>
       </div>
 
@@ -50,29 +50,30 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
       </div>
 
       {/* Organizer Card */}
-      <Link
-        to={event.organizerId ? `/fanpage/${event.organizerId}` : '/fanpage/1'}
-        className="flex items-center gap-3 p-4 rounded-xl border border-border bg-muted/40 hover:bg-muted/70 transition-colors group cursor-pointer"
-        title={`Xem trang ${organizerName}`}
-      >
-        <img
-          src={organizerAvatar}
-          alt={organizerName}
-          className="h-12 w-12 rounded-full object-cover border border-border shrink-0 group-hover:scale-105 transition-transform"
-        />
-        <div className="min-w-0 flex-1">
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            <Building className="h-3.5 w-3.5" />
-            Đơn vị tổ chức
-          </span>
-          <div className="flex items-center gap-1 min-w-0 mt-0.5">
-            <p className="font-semibold text-sm text-foreground group-hover:text-primary group-hover:underline transition-colors truncate">
-              {organizerName}
-            </p>
-            <VerifiedBadge className="h-4 w-4 shrink-0" />
+      <Tooltip content={`Xem trang ${organizerName}`}>
+        <Link
+          to={event.organizerId ? `/fanpage/${event.organizerId}` : '/fanpage/1'}
+          className="flex items-center gap-3 p-4 rounded-xl border border-border bg-muted/40 hover:bg-muted/70 transition-colors group cursor-pointer"
+        >
+          <img
+            src={organizerAvatar}
+            alt={organizerName}
+            className="h-12 w-12 rounded-full object-cover border border-border shrink-0 group-hover:scale-105 transition-transform"
+          />
+          <div className="min-w-0 flex-1">
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Building className="h-3.5 w-3.5" />
+              Đơn vị tổ chức
+            </span>
+            <div className="flex items-center gap-1 min-w-0 mt-0.5">
+              <p className="font-semibold text-sm text-foreground group-hover:text-primary group-hover:underline transition-colors truncate">
+                {organizerName}
+              </p>
+              <VerifiedBadge className="h-4 w-4 shrink-0" />
+            </div>
           </div>
-        </div>
-      </Link>
+        </Link>
+      </Tooltip>
 
       {/* Training Points & SV5T Benefits Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -93,7 +94,9 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
             <ShieldCheck className="h-5 w-5" />
           </div>
           <div className="space-y-0.5">
-            <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Tiêu chí SV5T</span>
+            <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+              Tiêu chí SV5T
+            </span>
             <p className="text-sm font-bold text-foreground truncate">{criteriaText}</p>
           </div>
         </div>
@@ -153,6 +156,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
           eventTitle={event.title}
           isRegistered={Boolean(event.isRegistered || (event.status as string) === 'REGISTERED')}
           disabled={event.status === 'CLOSED'}
+          disabledReason="closed"
           size="lg"
           className="min-w-[160px]"
         />

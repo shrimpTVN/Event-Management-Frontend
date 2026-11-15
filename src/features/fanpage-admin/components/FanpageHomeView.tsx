@@ -9,6 +9,7 @@ import {
   EventFilterModal,
   type EventFilterFormValues,
   isEventMatchingRegistrationStatus,
+  resolveAllowedPointCategoryIds,
   eventFilterOptionsService,
   type EventFilterOptions,
 } from '@/features/events'
@@ -91,6 +92,49 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
       return (found?.label || cid).toLowerCase().replace('tiêu chuẩn', '').trim()
     })
 
+    // Resolve allowed point categories respecting parent/child hierarchy
+    const allowedPointCatIds = resolveAllowedPointCategoryIds(
+      rawPointCatIds,
+      filterOptions?.pointCategories
+    )
+
+    // Resolve allowed SV5T criteria respecting parent/child hierarchy
+    const allowedCritIds = new Set<string>()
+    const critNames: string[] = []
+    const keywords: string[] = []
+    rawCritIds.forEach((cid) => {
+      allowedCritIds.add(cid)
+      const crit = filterOptions?.criterias?.find((c) => String(c.id) === cid)
+      if (crit?.childIds) {
+        crit.childIds.forEach((id) => allowedCritIds.add(String(id)))
+      }
+      if (crit?.childNames) {
+        crit.childNames.forEach((cn) => critNames.push(cn.toLowerCase()))
+      }
+      if (crit?.keywords) {
+        crit.keywords.forEach((kw) => keywords.push(kw.toLowerCase()))
+      }
+      if (crit?.label) {
+        const clean = crit.label.toLowerCase().replace('tiêu chuẩn', '').trim()
+        critNames.push(clean)
+        if (clean.includes('tình nguyện')) keywords.push('tình nguyện', 'hiến máu')
+        else if (clean.includes('đạo đức')) keywords.push('đạo đức', 'lối sống')
+        else if (clean.includes('thể lực')) keywords.push('thể lực', 'thể thao')
+        else if (clean.includes('học tập')) keywords.push('học tập')
+        else if (clean.includes('hội nhập')) keywords.push('hội nhập', 'ngoại ngữ', 'tin học')
+      }
+    })
+
+    // Resolve academic year matching semester IDs
+    const matchingYearSemesterIds = new Set<string>()
+    if (filterValues.academicYear && filterValues.academicYear !== 'ALL' && filterOptions?.semesters) {
+      filterOptions.semesters.forEach((s) => {
+        if (s.academicYear === filterValues.academicYear) {
+          matchingYearSemesterIds.add(String(s.id))
+        }
+      })
+    }
+
     return posts.filter((post) => {
       // 1. Status Filter
       if (rawStatus.length > 0) {
@@ -129,9 +173,12 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
       // 3. Point Category (ĐRL)
       if (rawPointCatIds.length > 0) {
         const pPoints = (post as any).eventPoints || []
-        const hasPointMatch = pPoints.some((ep: any) =>
-          rawPointCatIds.includes(String(ep.pointCategoryId || ep.id))
-        )
+        const hasPointMatch =
+          (allowedPointCatIds.size > 0 &&
+            (pPoints.some((ep: any) => allowedPointCatIds.has(Number(ep.pointCategoryId || ep.id))) ||
+              ((post as any).pointCategoryId && allowedPointCatIds.has(Number((post as any).pointCategoryId))))) ||
+          pPoints.some((ep: any) => rawPointCatIds.includes(String(ep.pointCategoryId || ep.id)))
+
         if (!hasPointMatch) return false
       }
 
@@ -140,13 +187,25 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
         const pCritId = String((post as any).criteriaId || '')
         const pCritName = ((post as any).criteriaName || '').toLowerCase()
         const matchesCrit =
-          (pCritId && rawCritIds.includes(pCritId)) ||
+          (pCritId && allowedCritIds.has(pCritId)) ||
+          (pCritName && critNames.some((cn) => cn && (pCritName.includes(cn) || cn.includes(pCritName)))) ||
+          (pCritName && keywords.some((kw) => kw && pCritName.includes(kw))) ||
           selectedCritLabels.some((lbl) => lbl && pCritName && (pCritName.includes(lbl) || lbl.includes(pCritName)))
 
         if (!matchesCrit) return false
       }
 
-      // 5. Semester
+      // 5. Academic Year & Semester
+      if (filterValues.academicYear && filterValues.academicYear !== 'ALL') {
+        const pSemId = String((post as any).semesterId || '')
+        const pYear = String((post as any).academicYear || '')
+        if (pYear && pYear === filterValues.academicYear) {
+          // matches directly
+        } else if (pSemId && matchingYearSemesterIds.size > 0) {
+          if (!matchingYearSemesterIds.has(pSemId)) return false
+        }
+      }
+
       if (filterValues.semesterId && filterValues.semesterId !== 'ALL') {
         const pSemId = String((post as any).semesterId || '')
         if (pSemId && pSemId !== String(filterValues.semesterId)) return false
@@ -155,11 +214,11 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
       // 6. Date Happen Range
       if (filterValues.dateHappenFrom) {
         const d = post.startTime
-        if (d && d < filterValues.dateHappenFrom) return false
+        if (d && d.slice(0, 10) < filterValues.dateHappenFrom) return false
       }
       if (filterValues.dateHappenTo) {
         const d = post.endTime || post.startTime
-        if (d && d > filterValues.dateHappenTo) return false
+        if (d && d.slice(0, 10) > filterValues.dateHappenTo) return false
       }
 
       return true

@@ -1,3 +1,8 @@
+import { Tooltip } from '@/components/ui/tooltip'
+import { TextTooltip } from '@/components/ui/text-tooltip'
+import { PosterBackdrop } from './PosterBackdrop'
+import { useEventBenefitLines } from './useEventBenefitLines'
+import { RegistrationDeadline, useRegistrationDeadline } from './RegistrationDeadline'
 import React, { useState, useMemo, useEffect } from 'react'
 import {
   Calendar as CalendarIcon,
@@ -9,13 +14,13 @@ import {
   Bookmark,
   BellRing,
   Tag,
-  Clock,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import type { Event } from '../types/event.types'
 import { RegisterButton } from './RegisterButton'
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
 import { EventPhotoViewerModal } from './EventPhotoViewerModal'
+import { EventListItem } from './EventListItem'
 
 function getPreviewDescription(text: string, maxChars = 160) {
   if (!text) return { isLong: false, previewText: '' }
@@ -43,6 +48,7 @@ function getPreviewDescription(text: string, maxChars = 160) {
 }
 
 interface EventFeedCardProps {
+  variant?: 'post' | 'list'
   event: Event
   onRegister?: (eventId: string) => void
   onCancelRegister?: (eventId: string) => void
@@ -51,6 +57,7 @@ interface EventFeedCardProps {
 }
 
 export const EventFeedCard: React.FC<EventFeedCardProps> = ({
+  variant = 'post',
   event,
   onRegister,
   onCancelRegister,
@@ -100,43 +107,22 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
   )
 
   const eventTypeDisplay = useMemo(() => {
-    return event.eventTypeName || (event.category && event.category !== 'OTHER' ? event.category : null)
+    return (
+      event.eventTypeName || (event.category && event.category !== 'OTHER' ? event.category : null)
+    )
   }, [event.eventTypeName, event.category])
 
-  const closeInfo = useMemo(() => {
-    const rawDate = event.dateClose || (event as any).registrationEndDate
-    if (!rawDate) return null
-    const closeDate = new Date(rawDate)
-    if (isNaN(closeDate.getTime())) return null
+  const benefitLines = useEventBenefitLines(
+    event.pointsReward,
+    event.criteriaId,
+    event.criteriaName,
+    event.eventPoints
+  )
 
-    const now = new Date()
-    const nowMs = now.getTime()
-    const closeMs = closeDate.getTime()
-    const isClosed = nowMs > closeMs || event.status === 'CLOSED'
-
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const hours = pad(closeDate.getHours())
-    const mins = pad(closeDate.getMinutes())
-    const day = pad(closeDate.getDate())
-    const month = pad(closeDate.getMonth() + 1)
-    const year = closeDate.getFullYear()
-
-    const hasTime = !(hours === '00' && mins === '00')
-    const timeFormatted = `${hours}:${mins}`
-    const fullDateFormatted = `${day}/${month}/${year}`
-    const shortDateFormatted = `${day}/${month}`
-
-    const isCurrentYear = year === now.getFullYear()
-    const datePart = isCurrentYear ? shortDateFormatted : fullDateFormatted
-    const timeText = hasTime ? `${timeFormatted} · ${datePart}` : datePart
-    const fullText = hasTime ? `${timeFormatted} ngày ${fullDateFormatted}` : fullDateFormatted
-
-    return {
-      isClosed,
-      timeText,
-      fullText,
-    }
-  }, [event.dateClose, event.status])
+  const closeInfo = useRegistrationDeadline(
+    event.dateClose || (event as Event & { registrationEndDate?: string }).registrationEndDate,
+    event.status
+  )
 
   // Helper to format ISO strings cleanly into e.g. "29/09/2026 · 19:30"
   const formatDisplayDateTime = (startStr?: string, endStr?: string): string => {
@@ -171,8 +157,8 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
     event.location?.type === 'ONLINE'
       ? 'Trực tuyến (Online stream)'
       : city && !address.includes(city)
-      ? `${address}, ${city}`
-      : address
+        ? `${address}, ${city}`
+        : address
 
   const fanpageId = event.organizerId || '1'
   const fanpageUrl = `/fanpage/${fanpageId}`
@@ -183,37 +169,79 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
     event.fanpageName ||
     'Ban Tổ Chức'
 
+  const registrationAction = (
+    <RegisterButton
+      eventId={event.id}
+      eventTitle={event.title}
+      isRegistered={isRegistered}
+      registrationStatus={registrationStatus}
+      disabled={
+        closeInfo.isClosed || (event.capacity > 0 && event.registeredCount >= event.capacity)
+      }
+      disabledReason={closeInfo.isClosed ? 'closed' : 'full'}
+      onRegisterSuccess={() => {
+        setIsRegistered(true)
+        setRegistrationStatus('REGISTERED')
+        onRegister?.(event.id)
+      }}
+      onCancelSuccess={() => {
+        setIsRegistered(false)
+        setRegistrationStatus(undefined)
+        onCancelRegister?.(event.id)
+      }}
+      size={variant === 'list' ? 'sm' : 'md'}
+      className="min-w-[120px] whitespace-nowrap"
+    />
+  )
+
+  if (variant === 'list') {
+    return (
+      <EventListItem
+        event={{ ...event, isSaved, isRegistered, registrationStatus }}
+        organizerName={organizerDisplayName}
+        dateTime={formatDisplayDateTime(event.startTime, event.endTime)}
+        location={locationDisplay}
+        benefits={benefitLines}
+        deadline={closeInfo}
+        onSave={handleSaveClick}
+        registrationAction={registrationAction}
+      />
+    )
+  }
+
   return (
     <article className="w-full max-w-[680px] mx-auto rounded-xl bg-white dark:bg-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] dark:border dark:border-border/60 text-left pt-2.5 pb-[12px] px-0 flex flex-col gap-3 relative">
       {/* 1. Header: Organization Info & Follow CTA (Figma: FanpageInfo [680x48], pad: 4px 12px 4px 12px, gap: 12px) */}
       <div className="flex items-center justify-between gap-3 px-3 py-1 h-12">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <Link
-            to={fanpageUrl}
-            className="shrink-0 rounded-full hover:opacity-85 transition-opacity cursor-pointer"
-            title={`Xem trang ${organizerDisplayName}`}
-          >
-            {event.organizerAvatarUrl ? (
-              <img
-                src={event.organizerAvatarUrl}
-                alt={organizerDisplayName}
-                className="h-10 w-10 rounded-full object-cover shrink-0 border border-border/40"
-              />
-            ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
-                {organizerDisplayName.charAt(0)}
-              </div>
-            )}
-          </Link>
+          <Tooltip content={`Xem trang ${organizerDisplayName}`}>
+            <Link
+              to={fanpageUrl}
+              className="shrink-0 rounded-full hover:opacity-85 transition-opacity cursor-pointer"
+            >
+              {event.organizerAvatarUrl ? (
+                <img
+                  src={event.organizerAvatarUrl}
+                  alt={organizerDisplayName}
+                  className="h-10 w-10 rounded-full object-cover shrink-0 border border-border/40"
+                />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
+                  {organizerDisplayName.charAt(0)}
+                </div>
+              )}
+            </Link>
+          </Tooltip>
           <div className="flex flex-col gap-0.5 min-w-0 flex-1">
             <div className="flex items-center gap-1 min-w-0">
-              <Link
-                to={fanpageUrl}
-                className="font-medium text-sm leading-5 text-foreground hover:text-primary hover:underline transition-colors truncate cursor-pointer"
-                title={organizerDisplayName}
-              >
-                {organizerDisplayName}
-              </Link>
+              <Tooltip content={organizerDisplayName}>
+                <Link
+                  to={fanpageUrl}
+                  className="font-medium text-sm leading-5 text-foreground hover:text-primary hover:underline transition-colors truncate cursor-pointer"
+                >
+                  {organizerDisplayName}
+                </Link>
+              </Tooltip>
               <VerifiedBadge className="h-4 w-4 shrink-0" />
             </div>
             <span className="text-xs font-medium leading-4 text-[#4B5563] dark:text-muted-foreground">
@@ -294,14 +322,8 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
 
       {/* 3. Event Poster / Media with Ambient Blurred Background & Compact Information Badge */}
       {event.bannerUrl && (
-        <div className="relative w-full min-h-[380px] max-h-[620px] flex items-center justify-center overflow-hidden bg-slate-900/10 dark:bg-slate-950/40 select-none">
-          {/* Ambient Blurred Backdrop reflecting poster palette */}
-          <div
-            className="absolute inset-0 bg-cover bg-center scale-110 blur-2xl opacity-45 dark:opacity-35 pointer-events-none"
-            style={{ backgroundImage: `url(${event.bannerUrl})` }}
-          />
-          {/* Soft ambient overlay for contrast */}
-          <div className="absolute inset-0 bg-slate-900/15 dark:bg-black/35 backdrop-blur-2xs pointer-events-none" />
+        <div className="relative w-full min-h-[380px] max-h-[620px] flex items-center justify-center overflow-hidden bg-slate-900 select-none">
+          <PosterBackdrop src={event.bannerUrl} />
 
           {/* Top-Left Badge: Event Type */}
           {eventTypeDisplay && (
@@ -312,19 +334,20 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
           )}
 
           {/* Foreground Sharp Poster Image with true proportions - Click to open Photo Viewer Lightbox */}
-          <button
-            type="button"
-            onClick={() => setIsPhotoViewerOpen(true)}
-            className="relative z-1 max-h-[580px] w-auto max-w-full flex items-center justify-center cursor-pointer"
-            title="Nhấn vào hình ảnh để phóng to và xem rõ chi tiết"
-          >
-            <img
-              src={event.bannerUrl}
-              alt={event.title}
-              className="max-h-[580px] w-auto max-w-full object-contain rounded-sm shadow-md"
-              loading="lazy"
-            />
-          </button>
+          <Tooltip content="Nhấn vào hình ảnh để phóng to và xem rõ chi tiết">
+            <button
+              type="button"
+              onClick={() => setIsPhotoViewerOpen(true)}
+              className="relative z-1 max-h-[580px] w-auto max-w-full flex items-center justify-center cursor-pointer"
+            >
+              <img
+                src={event.bannerUrl}
+                alt={event.title}
+                className="max-h-[580px] w-auto max-w-full object-contain rounded-sm shadow-md"
+                loading="lazy"
+              />
+            </button>
+          </Tooltip>
 
           {/* Compact Important Info Badge - Bottom Right over image (transparent frosted glass, 4 uniform rows) */}
           <div className="absolute bottom-2.5 right-2.5 z-10 max-w-[85%] sm:max-w-[280px] bg-black/70 backdrop-blur-md border border-white/20 rounded-lg px-2.5 py-2 text-white shadow-lg flex flex-col gap-1.5 text-[11px] leading-tight select-none pointer-events-auto">
@@ -339,24 +362,23 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             {/* Location */}
             <div className="flex items-center gap-2 min-w-0">
               <MapPin className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
-              <span className="truncate font-medium text-white/85" title={locationDisplay}>
-                {locationDisplay}
-              </span>
+              <Tooltip content={locationDisplay}>
+                <span className="truncate font-medium text-white/85">{locationDisplay}</span>
+              </Tooltip>
             </div>
 
             {/* Benefits */}
             <div className="flex items-start gap-2 min-w-0">
               <Gift className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2] mt-0.5" />
               <div className="flex flex-col gap-0.5 min-w-0">
-                {event.pointsReward ? (
-                  event.pointsReward.split(' · ').map((benefit, i) => (
-                    <span key={i} className="truncate font-medium text-white/85" title={benefit}>
-                      {benefit}
-                    </span>
-                  ))
-                ) : (
-                  <span className="truncate font-medium text-white/85">Cộng điểm rèn luyện</span>
-                )}
+                {benefitLines.map((benefit, i) => (
+                  <TextTooltip
+                    key={i}
+                    className="truncate font-medium text-white/85"
+                    label={benefit.label}
+                    content={benefit.title}
+                  />
+                ))}
               </div>
             </div>
 
@@ -364,7 +386,8 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             <div className="flex items-center gap-2 min-w-0">
               <Users className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
               <span className="truncate font-medium text-white/85">
-                {event.quotaText || (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
+                {event.quotaText ||
+                  (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
               </span>
             </div>
           </div>
@@ -378,28 +401,31 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             {/* Date & Time */}
             <div className="flex items-center gap-2 min-w-0">
               <CalendarIcon className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
-              <span className="truncate text-foreground font-medium">{formatDisplayDateTime(event.startTime, event.endTime)}</span>
+              <span className="truncate text-foreground font-medium">
+                {formatDisplayDateTime(event.startTime, event.endTime)}
+              </span>
             </div>
 
             {/* Location */}
             <div className="flex items-center gap-2 min-w-0">
               <MapPin className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
-              <span className="truncate text-foreground font-medium" title={locationDisplay}>{locationDisplay}</span>
+              <Tooltip content={locationDisplay}>
+                <span className="truncate text-foreground font-medium">{locationDisplay}</span>
+              </Tooltip>
             </div>
 
             {/* Benefits */}
             <div className="flex items-start gap-2 min-w-0">
               <Gift className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0 mt-0.5" />
               <div className="flex flex-col gap-0.5 min-w-0">
-                {event.pointsReward ? (
-                  event.pointsReward.split(' · ').map((benefit, i) => (
-                    <span key={i} className="truncate text-muted-foreground" title={benefit}>
-                      {benefit}
-                    </span>
-                  ))
-                ) : (
-                  <span className="truncate text-muted-foreground">Cộng điểm rèn luyện</span>
-                )}
+                {benefitLines.map((benefit, i) => (
+                  <TextTooltip
+                    key={i}
+                    className="truncate text-muted-foreground"
+                    label={benefit.label}
+                    content={benefit.title}
+                  />
+                ))}
               </div>
             </div>
 
@@ -407,7 +433,8 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             <div className="flex items-center gap-2 min-w-0">
               <Users className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
               <span className="truncate text-muted-foreground">
-                {event.quotaText || (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
+                {event.quotaText ||
+                  (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
               </span>
             </div>
           </div>
@@ -418,86 +445,53 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
       <div className="px-3 pt-0 pb-0 flex items-center justify-between">
         {/* Left: Comment & Share (Figma gap: 16px) */}
         <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => {
-              if (event.bannerUrl) {
-                setIsPhotoViewerOpen(true)
-              }
-            }}
-            className="flex items-center justify-center text-[#6B7280] hover:text-foreground transition-colors cursor-pointer"
-            title="Bình luận"
-          >
-            <MessageSquare className="h-6 w-6" />
-          </button>
-          <button
-            type="button"
-            className="flex items-center justify-center text-[#6B7280] hover:text-foreground transition-colors cursor-pointer"
-            title="Chia sẻ"
-          >
-            <Share2 className="h-6 w-6" />
-          </button>
+          <Tooltip content="Bình luận">
+            <button
+              type="button"
+              onClick={() => {
+                if (event.bannerUrl) {
+                  setIsPhotoViewerOpen(true)
+                }
+              }}
+              className="flex items-center justify-center text-[#6B7280] hover:text-foreground transition-colors cursor-pointer"
+              aria-label="Bình luận"
+            >
+              <MessageSquare className="h-6 w-6" />
+            </button>
+          </Tooltip>
+          <Tooltip content="Chia sẻ">
+            <button
+              type="button"
+              className="flex items-center justify-center text-[#6B7280] hover:text-foreground transition-colors cursor-pointer"
+              aria-label="Chia sẻ"
+            >
+              <Share2 className="h-6 w-6" />
+            </button>
+          </Tooltip>
         </div>
 
         {/* Right: Close Info + Bookmark + Register CTA */}
         <div className="flex items-center gap-2.5">
           {/* Registration close info to the left of bookmark */}
-          {closeInfo && (
-            <div
-              className="flex flex-col items-end justify-center text-right leading-tight select-none pr-0.5"
-              title={`Hạn đóng đăng ký: ${closeInfo.fullText}`}
-            >
-              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-medium">
-                <Clock className="h-3 w-3 text-muted-foreground/80 shrink-0" />
-                <span>{closeInfo.isClosed ? 'Đã đóng đơn' : 'Đóng đơn'}</span>
-              </span>
-              <span
-                className={`text-xs font-semibold ${
-                  closeInfo.isClosed
-                    ? 'text-muted-foreground/80 line-through'
-                    : 'text-foreground'
-                }`}
-              >
-                {closeInfo.timeText}
-              </span>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={handleSaveClick}
-            className={`flex h-8 w-8 items-center justify-center transition-colors cursor-pointer ${
-              isSaved
-                ? 'text-amber-500 hover:text-amber-600'
-                : 'text-[#6B7280] hover:text-amber-500'
-            }`}
-            title={isSaved ? 'Đã lưu (nhấn để bỏ lưu)' : 'Lưu sự kiện'}
-          >
-            <Bookmark
-              className={`h-6 w-6 transition-all ${
-                isSaved ? 'fill-amber-500 text-amber-500 drop-shadow-xs' : ''
+          <RegistrationDeadline info={closeInfo} isRegistered={isRegistered} />
+          <Tooltip content={isSaved ? 'Đã lưu (nhấn để bỏ lưu)' : 'Lưu sự kiện'}>
+            <button
+              type="button"
+              onClick={handleSaveClick}
+              className={`flex h-8 w-8 items-center justify-center transition-colors cursor-pointer ${
+                isSaved
+                  ? 'text-amber-500 hover:text-amber-600'
+                  : 'text-[#6B7280] hover:text-amber-500'
               }`}
-            />
-          </button>
-
-          <RegisterButton
-            eventId={event.id}
-            eventTitle={event.title}
-            isRegistered={isRegistered}
-            registrationStatus={registrationStatus}
-            disabled={event.status === 'CLOSED' || closeInfo?.isClosed}
-            onRegisterSuccess={() => {
-              setIsRegistered(true)
-              setRegistrationStatus('REGISTERED')
-              onRegister?.(event.id)
-            }}
-            onCancelSuccess={() => {
-              setIsRegistered(false)
-              setRegistrationStatus(undefined)
-              onCancelRegister?.(event.id)
-            }}
-            className="min-w-[120px] whitespace-nowrap"
-          />
+            >
+              <Bookmark
+                className={`h-6 w-6 transition-all ${
+                  isSaved ? 'fill-amber-500 text-amber-500 drop-shadow-xs' : ''
+                }`}
+              />
+            </button>
+          </Tooltip>
+          {registrationAction}{' '}
         </div>
       </div>
 
@@ -515,8 +509,12 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             startTime: event.startTime,
             endTime: event.endTime,
             location: event.location,
-            pointsReward: event.pointsReward,
+            pointsReward: benefitLines.map((benefit) => benefit.title).join(' · '),
+            benefitLines,
+            status: event.status,
+            dateClose: event.dateClose,
             capacity: event.capacity,
+            registeredCount: event.registeredCount,
             quotaText: event.quotaText,
             organizerName: organizerDisplayName,
             organizerAvatarUrl: event.organizerAvatarUrl,

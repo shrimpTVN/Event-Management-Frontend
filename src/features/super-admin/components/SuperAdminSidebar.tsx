@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button'
 import React from 'react'
 import {
   LayoutDashboard,
@@ -8,13 +9,9 @@ import {
   Award,
   Star,
   School,
-  LogOut,
   ExternalLink,
-  ShieldCheck,
 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
-import { useAuthStore } from '@/features/auth'
+import { Link } from 'react-router-dom'
 import type { SuperAdminNavTab } from '../types/superAdmin.types'
 
 interface SuperAdminSidebarProps {
@@ -30,16 +27,6 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
   pendingFanpagesCount = 2,
   violatedEventsCount = 1,
 }) => {
-  const { user, clearAuth } = useAuthStore()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-
-  const handleLogout = () => {
-    queryClient.clear()
-    clearAuth()
-    navigate('/login')
-  }
-
   const mainNavItems = [
     {
       id: 'overview' as SuperAdminNavTab,
@@ -91,23 +78,8 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
   ]
 
   return (
-    <aside className="w-[260px] h-full bg-white dark:bg-card border-r border-[#E5E7EB] dark:border-border flex flex-col justify-between p-4 select-none shrink-0 text-left">
+    <aside className="w-[260px] h-full bg-white dark:bg-card border-r border-[#E5E7EB] dark:border-border flex flex-col p-4 select-none shrink-0 text-left">
       <div className="space-y-5 overflow-y-auto">
-        {/* Super Admin Identity Badge Card */}
-        <div className="w-full p-2.5 rounded-xl border border-[#E5E7EB] dark:border-border bg-[#F9FAFB] dark:bg-background flex items-center gap-2.5 shadow-2xs">
-          <div className="h-9 w-9 rounded-full bg-[#1B4B8A] text-white flex items-center justify-center shrink-0 shadow-xs">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-xs text-foreground truncate">
-              Quản Trị Hệ Thống
-            </p>
-            <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-              Super Admin Portal
-            </p>
-          </div>
-        </div>
-
         {/* Section 1: Main System Admin */}
         <div className="space-y-1.5">
           <p className="px-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -119,30 +91,31 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
               const isActive = activeTab === item.id
 
               return (
-                <button
+                <Button
+                  variant="ghost"
                   key={item.id}
                   type="button"
                   onClick={() => onSelectTab(item.id)}
-                  className={`w-full h-10 px-3 rounded-xl flex items-center justify-between text-xs font-medium transition-all cursor-pointer ${
+                  className={`w-full h-10 px-3 rounded-lg flex items-center justify-between text-xs font-medium transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-[#1B4B8A] text-white shadow-xs font-semibold'
+                      ? 'bg-brand-subtle text-brand-subtle-foreground hover:bg-brand-subtle hover:text-brand-subtle-foreground font-semibold'
                       : 'text-[#4B5563] dark:text-muted-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted hover:text-foreground'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+                    <Icon
+                      className={`w-4 h-4 shrink-0 ${isActive ? 'text-brand-subtle-foreground' : 'text-muted-foreground'}`}
+                    />
                     <span>{item.label}</span>
                   </div>
                   {item.badge && (
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isActive ? 'bg-white/20 text-white' : item.badgeColor
-                      }`}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.badgeColor}`}
                     >
                       {item.badge}
                     </span>
                   )}
-                </button>
+                </Button>
               )
             })}
           </nav>
@@ -159,19 +132,22 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
               const isActive = activeTab === item.id
 
               return (
-                <button
+                <Button
+                  variant="ghost"
                   key={item.id}
                   type="button"
                   onClick={() => onSelectTab(item.id)}
-                  className={`w-full h-10 px-3 rounded-xl flex items-center gap-2.5 text-xs font-medium transition-all cursor-pointer ${
+                  className={`w-full h-10 px-3 rounded-lg flex items-center justify-start gap-2.5 text-xs font-medium transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-[#1B4B8A] text-white shadow-xs font-semibold'
+                      ? 'bg-brand-subtle text-brand-subtle-foreground hover:bg-brand-subtle hover:text-brand-subtle-foreground font-semibold'
                       : 'text-[#4B5563] dark:text-muted-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted hover:text-foreground'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+                  <Icon
+                    className={`w-4 h-4 shrink-0 ${isActive ? 'text-brand-subtle-foreground' : 'text-muted-foreground'}`}
+                  />
                   <span>{item.label}</span>
-                </button>
+                </Button>
               )
             })}
           </nav>
@@ -186,42 +162,6 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
             <span>Đến Ban tổ chức Fanpage</span>
             <ExternalLink className="w-3.5 h-3.5" />
           </Link>
-        </div>
-      </div>
-
-      {/* Footer Profile card */}
-      <div className="pt-3 border-t border-[#E5E7EB] dark:border-border">
-        <div className="p-2 rounded-xl bg-[#F9FAFB] dark:bg-background/80 border border-[#E5E7EB] dark:border-border flex items-center justify-between gap-2 shadow-2xs">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.name || 'Quản trị viên'}
-                className="h-8 w-8 rounded-full object-cover shrink-0 border border-primary/30"
-              />
-            ) : (
-              <div className="h-8 w-8 rounded-full bg-[#1B4B8A] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-                {user?.name ? user.name.slice(0, 2).toUpperCase() : 'QT'}
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold text-xs text-foreground truncate">
-                {user?.name || 'Quản trị viên'}
-              </p>
-              <p className="text-[10px] text-muted-foreground truncate">
-                {user?.email || 'superadmin@gmail.com'}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            title="Đăng xuất"
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer shrink-0"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
         </div>
       </div>
     </aside>

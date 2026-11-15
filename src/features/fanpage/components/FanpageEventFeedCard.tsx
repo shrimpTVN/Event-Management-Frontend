@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -98,9 +99,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
               </h4>
               <VerifiedBadge className="h-4 w-4 shrink-0" />
             </div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {post.timeAgo}
-            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">{post.timeAgo}</div>
           </div>
         </div>
 
@@ -131,11 +130,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
         </h3>
 
         <div className="text-xs sm:text-sm leading-relaxed text-[#374151] dark:text-muted-foreground">
-          <span>
-            {isExpanded
-              ? post.description
-              : `${post.description.slice(0, 140)}...`}
-          </span>
+          <span>{isExpanded ? post.description : `${post.description.slice(0, 140)}...`}</span>
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
@@ -154,18 +149,19 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             <span>{post.eventTypeName}</span>
           </div>
         )}
-        <button
-          type="button"
-          onClick={() => setIsPhotoViewerOpen(true)}
-          className="w-full flex items-center justify-center cursor-pointer"
-          title="Nhấn vào hình ảnh để phóng to và xem rõ chi tiết"
-        >
-          <img
-            src={post.bannerUrl}
-            alt={post.title}
-            className="w-full h-auto max-h-[420px] object-cover"
-          />
-        </button>
+        <Tooltip content="Nhấn vào hình ảnh để phóng to và xem rõ chi tiết">
+          <button
+            type="button"
+            onClick={() => setIsPhotoViewerOpen(true)}
+            className="w-full flex items-center justify-center cursor-pointer"
+          >
+            <img
+              src={post.bannerUrl}
+              alt={post.title}
+              className="w-full h-auto max-h-[420px] object-cover"
+            />
+          </button>
+        </Tooltip>
       </div>
 
       {/* 4. Important Information (4 detail rows) */}
@@ -176,9 +172,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             <Calendar className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] text-muted-foreground leading-tight">
-              Ngày tổ chức
-            </div>
+            <div className="text-[11px] text-muted-foreground leading-tight">Ngày tổ chức</div>
             <div className="text-xs sm:text-sm font-medium text-foreground mt-0.5">
               {post.dateHappen}
             </div>
@@ -191,17 +185,24 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             <MapPin className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] text-muted-foreground leading-tight">
-              Địa điểm
-            </div>
-            <div
-              className="text-xs sm:text-sm font-medium text-foreground mt-0.5 line-clamp-1"
-              title={typeof post.location === 'object' && post.location !== null ? ((post.location as any).address || (post.location as any).city || 'Đại học Cần Thơ') : String(post.location || 'Đại học Cần Thơ')}
+            <div className="text-[11px] text-muted-foreground leading-tight">Địa điểm</div>
+            <Tooltip
+              content={
+                typeof post.location === 'object' && post.location !== null
+                  ? (post.location as any).address ||
+                    (post.location as any).city ||
+                    'Đại học Cần Thơ'
+                  : String(post.location || 'Đại học Cần Thơ')
+              }
             >
-              {typeof post.location === 'object' && post.location !== null
-                ? ((post.location as any).address || (post.location as any).city || 'Đại học Cần Thơ')
-                : String(post.location || 'Đại học Cần Thơ')}
-            </div>
+              <div className="text-xs sm:text-sm font-medium text-foreground mt-0.5 line-clamp-1">
+                {typeof post.location === 'object' && post.location !== null
+                  ? (post.location as any).address ||
+                    (post.location as any).city ||
+                    'Đại học Cần Thơ'
+                  : String(post.location || 'Đại học Cần Thơ')}
+              </div>
+            </Tooltip>
           </div>
         </div>
 
@@ -211,12 +212,12 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             <Gift className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] text-muted-foreground leading-tight">
-              Quyền lợi
-            </div>
-            <div className="text-xs sm:text-sm font-medium text-foreground mt-0.5 line-clamp-1" title={post.benefits}>
-              {post.benefits}
-            </div>
+            <div className="text-[11px] text-muted-foreground leading-tight">Quyền lợi</div>
+            <Tooltip content={post.benefits}>
+              <div className="text-xs sm:text-sm font-medium text-foreground mt-0.5 line-clamp-1">
+                {post.benefits}
+              </div>
+            </Tooltip>
           </div>
         </div>
 
@@ -226,9 +227,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             <Users className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] text-muted-foreground leading-tight">
-              Số lượng
-            </div>
+            <div className="text-[11px] text-muted-foreground leading-tight">Số lượng</div>
             <div className="text-xs sm:text-sm font-medium text-foreground mt-0.5">
               {post.capacityText}
             </div>
@@ -266,44 +265,45 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
         {/* Right: Close Info + Bookmark + Register Button */}
         <div className="flex items-center gap-2.5">
           {closeInfo && (
-            <div
-              className="flex flex-col items-end justify-center text-right leading-tight select-none pr-0.5"
-              title={`Hạn đóng đăng ký: ${closeInfo.fullText}`}
-            >
-              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-medium">
-                <Clock className="h-3 w-3 text-muted-foreground/80 shrink-0" />
-                <span>{closeInfo.isClosed ? 'Đã đóng đơn' : 'Đóng đơn'}</span>
-              </span>
-              <span
-                className={`text-xs font-semibold ${
-                  closeInfo.isClosed
-                    ? 'text-muted-foreground/80 line-through'
-                    : 'text-foreground'
-                }`}
-              >
-                {closeInfo.timeText}
-              </span>
-            </div>
+            <Tooltip content={`Hạn đóng đăng ký: ${closeInfo.fullText}`}>
+              <div className="flex flex-col items-end justify-center text-right leading-tight select-none pr-0.5">
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-medium">
+                  <Clock className="h-3 w-3 text-muted-foreground/80 shrink-0" />
+                  <span>{closeInfo.isClosed ? 'Đã đóng đơn' : 'Đóng đơn'}</span>
+                </span>
+                <span
+                  className={`text-xs font-semibold ${
+                    closeInfo.isClosed ? 'text-muted-foreground/80 line-through' : 'text-foreground'
+                  }`}
+                >
+                  {closeInfo.timeText}
+                </span>
+              </div>
+            </Tooltip>
           )}
 
-          <button
-            type="button"
-            onClick={handleToggleSave}
-            className={`p-2 rounded-lg border transition-colors cursor-pointer ${
-              isSaved
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 hover:text-amber-600'
-                : 'border-border/80 text-muted-foreground hover:text-amber-500 hover:bg-muted/60'
-            }`}
-            title={isSaved ? 'Đã lưu (nhấn để bỏ lưu)' : 'Lưu sự kiện'}
-          >
-            <Bookmark className={`h-4 w-4 transition-all ${isSaved ? 'fill-amber-500 text-amber-500' : ''}`} />
-          </button>
+          <Tooltip content={isSaved ? 'Đã lưu (nhấn để bỏ lưu)' : 'Lưu sự kiện'}>
+            <button
+              type="button"
+              onClick={handleToggleSave}
+              className={`p-2 rounded-lg border transition-colors cursor-pointer ${
+                isSaved
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 hover:text-amber-600'
+                  : 'border-border/80 text-muted-foreground hover:text-amber-500 hover:bg-muted/60'
+              }`}
+            >
+              <Bookmark
+                className={`h-4 w-4 transition-all ${isSaved ? 'fill-amber-500 text-amber-500' : ''}`}
+              />
+            </button>
+          </Tooltip>
 
           <RegisterButton
             eventId={post.eventId}
             eventTitle={post.title}
             isRegistered={Boolean(post.isFollowingAuthor && false)}
             disabled={!post.canRegister || closeInfo?.isClosed}
+            disabledReason={closeInfo?.isClosed ? 'closed' : 'unavailable'}
             className="min-w-[120px] whitespace-nowrap"
           />
         </div>

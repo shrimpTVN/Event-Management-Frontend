@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React from 'react'
 import { Search, SlidersHorizontal, X, LayoutGrid, List } from 'lucide-react'
 import type { HistoryStatus } from '../types/history.types'
@@ -93,32 +94,36 @@ export const HistorySearchBar: React.FC<HistorySearchBarProps> = ({
         {/* View Mode Switcher (Bảng ↔ Thẻ) */}
         {onViewModeChange && (
           <div className="flex items-center gap-0.5 p-0.5 rounded-lg border border-border/80 bg-muted/40 shrink-0">
-            <button
-              type="button"
-              onClick={() => onViewModeChange('TABLE')}
-              title="Dạng bảng (Chi tiết & Tinh gọn)"
-              className={cn(
-                'p-1.5 rounded-md transition-colors cursor-pointer',
-                viewMode === 'TABLE'
-                  ? 'bg-white dark:bg-card text-primary shadow-2xs font-medium'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <List className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewModeChange('GRID')}
-              title="Dạng thẻ (Lưới)"
-              className={cn(
-                'p-1.5 rounded-md transition-colors cursor-pointer',
-                viewMode === 'GRID'
-                  ? 'bg-white dark:bg-card text-primary shadow-2xs font-medium'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
+            <Tooltip content="Dạng bảng (Chi tiết & Tinh gọn)">
+              <button
+                type="button"
+                onClick={() => onViewModeChange('TABLE')}
+                aria-label="Dạng bảng (Chi tiết & Tinh gọn)"
+                className={cn(
+                  'p-1.5 rounded-md transition-colors cursor-pointer',
+                  viewMode === 'TABLE'
+                    ? 'bg-white dark:bg-card text-primary shadow-2xs font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            <Tooltip content="Dạng thẻ (Lưới)">
+              <button
+                type="button"
+                onClick={() => onViewModeChange('GRID')}
+                aria-label="Dạng thẻ (Lưới)"
+                className={cn(
+                  'p-1.5 rounded-md transition-colors cursor-pointer',
+                  viewMode === 'GRID'
+                    ? 'bg-white dark:bg-card text-primary shadow-2xs font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+            </Tooltip>
           </div>
         )}
 
@@ -169,11 +174,7 @@ export const HistoryFilterBar: React.FC<HistoryFilterBarProps> = ({
 }) => {
   return (
     <div className="flex flex-col gap-3">
-      <HistoryTabBar
-        activeStatus={activeStatus}
-        onStatusChange={onStatusChange}
-        counts={counts}
-      />
+      <HistoryTabBar activeStatus={activeStatus} onStatusChange={onStatusChange} counts={counts} />
       <HistorySearchBar
         searchTerm={searchTerm}
         onSearchChange={onSearchChange}
@@ -182,4 +183,3 @@ export const HistoryFilterBar: React.FC<HistoryFilterBarProps> = ({
     </div>
   )
 }
-

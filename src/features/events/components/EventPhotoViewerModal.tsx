@@ -1,3 +1,5 @@
+import { Tooltip } from '@/components/ui/tooltip'
+import { TextTooltip } from '@/components/ui/text-tooltip'
 import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -25,6 +27,7 @@ import { apiClient } from '@/shared'
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
 import { DEFAULT_FANPAGES_MAP } from '../services/eventService'
 import { RegisterButton } from './RegisterButton'
+import { useRegistrationDeadline } from './RegistrationDeadline'
 import { cn } from '@/shared/utils/cn'
 
 export interface EventPhotoViewerData {
@@ -38,7 +41,9 @@ export interface EventPhotoViewerData {
   formattedDateTime?: string
   location?: any
   pointsReward?: string
+  benefitLines?: { label: string; title: string }[]
   capacity?: number
+  registeredCount?: number
   quotaText?: string
   organizerName?: string
   organizerAvatarUrl?: string
@@ -48,6 +53,8 @@ export interface EventPhotoViewerData {
   isSaved?: boolean
   isRegistered?: boolean
   registrationStatus?: string
+  status?: string
+  dateClose?: string
   commentsCount?: number
   sharesCount?: number
 }
@@ -80,6 +87,7 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
   onToggleFollow,
 }) => {
   const { user } = useAuthStore()
+  const deadline = useRegistrationDeadline(event?.dateClose, event?.status)
   const [zoomLevel, setZoomLevel] = useState<number>(1)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
@@ -279,57 +287,62 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
       <div className="flex-1 relative flex items-center justify-center bg-black min-h-[45vh] md:min-h-0 overflow-hidden">
         {/* Nút Đóng góc trên bên trái */}
         <div className="absolute top-3 left-3 z-30 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Đóng xem ảnh"
-            className="h-10 w-10 rounded-full bg-black/60 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer backdrop-blur-md border border-white/10"
-            title="Đóng (Esc)"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <Tooltip content="Đóng (Esc)">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Đóng xem ảnh"
+              className="h-10 w-10 rounded-full bg-black/60 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer backdrop-blur-md border border-white/10"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </Tooltip>
         </div>
 
         {/* Thanh công cụ xem ảnh góc trên bên phải (Zoom, Fullscreen) */}
         <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 bg-black/60 backdrop-blur-md border border-white/10 rounded-full p-1 text-white">
-          <button
-            type="button"
-            onClick={handleZoomIn}
-            aria-label="Phóng to ảnh"
-            className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
-            title="Phóng to"
-          >
-            <ZoomIn className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handleZoomOut}
-            aria-label="Thu nhỏ ảnh"
-            className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
-            title="Thu nhỏ"
-          >
-            <ZoomOut className="h-4 w-4" />
-          </button>
-          {zoomLevel !== 1 && (
+          <Tooltip content="Phóng to">
             <button
               type="button"
-              onClick={handleResetZoom}
-              aria-label="Kích thước gốc"
-              className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer text-xs font-semibold"
-              title="Khôi phục kích thước gốc"
+              onClick={handleZoomIn}
+              aria-label="Phóng to ảnh"
+              className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
             >
-              <RotateCcw className="h-3.5 w-3.5" />
+              <ZoomIn className="h-4 w-4" />
             </button>
+          </Tooltip>
+          <Tooltip content="Thu nhỏ">
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              aria-label="Thu nhỏ ảnh"
+              className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </button>
+          </Tooltip>
+          {zoomLevel !== 1 && (
+            <Tooltip content="Khôi phục kích thước gốc">
+              <button
+                type="button"
+                onClick={handleResetZoom}
+                aria-label="Kích thước gốc"
+                className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer text-xs font-semibold"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
           )}
-          <button
-            type="button"
-            onClick={handleToggleFullscreen}
-            aria-label="Toàn màn hình"
-            className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
-            title={isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
-          >
-            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </button>
+          <Tooltip content={isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}>
+            <button
+              type="button"
+              onClick={handleToggleFullscreen}
+              aria-label="Toàn màn hình"
+              className="h-8 w-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          </Tooltip>
         </div>
 
         {/* Tấm ảnh chính: Hiển thị tối đa không gian, không bị che khuất */}
@@ -366,14 +379,15 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
               )}
             </Link>
             <div className="flex flex-col min-w-0 flex-1">
-              <Link
-                to={`/fanpage/${fanpageId}`}
-                className="font-semibold text-sm text-foreground hover:text-primary hover:underline line-clamp-2 leading-tight"
-                title={organizerDisplayName}
-              >
-                <span>{organizerDisplayName}</span>
-                <VerifiedBadge className="h-3.5 w-3.5 inline-block align-middle ml-1 -mt-0.5" />
-              </Link>
+              <Tooltip content={organizerDisplayName}>
+                <Link
+                  to={`/fanpage/${fanpageId}`}
+                  className="font-semibold text-sm text-foreground hover:text-primary hover:underline line-clamp-2 leading-tight"
+                >
+                  <span>{organizerDisplayName}</span>
+                  <VerifiedBadge className="h-3.5 w-3.5 inline-block align-middle ml-1 -mt-0.5" />
+                </Link>
+              </Tooltip>
               <span className="text-xs text-muted-foreground mt-0.5">
                 {event.timeAgo || formatDisplayDateTime(event.startTime)}
               </span>
@@ -382,15 +396,16 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
 
           {/* Các nút ở trên để gọn gàng trong menu Ba Chấm (...) */}
           <div className="relative shrink-0" ref={menuRef}>
-            <button
-              type="button"
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-              title="Tùy chọn khác"
-              aria-label="Tùy chọn khác"
-            >
-              <MoreHorizontal className="h-5 w-5" />
-            </button>
+            <Tooltip content="Tùy chọn khác">
+              <button
+                type="button"
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                aria-label="Tùy chọn khác"
+              >
+                <MoreHorizontal className="h-5 w-5" />
+              </button>
+            </Tooltip>
 
             {showMenu && (
               <div className="absolute right-0 top-full mt-1.5 w-52 rounded-xl border border-border bg-white dark:bg-card p-1.5 shadow-xl z-50 text-left animate-in fade-in-0 zoom-in-95 text-xs">
@@ -414,7 +429,9 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
                   }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-foreground hover:bg-muted transition-colors cursor-pointer"
                 >
-                  <Bookmark className={cn('h-4 w-4 shrink-0', isSaved && 'fill-amber-500 text-amber-500')} />
+                  <Bookmark
+                    className={cn('h-4 w-4 shrink-0', isSaved && 'fill-amber-500 text-amber-500')}
+                  />
                   <span>{isSaved ? 'Bỏ lưu sự kiện này' : 'Lưu sự kiện này'}</span>
                 </button>
 
@@ -504,24 +521,30 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
             {/* 2. Location */}
             <div className="flex items-center gap-2.5 min-w-0">
               <MapPin className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2]" />
-              <span className="truncate text-xs font-medium text-foreground" title={locationDisplay}>
-                {locationDisplay}
-              </span>
+              <Tooltip content={locationDisplay}>
+                <span className="truncate text-xs font-medium text-foreground">
+                  {locationDisplay}
+                </span>
+              </Tooltip>
             </div>
 
             {/* 3. Benefits / Điểm rèn luyện */}
             <div className="flex items-start gap-2.5 min-w-0">
               <Gift className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2] mt-0.5" />
               <div className="flex flex-col gap-0.5 min-w-0">
-                {event.pointsReward ? (
-                  event.pointsReward.split(' · ').map((benefit: string, i: number) => (
-                    <span key={i} className="truncate text-xs font-medium text-foreground" title={benefit}>
-                      {benefit}
-                    </span>
-                  ))
-                ) : (
-                  <span className="truncate text-xs font-medium text-foreground">Cộng điểm rèn luyện</span>
-                )}
+                {(
+                  event.benefitLines ??
+                  (event.pointsReward || 'Cộng điểm rèn luyện')
+                    .split(' · ')
+                    .map((line) => ({ label: line, title: line }))
+                ).map((benefit, i) => (
+                  <TextTooltip
+                    key={i}
+                    className="truncate text-xs font-medium text-foreground"
+                    label={benefit.label}
+                    content={benefit.title}
+                  />
+                ))}
               </div>
             </div>
 
@@ -529,7 +552,8 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
             <div className="flex items-center gap-2.5 min-w-0">
               <Users className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2]" />
               <span className="truncate text-xs font-medium text-foreground">
-                {event.quotaText || (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
+                {event.quotaText ||
+                  (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
               </span>
             </div>
 
@@ -540,6 +564,15 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
                 eventTitle={event.title}
                 isRegistered={event.isRegistered}
                 registrationStatus={event.registrationStatus}
+                disabled={
+                  deadline.isClosed ||
+                  Boolean(
+                    event.capacity &&
+                    event.capacity > 0 &&
+                    (event.registeredCount ?? 0) >= event.capacity
+                  )
+                }
+                disabledReason={deadline.isClosed ? 'closed' : 'full'}
                 size="md"
                 className="w-full justify-center"
                 onRegisterSuccess={() => onRegister?.(eventId)}
@@ -569,7 +602,9 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
                 <div className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-muted flex items-center justify-center mb-2 text-muted-foreground/60">
                   <MessageSquare className="h-5 w-5 stroke-[1.5]" />
                 </div>
-                <p className="font-semibold text-xs sm:text-sm text-foreground">Chưa có bình luận nào</p>
+                <p className="font-semibold text-xs sm:text-sm text-foreground">
+                  Chưa có bình luận nào
+                </p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   Hãy là người đầu tiên bình luận về sự kiện này.
                 </p>
@@ -584,7 +619,9 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
                     <div className="flex-1 min-w-0">
                       <div className="bg-[#F0F2F5] dark:bg-muted px-3 py-2 rounded-2xl">
                         <span className="font-semibold text-foreground block">{cm.userName}</span>
-                        <p className="text-foreground/90 whitespace-pre-line mt-0.5">{cm.content}</p>
+                        <p className="text-foreground/90 whitespace-pre-line mt-0.5">
+                          {cm.content}
+                        </p>
                       </div>
                       <div className="flex items-center gap-3 px-2 mt-1 text-[11px] text-muted-foreground">
                         <span className="hover:underline cursor-pointer">Thích</span>
@@ -625,15 +662,17 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
                   }}
                   className="w-full pl-3.5 pr-10 py-2 text-xs bg-[#F0F2F5] dark:bg-muted border border-transparent rounded-full text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:bg-white dark:focus:bg-card focus:border-border transition-colors"
                 />
-                <button
-                  type="button"
-                  onClick={handleAddComment}
-                  disabled={!commentInput.trim()}
-                  className="absolute right-1.5 p-1.5 rounded-full text-primary hover:bg-primary/10 disabled:opacity-30 disabled:pointer-events-none transition-opacity cursor-pointer"
-                  title="Gửi bình luận"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                </button>
+                <Tooltip content="Gửi bình luận">
+                  <button
+                    type="button"
+                    onClick={handleAddComment}
+                    disabled={!commentInput.trim()}
+                    className="absolute right-1.5 p-1.5 rounded-full text-primary hover:bg-primary/10 disabled:opacity-30 disabled:pointer-events-none transition-opacity cursor-pointer"
+                    aria-label="Gửi bình luận"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
               </div>
             </div>
           </div>
