@@ -71,7 +71,7 @@ export interface FanpageFeedPost {
   status?: string
 }
 
-export type EventStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'CANCELLED'
+export type EventStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'COMPLETED' | 'CANCELLED'
 
 export interface AdminEvent {
   id: string
@@ -126,6 +126,11 @@ export interface AdminEvent {
 }
 
 export type RegistrationStatus =
+  | 'RECORDED'
+  | 'SELF_CHECKED_IN'
+  | 'SPENDING_CONFIRM'
+  | 'CONFIRMED'
+  | 'ABSENT'
   | 'REGISTERED'
   | 'PENDING'
   | 'APPROVED'
@@ -146,6 +151,7 @@ export interface EventRegistrationItem {
   phone: string
   avatarUrl?: string
   registeredAt: string
+  registeredAtRaw?: string
   status: RegistrationStatus
   entryCheckInTime?: string
   checkOutTime?: string

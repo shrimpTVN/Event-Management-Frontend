@@ -1,6 +1,9 @@
 import { apiClient } from '@/shared'
+import { createSv5tLabelFormatter } from '@/shared/utils/sv5tLabels'
 import type {
   SuperAdminUser,
+  UserSystemRole,
+  UserFanpageMembership,
   SuperAdminFanpage,
   SuperAdminEvent,
   SuperAdminSemester,
@@ -9,56 +12,388 @@ import type {
   SuperAdminSchool,
   SuperAdminMajor,
   SuperAdminOverviewStats,
-  UserRole,
   FanpageStatus,
   AdminEventStatus,
   SemesterStatus,
   Sv5tScope,
 } from '../types/superAdmin.types'
 
+// apiClient already unwraps BaseResponse.data. Read every server page before filtering locally.
+async function fetchAllPages(url: string, params: Record<string, unknown> = {}): Promise<any[]> {
+  const size = 100
+  const list: any[] = []
+  for (let page = 0; ; page++) {
+    const result: any = await apiClient.get(url, { params: { ...params, page, size } })
+    const items = Array.isArray(result) ? result : result?.content
+    if (!Array.isArray(items)) throw new Error('Dữ liệu API không hợp lệ: ' + url)
+    list.push(...items)
+    if (
+      Array.isArray(result) ||
+      result.last === true ||
+      (result.totalPages != null && page + 1 >= result.totalPages) ||
+      items.length < size
+    )
+      break
+  }
+  return list
+}
+
+async function fetchAdminRecords(
+  url: string,
+  statuses: string[],
+  params: Record<string, unknown> = {}
+) {
+  const states = typeof params.isActive === 'boolean' ? [params.isActive] : [true, false]
+  const groups = await Promise.all(
+    statuses.flatMap((status) =>
+      states.map((isActive) => fetchAllPages(url, { ...params, status, isActive }))
+    )
+  )
+  return [...new Map(groups.flat().map((item) => [item.id, item])).values()]
+}
+
+export function isValidUserId(value: unknown): boolean {
+  return typeof value === 'number'
+    ? Number.isSafeInteger(value) && value > 0
+    : typeof value === 'string' && /^[1-9]\d*$/.test(value)
+}
+const normalizeEmail = (value: unknown): string =>
+  typeof value === 'string' ? value.trim().toLowerCase() : ''
+
+async function fetchFanpageMembers() {
+  const fanpages = await fetchAdminRecords('/fanpages/admin', ['ACTIVE', 'PENDING', 'BANNED'])
+  return Promise.allSettled(
+    fanpages.map(async (fanpage) => {
+      const response: any = await apiClient.get(`/fanpages/${fanpage.id}/members`)
+      const members = response?.data ?? response
+      if (!Array.isArray(members)) throw new Error('Không tải được thành viên fanpage.')
+      return { fanpage, members: members.filter((member: any) => member.isActive !== false) }
+    })
+  )
+}
+
+async function fetchUsersAndProfiles(url: string, isActive?: boolean) {
+  const states = isActive == null ? [true, false] : [isActive]
+  const lists = await Promise.all(states.map((active) => fetchAllPages(url, { isActive: active })))
+  return lists.flat()
+}
+
+function paginate<T>(items: T[], page = 0, size = 100) {
+  return {
+    content: items.slice(page * size, (page + 1) * size),
+    totalElements: items.length,
+    totalPages: Math.ceil(items.length / size),
+  }
+}
+
+export function normalizeAdminRole(user: {
+  role?: string
+  roles?: string[]
+}): SuperAdminUser['role'] {
+  const roles = [user.role, ...(user.roles ?? [])]
+    .filter(Boolean)
+    .map((r) => r!.replace(/^ROLE_/, '').toUpperCase())
+  if (roles.some((r) => ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN'].includes(r))) return 'SUPERADMIN'
+  if (roles.some((r) => ['STAFF', 'FANPAGE_ADMIN', 'ORGANIZER'].includes(r))) return 'STAFF'
+  return 'STUDENT'
+}
+
+const realNumber = (value: unknown): number | null =>
+  value == null || value === '' || !Number.isFinite(Number(value)) ? null : Number(value)
+const dateLabel = (value?: string) => (value ? new Date(value).toLocaleString('vi-VN') : '')
+
+export function mapAdminFanpage(
+  fanpage: any,
+  admin?: any,
+  profile?: any,
+  followersCount: number | null = null
+): SuperAdminFanpage {
+  const matchingProfile = admin?.email && profile?.email === admin.email ? profile : undefined
+  let status: FanpageStatus = 'ACTIVE'
+  if (fanpage.status === 'PENDING' || fanpage.status === 'REJECTED') status = fanpage.status
+  else if (['BANNED', 'LOCKED'].includes(fanpage.status) || fanpage.isActive === false)
+    status = 'LOCKED'
+  return {
+    id: String(fanpage.id),
+    name: fanpage.orgName?.trim() || fanpage.name?.trim() || '',
+    representativeName: admin
+      ? [admin.firstName, admin.lastName].filter(Boolean).join(' ') || admin.fullName || ''
+      : '',
+    representativeCode:
+      matchingProfile?.staffId ??
+      matchingProfile?.studentId ??
+      admin?.staffId ??
+      admin?.staffCode ??
+      admin?.studentId ??
+      '',
+    representativeEmail: admin?.email ?? '',
+    representativePhone:
+      matchingProfile?.phoneNumber ||
+      matchingProfile?.phone ||
+      admin?.phoneNumber ||
+      admin?.phone ||
+      '',
+    contactEmail: fanpage.helpContact ?? '',
+    contactPhone: fanpage.helpPhone ?? '',
+    schoolName: fanpage.parentOrg ?? '',
+    proofFileUrl: fanpage.proofFileUrl,
+    proofFileName: fanpage.proofFileName,
+    createdAt: dateLabel(fanpage.createdAt),
+    status,
+    avatarUrl: fanpage.avatarUrl,
+    coverUrl: fanpage.coverUrl,
+    description: fanpage.description ?? '',
+    rejectionReason: fanpage.rejectionReason,
+    eventsCount: realNumber(fanpage.eventsCount),
+    followersCount,
+  }
+}
+
+export function getUserSystemRoles(user: { role?: string; roles?: string[] }): UserSystemRole[] {
+  const aliases: Record<string, UserSystemRole> = {
+    ADMIN: 'ADMIN',
+    SUPERADMIN: 'ADMIN',
+    SUPER_ADMIN: 'ADMIN',
+    STUDENT: 'STUDENT',
+    STAFF: 'FANPAGE_ADMIN',
+    FANPAGE_ADMIN: 'FANPAGE_ADMIN',
+    ORGANIZER: 'FANPAGE_ADMIN',
+  }
+  return [
+    ...new Set(
+      [user.role, ...(user.roles ?? [])]
+        .filter(Boolean)
+        .map((role) => aliases[role!.toUpperCase().replace(/^ROLE_/, '')])
+        .filter(Boolean)
+    ),
+  ]
+}
+
+export function mapAdminUser(user: any, profile?: any): SuperAdminUser {
+  const matchingProfile = profile?.email === user.email ? profile : undefined
+  const student =
+    user.studentProfile ??
+    (matchingProfile && !matchingProfile.staffId ? matchingProfile : undefined) ??
+    (user.studentId != null ? user : undefined)
+  const staff =
+    user.staffProfile ??
+    (matchingProfile?.staffId != null ? matchingProfile : undefined) ??
+    (user.staffId != null ? user : undefined)
+  const studentProfile = student
+    ? {
+        studentId: student.studentId ?? '',
+        schoolName: student.schoolName ?? '',
+        majorName: student.majorName ?? '',
+        kNumber: String(student.kNumber ?? ''),
+        associationName: student.associationName ?? '',
+      }
+    : undefined
+  const staffProfile = staff
+    ? {
+        staffId: staff.staffId ?? '',
+        orgName: staff.orgName ?? '',
+        title: staff.title ?? '',
+        phoneNumber: staff.phoneNumber ?? staff.phone ?? '',
+      }
+    : undefined
+  return {
+    id: isValidUserId(user.userId ?? user.id) ? String(user.userId ?? user.id) : '',
+    name:
+      [user.firstName ?? matchingProfile?.firstName, user.lastName ?? matchingProfile?.lastName]
+        .filter(Boolean)
+        .join(' ') ||
+      user.name ||
+      user.email ||
+      '',
+    code: studentProfile?.studentId || staffProfile?.staffId || '',
+    email: user.email ?? '',
+    role: normalizeAdminRole(user),
+    baseRole: studentProfile
+      ? 'STUDENT'
+      : staffProfile
+        ? 'STAFF'
+        : getUserSystemRoles(user).includes('STUDENT')
+          ? 'STUDENT'
+          : null,
+    systemRoles: getUserSystemRoles(user),
+    studentProfile,
+    staffProfile,
+    schoolName: studentProfile?.schoolName || staffProfile?.orgName || '',
+    majorName: studentProfile?.majorName ?? '',
+    status: user.isActive === false ? 'LOCKED' : 'ACTIVE',
+    avatarUrl: user.avatarUrl ?? matchingProfile?.avatarUrl,
+    phone: staffProfile?.phoneNumber || user.phoneNumber || user.phone || '',
+    createdAt: dateLabel(user.createdAt),
+    eventsParticipatedCount: realNumber(user.eventsParticipatedCount),
+  }
+}
+
+export function getUserDisplayRole(user: SuperAdminUser): SuperAdminUser['role'] | null {
+  if (user.systemRoles?.includes('ADMIN') || user.role === 'SUPERADMIN') return 'SUPERADMIN'
+  return user.studentProfile ? 'STUDENT' : user.staffProfile ? 'STAFF' : (user.baseRole ?? null)
+}
+
+export function getSuperAdminRoles(user: SuperAdminUser, enabled: boolean): UserSystemRole[] {
+  const current: UserSystemRole[] = user.systemRoles ?? [
+    user.role === 'SUPERADMIN' ? 'ADMIN' : user.role === 'STAFF' ? 'FANPAGE_ADMIN' : 'STUDENT',
+  ]
+  if (enabled) return [...new Set<UserSystemRole>([...current, 'ADMIN'])]
+  const remaining = current.filter((role) => role !== 'ADMIN')
+  if (remaining.length) return remaining
+  const base =
+    user.baseRole ?? (user.studentProfile ? 'STUDENT' : user.staffProfile ? 'STAFF' : null)
+  if (!base) throw new Error('Chưa xác định được loại tài khoản gốc.')
+  return [base === 'STAFF' ? 'FANPAGE_ADMIN' : 'STUDENT']
+}
+
+export function buildAdminBenefitLookups(categories: any[], criterias: any[]) {
+  const names = new Map<number, string>()
+  const codes = new Map<number, string>()
+  const buildTree = (items: any[], parentKey: string) => {
+    const nodes = new Map<number, any>()
+    const collect = (list: any[], parentId: number | null = null) => {
+      list.forEach((item) => {
+        nodes.set(item.id, { ...item, parentId: item[parentKey] ?? parentId, children: [] })
+        if (Array.isArray(item.children)) collect(item.children, item.id)
+      })
+    }
+    collect(items)
+    const roots: any[] = []
+    nodes.forEach((node) => {
+      const parent = nodes.get(node.parentId)
+      if (parent) parent.children.push(node)
+      else roots.push(node)
+    })
+    const sort = (list: any[]) => {
+      list.sort((a, b) => (a.childrenOrder ?? a.id) - (b.childrenOrder ?? b.id))
+      list.forEach((node) => sort(node.children))
+    }
+    sort(roots)
+    return roots
+  }
+  const visitCategory = (node: any, code: string, depth: number) => {
+    names.set(node.id, node.name)
+    codes.set(node.id, code)
+    node.children.forEach((child: any, index: number) =>
+      visitCategory(
+        child,
+        `${code}.${depth === 0 ? String.fromCharCode(97 + index) : index + 1}`,
+        depth + 1
+      )
+    )
+  }
+  buildTree(categories, 'parentCategoryId').forEach((root, index) =>
+    visitCategory(root, ['I', 'II', 'III', 'IV', 'V'][index] ?? String(index + 1), 0)
+  )
+  return { names, codes, formatCriteria: createSv5tLabelFormatter(criterias) }
+}
+
+export function mapAdminEvent(
+  event: any,
+  categories: Map<number, string> = new Map(),
+  codes: Map<number, string> = new Map(),
+  formatCriteria: (name: string, criteriaId?: number | string) => string = (name) => name
+): SuperAdminEvent {
+  const points = Array.isArray(event.eventPoints)
+    ? event.eventPoints.map((p: any) => ({
+        pointCategoryId: p.pointCategoryId,
+        name: p.pointCategoryName ?? categories.get(p.pointCategoryId) ?? '',
+        code: codes.get(p.pointCategoryId) ?? p.pointCategoryCode?.replace(/^mục\s+/i, ''),
+        point: Number(p.point ?? 0),
+      }))
+    : []
+  let status: AdminEventStatus = 'OPEN'
+  if (event.isActive === false || event.status === 'HIDDEN') status = 'HIDDEN'
+  else if (event.status === 'DRAFT') status = 'DRAFT'
+  else if (event.status === 'CANCELLED') status = 'CANCELLED'
+  else if (['CLOSED', 'COMPLETED'].includes(event.status)) status = 'COMPLETED'
+  else if (['ONGOING', 'HAPPENING'].includes(event.status)) status = 'HAPPENING'
+  else if (event.status === 'VIOLATED') status = 'VIOLATED'
+  return {
+    id: String(event.id),
+    title: event.name ?? event.title ?? '',
+    fanpageId: String(event.fanpageId ?? ''),
+    fanpageName: event.fanpageName ?? '',
+    startDateTime: dateLabel(event.dateHappen),
+    endDateTime: dateLabel(event.dateClose),
+    location: event.location ?? '',
+    capacity: realNumber(event.capacity),
+    registeredCount: realNumber(event.registeredCount),
+    eventPoints: points,
+    trainingPoint: points.reduce((sum: number, p: any) => sum + p.point, 0),
+    trainingPointCategoryName: points
+      .map((p: any) => p.name)
+      .filter(Boolean)
+      .join(', '),
+    sv5tCriteriaName:
+      formatCriteria(event.criteriaName ?? event.sv5tCriteriaName ?? '', event.criteriaId) ||
+      undefined,
+    createdAt: dateLabel(event.createdAt),
+    status,
+    bannerUrl: event.bannerUrl,
+    violationReason: event.violationReason,
+    reportCount: realNumber(event.reportCount) ?? undefined,
+  }
+}
+
 export const superAdminService = {
+  getUserFanpages: async (
+    userId: string,
+    email?: string
+  ): Promise<{ items: UserFanpageMembership[]; incomplete: boolean }> => {
+    const hasId = isValidUserId(userId)
+    const accountEmail = normalizeEmail(email)
+    if (!hasId && !accountEmail) throw new Error('Chưa xác định được người dùng.')
+    const results = await fetchFanpageMembers()
+    return {
+      items: results.flatMap((result): UserFanpageMembership[] => {
+        if (result.status !== 'fulfilled') return []
+        const { fanpage, members } = result.value
+        const member = members.find((item: any) =>
+          hasId
+            ? isValidUserId(item.userId) && String(item.userId) === userId
+            : normalizeEmail(item.email) === accountEmail
+        )
+        return member
+          ? [
+              {
+                id: String(fanpage.id),
+                name: fanpage.orgName || fanpage.name || '',
+                avatarUrl: fanpage.avatarUrl,
+                role: member.role === 'ADMIN' ? 'ADMIN' : 'MEMBER',
+              },
+            ]
+          : []
+      }),
+      incomplete: results.some((result) => result.status === 'rejected'),
+    }
+  },
+  getFanpageFollowerCount: async (id: string | number): Promise<number | null> => {
+    try {
+      const result: any = await apiClient.get(`/fanpages/${id}/followers/count`)
+      return realNumber((result?.data ?? result)?.followerCount)
+    } catch {
+      return null
+    }
+  },
   // ==========================================
   // 1. OVERVIEW & STATISTICS
   // ==========================================
   getOverviewStats: async (): Promise<SuperAdminOverviewStats> => {
-    try {
-      const settled = await Promise.allSettled([
-        apiClient.get('/users/admin', { params: { size: 1 } }),
-        apiClient.get('/fanpages/admin', { params: { size: 1 } }),
-        apiClient.get('/events/admin', { params: { size: 1 } }),
-        apiClient.get('/fanpages/admin', { params: { status: 'PENDING', size: 1 } }),
-      ])
-      const [usersRes, fanpagesRes, eventsRes, pendingRes] = settled.map((r) =>
-        r.status === 'fulfilled' ? (r as PromiseFulfilledResult<any>).value : null
-      )
-
-      const totalUsers = usersRes?.totalElements || (Array.isArray(usersRes) ? usersRes.length : 0)
-      const totalFanpages = fanpagesRes?.totalElements || (Array.isArray(fanpagesRes) ? fanpagesRes.length : 0)
-      const totalEvents = eventsRes?.totalElements || (Array.isArray(eventsRes) ? eventsRes.length : 0)
-      const pendingFanpagesCount = pendingRes?.totalElements || 0
-
-      return {
-        totalUsers,
-        totalFanpages,
-        totalEvents,
-        totalParticipations: totalEvents * 35,
-        pendingFanpagesCount,
-        violationReportsCount: 0,
-        userGrowthRate: 12.5,
-        eventGrowthRate: 8.4,
-      }
-    } catch (err) {
-      console.error('Failed to load super admin stats:', err)
-      return {
-        totalUsers: 0,
-        totalFanpages: 0,
-        totalEvents: 0,
-        totalParticipations: 0,
-        pendingFanpagesCount: 0,
-        violationReportsCount: 0,
-        userGrowthRate: 0,
-        eventGrowthRate: 0,
-      }
+    const [users, fanpages, events] = await Promise.all([
+      fetchUsersAndProfiles('/users/admin'),
+      fetchAdminRecords('/fanpages/admin', ['ACTIVE', 'PENDING', 'BANNED']),
+      fetchAdminRecords('/events/admin', ['DRAFT', 'PUBLISHED', 'CLOSED', 'CANCELLED']),
+    ])
+    return {
+      totalUsers: users.length,
+      totalFanpages: fanpages.length,
+      totalEvents: events.length,
+      totalParticipations: null,
+      pendingFanpagesCount: fanpages.filter((f) => f.status === 'PENDING').length,
+      violationReportsCount: events.filter((e) => e.status === 'VIOLATED').length,
+      userGrowthRate: null,
+      eventGrowthRate: null,
     }
   },
 
@@ -71,70 +406,52 @@ export const superAdminService = {
     keyword?: string
     role?: string
     isActive?: boolean
-  }): Promise<{ content: SuperAdminUser[]; totalElements: number; totalPages: number }> => {
-    try {
-      const res: any = await apiClient.get('/users/admin', {
-        params: {
-          page: params?.page ?? 0,
-          size: params?.size ?? 50,
-          isActive: params?.isActive,
-        },
-      })
-
-      const rawList: any[] = res?.content || (Array.isArray(res) ? res : [])
-      const mapped: SuperAdminUser[] = rawList.map((u: any) => {
-        const rawRole = (u.role || (u.roles && u.roles[0]) || 'STUDENT').toUpperCase().replace('ROLE_', '')
-        let normalizedRole: UserRole = 'STUDENT'
-        if (rawRole === 'ADMIN' || rawRole === 'SUPERADMIN') normalizedRole = 'SUPERADMIN'
-        else if (rawRole === 'ORGANIZER' || rawRole === 'FANPAGE_ADMIN') normalizedRole = 'ORGANIZER'
-        else if (rawRole === 'STAFF') normalizedRole = 'STAFF'
-
-        const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.name || u.email?.split('@')[0] || 'Người dùng'
-        const code = u.studentId || u.studentCode || u.code || (u.email?.includes('@') ? u.email.split('@')[0].toUpperCase() : `U-${u.userId || u.id}`)
-
-        return {
-          id: String(u.userId || u.id),
-          name: fullName,
-          code,
-          email: u.email || '',
-          role: normalizedRole,
-          schoolName: u.schoolName || 'Trường CNTT & TT',
-          majorName: u.majorName || 'Kỹ thuật phần mềm',
-          status: u.isActive === false ? 'LOCKED' : 'ACTIVE',
-          avatarUrl: u.avatarUrl,
-          phone: u.phone || '',
-          createdAt: u.createdAt || new Date().toISOString(),
-          eventsParticipatedCount: u.eventsParticipatedCount || 0,
+  }) => {
+    const [users, profiles] = await Promise.all([
+      fetchUsersAndProfiles('/users/admin', params?.isActive),
+      fetchUsersAndProfiles('/users/admin/profiles', params?.isActive),
+    ])
+    const byEmail = new Map(profiles.map((profile) => [profile.email, profile]))
+    // Older backend mappers return null userId. Resolve only verified IDs from memberships.
+    const resolvedIds = new Map<string, Set<string>>()
+    if (users.some((user) => !isValidUserId(user.userId ?? user.id))) {
+      try {
+        const groups = await fetchFanpageMembers()
+        for (const group of groups) {
+          if (group.status !== 'fulfilled') continue
+          for (const member of group.value.members) {
+            const email = normalizeEmail(member.email)
+            if (!email || !isValidUserId(member.userId)) continue
+            if (!resolvedIds.has(email)) resolvedIds.set(email, new Set())
+            resolvedIds.get(email)!.add(String(member.userId))
+          }
         }
-      })
-
-      let filtered = mapped
-      if (params?.keyword) {
-        const kw = params.keyword.toLowerCase()
-        filtered = filtered.filter(
-          (u) =>
-            u.name.toLowerCase().includes(kw) ||
-            u.email.toLowerCase().includes(kw) ||
-            u.code.toLowerCase().includes(kw)
-        )
+      } catch {
+        /* Keep unresolved IDs empty, never synthesize an account ID. */
       }
-      if (params?.role && params.role !== 'ALL') {
-        filtered = filtered.filter((u) => u.role === params.role)
-      }
-
-      return {
-        content: filtered,
-        totalElements: res?.totalElements || filtered.length,
-        totalPages: res?.totalPages || Math.ceil(filtered.length / (params?.size ?? 50)) || 1,
-      }
-    } catch (err) {
-      console.error('Failed to get users:', err)
-      return { content: [], totalElements: 0, totalPages: 0 }
     }
+    let mapped = users.map((user) => {
+      const ids = resolvedIds.get(normalizeEmail(user.email))
+      const account =
+        !isValidUserId(user.userId ?? user.id) && ids?.size === 1
+          ? { ...user, userId: [...ids][0] }
+          : user
+      return mapAdminUser(account, byEmail.get(user.email))
+    })
+    if (params?.keyword) {
+      const keyword = params.keyword.toLowerCase()
+      mapped = mapped.filter((user) =>
+        [user.name, user.email, user.code].some((text) => text.toLowerCase().includes(keyword))
+      )
+    }
+    if (params?.role && params.role !== 'ALL')
+      mapped = mapped.filter((user) => user.role === params.role)
+    return paginate(mapped, params?.page, params?.size)
   },
 
   toggleUserStatus: async (userId: string | number): Promise<boolean> => {
     try {
+      if (!isValidUserId(userId)) throw new Error('Thiếu ID tài khoản hợp lệ.')
       await apiClient.patch(`/users/admin/${userId}/change-status`)
       return true
     } catch (err) {
@@ -143,10 +460,18 @@ export const superAdminService = {
     }
   },
 
+  changeUserRoles: async (userId: string, roles: UserSystemRole[]): Promise<void> => {
+    if (!isValidUserId(userId)) throw new Error('Thiếu ID tài khoản hợp lệ.')
+    await apiClient.patch(`/users/admin/${userId}/change-roles`, roles)
+  },
+
   changeUserRole: async (userId: string | number, role: string): Promise<boolean> => {
     try {
+      if (!isValidUserId(userId)) throw new Error('Thiếu ID tài khoản hợp lệ.')
       await apiClient.patch(`/users/admin/${userId}/change-role`, null, {
-        params: { role },
+        params: {
+          role: role === 'SUPERADMIN' ? 'ADMIN' : role === 'STAFF' ? 'FANPAGE_ADMIN' : 'STUDENT',
+        },
       })
       return true
     } catch (err) {
@@ -164,55 +489,38 @@ export const superAdminService = {
     keyword?: string
     status?: string
     isActive?: boolean
-  }): Promise<{ content: SuperAdminFanpage[]; totalElements: number; totalPages: number }> => {
-    try {
-      const res: any = await apiClient.get('/fanpages/admin', {
-        params: {
-          page: params?.page ?? 0,
-          size: params?.size ?? 50,
-          name: params?.keyword,
-          status: params?.status,
-          isActive: params?.isActive,
-        },
-      })
-
-      const rawList: any[] = res?.content || (Array.isArray(res) ? res : [])
-      const mapped: SuperAdminFanpage[] = rawList.map((f: any) => {
-        let status: FanpageStatus = 'ACTIVE'
-        if (f.status === 'PENDING') status = 'PENDING'
-        else if (f.status === 'REJECTED') status = 'REJECTED'
-        else if (f.status === 'BANNED' || f.status === 'LOCKED' || f.isActive === false) status = 'LOCKED'
-
-        return {
-          id: String(f.id),
-          name: f.name || 'Câu lạc bộ / Đơn vị',
-          representativeName: f.representativeName || f.helpContact || 'Ban Quản Trị',
-          representativeCode: f.representativeCode || `BQT-${f.id}`,
-          representativePhone: f.helpPhone || '',
-          representativeEmail: f.helpContact || '',
-          schoolName: f.parentOrg || f.orgName || 'Trường CNTT & TT',
-          proofFileUrl: f.proofFileUrl,
-          proofFileName: f.proofFileName,
-          createdAt: f.createdAt ? new Date(f.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-          status,
-          avatarUrl: f.avatarUrl,
-          coverUrl: f.coverUrl,
-          description: f.description || '',
-          rejectionReason: f.rejectionReason,
-          eventsCount: f.eventsCount || 0,
-          followersCount: f.followerCount || f.followersCount || 0,
+  }) => {
+    const list = await fetchAdminRecords(
+      '/fanpages/admin',
+      params?.status && params.status !== 'ALL' ? [params.status] : ['ACTIVE', 'PENDING', 'BANNED'],
+      { keyword: params?.keyword, isActive: params?.isActive }
+    )
+    const profiles = new Map<string, Promise<any>>()
+    const mapped = await Promise.all(
+      list.map(async (f): Promise<SuperAdminFanpage> => {
+        const followersCount = await superAdminService.getFanpageFollowerCount(f.id)
+        let admin: any
+        try {
+          const members: any = await apiClient.get(`/fanpages/${f.id}/members`)
+          if (Array.isArray(members))
+            admin = members.find((member) => member.role === 'ADMIN' && member.isActive !== false)
+        } catch {
+          // The current members endpoint does not return inactive fanpages.
         }
+        let profile: any
+        if (admin?.userId != null) {
+          const key = String(admin.userId)
+          if (!profiles.has(key))
+            profiles.set(
+              key,
+              apiClient.get(`/users/admin/${admin.userId}/profile`).catch(() => null)
+            )
+          profile = await profiles.get(key)
+        }
+        return mapAdminFanpage(f, admin, profile, followersCount)
       })
-
-      return {
-        content: mapped,
-        totalElements: res?.totalElements || mapped.length,
-        totalPages: res?.totalPages || Math.ceil(mapped.length / (params?.size ?? 50)) || 1,
-      }
-    } catch (err) {
-      console.error('Failed to get fanpages:', err)
-      return { content: [], totalElements: 0, totalPages: 0 }
-    }
+    )
+    return paginate(mapped, params?.page, params?.size)
   },
 
   acceptFanpage: async (id: string | number): Promise<boolean> => {
@@ -263,55 +571,24 @@ export const superAdminService = {
     size?: number
     keyword?: string
     status?: string
-  }): Promise<{ content: SuperAdminEvent[]; totalElements: number; totalPages: number }> => {
-    try {
-      const res: any = await apiClient.get('/events/admin', {
-        params: {
-          page: params?.page ?? 0,
-          size: params?.size ?? 50,
-          name: params?.keyword,
-        },
-      })
-
-      const rawList: any[] = res?.content || (Array.isArray(res) ? res : [])
-      const mapped: SuperAdminEvent[] = rawList.map((e: any) => {
-        let status: AdminEventStatus = 'OPEN'
-        if (e.status === 'PUBLISHED') status = 'OPEN'
-        else if (e.status === 'ONGOING' || e.status === 'HAPPENING') status = 'HAPPENING'
-        else if (e.status === 'CLOSED' || e.status === 'COMPLETED') status = 'COMPLETED'
-        else if (e.status === 'VIOLATED') status = 'VIOLATED'
-        else if (e.status === 'HIDDEN' || e.status === 'DRAFT') status = 'HIDDEN'
-
-        return {
-          id: String(e.id),
-          title: e.name || e.title || 'Sự kiện sinh viên',
-          fanpageId: String(e.fanpageId || '1'),
-          fanpageName: e.fanpageName || e.organizerName || 'Đoàn Thanh Niên',
-          startDateTime: e.dateHappen || e.dateOpen || new Date().toISOString(),
-          endDateTime: e.dateClose || e.dateHappen || new Date().toISOString(),
-          location: e.location || 'Hội trường Rùa',
-          capacity: e.capacity || 100,
-          registeredCount: e.registeredCount || 0,
-          trainingPoint: e.trainingPoint || 5,
-          trainingPointCategoryName: e.trainingPointCategoryName || 'Đánh giá rèn luyện',
-          sv5tCriteriaName: e.sv5tCriteriaName || e.criteriaName || undefined,
-          createdAt: e.createdAt ? new Date(e.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-          status,
-          bannerUrl: e.bannerUrl,
-          violationReason: e.violationReason,
-          reportCount: e.reportCount || 0,
-        }
-      })
-
-      return {
-        content: mapped,
-        totalElements: res?.totalElements || mapped.length,
-        totalPages: res?.totalPages || Math.ceil(mapped.length / (params?.size ?? 50)) || 1,
-      }
-    } catch (err) {
-      console.error('Failed to get admin events:', err)
-      return { content: [], totalElements: 0, totalPages: 0 }
-    }
+  }) => {
+    const [events, categories, criterias] = await Promise.all([
+      fetchAdminRecords('/events/admin', ['DRAFT', 'PUBLISHED', 'CLOSED', 'CANCELLED'], {
+        keyword: params?.keyword,
+      }),
+      apiClient.get('/point-categories').catch(() => []),
+      apiClient.get('/criterias').catch(() => []),
+    ])
+    const { names, codes, formatCriteria } = buildAdminBenefitLookups(
+      Array.isArray(categories) ? categories : [],
+      Array.isArray(criterias) ? criterias : Array.isArray(criterias?.data) ? criterias.data : []
+    )
+    const mapped = events
+      .map((event) => mapAdminEvent(event, names, codes, formatCriteria))
+      .filter(
+        (event) => !params?.status || params.status === 'ALL' || event.status === params.status
+      )
+    return paginate(mapped, params?.page, params?.size)
   },
 
   deleteEvent: async (id: string | number): Promise<boolean> => {
@@ -333,13 +610,14 @@ export const superAdminService = {
       const list = Array.isArray(res) ? res : res?.data || []
       return list.map((s: any) => {
         let status: SemesterStatus = 'UPCOMING'
-        if (s.status === 'ONGOING' || s.isCurrent) status = 'ONGOING'
+        if (s.status === 'ONGOING' || s.status === 'ACTIVE' || s.isCurrent) status = 'ONGOING'
         else if (s.status === 'COMPLETED' || s.status === 'FINISHED') status = 'COMPLETED'
 
         return {
           id: s.id,
           number: s.number,
-          academicYear: s.academicYear?.name || (s.academicYearId ? `Năm học ${s.academicYearId}` : '2025-2026'),
+          academicYear:
+            typeof s.academicYear === 'string' ? s.academicYear : (s.academicYear?.name ?? ''),
           startDate: s.startDate ? s.startDate.split('T')[0] : '',
           endDate: s.endDate ? s.endDate.split('T')[0] : '',
           status,
@@ -349,7 +627,7 @@ export const superAdminService = {
       })
     } catch (err) {
       console.error('Failed to get semesters:', err)
-      return []
+      throw err
     }
   },
 
@@ -357,14 +635,14 @@ export const superAdminService = {
     number: number
     startDate: string
     endDate: string
-    academicYearId?: number
+    academicYear: string
   }): Promise<boolean> => {
     try {
       await apiClient.post('/semesters/admin', {
         number: payload.number,
         startDate: payload.startDate,
         endDate: payload.endDate,
-        academicYearId: payload.academicYearId || 1,
+        academicYear: payload.academicYear,
       })
       return true
     } catch (err) {
@@ -379,7 +657,7 @@ export const superAdminService = {
       number: number
       startDate: string
       endDate: string
-      academicYearId?: number
+      academicYear: string
     }
   ): Promise<boolean> => {
     try {
@@ -387,7 +665,7 @@ export const superAdminService = {
         number: payload.number,
         startDate: payload.startDate,
         endDate: payload.endDate,
-        academicYearId: payload.academicYearId || 1,
+        academicYear: payload.academicYear,
       })
       return true
     } catch (err) {
@@ -413,7 +691,7 @@ export const superAdminService = {
     try {
       const res: any = await apiClient.get('/point-categories')
       const flatList: any[] = Array.isArray(res) ? res : res?.data || []
-      
+
       const mapItem = (c: any): SuperAdminPointCategory => ({
         id: c.id,
         name: c.name,
@@ -442,7 +720,7 @@ export const superAdminService = {
       return flatList.map(mapItem)
     } catch (err) {
       console.error('Failed to get point categories:', err)
-      return []
+      throw err
     }
   },
 
@@ -521,7 +799,7 @@ export const superAdminService = {
       return flatList.map(mapItem)
     } catch (err) {
       console.error('Failed to get criterias:', err)
-      return []
+      throw err
     }
   },
 
@@ -586,44 +864,28 @@ export const superAdminService = {
   // 8. SCHOOLS & MAJORS
   // ==========================================
   getSchools: async (): Promise<SuperAdminSchool[]> => {
-    try {
-      const res: any = await apiClient.get('/schools')
-      const schoolsList: any[] = Array.isArray(res) ? res : res?.data || []
-
-      // Also get majors to associate
-      let majorsList: any[] = []
-      try {
-        const majorsRes: any = await apiClient.get('/majors')
-        majorsList = Array.isArray(majorsRes) ? majorsRes : majorsRes?.data || []
-      } catch {
-        // Majors optional
-      }
-
-      return schoolsList.map((s: any) => {
-        const schoolMajors: SuperAdminMajor[] = majorsList
-          .filter((m: any) => m.schoolId === s.id)
-          .map((m: any) => ({
-            id: m.id,
-            code: m.code || `7480${m.id}`,
-            name: m.name,
-            schoolId: s.id,
-            isActive: m.isActive !== false,
-            studentCount: 0,
-          }))
-
+    const schools = await fetchAllPages('/schools')
+    return Promise.all(
+      schools.map(async (school) => {
+        const detail: any = await apiClient.get('/schools/' + school.id)
+        const majors: SuperAdminMajor[] = (detail.majors ?? []).map((major: any) => ({
+          id: major.id,
+          code: major.code ?? '',
+          name: major.name,
+          schoolId: school.id,
+          isActive: major.isActive,
+          studentCount: major.studentCount,
+        }))
         return {
-          id: s.id,
-          name: s.name,
-          description: s.description,
-          isActive: s.isActive !== false,
-          majorsCount: schoolMajors.length,
-          majors: schoolMajors,
+          id: school.id,
+          name: school.name,
+          description: school.description,
+          isActive: school.isActive,
+          majorsCount: majors.length,
+          majors,
         }
       })
-    } catch (err) {
-      console.error('Failed to get schools:', err)
-      return []
-    }
+    )
   },
 
   createSchool: async (payload: { name: string; description?: string }): Promise<boolean> => {
@@ -659,7 +921,11 @@ export const superAdminService = {
     }
   },
 
-  createMajor: async (payload: { code: string; name: string; schoolId: number }): Promise<boolean> => {
+  createMajor: async (payload: {
+    code: string
+    name: string
+    schoolId: number
+  }): Promise<boolean> => {
     try {
       await apiClient.post('/majors/admin', payload)
       return true

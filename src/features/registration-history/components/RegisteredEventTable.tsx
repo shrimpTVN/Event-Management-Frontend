@@ -1,11 +1,15 @@
+import { Tooltip } from '@/components/ui/tooltip'
+import { RegisteredEventBenefits } from './RegisteredEventBenefits'
+import {
+  studentAttendanceStep,
+  studentAttendanceLabel,
+  studentAttendanceBadgeClass,
+} from '@/shared/utils/attendanceState'
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, MapPin } from 'lucide-react'
 import { formatEventTitle } from '@/shared'
-import {
-  type RegisteredEventItem,
-  normalizeHistoryStatus,
-} from '../types/history.types'
+import { type RegisteredEventItem, normalizeHistoryStatus } from '../types/history.types'
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge'
 import { cn } from '@/lib/utils'
 
@@ -30,9 +34,14 @@ export const RegisteredEventTable: React.FC<RegisteredEventTableProps> = ({
     switch (normalized) {
       case 'UPCOMING':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#E9F1FC] text-[#1E5790] dark:bg-blue-950/60 dark:text-blue-300 whitespace-nowrap">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#1E5790] dark:bg-blue-400 shrink-0" />
-            <span>Đã đăng ký</span>
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold',
+              studentAttendanceBadgeClass(status)
+            )}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+            <span>{studentAttendanceLabel(status)}</span>
           </span>
         )
       case 'COMPLETED':
@@ -61,14 +70,6 @@ export const RegisteredEventTable: React.FC<RegisteredEventTableProps> = ({
     }
   }
 
-  // Tinh gọn quyền lợi: Bỏ các từ schema dài dòng như "Mã tiêu chí:"
-  const cleanBenefitText = (text: string): string => {
-    return text
-      .replace(/Mã tiêu chí:\s*/gi, 'Điều ')
-      .replace(/Tiêu chí\s*/gi, '')
-      .trim()
-  }
-
   return (
     <div className="p-3 sm:p-4 bg-[#F9FAFB]/60 dark:bg-background/40 rounded-2xl overflow-x-auto custom-scrollbar border border-border/40">
       <div className="min-w-[860px]">
@@ -89,19 +90,10 @@ export const RegisteredEventTable: React.FC<RegisteredEventTableProps> = ({
             const organizerName = event.organizer?.name || 'Ban Tổ Chức'
             const organizerAvatar = event.organizer?.avatarUrl
             const normalizedStatus = normalizeHistoryStatus(event.status)
-            const isSelfAttendance = event.attendanceMethod === 'STUDENT_PROOF'
-            const canCancel = event.canCancel ?? (normalizedStatus === 'UPCOMING')
-
-            const rawBenefits = Array.isArray(event.benefits) ? event.benefits : []
-            const benefitsList =
-              rawBenefits.length > 0
-                ? rawBenefits
-                : ([event.pointsCategory, event.criteriaSv5t].filter(Boolean) as string[])
-            const extraCount =
-              typeof event.extraBenefitsCount === 'number'
-                ? event.extraBenefitsCount
-                : Math.max(0, benefitsList.length - 2)
-            const displayedBenefits = extraCount > 0 ? benefitsList.slice(0, 2) : benefitsList
+            const isSelfAttendance = studentAttendanceStep(event.status) != null
+            const canCancel =
+              (event.canCancel ?? normalizedStatus === 'UPCOMING') &&
+              ['REGISTERED', 'UPCOMING', 'APPROVED'].includes(event.status)
 
             return (
               <div
@@ -151,40 +143,23 @@ export const RegisteredEventTable: React.FC<RegisteredEventTableProps> = ({
                 <div className="col-span-3 space-y-1 text-xs pr-3">
                   <div className="flex items-center gap-1.5 text-foreground font-medium">
                     <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="truncate">{event.timeHappen || event.dateHappen || 'Đang cập nhật'}</span>
+                    <span className="truncate">
+                      {event.timeHappen || event.dateHappen || 'Đang cập nhật'}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
                     <MapPin className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate max-w-[200px]" title={event.location || 'Hội trường Rùa'}>
-                      {event.location || 'Hội trường Rùa'}
-                    </span>
+                    <Tooltip content={event.location || 'Hội trường Rùa'}>
+                      <span className="truncate max-w-[200px]">
+                        {event.location || 'Hội trường Rùa'}
+                      </span>
+                    </Tooltip>
                   </div>
                 </div>
 
                 {/* 3. Quyền lợi */}
-                <div className="col-span-2 pr-2" onClick={(e) => e.stopPropagation()}>
-                  {displayedBenefits.length > 0 ? (
-                    <div className="flex flex-wrap items-center gap-1">
-                      {displayedBenefits.map((b, bIdx) => (
-                        <span
-                          key={bIdx}
-                          title={cleanBenefitText(b)}
-                          className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium bg-[#EFF5FC] text-[#065C85] dark:bg-blue-950/60 dark:text-blue-300"
-                        >
-                          <span className="truncate max-w-[160px]">{cleanBenefitText(b)}</span>
-                        </span>
-                      ))}
-                      {extraCount > 0 ? (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-medium bg-muted text-muted-foreground">
-                          +{extraCount}
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground italic text-[11px]">
-                      Theo thông báo BTC
-                    </span>
-                  )}
+                <div className="col-span-2 min-w-0 pr-3">
+                  <RegisteredEventBenefits event={event} />
                 </div>
 
                 {/* 4. Trạng thái (Căn giữa theo trục dọc chuẩn chỉnh) */}
@@ -193,7 +168,10 @@ export const RegisteredEventTable: React.FC<RegisteredEventTableProps> = ({
                 </div>
 
                 {/* 5. Nút Thao tác (Căn giữa theo trục dọc, không còn lệch) */}
-                <div className="col-span-1 flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+                <div
+                  className="col-span-1 flex items-center justify-end"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {normalizedStatus === 'UPCOMING' && (
                     <div className="flex items-center gap-1.5">
                       {isSelfAttendance && (
@@ -202,7 +180,9 @@ export const RegisteredEventTable: React.FC<RegisteredEventTableProps> = ({
                           onClick={() => onOpenAttendanceModal?.(event)}
                           className="h-7 px-2.5 text-xs font-semibold text-white bg-[#1B4B8A] hover:bg-[#153a6b] rounded-lg transition-colors shadow-2xs cursor-pointer whitespace-nowrap"
                         >
-                          Điểm danh
+                          {studentAttendanceStep(event.status) === 'check-out'
+                            ? 'Gửi ảnh cuối buổi'
+                            : 'Điểm danh'}
                         </button>
                       )}
                       {canCancel && (
@@ -217,9 +197,9 @@ export const RegisteredEventTable: React.FC<RegisteredEventTableProps> = ({
                           Hủy
                         </button>
                       )}
-                      {!isSelfAttendance && !canCancel && (
+                      {!isSelfAttendance && !canCancel && event.status !== 'SPENDING_CONFIRM' && (
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          Đã đăng ký
+                          {studentAttendanceLabel(event.status)}
                         </span>
                       )}
                     </div>

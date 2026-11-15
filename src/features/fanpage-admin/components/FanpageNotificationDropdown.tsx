@@ -1,15 +1,7 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  Bell,
-  CheckCheck,
-  Calendar,
-  Award,
-  ShieldCheck,
-  X,
-  Flag,
-  Users,
-} from 'lucide-react'
+import { Bell, CheckCheck, Calendar, Award, ShieldCheck, X, Flag, Users } from 'lucide-react'
 import {
   useFanpageNotifications,
   useFanpageUnreadNotificationCount,
@@ -118,41 +110,25 @@ export const FanpageNotificationDropdown: React.FC<FanpageNotificationDropdownPr
         icon: <Award className="w-2.5 h-2.5 text-white" />,
       }
     }
-    if (
-      text.includes('approved') ||
-      text.includes('duyệt') ||
-      text.includes('chấp thuận')
-    ) {
+    if (text.includes('approved') || text.includes('duyệt') || text.includes('chấp thuận')) {
       return {
         bgColor: 'bg-emerald-500',
         icon: <ShieldCheck className="w-2.5 h-2.5 text-white" />,
       }
     }
-    if (
-      text.includes('rejected') ||
-      text.includes('từ chối') ||
-      text.includes('suspended')
-    ) {
+    if (text.includes('rejected') || text.includes('từ chối') || text.includes('suspended')) {
       return {
         bgColor: 'bg-rose-500',
         icon: <X className="w-2.5 h-2.5 text-white" />,
       }
     }
-    if (
-      text.includes('member') ||
-      text.includes('thành viên') ||
-      text.includes('tham gia')
-    ) {
+    if (text.includes('member') || text.includes('thành viên') || text.includes('tham gia')) {
       return {
         bgColor: 'bg-indigo-500',
         icon: <Users className="w-2.5 h-2.5 text-white" />,
       }
     }
-    if (
-      text.includes('event') ||
-      text.includes('sự kiện') ||
-      text.includes('lịch trình')
-    ) {
+    if (text.includes('event') || text.includes('sự kiện') || text.includes('lịch trình')) {
       return {
         bgColor: 'bg-[#0866FF]',
         icon: <Calendar className="w-2.5 h-2.5 text-white" />,
@@ -188,9 +164,7 @@ export const FanpageNotificationDropdown: React.FC<FanpageNotificationDropdownPr
   }
 
   const filteredNotifications =
-    filterTab === 'UNREAD'
-      ? notifications.filter((n) => n.status === 'UNREAD')
-      : notifications
+    filterTab === 'UNREAD' ? notifications.filter((n) => n.status === 'UNREAD') : notifications
 
   return (
     <div
@@ -203,9 +177,7 @@ export const FanpageNotificationDropdown: React.FC<FanpageNotificationDropdownPr
       <div className="px-2 pt-1 pb-2 border-b border-[#EDF0F4] dark:border-border/60 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="font-sans font-bold text-base text-foreground">
-              Thông báo Fanpage
-            </h3>
+            <h3 className="font-sans font-bold text-base text-foreground">Thông báo Fanpage</h3>
             {unreadCount > 0 && (
               <span className="px-1.5 py-0.5 text-[11px] font-semibold bg-primary/10 text-primary rounded-full">
                 {unreadCount} mới
@@ -214,16 +186,17 @@ export const FanpageNotificationDropdown: React.FC<FanpageNotificationDropdownPr
           </div>
 
           {unreadCount > 0 && (
-            <button
-              type="button"
-              onClick={() => markAllAsRead()}
-              disabled={isMarkingAllAsRead}
-              className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-medium cursor-pointer transition-colors"
-              title="Đánh dấu tất cả là đã đọc"
-            >
-              <CheckCheck className="w-3.5 h-3.5" />
-              <span>Đã đọc tất cả</span>
-            </button>
+            <Tooltip content="Đánh dấu tất cả là đã đọc">
+              <button
+                type="button"
+                onClick={() => markAllAsRead()}
+                disabled={isMarkingAllAsRead}
+                className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-medium cursor-pointer transition-colors"
+              >
+                <CheckCheck className="w-3.5 h-3.5" />
+                <span>Đã đọc tất cả</span>
+              </button>
+            </Tooltip>
           )}
         </div>
 
@@ -253,9 +226,7 @@ export const FanpageNotificationDropdown: React.FC<FanpageNotificationDropdownPr
             {unreadCount > 0 && (
               <span
                 className={`text-[10px] px-1 rounded-full ${
-                  filterTab === 'UNREAD'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-primary text-white'
+                  filterTab === 'UNREAD' ? 'bg-white/20 text-white' : 'bg-primary text-white'
                 }`}
               >
                 {unreadCount}
@@ -288,9 +259,7 @@ export const FanpageNotificationDropdown: React.FC<FanpageNotificationDropdownPr
                 key={`fanpage-notif-${item.id}`}
                 onClick={() => handleItemClick(item)}
                 className={`p-2.5 rounded-xl transition-colors flex items-start gap-3 cursor-pointer ${
-                  isUnread
-                    ? 'bg-blue-50/50 dark:bg-blue-950/20'
-                    : 'hover:bg-muted/50'
+                  isUnread ? 'bg-blue-50/50 dark:bg-blue-950/20' : 'hover:bg-muted/50'
                 }`}
               >
                 {/* Avatar / Icon with mini badge */}
@@ -359,4 +328,3 @@ export const FanpageNotificationDropdown: React.FC<FanpageNotificationDropdownPr
     </div>
   )
 }
-

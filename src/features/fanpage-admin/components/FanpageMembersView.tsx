@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -24,18 +25,13 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DateSortButton } from './DateSortButton'
+import { sortByDate, type DateSortDirection } from '../utils/dateSort'
 import { useAuthStore } from '@/store/authStore'
 import { useUserFanpagesStore } from '@/features/fanpage/store/userFanpagesStore'
 import { apiClient } from '@/shared'
-import type {
-  FanpageMember,
-  FanpageInvitation,
-  FanpageSummary,
-} from '../types/fanpageAdmin.types'
-import {
-  MOCK_FANPAGE_MEMBERS,
-  fanpageAdminService,
-} from '../services/fanpageAdminService'
+import type { FanpageMember, FanpageInvitation, FanpageSummary } from '../types/fanpageAdmin.types'
+import { MOCK_FANPAGE_MEMBERS, fanpageAdminService } from '../services/fanpageAdminService'
 
 interface FanpageMembersViewProps {
   currentFanpage?: FanpageSummary
@@ -53,28 +49,133 @@ const DEFAULT_SYSTEM_USERS: SystemUserSuggestion[] = [
   { id: '1', email: 'loc@student.ctu.edu.vn', fullName: 'Đoàn Tài Lộc', studentId: 'B2300000' },
   { id: '2', email: 'organizer@ctu.edu.vn', fullName: 'Nguyễn Minh Anh', studentId: 'CB-0104' },
   { id: '3', email: 'admin@ctu.edu.vn', fullName: 'Quản Trị Hệ Thống' },
-  { id: '101', email: 'anhlhb2100123@student.ctu.edu.vn', fullName: 'Lê Hoàng Anh', studentId: 'B2100123' },
-  { id: '102', email: 'bichtnb2100456@student.ctu.edu.vn', fullName: 'Trần Ngọc Bích', studentId: 'B2100456' },
-  { id: '103', email: 'minhnvb2200789@student.ctu.edu.vn', fullName: 'Nguyễn Văn Minh', studentId: 'B2200789' },
-  { id: '104', email: 'thaoptb2200321@student.ctu.edu.vn', fullName: 'Phạm Thu Thảo', studentId: 'B2200321' },
-  { id: '105', email: 'huyvqb2300654@student.ctu.edu.vn', fullName: 'Võ Quốc Huy', studentId: 'B2300654' },
-  { id: '106', email: 'khoaddb2109876@student.ctu.edu.vn', fullName: 'Đỗ Đăng Khoa', studentId: 'B2109876' },
+  {
+    id: '101',
+    email: 'anhlhb2100123@student.ctu.edu.vn',
+    fullName: 'Lê Hoàng Anh',
+    studentId: 'B2100123',
+  },
+  {
+    id: '102',
+    email: 'bichtnb2100456@student.ctu.edu.vn',
+    fullName: 'Trần Ngọc Bích',
+    studentId: 'B2100456',
+  },
+  {
+    id: '103',
+    email: 'minhnvb2200789@student.ctu.edu.vn',
+    fullName: 'Nguyễn Văn Minh',
+    studentId: 'B2200789',
+  },
+  {
+    id: '104',
+    email: 'thaoptb2200321@student.ctu.edu.vn',
+    fullName: 'Phạm Thu Thảo',
+    studentId: 'B2200321',
+  },
+  {
+    id: '105',
+    email: 'huyvqb2300654@student.ctu.edu.vn',
+    fullName: 'Võ Quốc Huy',
+    studentId: 'B2300654',
+  },
+  {
+    id: '106',
+    email: 'khoaddb2109876@student.ctu.edu.vn',
+    fullName: 'Đỗ Đăng Khoa',
+    studentId: 'B2109876',
+  },
   { id: '117', email: 'test@ctu.edu.vn', fullName: 'Nguyễn Văn A' },
-  { id: '120', email: 'namnhb2301001@student.ctu.edu.vn', fullName: 'Nguyễn Hoài Nam', studentId: 'B2301001' },
-  { id: '121', email: 'linhttb2301002@student.ctu.edu.vn', fullName: 'Trần Trúc Linh', studentId: 'B2301002' },
-  { id: '122', email: 'duyptb2301003@student.ctu.edu.vn', fullName: 'Phan Thanh Duy', studentId: 'B2301003' },
-  { id: '123', email: 'nhilpb2301004@student.ctu.edu.vn', fullName: 'Lê Phương Nhi', studentId: 'B2301004' },
-  { id: '124', email: 'quangvvb2301005@student.ctu.edu.vn', fullName: 'Vũ Văn Quang', studentId: 'B2301005' },
-  { id: '125', email: 'maihnb2201006@student.ctu.edu.vn', fullName: 'Huỳnh Ngọc Mai', studentId: 'B2201006' },
-  { id: '126', email: 'phatdnb2201007@student.ctu.edu.vn', fullName: 'Đặng Tấn Phát', studentId: 'B2201007' },
-  { id: '127', email: 'tramntb2201008@student.ctu.edu.vn', fullName: 'Nguyễn Thùy Trâm', studentId: 'B2201008' },
-  { id: '128', email: 'trungldb2201009@student.ctu.edu.vn', fullName: 'Lâm Đức Trung', studentId: 'B2201009' },
-  { id: '129', email: 'anhntb2201010@student.ctu.edu.vn', fullName: 'Ngô Tuấn Anh', studentId: 'B2201010' },
-  { id: '130', email: 'hienttb2101011@student.ctu.edu.vn', fullName: 'Trịnh Thu Hiền', studentId: 'B2101011' },
-  { id: '131', email: 'hoangtmb2101012@student.ctu.edu.vn', fullName: 'Tạ Minh Hoàng', studentId: 'B2101012' },
-  { id: '132', email: 'vyntb2101013@student.ctu.edu.vn', fullName: 'Nguyễn Tường Vy', studentId: 'B2101013' },
-  { id: '133', email: 'sonptb2101014@student.ctu.edu.vn', fullName: 'Phạm Thái Sơn', studentId: 'B2101014' },
-  { id: '134', email: 'ngadtb2101015@student.ctu.edu.vn', fullName: 'Đỗ Thanh Nga', studentId: 'B2101015' },
+  {
+    id: '120',
+    email: 'namnhb2301001@student.ctu.edu.vn',
+    fullName: 'Nguyễn Hoài Nam',
+    studentId: 'B2301001',
+  },
+  {
+    id: '121',
+    email: 'linhttb2301002@student.ctu.edu.vn',
+    fullName: 'Trần Trúc Linh',
+    studentId: 'B2301002',
+  },
+  {
+    id: '122',
+    email: 'duyptb2301003@student.ctu.edu.vn',
+    fullName: 'Phan Thanh Duy',
+    studentId: 'B2301003',
+  },
+  {
+    id: '123',
+    email: 'nhilpb2301004@student.ctu.edu.vn',
+    fullName: 'Lê Phương Nhi',
+    studentId: 'B2301004',
+  },
+  {
+    id: '124',
+    email: 'quangvvb2301005@student.ctu.edu.vn',
+    fullName: 'Vũ Văn Quang',
+    studentId: 'B2301005',
+  },
+  {
+    id: '125',
+    email: 'maihnb2201006@student.ctu.edu.vn',
+    fullName: 'Huỳnh Ngọc Mai',
+    studentId: 'B2201006',
+  },
+  {
+    id: '126',
+    email: 'phatdnb2201007@student.ctu.edu.vn',
+    fullName: 'Đặng Tấn Phát',
+    studentId: 'B2201007',
+  },
+  {
+    id: '127',
+    email: 'tramntb2201008@student.ctu.edu.vn',
+    fullName: 'Nguyễn Thùy Trâm',
+    studentId: 'B2201008',
+  },
+  {
+    id: '128',
+    email: 'trungldb2201009@student.ctu.edu.vn',
+    fullName: 'Lâm Đức Trung',
+    studentId: 'B2201009',
+  },
+  {
+    id: '129',
+    email: 'anhntb2201010@student.ctu.edu.vn',
+    fullName: 'Ngô Tuấn Anh',
+    studentId: 'B2201010',
+  },
+  {
+    id: '130',
+    email: 'hienttb2101011@student.ctu.edu.vn',
+    fullName: 'Trịnh Thu Hiền',
+    studentId: 'B2101011',
+  },
+  {
+    id: '131',
+    email: 'hoangtmb2101012@student.ctu.edu.vn',
+    fullName: 'Tạ Minh Hoàng',
+    studentId: 'B2101012',
+  },
+  {
+    id: '132',
+    email: 'vyntb2101013@student.ctu.edu.vn',
+    fullName: 'Nguyễn Tường Vy',
+    studentId: 'B2101013',
+  },
+  {
+    id: '133',
+    email: 'sonptb2101014@student.ctu.edu.vn',
+    fullName: 'Phạm Thái Sơn',
+    studentId: 'B2101014',
+  },
+  {
+    id: '134',
+    email: 'ngadtb2101015@student.ctu.edu.vn',
+    fullName: 'Đỗ Thanh Nga',
+    studentId: 'B2101015',
+  },
 ]
 
 // Hàm loại bỏ dấu tiếng Việt để tìm kiếm không dấu
@@ -88,7 +189,7 @@ const removeVietnameseTones = (str: string): string => {
 
 // Hàm format ngày hiển thị chuẩn Việt Nam dd/MM/yyyy
 const formatDateDisplay = (dateStr?: string): string => {
-  if (!dateStr) return '05/11/2026'
+  if (!dateStr) return '—'
   const trimmed = dateStr.trim()
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) return trimmed
   const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/)
@@ -103,7 +204,9 @@ const formatDateDisplay = (dateStr?: string): string => {
       const year = d.getFullYear()
       return `${day}/${month}/${year}`
     }
-  } catch {}
+  } catch {
+    // Preserve the original value if date formatting fails.
+  }
   return trimmed
 }
 
@@ -131,13 +234,17 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       (m) =>
         (m.role === 'ADMIN' || m.title === 'Quản trị viên') &&
         ((loggedInUser?.id && String(m.userId) === String(loggedInUser.id)) ||
-          (loggedInUser?.email && m.email && m.email.toLowerCase() === loggedInUser.email.toLowerCase()))
+          (loggedInUser?.email &&
+            m.email &&
+            m.email.toLowerCase() === loggedInUser.email.toLowerCase()))
     )
   )
 
   // Fetch real invitations from backend (CHỈ DÀNH CHO QUẢN TRỊ VIÊN)
   // Lưu ý: Backend cấm sinh viên/cộng tác viên gọi API /fanpage-member-invitations/fanpage/{id} (trả về 401 AuthException)
-  const { data: serverInvitations = [], isLoading: isLoadingInvitations } = useQuery<FanpageInvitation[]>({
+  const { data: serverInvitations = [], isLoading: isLoadingInvitations } = useQuery<
+    FanpageInvitation[]
+  >({
     queryKey: ['fanpage-invitations', targetFpId],
     queryFn: () => fanpageAdminService.getFanpageInvitations(targetFpId),
     enabled: Boolean(targetFpId) && isCurrentUserAdmin,
@@ -147,12 +254,14 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
     serverMembers.length > 0
       ? serverMembers
       : propMembers && propMembers.length > 0
-      ? propMembers
-      : MOCK_FANPAGE_MEMBERS
+        ? propMembers
+        : MOCK_FANPAGE_MEMBERS
   )
   const [invitations, setInvitations] = useState<FanpageInvitation[]>(serverInvitations)
   const [activeTab, setActiveTab] = useState<'MEMBERS' | 'INVITATIONS'>('MEMBERS')
   const [searchTerm, setSearchTerm] = useState('')
+  const [joinedDateSort, setJoinedDateSort] = useState<DateSortDirection>(null)
+  const [invitationDateSort, setInvitationDateSort] = useState<DateSortDirection>(null)
 
   // Popover menus state
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false)
@@ -253,16 +362,14 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
   // Handle click outside for dropdowns & email suggestions
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
-      if (
-        headerMenuRef.current &&
-        !headerMenuRef.current.contains(event.target as Node)
-      ) {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(event.target as Node)) {
         setIsHeaderMenuOpen(false)
       }
       if (
         actionMenuRef.current &&
         !actionMenuRef.current.contains(event.target as Node) &&
-        (!actionMenuTriggerRef.current || !actionMenuTriggerRef.current.contains(event.target as Node))
+        (!actionMenuTriggerRef.current ||
+          !actionMenuTriggerRef.current.contains(event.target as Node))
       ) {
         handleCloseActionMenu()
       }
@@ -307,8 +414,11 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
   const currentUser =
     (members || []).find(
       (m) =>
-        (loggedInUser && (String(m?.userId) === String(loggedInUser.id) || m?.email === loggedInUser.email)) ||
-        (loggedInUser?.email && m?.email && m.email.toLowerCase() === loggedInUser.email.toLowerCase())
+        (loggedInUser &&
+          (String(m?.userId) === String(loggedInUser.id) || m?.email === loggedInUser.email)) ||
+        (loggedInUser?.email &&
+          m?.email &&
+          m.email.toLowerCase() === loggedInUser.email.toLowerCase())
     ) ||
     (members || []).find((m) => m?.role === 'ADMIN') ||
     (members || [])[0]
@@ -413,10 +523,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       await queryClient.invalidateQueries({ queryKey: ['fanpage-members', targetFpId] })
       setInviteEmail('')
       setIsAddModalOpen(false)
-      showFeedback(
-        'success',
-        `Đã gửi lời mời tham gia tới ${cleanEmail} thành công!`
-      )
+      showFeedback('success', `Đã gửi lời mời tham gia tới ${cleanEmail} thành công!`)
     } catch (err: any) {
       console.warn('Backend invite-member call error', err)
       const msg = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi gửi lời mời'
@@ -461,7 +568,8 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       )
     } catch (err: any) {
       console.error('Failed to appoint fanpage admin', err)
-      const msg = err?.response?.data?.message || err?.message || 'Không thể chuyển quyền Quản trị viên!'
+      const msg =
+        err?.response?.data?.message || err?.message || 'Không thể chuyển quyền Quản trị viên!'
       showFeedback('error', msg)
     }
 
@@ -498,7 +606,9 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
 
     try {
       useUserFanpagesStore.getState().removeFanpage(targetFpId)
-    } catch {}
+    } catch {
+      // Refresh the server state below if the local fanpage cache cannot be updated.
+    }
 
     queryClient.invalidateQueries({ queryKey: ['fanpage-members', targetFpId] })
     queryClient.invalidateQueries({ queryKey: ['admin-available-fanpages'] })
@@ -524,7 +634,10 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
   // 4. Xóa Cộng tác viên khỏi Fanpage
   const handleDeleteMember = async (member: FanpageMember) => {
     if (member.role === 'ADMIN') {
-      showFeedback('warning', 'Không thể xóa Quản trị viên. Hãy chuyển quyền trước nếu cần thay đổi!')
+      showFeedback(
+        'warning',
+        'Không thể xóa Quản trị viên. Hãy chuyển quyền trước nếu cần thay đổi!'
+      )
       return
     }
     if (
@@ -533,7 +646,11 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       )
     ) {
       try {
-        const ok = await fanpageAdminService.removeFanpageMember(targetFpId, member.id, member.email)
+        const ok = await fanpageAdminService.removeFanpageMember(
+          targetFpId,
+          member.id,
+          member.email
+        )
         if (ok) {
           queryClient.invalidateQueries({ queryKey: ['fanpage-members', targetFpId] })
           queryClient.invalidateQueries({ queryKey: ['admin-available-fanpages'] })
@@ -552,9 +669,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
 
   // 5. Khóa / Mở khóa quyền thành viên
   const handleToggleActive = (id: string) => {
-    setMembers((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, isActive: !m.isActive } : m))
-    )
+    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, isActive: !m.isActive } : m)))
   }
 
   // 6. Xử lý Lời mời
@@ -618,22 +733,44 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
   // Filtered members list
   const filteredMembers = (members || []).filter((m) => {
     if (!m) return false
-    const nameMatch = String(m.fullName || '').toLowerCase().includes(searchLower)
-    const emailMatch = String(m.email || '').toLowerCase().includes(searchLower)
-    const staffIdMatch = String(m.staffId || '').toLowerCase().includes(searchLower)
+    const nameMatch = String(m.fullName || '')
+      .toLowerCase()
+      .includes(searchLower)
+    const emailMatch = String(m.email || '')
+      .toLowerCase()
+      .includes(searchLower)
+    const staffIdMatch = String(m.staffId || '')
+      .toLowerCase()
+      .includes(searchLower)
     return nameMatch || emailMatch || staffIdMatch
   })
 
   // Filtered invitations list
   const filteredInvitations = (invitations || []).filter((i) => {
     if (!i) return false
-    const emailMatch = String(i.email || '').toLowerCase().includes(searchLower)
-    const nameMatch = String((i as any).name || i.invitedBy || '').toLowerCase().includes(searchLower)
+    const emailMatch = String(i.email || '')
+      .toLowerCase()
+      .includes(searchLower)
+    const nameMatch = String((i as any).name || i.invitedBy || '')
+      .toLowerCase()
+      .includes(searchLower)
     return emailMatch || nameMatch
   })
 
+  const sortedMembers = sortByDate(
+    filteredMembers,
+    joinedDateSort,
+    (member) => member.joinedAt || (member as any).createdAt
+  )
+  const sortedInvitations = sortByDate(
+    filteredInvitations,
+    invitationDateSort,
+    (invitation) => invitation.invitedAt || invitation.createdAt
+  )
   const adminCount = (members || []).filter((m) => (m?.role || '').toUpperCase() === 'ADMIN').length
-  const collaboratorCount = (members || []).filter((m) => (m?.role || '').toUpperCase() !== 'ADMIN').length
+  const collaboratorCount = (members || []).filter(
+    (m) => (m?.role || '').toUpperCase() !== 'ADMIN'
+  ).length
 
   return (
     <div className="w-full text-left animate-in fade-in duration-200">
@@ -650,7 +787,8 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
               Quản lý thành viên ban tổ chức
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Theo dõi danh sách quản trị viên, cộng tác viên và quản lý lời mời tham gia ban tổ chức.
+              Theo dõi danh sách quản trị viên, cộng tác viên và quản lý lời mời tham gia ban tổ
+              chức.
             </p>
           </div>
 
@@ -669,37 +807,39 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
 
             {/* Button ⋯ with dropdown containing "Rời khỏi Fanpage" */}
             <div className="relative">
-              <button
-                type="button"
-                onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
-                className="h-9 w-9 rounded-xl border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-                title="Tùy chọn khác"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
-
-            {isHeaderMenuOpen && (
-              <div
-                ref={headerMenuRef}
-                className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-[#E5E7EB] dark:border-border bg-white dark:bg-card p-1.5 shadow-xl z-50 text-left animate-in fade-in-0 zoom-in-95 select-none"
-              >
+              <Tooltip content="Tùy chọn khác">
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsHeaderMenuOpen(false)
-                    handleOpenLeaveModal()
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-[#DC2626] hover:bg-[#FEE2E2]/50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
+                  onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
+                  className="h-9 w-9 rounded-xl border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                  aria-label="Tùy chọn khác"
                 >
-                  <LogOut className="h-3.5 w-3.5 text-[#DC2626] shrink-0" />
-                  <span>Rời khỏi Fanpage</span>
+                  <MoreHorizontal className="h-4 w-4" />
                 </button>
-              </div>
-            )}
+              </Tooltip>
+
+              {isHeaderMenuOpen && (
+                <div
+                  ref={headerMenuRef}
+                  className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-[#E5E7EB] dark:border-border bg-white dark:bg-card p-1.5 shadow-xl z-50 text-left animate-in fade-in-0 zoom-in-95 select-none"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsHeaderMenuOpen(false)
+                      handleOpenLeaveModal()
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-[#DC2626] hover:bg-[#FEE2E2]/50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <LogOut className="h-3.5 w-3.5 text-[#DC2626] shrink-0" />
+                    <span>Rời khỏi Fanpage</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
       {/* Feedback Banner */}
       {feedback && (
@@ -708,8 +848,8 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
             feedback.type === 'success'
               ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
               : feedback.type === 'warning'
-              ? 'bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
-              : 'bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                ? 'bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                : 'bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
           }`}
         >
           <div className="flex items-center gap-2">
@@ -806,7 +946,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
           </div>
 
           {/* 3. Vùng chứa các Card thành viên bo tròn, cách nhau */}
-          <div className="p-3 sm:p-4 bg-[#F9FAFB]/60 dark:bg-background/40 overflow-x-auto rounded-xl min-h-[420px] pb-6">
+          <div className="p-3 sm:p-4 bg-[#F9FAFB]/60 dark:bg-background/40 overflow-x-auto rounded-xl">
             <div className="min-w-[760px]">
               {/* Tab 1: Thành viên */}
               {activeTab === 'MEMBERS' && (
@@ -816,7 +956,13 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                     <div>Thành viên</div>
                     <div>Liên hệ</div>
                     <div>Vai trò</div>
-                    <div>Ngày tham gia</div>
+                    <div>
+                      <DateSortButton
+                        label="Ngày tham gia"
+                        direction={joinedDateSort}
+                        onChange={setJoinedDateSort}
+                      />
+                    </div>
                     <div className="text-right min-w-[140px]">Thao tác</div>
                   </div>
 
@@ -857,20 +1003,26 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                         Không tìm thấy thành viên nào phù hợp với bộ lọc.
                       </div>
                     ) : (
-                      filteredMembers.map((mem) => {
+                      sortedMembers.map((mem) => {
                         const isSelf = Boolean(
-                          (currentUser && (mem.id === currentUser.id || String(mem.userId) === String(currentUser.userId))) ||
-                          (loggedInUser && (String(mem.userId) === String(loggedInUser.id) || mem.email === loggedInUser.email))
+                          (currentUser &&
+                            (mem.id === currentUser.id ||
+                              String(mem.userId) === String(currentUser.userId))) ||
+                          (loggedInUser &&
+                            (String(mem.userId) === String(loggedInUser.id) ||
+                              mem.email === loggedInUser.email))
                         )
                         const isAdmin = mem.role === 'ADMIN'
                         const displayName =
                           mem.fullName ||
                           `${(mem as any).lastName || ''} ${(mem as any).firstName || ''}`.trim() ||
-                          (isSelf ? (loggedInUser?.name || 'Nguyễn Minh Anh') : 'Thành viên')
+                          (isSelf ? loggedInUser?.name || 'Nguyễn Minh Anh' : 'Thành viên')
                         const displayStaffId =
                           mem.staffId ||
-                          (mem.userId === '2' || mem.id === 'mem-2' ? 'CB-0104' : `TV-${mem.userId || mem.id.replace('mem-', '')}`)
-                        
+                          (mem.userId === '2' || mem.id === 'mem-2'
+                            ? 'CB-0104'
+                            : `TV-${mem.userId || mem.id.replace('mem-', '')}`)
+
                         // Định dạng ngày chuẩn dd/MM/yyyy
                         const displayJoinedAt = formatDateDisplay(
                           mem.joinedAt || (mem as any).createdAt
@@ -917,7 +1069,9 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                             {/* Cột 2: Liên hệ */}
                             <div className="space-y-0.5 text-xs pr-2 min-w-0">
                               <p className="text-foreground font-medium truncate">
-                                {mem.email || (isSelf && loggedInUser?.email) || 'organizer@ctu.edu.vn'}
+                                {mem.email ||
+                                  (isSelf && loggedInUser?.email) ||
+                                  'organizer@ctu.edu.vn'}
                               </p>
                               <p className="text-[11px] text-[#6B7280] dark:text-muted-foreground">
                                 {mem.phone || '0912 345 678'}
@@ -966,53 +1120,67 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                                     }`}
                                   >
                                     {/* 1. Xem thông tin liên hệ / chi tiết */}
-                                    <button
-                                      type="button"
-                                      onClick={() => setViewingMember(mem)}
-                                      className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#1B4B8A] hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors cursor-pointer"
-                                      title="Xem thông tin chi tiết"
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                    </button>
+                                    <Tooltip content="Xem thông tin chi tiết">
+                                      <button
+                                        type="button"
+                                        onClick={() => setViewingMember(mem)}
+                                        className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#1B4B8A] hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                                        aria-label="Xem thông tin chi tiết"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </button>
+                                    </Tooltip>
 
                                     {/* 2. Sao chép email */}
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleCopyEmail(
-                                          mem.email || (isSelf ? loggedInUser?.email || '' : ''),
-                                          mem.id
-                                        )
-                                      }
-                                      className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#1B4B8A] hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors cursor-pointer"
-                                      title={
+                                    <Tooltip
+                                      content={
                                         copiedMemberId === mem.id
                                           ? 'Đã sao chép!'
                                           : 'Sao chép email'
                                       }
                                     >
-                                      {copiedMemberId === mem.id ? (
-                                        <Check className="h-4 w-4 text-emerald-600" />
-                                      ) : (
-                                        <Copy className="h-4 w-4" />
-                                      )}
-                                    </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleCopyEmail(
+                                            mem.email || (isSelf ? loggedInUser?.email || '' : ''),
+                                            mem.id
+                                          )
+                                        }
+                                        className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#1B4B8A] hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                                        aria-label={
+                                          copiedMemberId === mem.id
+                                            ? 'Đã sao chép!'
+                                            : 'Sao chép email'
+                                        }
+                                      >
+                                        {copiedMemberId === mem.id ? (
+                                          <Check className="h-4 w-4 text-emerald-600" />
+                                        ) : (
+                                          <Copy className="h-4 w-4" />
+                                        )}
+                                      </button>
+                                    </Tooltip>
                                   </div>
 
                                   {/* Nút Ba chấm (chứa toàn bộ các thao tác còn lại) */}
                                   <div className="inline-block relative">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => handleToggleActionMenu(mem, e.currentTarget)}
-                                      className={`h-8 w-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
-                                        openActionMenuId === mem.id
-                                          ? 'bg-[#F3F4F6] dark:bg-muted text-foreground'
-                                          : 'text-[#6B7280] hover:text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted opacity-60 group-hover:opacity-100'
-                                      }`}
-                                      title="Tùy chọn khác"
-                                    >
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </button>
+                                    <Tooltip content="Tùy chọn khác">
+                                      <button
+                                        type="button"
+                                        onClick={(e) =>
+                                          handleToggleActionMenu(mem, e.currentTarget)
+                                        }
+                                        className={`h-8 w-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+                                          openActionMenuId === mem.id
+                                            ? 'bg-[#F3F4F6] dark:bg-muted text-foreground'
+                                            : 'text-[#6B7280] hover:text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted opacity-60 group-hover:opacity-100'
+                                        }`}
+                                        aria-label="Tùy chọn khác"
+                                      >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </button>
+                                    </Tooltip>
                                   </div>
                                 </div>
                               )}
@@ -1032,7 +1200,13 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                     <div>Email người nhận</div>
                     <div>Người mời</div>
                     <div>Vai trò</div>
-                    <div>Thời gian gửi</div>
+                    <div>
+                      <DateSortButton
+                        label="Thời gian gửi"
+                        direction={invitationDateSort}
+                        onChange={setInvitationDateSort}
+                      />
+                    </div>
                     <div className="text-right min-w-[160px]">Thao tác</div>
                   </div>
 
@@ -1070,7 +1244,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                         Không có lời mời nào đang chờ phản hồi.
                       </div>
                     ) : (
-                      filteredInvitations.map((inv) => (
+                      sortedInvitations.map((inv) => (
                         <div
                           key={inv.id}
                           className="bg-white dark:bg-card border border-border/80 dark:border-border/60 rounded-2xl shadow-2xs hover:shadow-xs hover:border-[#1B4B8A]/30 dark:hover:border-blue-500/30 hover:bg-slate-50/40 dark:hover:bg-slate-800/30 transition-all px-5 py-3 grid grid-cols-[2.5fr_2fr_1.5fr_1.5fr_auto] items-center group"
@@ -1097,51 +1271,64 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                           <div className="text-right min-w-[160px]">
                             <div className="flex items-center justify-end gap-1">
                               {/* Nút sao chép email nhanh */}
-                              <button
-                                type="button"
-                                onClick={() => handleCopyEmail(inv.email || '', inv.id)}
-                                className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#1B4B8A] hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors cursor-pointer"
-                                title={copiedMemberId === inv.id ? 'Đã sao chép!' : 'Sao chép email'}
+                              <Tooltip
+                                content={
+                                  copiedMemberId === inv.id ? 'Đã sao chép!' : 'Sao chép email'
+                                }
                               >
-                                {copiedMemberId === inv.id ? (
-                                  <Check className="h-4 w-4 text-emerald-600" />
-                                ) : (
-                                  <Copy className="h-4 w-4" />
-                                )}
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyEmail(inv.email || '', inv.id)}
+                                  className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#1B4B8A] hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                                  aria-label={
+                                    copiedMemberId === inv.id ? 'Đã sao chép!' : 'Sao chép email'
+                                  }
+                                >
+                                  {copiedMemberId === inv.id ? (
+                                    <Check className="h-4 w-4 text-emerald-600" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </Tooltip>
 
                               {/* Gửi lại email */}
-                              <button
-                                type="button"
-                                onClick={() => handleResendInvite(inv.email || '')}
-                                className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted transition-colors cursor-pointer"
-                                title="Gửi lại email"
-                              >
-                                <RotateCcw className="h-4 w-4" />
-                              </button>
+                              <Tooltip content="Gửi lại email">
+                                <button
+                                  type="button"
+                                  onClick={() => handleResendInvite(inv.email || '')}
+                                  className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted transition-colors cursor-pointer"
+                                  aria-label="Gửi lại email"
+                                >
+                                  <RotateCcw className="h-4 w-4" />
+                                </button>
+                              </Tooltip>
 
                               {/* Hủy lời mời */}
-                              <button
-                                type="button"
-                                onClick={() => handleCancelInvite(inv.id)}
-                                className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
-                                title="Hủy lời mời"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                              <Tooltip content="Hủy lời mời">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCancelInvite(inv.id)}
+                                  className="h-8 w-8 rounded-full flex items-center justify-center text-[#6B7280] hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                                  aria-label="Hủy lời mời"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </Tooltip>
 
                               {/* Xác nhận tham gia */}
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleSimulateAcceptInvite(inv)}
-                                className="h-7 px-2.5 text-[11px] font-medium border-border/80 gap-1 cursor-pointer rounded-lg hover:bg-muted ml-0.5"
-                                title="Xác nhận tham gia (giả lập sinh viên nhấn đồng ý)"
-                              >
-                                <UserCheck className="h-3 w-3 text-[#1B4B8A]" />
-                                <span>Xác nhận</span>
-                              </Button>
+                              <Tooltip content="Xác nhận tham gia (giả lập sinh viên nhấn đồng ý)">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleSimulateAcceptInvite(inv)}
+                                  className="h-7 px-2.5 text-[11px] font-medium border-border/80 gap-1 cursor-pointer rounded-lg hover:bg-muted ml-0.5"
+                                >
+                                  <UserCheck className="h-3 w-3 text-[#1B4B8A]" />
+                                  <span>Xác nhận</span>
+                                </Button>
+                              </Tooltip>
                             </div>
                           </div>
                         </div>
@@ -1162,9 +1349,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
             {/* Header: Đã xóa icon theo yêu cầu */}
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div>
-                <h3 className="font-bold text-base text-foreground">
-                  Mời thành viên qua Email
-                </h3>
+                <h3 className="font-bold text-base text-foreground">Mời thành viên qua Email</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Gửi lời mời tham gia Ban tổ chức Fanpage
                 </p>
@@ -1263,25 +1448,19 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
               {/* Dòng vai trò mặc định với dấu chấm (i) hover ra thông tin */}
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground py-1">
                 <span>
-                  Vai trò mặc định: <strong className="text-foreground font-medium">Cộng tác viên</strong>
+                  Vai trò mặc định:{' '}
+                  <strong className="text-foreground font-medium">Cộng tác viên</strong>
                 </span>
 
-                {/* Dấu chấm i với popup hover */}
-                <div className="relative group/info inline-flex items-center">
+                <Tooltip content="Cộng tác viên có quyền hỗ trợ quản lý sự kiện và điểm danh người tham gia. Bạn có thể chuyển quyền Quản trị viên cho thành viên này sau.">
                   <div
                     tabIndex={0}
+                    aria-label="Thông tin vai trò"
                     className="h-4 w-4 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center text-[10px] font-bold cursor-help border border-border/80"
-                    title="Thông tin vai trò"
                   >
                     i
                   </div>
-
-                  {/* Tooltip khi hover */}
-                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/info:block w-64 p-2.5 rounded-xl bg-[#0B1626] dark:bg-card text-white dark:text-foreground text-[11px] leading-relaxed shadow-xl border border-white/10 dark:border-border z-50 animate-in fade-in-0 zoom-in-95 pointer-events-none select-text">
-                    Cộng tác viên có quyền hỗ trợ quản lý sự kiện và điểm danh người tham gia. Bạn có thể chuyển quyền Quản trị viên cho thành viên này sau.
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-[#0B1626] dark:border-t-card" />
-                  </div>
-                </div>
+                </Tooltip>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
@@ -1320,9 +1499,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                 <Crown className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-bold text-base text-foreground">
-                  Chuyển quyền Quản trị viên
-                </h3>
+                <h3 className="font-bold text-base text-foreground">Chuyển quyền Quản trị viên</h3>
                 <p className="text-xs text-muted-foreground">
                   Chuyển vai trò Trưởng ban tổ chức Fanpage
                 </p>
@@ -1335,7 +1512,10 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                 <span>Lưu ý quan trọng</span>
               </p>
               <p className="leading-relaxed text-[#4B5563] dark:text-muted-foreground">
-                Sau khi chuyển, <strong className="font-bold text-foreground">{transferTarget.fullName}</strong> sẽ trở thành Quản trị viên. Bạn sẽ chuyển về vai trò <strong className="font-bold text-foreground">Cộng tác viên</strong>.
+                Sau khi chuyển,{' '}
+                <strong className="font-bold text-foreground">{transferTarget.fullName}</strong> sẽ
+                trở thành Quản trị viên. Bạn sẽ chuyển về vai trò{' '}
+                <strong className="font-bold text-foreground">Cộng tác viên</strong>.
               </p>
             </div>
 
@@ -1393,7 +1573,8 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
               </div>
             ) : (
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Bạn có chắc chắn muốn rời khỏi ban quản trị fanpage này? Bạn sẽ không còn quyền xem hoặc chỉnh sửa các sự kiện của đơn vị.
+                Bạn có chắc chắn muốn rời khỏi ban quản trị fanpage này? Bạn sẽ không còn quyền xem
+                hoặc chỉnh sửa các sự kiện của đơn vị.
               </p>
             )}
 
@@ -1455,7 +1636,9 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                   {viewingMember.fullName}
                 </h4>
                 <p className="text-xs text-[#6B7280] dark:text-muted-foreground mt-0.5">
-                  {viewingMember.staffId || `TV-${viewingMember.userId || viewingMember.id.replace('mem-', '')}`} • {viewingMember.role === 'ADMIN' ? 'Quản trị viên' : 'Cộng tác viên'}
+                  {viewingMember.staffId ||
+                    `TV-${viewingMember.userId || viewingMember.id.replace('mem-', '')}`}{' '}
+                  • {viewingMember.role === 'ADMIN' ? 'Quản trị viên' : 'Cộng tác viên'}
                 </p>
               </div>
             </div>
@@ -1464,38 +1647,48 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[#6B7280] dark:text-muted-foreground">Email:</span>
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="font-medium text-foreground truncate">{viewingMember.email || 'organizer@ctu.edu.vn'}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (navigator?.clipboard) {
-                        navigator.clipboard.writeText(viewingMember.email || '')
-                        showFeedback('success', 'Đã sao chép email!')
-                      }
-                    }}
-                    className="p-1 text-[#6B7280] hover:text-[#1B4B8A] transition-colors cursor-pointer"
-                    title="Sao chép email"
-                  >
-                    <Copy className="h-3 w-3" />
-                  </button>
+                  <span className="font-medium text-foreground truncate">
+                    {viewingMember.email || 'organizer@ctu.edu.vn'}
+                  </span>
+                  <Tooltip content="Sao chép email">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (navigator?.clipboard) {
+                          navigator.clipboard.writeText(viewingMember.email || '')
+                          showFeedback('success', 'Đã sao chép email!')
+                        }
+                      }}
+                      className="p-1 text-[#6B7280] hover:text-[#1B4B8A] transition-colors cursor-pointer"
+                      aria-label="Sao chép email"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[#6B7280] dark:text-muted-foreground">Số điện thoại:</span>
-                <span className="font-medium text-foreground">{viewingMember.phone || '0912 345 678'}</span>
+                <span className="font-medium text-foreground">
+                  {viewingMember.phone || '0912 345 678'}
+                </span>
               </div>
 
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[#6B7280] dark:text-muted-foreground">Trạng thái:</span>
-                <span className={`font-medium ${viewingMember.isActive !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                <span
+                  className={`font-medium ${viewingMember.isActive !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}
+                >
                   {viewingMember.isActive !== false ? 'Đang hoạt động' : 'Tạm khóa'}
                 </span>
               </div>
 
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[#6B7280] dark:text-muted-foreground">Ngày tham gia:</span>
-                <span className="font-medium text-foreground">{formatDateDisplay(viewingMember.joinedAt || (viewingMember as any).createdAt)}</span>
+                <span className="font-medium text-foreground">
+                  {formatDateDisplay(viewingMember.joinedAt || (viewingMember as any).createdAt)}
+                </span>
               </div>
             </div>
 
@@ -1523,7 +1716,10 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       )}
 
       {/* 5. Action Menu Portal nổi trên toàn bộ bảng và trang (không bị overflow-x-auto cắt xén) */}
-      {openActionMenuId && activeMenuMember && actionMenuPosition && typeof document !== 'undefined' &&
+      {openActionMenuId &&
+        activeMenuMember &&
+        actionMenuPosition &&
+        typeof document !== 'undefined' &&
         createPortal(
           <div
             ref={actionMenuRef}
@@ -1537,8 +1733,12 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
           >
             {(() => {
               const isSelf = Boolean(
-                (currentUser && (activeMenuMember.id === currentUser.id || String(activeMenuMember.userId) === String(currentUser.userId))) ||
-                (loggedInUser && (String(activeMenuMember.userId) === String(loggedInUser.id) || activeMenuMember.email === loggedInUser.email))
+                (currentUser &&
+                  (activeMenuMember.id === currentUser.id ||
+                    String(activeMenuMember.userId) === String(currentUser.userId))) ||
+                (loggedInUser &&
+                  (String(activeMenuMember.userId) === String(loggedInUser.id) ||
+                    activeMenuMember.email === loggedInUser.email))
               )
 
               if (isSelf) {
@@ -1560,7 +1760,10 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                       type="button"
                       onClick={() => {
                         handleCloseActionMenu()
-                        handleCopyEmail(activeMenuMember.email || loggedInUser?.email || '', activeMenuMember.id)
+                        handleCopyEmail(
+                          activeMenuMember.email || loggedInUser?.email || '',
+                          activeMenuMember.id
+                        )
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-normal text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted rounded-lg transition-colors cursor-pointer"
                     >

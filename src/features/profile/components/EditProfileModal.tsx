@@ -1,5 +1,15 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useEffect, useRef } from 'react'
-import { X, User, Phone, Image as ImageIcon, Upload, Loader2, AlertCircle, Camera } from 'lucide-react'
+import {
+  X,
+  User,
+  Phone,
+  Image as ImageIcon,
+  Upload,
+  Loader2,
+  AlertCircle,
+  Camera,
+} from 'lucide-react'
 import { mediaService } from '@/shared/services/mediaService'
 import type { StudentProfile } from '../types/profile.types'
 
@@ -107,36 +117,37 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           <div className="flex flex-col gap-2 p-3 rounded-lg bg-muted/40 border border-border/60">
             <div className="flex items-center gap-4">
               <div className="relative shrink-0 group">
-                <div
-                  onClick={triggerUpload}
-                  className="h-16 w-16 rounded-full overflow-hidden border-2 border-border cursor-pointer relative"
-                  title="Nhấn để tải ảnh đại diện lên"
-                >
-                  {formData.avatarUrl ? (
-                    <img
-                      src={formData.avatarUrl}
-                      alt={formData.fullName || 'Avatar'}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-full w-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-lg font-bold text-muted-foreground">
-                      <User className="h-7 w-7" />
-                    </div>
-                  )}
+                <Tooltip content="Nhấn để tải ảnh đại diện lên">
+                  <div
+                    onClick={triggerUpload}
+                    className="h-16 w-16 rounded-full overflow-hidden border-2 border-border cursor-pointer relative"
+                  >
+                    {formData.avatarUrl ? (
+                      <img
+                        src={formData.avatarUrl}
+                        alt={formData.fullName || 'Avatar'}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-lg font-bold text-muted-foreground">
+                        <User className="h-7 w-7" />
+                      </div>
+                    )}
 
-                  {isUploadingAvatar && (
-                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-0.5">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-[8px] font-medium">Tải...</span>
-                    </div>
-                  )}
+                    {isUploadingAvatar && (
+                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-0.5">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-[8px] font-medium">Tải...</span>
+                      </div>
+                    )}
 
-                  {!isUploadingAvatar && (
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
-                      <Camera className="h-4 w-4" />
-                    </div>
-                  )}
-                </div>
+                    {!isUploadingAvatar && (
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                        <Camera className="h-4 w-4" />
+                      </div>
+                    )}
+                  </div>
+                </Tooltip>
 
                 <button
                   type="button"
@@ -241,7 +252,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           <div className="rounded-lg bg-[#EFF5FC] dark:bg-[#162E4F]/60 border border-[#DBEAFE] dark:border-[#1E40AF]/40 p-3.5 text-xs text-[#1E40AF] dark:text-[#93C5FD] flex flex-col gap-1">
             <span className="font-semibold">Thông tin học vụ đồng bộ từ hệ thống:</span>
             <span>
-              MSSV: <strong>{profile.studentId || 'Chưa cập nhật'}</strong> — Lớp: <strong>{profile.classId || 'Chưa cập nhật'}</strong> — {profile.major || 'Chưa cập nhật'}
+              MSSV: <strong>{profile.studentId || 'Chưa cập nhật'}</strong> — Lớp:{' '}
+              <strong>{profile.classId || 'Chưa cập nhật'}</strong> —{' '}
+              {profile.major || 'Chưa cập nhật'}
             </span>
           </div>
 

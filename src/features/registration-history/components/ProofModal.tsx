@@ -1,6 +1,8 @@
-import React from 'react'
-import { X, CheckCircle2, AlertCircle } from 'lucide-react'
+import * as Dialog from '@radix-ui/react-dialog'
+import { X } from 'lucide-react'
 import { formatEventTitle } from '@/shared'
+import { Button } from '@/components/ui/button'
+import { useAuthStore } from '@/features/auth/store/authStore'
 import type { RegisteredEventItem } from '../types/history.types'
 
 interface ProofModalProps {
@@ -10,156 +12,145 @@ interface ProofModalProps {
   onComplaint?: (event: RegisteredEventItem) => void
 }
 
-export const ProofModal: React.FC<ProofModalProps> = ({
-  isOpen,
-  onClose,
-  event,
-  onComplaint,
-}) => {
+function attendanceTime(value?: string | null) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  const parts = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).formatToParts(date)
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value
+  return `${part('hour')}:${part('minute')} · ${part('day')}/${part('month')}/${part('year')}`
+}
+
+export function ProofModal({ isOpen, onClose, event, onComplaint }: ProofModalProps) {
+  const user = useAuthStore((state) => state.user)
   if (!isOpen || !event) return null
-
   const title = formatEventTitle(event.title || event.eventName || 'Sự kiện')
-  const sessions = Array.isArray(event.attendanceSessions) ? event.attendanceSessions : []
-  const studentName = event.studentInfo?.fullName || 'Đoàn Tài Lộc'
-  const studentMssv = event.studentInfo?.mssv || 'B2303827'
-  const points =
-    event.pointsCategory ||
-    (event.benefits && event.benefits.length > 0
-      ? `ĐRL: +${event.benefits[0]}`
-      : 'ĐRL theo quy định')
-
+  const isCurrentStudent = user && (event.userId == null || String(event.userId) === user.id)
+  const studentName = event.studentInfo?.fullName || (isCurrentStudent ? user.name : '')
+  const studentId = event.studentInfo?.mssv || (isCurrentStudent ? user.studentId : '')
+  const actorLabel = (id?: string | number | null) => {
+    if (id == null || String(id).trim() === '') return 'Chưa có thông tin'
+    return user && String(id) === user.id ? 'Bạn' : `Tài khoản #${id}`
+  }
+  const entries = [
+    {
+      label: 'Check-in',
+      time: event.checkInAt,
+      actor: event.checkInBy,
+      image: event.checkInEvidenceUrl || event.evidenceUrl,
+    },
+    {
+      label: 'Check-out',
+      time: event.checkOutAt,
+      actor: event.checkOutBy,
+      image: event.checkOutEvidenceUrl,
+    },
+  ]
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Modal Dialog */}
-      <div className="relative w-full max-w-2xl bg-white dark:bg-card border border-border rounded-2xl shadow-xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150">
-        {/* Header: Title is event name, without icon or subtext */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
-          <div className="min-w-0 pr-4">
-            <h3 className="font-heading font-bold text-base sm:text-lg text-foreground line-clamp-2">
+    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-xl">
+          <div className="flex flex-col gap-1 border-b border-border p-5 pr-12">
+            <Dialog.Title className="font-k2d text-lg font-semibold">
+              Minh chứng điểm danh
+            </Dialog.Title>
+            <Dialog.Description className="break-words text-xs text-muted-foreground">
               {title}
-            </h3>
+            </Dialog.Description>
+            <Dialog.Close asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-3 top-3 h-8 w-8"
+                aria-label="Đóng minh chứng"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </Dialog.Close>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer shrink-0"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
-          {/* Metadata Card: Student name and points vertically stacked */}
-          <div className="flex flex-col gap-3 p-4 rounded-xl bg-muted/30 border border-border/70 text-xs">
-            <div>
-              <span className="text-muted-foreground block mb-0.5">Sinh viên:</span>
-              <span className="font-semibold text-foreground text-sm">
-                {studentName} ({studentMssv})
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block mb-0.5">Quyền lợi:</span>
-              <span className="font-semibold text-primary text-sm inline-flex items-center gap-1">
-                {points}
-              </span>
-            </div>
-          </div>
-
-          {/* Attendance History Table: No clock icon */}
-          <div>
-            <h4 className="font-heading font-semibold text-sm text-foreground mb-2.5">
-              Lịch sử điểm danh các buổi
-            </h4>
-
-            {sessions.length > 0 ? (
-              <div className="overflow-x-auto rounded-xl border border-border/80">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-muted/60 text-muted-foreground font-semibold border-b border-border/80">
-                    <tr>
-                      <th className="px-3.5 py-2.5 text-center w-12">STT</th>
-                      <th className="px-3.5 py-2.5">Buổi / Đợt</th>
-                      <th className="px-3.5 py-2.5">Thời gian điểm danh</th>
-                      <th className="px-3.5 py-2.5">Người điểm danh</th>
-                      <th className="px-3.5 py-2.5 text-center">Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/60">
-                    {sessions.map((session, index) => (
-                      <tr key={session.id || `session-${index}`} className="hover:bg-muted/20 transition-colors">
-                        <td className="px-3.5 py-3 text-center font-medium text-muted-foreground">
-                          {index + 1}
-                        </td>
-                        <td className="px-3.5 py-3 font-medium text-foreground">
-                          {session.sessionName || `Buổi ${index + 1}`}
-                        </td>
-                        <td className="px-3.5 py-3 text-muted-foreground">
-                          {session.checkInTime || '—'}
-                        </td>
-                        <td className="px-3.5 py-3 text-muted-foreground">
-                          {session.checkedBy || '—'}
-                        </td>
-                        <td className="px-3.5 py-3 text-center">
-                          {session.status === 'VALID' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Hợp lệ
-                            </span>
-                          )}
-                          {session.status === 'ABSENT' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400">
-                              <AlertCircle className="h-3 w-3" />
-                              Vắng
-                            </span>
-                          )}
-                          {(session.status === 'NOT_STARTED' || !session.status) && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground">
-                              Chưa diễn ra
-                            </span>
-                          )}
-                          {session.status &&
-                            !['VALID', 'ABSENT', 'NOT_STARTED'].includes(session.status) && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground">
-                                {session.status}
-                              </span>
-                            )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="p-6 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
-                Chưa có dữ liệu điểm danh cho sự kiện này.
-              </div>
+          <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-5">
+            {(studentName || studentId) && (
+              <p className="text-sm font-medium">
+                {[studentName, studentId].filter(Boolean).join(' · ')}
+              </p>
             )}
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th scope="col" className="px-3 py-2 font-medium">
+                      Lượt
+                    </th>
+                    <th scope="col" className="px-3 py-2 font-medium">
+                      Thời gian
+                    </th>
+                    <th scope="col" className="px-3 py-2 font-medium">
+                      Người điểm danh
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {entries.map((entry) => (
+                    <tr key={entry.label}>
+                      <th scope="row" className="px-3 py-3 font-medium">
+                        <div className="flex flex-col items-start gap-1">
+                          {entry.label}
+                          {entry.image && (
+                            <a
+                              href={entry.image}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-normal text-primary hover:underline"
+                              aria-label={`Xem ảnh ${entry.label}`}
+                            >
+                              Xem ảnh
+                            </a>
+                          )}
+                        </div>
+                      </th>
+                      <td className="whitespace-nowrap px-3 py-3 text-muted-foreground">
+                        {attendanceTime(entry.time)}
+                      </td>
+                      <td className="px-3 py-3 text-muted-foreground">
+                        {entry.time ? actorLabel(entry.actor) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-3.5 border-t border-border bg-muted/10">
-          <button
-            type="button"
-            onClick={() => onComplaint?.(event)}
-            className="px-4 py-2 text-xs md:text-sm font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors cursor-pointer"
-          >
-            Khiếu nại kết quả
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 text-xs md:text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-xl transition-colors shadow-xs cursor-pointer"
-          >
-            Đóng
-          </button>
-        </div>
-      </div>
-    </div>
+          <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+            {onComplaint && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mr-auto"
+                onClick={() => onComplaint(event)}
+              >
+                Khiếu nại
+              </Button>
+            )}
+            <Dialog.Close asChild>
+              <Button type="button" variant="outline" size="sm">
+                Đóng
+              </Button>
+            </Dialog.Close>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState } from 'react'
 import { Search, Bell, Menu, X, Filter, MessageSquare } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -47,17 +48,18 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
             {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          <Link
-            to="/admin"
-            className="flex items-center shrink-0 group transition-transform hover:opacity-95"
-            title="Trang Quản trị Hệ thống (Super Admin)"
-          >
-            <img
-              src={logoSvg}
-              alt="CTU Event - HTQL Sự Kiện"
-              className="h-10 w-auto object-contain"
-            />
-          </Link>
+          <Tooltip content="Trang Quản trị Hệ thống (Super Admin)">
+            <Link
+              to="/admin"
+              className="flex items-center shrink-0 group transition-transform hover:opacity-95"
+            >
+              <img
+                src={logoSvg}
+                alt="CTU Event - HTQL Sự Kiện"
+                className="h-10 w-auto object-contain"
+              />
+            </Link>
+          </Tooltip>
         </div>
 
         {/* 2. Center: Search Bar with Integrated Filter Funnel */}
@@ -71,39 +73,45 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
               placeholder="Tìm kiếm người dùng, fanpage, sự kiện..."
               className="w-full h-10 rounded-xl border border-[#E5E7EB] dark:border-border bg-[#F9FAFB] dark:bg-background pl-10 pr-12 text-sm text-[#374151] dark:text-foreground placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-sans"
             />
-            <button
-              type="button"
-              className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-              title="Bộ lọc"
-            >
-              <Filter className="h-3.5 w-3.5" />
-            </button>
+            <Tooltip content="Bộ lọc">
+              <button
+                type="button"
+                className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                aria-label="Bộ lọc"
+              >
+                <Filter className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
           </div>
         </div>
 
         {/* 3. Right: Communication, Notifications, & User Avatar */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Chat / Feedback button */}
-          <button
-            type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-            title="Tin nhắn & Hỗ trợ"
-          >
-            <MessageSquare className="h-5 w-5" />
-          </button>
+          <Tooltip content="Tin nhắn & Hỗ trợ">
+            <button
+              type="button"
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              aria-label="Tin nhắn & Hỗ trợ"
+            >
+              <MessageSquare className="h-5 w-5" />
+            </button>
+          </Tooltip>
 
           {/* Notifications */}
           <div className="relative">
-            <button
-              type="button"
-              className="relative flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-              title="Thông báo hệ thống"
-            >
-              <Bell className="h-5 w-5" />
-              {unreadNotificationsCount > 0 && (
-                <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-card" />
-              )}
-            </button>
+            <Tooltip content="Thông báo hệ thống">
+              <button
+                type="button"
+                className="relative flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                aria-label="Thông báo hệ thống"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-card" />
+                )}
+              </button>
+            </Tooltip>
           </div>
 
           {/* User Avatar only (No text name/email next to it) */}

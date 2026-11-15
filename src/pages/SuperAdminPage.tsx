@@ -1,5 +1,9 @@
+import {
+  normalizeAdminRole,
+  getSuperAdminRoles,
+} from '@/features/super-admin/services/superAdminService'
+import { Button } from '@/components/ui/button'
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { AlertTriangle } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   SuperAdminLayout,
@@ -18,24 +22,14 @@ import {
   PointCategoryModal,
   Sv5tCriteriaModal,
   SchoolMajorModal,
-  MOCK_OVERVIEW_STATS,
-  MOCK_USERS,
-  MOCK_FANPAGES,
-  MOCK_EVENTS,
-  MOCK_SEMESTERS,
-  MOCK_POINT_CATEGORIES,
-  MOCK_SV5T_CRITERIAS,
-  MOCK_SCHOOLS,
-  MOCK_FANPAGE_RANKS_BY_EVENTS,
-  MOCK_FANPAGE_RANKS_BY_PARTICIPATION,
   superAdminService,
 } from '@/features/super-admin'
 import type {
   SuperAdminNavTab,
   SuperAdminUser,
+  UserSystemRole,
   SuperAdminFanpage,
   SuperAdminEvent,
-  AdminEventStatus,
   SuperAdminSemester,
   SuperAdminPointCategory,
   SuperAdminSv5tCriteria,
@@ -53,15 +47,24 @@ export const SuperAdminPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Real backend dataset states (with local fallback if offline or initial load)
-  const [overviewStats, setOverviewStats] = useState<SuperAdminOverviewStats>(MOCK_OVERVIEW_STATS)
-  const [users, setUsers] = useState<SuperAdminUser[]>(MOCK_USERS)
-  const [fanpages, setFanpages] = useState<SuperAdminFanpage[]>(MOCK_FANPAGES)
-  const [events, setEvents] = useState<SuperAdminEvent[]>(MOCK_EVENTS)
-  const [semesters, setSemesters] = useState<SuperAdminSemester[]>(MOCK_SEMESTERS)
-  const [pointCategories, setPointCategories] = useState<SuperAdminPointCategory[]>(MOCK_POINT_CATEGORIES)
-  const [sv5tCriterias, setSv5tCriterias] = useState<SuperAdminSv5tCriteria[]>(MOCK_SV5T_CRITERIAS)
-  const [schools, setSchools] = useState<SuperAdminSchool[]>(MOCK_SCHOOLS)
+  // Backend datasets; empty and failed responses never fall back to demo data
+  const [overviewStats, setOverviewStats] = useState<SuperAdminOverviewStats>({
+    totalUsers: 0,
+    totalFanpages: 0,
+    totalEvents: 0,
+    totalParticipations: null,
+    pendingFanpagesCount: 0,
+    violationReportsCount: 0,
+    userGrowthRate: null,
+    eventGrowthRate: null,
+  })
+  const [users, setUsers] = useState<SuperAdminUser[]>([])
+  const [fanpages, setFanpages] = useState<SuperAdminFanpage[]>([])
+  const [events, setEvents] = useState<SuperAdminEvent[]>([])
+  const [semesters, setSemesters] = useState<SuperAdminSemester[]>([])
+  const [pointCategories, setPointCategories] = useState<SuperAdminPointCategory[]>([])
+  const [sv5tCriterias, setSv5tCriterias] = useState<SuperAdminSv5tCriteria[]>([])
+  const [schools, setSchools] = useState<SuperAdminSchool[]>([])
 
   // Modals & Selection States
   const [selectedUser, setSelectedUser] = useState<SuperAdminUser | null>(null)
@@ -76,11 +79,16 @@ export const SuperAdminPage: React.FC = () => {
   const [selectedSemester, setSelectedSemester] = useState<SuperAdminSemester | null>(null)
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false)
 
-  const [selectedPointCategory, setSelectedPointCategory] = useState<SuperAdminPointCategory | null>(null)
-  const [parentPointCategory, setParentPointCategory] = useState<SuperAdminPointCategory | null>(null)
+  const [selectedPointCategory, setSelectedPointCategory] =
+    useState<SuperAdminPointCategory | null>(null)
+  const [parentPointCategory, setParentPointCategory] = useState<SuperAdminPointCategory | null>(
+    null
+  )
   const [isPointCategoryModalOpen, setIsPointCategoryModalOpen] = useState(false)
 
-  const [selectedSv5tCriteria, setSelectedSv5tCriteria] = useState<SuperAdminSv5tCriteria | null>(null)
+  const [selectedSv5tCriteria, setSelectedSv5tCriteria] = useState<SuperAdminSv5tCriteria | null>(
+    null
+  )
   const [parentSv5tCriteria, setParentSv5tCriteria] = useState<SuperAdminSv5tCriteria | null>(null)
   const [isSv5tCriteriaModalOpen, setIsSv5tCriteriaModalOpen] = useState(false)
 
@@ -97,55 +105,54 @@ export const SuperAdminPage: React.FC = () => {
     [events]
   )
 
-  // Derived rankings from live fanpage data
-  const dynamicRanksByEvents = useMemo(() => {
-    if (fanpages.length > 0) {
-      return [...fanpages]
-        .sort((a, b) => b.eventsCount - a.eventsCount)
+  const dynamicRanksByEvents = useMemo(
+    () =>
+      [...fanpages]
+        .filter((fanpage) => fanpage.eventsCount != null)
+        .sort((a, b) => (b.eventsCount ?? 0) - (a.eventsCount ?? 0))
         .slice(0, 5)
-        .map((f) => ({
-          id: f.id,
-          name: f.name,
-          eventsCount: f.eventsCount,
-          participationsCount: f.followersCount || 0,
-          avatarUrl: f.avatarUrl,
-        }))
-    }
-    return MOCK_FANPAGE_RANKS_BY_EVENTS
-  }, [fanpages])
+        .map((fanpage) => ({
+          id: fanpage.id,
+          name: fanpage.name,
+          eventsCount: fanpage.eventsCount ?? 0,
+          participationsCount: 0,
+          avatarUrl: fanpage.avatarUrl,
+        })),
+    [fanpages]
+  )
 
-  const dynamicRanksByParticipants = useMemo(() => {
-    if (fanpages.length > 0) {
-      return [...fanpages]
-        .sort((a, b) => (b.followersCount || 0) - (a.followersCount || 0))
-        .slice(0, 5)
-        .map((f) => ({
-          id: f.id,
-          name: f.name,
-          eventsCount: f.eventsCount,
-          participationsCount: f.followersCount || 0,
-          avatarUrl: f.avatarUrl,
-        }))
-    }
-    return MOCK_FANPAGE_RANKS_BY_PARTICIPATION
-  }, [fanpages])
+  const dynamicRanksByParticipants = useMemo(
+    () =>
+      fanpages
+        .map((fanpage) => {
+          const ownEvents = events.filter((event) => event.fanpageId === fanpage.id)
+          if (!ownEvents.length || ownEvents.some((event) => event.registeredCount == null))
+            return null
+          return {
+            id: fanpage.id,
+            name: fanpage.name,
+            eventsCount: ownEvents.length,
+            participationsCount: ownEvents.reduce(
+              (total, event) => total + (event.registeredCount ?? 0),
+              0
+            ),
+            avatarUrl: fanpage.avatarUrl,
+          }
+        })
+        .filter((item) => item !== null)
+        .sort((a, b) => b.participationsCount - a.participationsCount)
+        .slice(0, 5),
+    [fanpages, events]
+  )
 
-  // Derived stats that stay in sync with lists
-  const derivedOverviewStats = useMemo(() => {
-    return {
-      totalUsers: overviewStats.totalUsers || users.length,
-      totalFanpages: overviewStats.totalFanpages || fanpages.length,
-      totalEvents: overviewStats.totalEvents || events.length,
-      totalParticipations:
-        overviewStats.totalParticipations ||
-        events.reduce((sum, e) => sum + (e.registeredCount || 0), 0) ||
-        1420,
+  const derivedOverviewStats = useMemo(
+    () => ({
+      ...overviewStats,
       pendingFanpagesCount: pendingFanpages.length,
       violationReportsCount: violatedEvents.length,
-      userGrowthRate: overviewStats.userGrowthRate || 12.5,
-      eventGrowthRate: overviewStats.eventGrowthRate || 8.4,
-    }
-  }, [overviewStats, users, fanpages, events, pendingFanpages, violatedEvents])
+    }),
+    [overviewStats, pendingFanpages, violatedEvents]
+  )
 
   // Load real data from Backend APIs on mount
   const loadBackendData = useCallback(async () => {
@@ -153,45 +160,69 @@ export const SuperAdminPage: React.FC = () => {
     setLoadError(null)
     try {
       const results = await Promise.allSettled([
-        superAdminService.getOverviewStats(),
-        superAdminService.getUsers({ size: 100 }),
-        superAdminService.getFanpages({ size: 100 }),
-        superAdminService.getEvents({ size: 100 }),
+        superAdminService.getUsers({ size: Number.MAX_SAFE_INTEGER }),
+        superAdminService.getFanpages({ size: Number.MAX_SAFE_INTEGER }),
+        superAdminService.getEvents({ size: Number.MAX_SAFE_INTEGER }),
         superAdminService.getSemesters(),
         superAdminService.getPointCategories(),
         superAdminService.getCriterias(),
         superAdminService.getSchools(),
       ])
-
-      const [statsRes, usersRes, fanpagesRes, eventsRes, semestersRes, pointCatsRes, criteriasRes, schoolsRes] = results
-
-      if (statsRes.status === 'fulfilled' && statsRes.value.totalUsers > 0) {
-        setOverviewStats(statsRes.value)
-      }
-      if (usersRes.status === 'fulfilled' && usersRes.value.content.length > 0) {
-        setUsers(usersRes.value.content)
-      }
-      if (fanpagesRes.status === 'fulfilled' && fanpagesRes.value.content.length > 0) {
-        setFanpages(fanpagesRes.value.content)
-      }
-      if (eventsRes.status === 'fulfilled' && eventsRes.value.content.length > 0) {
-        setEvents(eventsRes.value.content)
-      }
-      if (semestersRes.status === 'fulfilled' && semestersRes.value.length > 0) {
-        setSemesters(semestersRes.value)
-      }
-      if (pointCatsRes.status === 'fulfilled' && pointCatsRes.value.length > 0) {
-        setPointCategories(pointCatsRes.value)
-      }
-      if (criteriasRes.status === 'fulfilled' && criteriasRes.value.length > 0) {
-        setSv5tCriterias(criteriasRes.value)
-      }
-      if (schoolsRes.status === 'fulfilled' && schoolsRes.value.length > 0) {
-        setSchools(schoolsRes.value)
-      }
+      const [
+        usersRes,
+        fanpagesRes,
+        eventsRes,
+        semestersRes,
+        pointCatsRes,
+        criteriasRes,
+        schoolsRes,
+      ] = results
+      const liveUsers = usersRes.status === 'fulfilled' ? usersRes.value.content : []
+      const liveEvents = eventsRes.status === 'fulfilled' ? eventsRes.value.content : []
+      const liveFanpages =
+        fanpagesRes.status === 'fulfilled'
+          ? fanpagesRes.value.content.map((fanpage) => ({
+              ...fanpage,
+              eventsCount:
+                eventsRes.status === 'fulfilled'
+                  ? liveEvents.filter((event) => event.fanpageId === fanpage.id).length
+                  : null,
+            }))
+          : []
+      setUsers(liveUsers)
+      setFanpages(liveFanpages)
+      setEvents(liveEvents)
+      setSemesters(semestersRes.status === 'fulfilled' ? semestersRes.value : [])
+      setPointCategories(pointCatsRes.status === 'fulfilled' ? pointCatsRes.value : [])
+      setSv5tCriterias(criteriasRes.status === 'fulfilled' ? criteriasRes.value : [])
+      setSchools(schoolsRes.status === 'fulfilled' ? schoolsRes.value : [])
+      setOverviewStats({
+        totalUsers: liveUsers.length,
+        totalFanpages: liveFanpages.length,
+        totalEvents: liveEvents.length,
+        totalParticipations: null,
+        pendingFanpagesCount: 0,
+        violationReportsCount: 0,
+        userGrowthRate: null,
+        eventGrowthRate: null,
+      })
+      const names = [
+        'người dùng / hồ sơ',
+        'fanpage',
+        'sự kiện',
+        'học kỳ',
+        'điểm rèn luyện',
+        'tiêu chí SV5T',
+        'khoa / ngành',
+      ]
+      const failed = results.flatMap((result, index) =>
+        result.status === 'rejected' ? [names[index]] : []
+      )
+      if (failed.length)
+        setLoadError('Không tải được dữ liệu: ' + failed.join(', ') + '. Vui lòng thử lại.')
     } catch (err: unknown) {
-      console.warn('Super Admin API connection error, falling back to local dataset:', err)
-      setLoadError('Không thể tải toàn bộ dữ liệu từ máy chủ. Đang hiển thị dữ liệu cục bộ.')
+      console.warn('Super Admin API connection error:', err)
+      setLoadError('Không thể tải dữ liệu từ máy chủ. Vui lòng thử lại.')
     } finally {
       setIsLoading(false)
     }
@@ -211,7 +242,9 @@ export const SuperAdminPage: React.FC = () => {
     try {
       await superAdminService.toggleUserStatus(userId)
     } catch (err) {
-      console.warn('API error toggling user status, updating local state:', err)
+      console.warn('API error toggling user status:', err)
+      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      return
     }
 
     setUsers((prev) =>
@@ -228,23 +261,25 @@ export const SuperAdminPage: React.FC = () => {
     )
   }
 
-  const handleChangeUserRole = async (userId: string, newRole: SuperAdminUser['role']) => {
+  const handleToggleUserSuperAdmin = async (userId: string, enabled: boolean): Promise<boolean> => {
+    let roles: UserSystemRole[]
     try {
-      await superAdminService.changeUserRole(userId, newRole)
+      const target = users.find((user) => user.id === userId)
+      if (!target) return false
+      roles = getSuperAdminRoles(target, enabled)
+      await superAdminService.changeUserRoles(userId, roles)
     } catch (err) {
-      console.warn('API error changing user role, updating local state:', err)
+      console.warn('API error changing user role:', err)
+      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      return false
     }
 
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === userId) {
-          const updated = { ...u, role: newRole }
-          if (selectedUser?.id === userId) setSelectedUser(updated)
-          return updated
-        }
-        return u
-      })
+    const permissions = { role: normalizeAdminRole({ roles }), systemRoles: roles }
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...permissions } : u)))
+    setSelectedUser((current) =>
+      current?.id === userId ? { ...current, ...permissions } : current
     )
+    return true
   }
 
   // --- Handlers: Fanpages ---
@@ -257,34 +292,21 @@ export const SuperAdminPage: React.FC = () => {
     try {
       await superAdminService.acceptFanpage(fanpageId)
     } catch (err) {
-      console.warn('API error approving fanpage, updating local state:', err)
+      console.warn('API error approving fanpage:', err)
+      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      return
     }
 
-    setFanpages((prev) =>
-      prev.map((f) => (f.id === fanpageId ? { ...f, status: 'ACTIVE' } : f))
-    )
+    setFanpages((prev) => prev.map((f) => (f.id === fanpageId ? { ...f, status: 'ACTIVE' } : f)))
     if (selectedFanpage?.id === fanpageId) {
       setSelectedFanpage((prev) => (prev ? { ...prev, status: 'ACTIVE' } : null))
     }
   }
 
-  const handleRejectFanpage = async (fanpageId: string, reason: string) => {
-    try {
-      await superAdminService.banFanpage(fanpageId)
-    } catch (err) {
-      console.warn('API error rejecting fanpage, updating local state:', err)
-    }
-
-    setFanpages((prev) =>
-      prev.map((f) =>
-        f.id === fanpageId ? { ...f, status: 'REJECTED', rejectionReason: reason } : f
-      )
+  const handleRejectFanpage = async (_fanpageId: string, _reason: string) => {
+    setLoadError(
+      'Chưa thể gửi lý do từ chối đăng ký từ trang này. Vui lòng dùng thao tác tạm khóa nếu cần.'
     )
-    if (selectedFanpage?.id === fanpageId) {
-      setSelectedFanpage((prev) =>
-        prev ? { ...prev, status: 'REJECTED', rejectionReason: reason } : null
-      )
-    }
   }
 
   const handleToggleLockFanpage = async (fanpageId: string) => {
@@ -296,7 +318,9 @@ export const SuperAdminPage: React.FC = () => {
         await superAdminService.unbanFanpage(fanpageId)
       }
     } catch (err) {
-      console.warn('API error toggling lock for fanpage, updating local state:', err)
+      console.warn('API error toggling lock for fanpage:', err)
+      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      return
     }
 
     setFanpages((prev) =>
@@ -320,28 +344,9 @@ export const SuperAdminPage: React.FC = () => {
   }
 
   const handleToggleHideEvent = async (eventId: string, reason?: string) => {
-    try {
-      // Backend admin event status update / toggle
-    } catch (err) {
-      console.warn('API error moderating event, updating local state:', err)
-    }
-
-    setEvents((prev) =>
-      prev.map((e) => {
-        if (e.id === eventId) {
-          const nextStatus: AdminEventStatus =
-            e.status === 'VIOLATED' || e.status === 'HIDDEN' ? 'OPEN' : 'HIDDEN'
-          const updated: SuperAdminEvent = {
-            ...e,
-            status: nextStatus,
-            violationReason: reason || e.violationReason,
-          }
-          if (selectedEvent?.id === eventId) setSelectedEvent(updated)
-          return updated
-        }
-        return e
-      })
-    )
+    void eventId
+    void reason
+    setLoadError('API hiện chưa hỗ trợ superadmin ẩn hoặc khôi phục sự kiện.')
   }
 
   // --- Handlers: Semesters ---
@@ -362,75 +367,28 @@ export const SuperAdminPage: React.FC = () => {
           number: semesterData.number || 1,
           startDate: semesterData.startDate || '',
           endDate: semesterData.endDate || '',
+          academicYear: semesterData.academicYear || '',
         })
       } else {
         await superAdminService.createSemester({
           number: semesterData.number || 1,
           startDate: semesterData.startDate || '',
           endDate: semesterData.endDate || '',
+          academicYear: semesterData.academicYear || '',
         })
       }
       const refreshed = await superAdminService.getSemesters()
-      if (refreshed.length > 0) {
-        setSemesters(refreshed)
-        return
-      }
+      setSemesters(refreshed)
+      return
     } catch (err) {
-      console.warn('API error saving semester, updating local state:', err)
-    }
-
-    if (semesterData.id) {
-      setSemesters((prev) =>
-        prev.map((s) => {
-          if (s.id === semesterData.id) {
-            return { ...s, ...semesterData } as SuperAdminSemester
-          }
-          if (semesterData.isCurrent) {
-            return { ...s, isCurrent: false }
-          }
-          return s
-        })
-      )
-    } else {
-      const newSemester: SuperAdminSemester = {
-        id: Date.now(),
-        number: semesterData.number || 1,
-        academicYear: semesterData.academicYear || '2025-2026',
-        startDate: semesterData.startDate || '2026-01-05',
-        endDate: semesterData.endDate || '2026-05-30',
-        status: semesterData.status || 'UPCOMING',
-        isCurrent: !!semesterData.isCurrent,
-        isActive: true,
-      }
-      setSemesters((prev) =>
-        semesterData.isCurrent
-          ? [newSemester, ...prev.map((s) => ({ ...s, isCurrent: false }))]
-          : [newSemester, ...prev]
-      )
+      console.warn('API error saving semester:', err)
+      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      return
     }
   }
 
-  const handleSetCurrentSemester = async (semesterId: number) => {
-    try {
-      const target = semesters.find((s) => s.id === semesterId)
-      if (target) {
-        await superAdminService.updateSemester(semesterId, {
-          number: target.number,
-          startDate: target.startDate,
-          endDate: target.endDate,
-        })
-      }
-    } catch (err) {
-      console.warn('API error setting current semester:', err)
-    }
-
-    setSemesters((prev) =>
-      prev.map((s) => ({
-        ...s,
-        isCurrent: s.id === semesterId,
-        status: s.id === semesterId ? 'ONGOING' : (s.status === 'ONGOING' ? 'COMPLETED' : s.status),
-      }))
-    )
+  const handleSetCurrentSemester = async (_semesterId: number) => {
+    setLoadError('Chưa thể thay đổi học kỳ hiện hành từ trang này.')
   }
 
   // --- Handlers: Point Categories ---
@@ -461,56 +419,12 @@ export const SuperAdminPage: React.FC = () => {
         })
       }
       const refreshed = await superAdminService.getPointCategories()
-      if (refreshed.length > 0) {
-        setPointCategories(refreshed)
-        return
-      }
+      setPointCategories(refreshed)
+      return
     } catch (err) {
-      console.warn('API error saving point category, updating local state:', err)
-    }
-
-    if (catData.id) {
-      const updateRecursive = (list: SuperAdminPointCategory[]): SuperAdminPointCategory[] =>
-        list.map((c) => {
-          if (c.id === catData.id) {
-            return { ...c, ...catData } as SuperAdminPointCategory
-          }
-          if (c.children) {
-            return { ...c, children: updateRecursive(c.children) }
-          }
-          return c
-        })
-      setPointCategories((prev) => updateRecursive(prev))
-    } else {
-      const newCategory: SuperAdminPointCategory = {
-        id: Date.now(),
-        name: catData.name || 'Tiêu chí mới',
-        note: catData.note,
-        maximum: catData.maximum || 5,
-        level: catData.level || 0,
-        childrenOrder: catData.childrenOrder || 1,
-        parentCategoryId: catData.parentCategoryId || null,
-        isActive: true,
-      }
-
-      if (catData.parentCategoryId) {
-        const addChildRecursive = (list: SuperAdminPointCategory[]): SuperAdminPointCategory[] =>
-          list.map((c) => {
-            if (c.id === catData.parentCategoryId) {
-              return {
-                ...c,
-                children: c.children ? [...c.children, newCategory] : [newCategory],
-              }
-            }
-            if (c.children) {
-              return { ...c, children: addChildRecursive(c.children) }
-            }
-            return c
-          })
-        setPointCategories((prev) => addChildRecursive(prev))
-      } else {
-        setPointCategories((prev) => [...prev, newCategory])
-      }
+      console.warn('API error saving point category:', err)
+      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      return
     }
   }
 
@@ -522,6 +436,8 @@ export const SuperAdminPage: React.FC = () => {
       })
     } catch (err) {
       console.warn('API error toggling point category active:', err)
+      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      return
     }
 
     const toggleRecursive = (list: SuperAdminPointCategory[]): SuperAdminPointCategory[] =>
@@ -564,56 +480,12 @@ export const SuperAdminPage: React.FC = () => {
         })
       }
       const refreshed = await superAdminService.getCriterias()
-      if (refreshed.length > 0) {
-        setSv5tCriterias(refreshed)
-        return
-      }
+      setSv5tCriterias(refreshed)
+      return
     } catch (err) {
-      console.warn('API error saving SV5T criteria, updating local state:', err)
-    }
-
-    if (critData.id) {
-      const updateRecursive = (list: SuperAdminSv5tCriteria[]): SuperAdminSv5tCriteria[] =>
-        list.map((c) => {
-          if (c.id === critData.id) {
-            return { ...c, ...critData } as SuperAdminSv5tCriteria
-          }
-          if (c.children) {
-            return { ...c, children: updateRecursive(c.children) }
-          }
-          return c
-        })
-      setSv5tCriterias((prev) => updateRecursive(prev))
-    } else {
-      const newCrit: SuperAdminSv5tCriteria = {
-        id: Date.now(),
-        name: critData.name || 'Tiêu chuẩn mới',
-        note: critData.note,
-        scope: critData.scope || 'UNIVERSITY',
-        level: critData.level || 0,
-        childrenOrder: critData.childrenOrder || 1,
-        parentId: critData.parentId || null,
-        isActive: true,
-      }
-
-      if (critData.parentId) {
-        const addChildRecursive = (list: SuperAdminSv5tCriteria[]): SuperAdminSv5tCriteria[] =>
-          list.map((c) => {
-            if (c.id === critData.parentId) {
-              return {
-                ...c,
-                children: c.children ? [...c.children, newCrit] : [newCrit],
-              }
-            }
-            if (c.children) {
-              return { ...c, children: addChildRecursive(c.children) }
-            }
-            return c
-          })
-        setSv5tCriterias((prev) => addChildRecursive(prev))
-      } else {
-        setSv5tCriterias((prev) => [...prev, newCrit])
-      }
+      console.warn('API error saving SV5T criteria:', err)
+      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      return
     }
   }
 
@@ -621,25 +493,13 @@ export const SuperAdminPage: React.FC = () => {
     try {
       await superAdminService.toggleCriteriaStatus(criteriaId)
       const refreshed = await superAdminService.getCriterias()
-      if (refreshed.length > 0) {
-        setSv5tCriterias(refreshed)
-        return
-      }
+      setSv5tCriterias(refreshed)
+      return
     } catch (err) {
-      console.warn('API error toggling criteria status, updating local state:', err)
+      console.warn('API error toggling criteria status:', err)
+      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      return
     }
-
-    const toggleRecursive = (list: SuperAdminSv5tCriteria[]): SuperAdminSv5tCriteria[] =>
-      list.map((c) => {
-        if (c.id === criteriaId) {
-          return { ...c, isActive: !c.isActive }
-        }
-        if (c.children) {
-          return { ...c, children: toggleRecursive(c.children) }
-        }
-        return c
-      })
-    setSv5tCriterias((prev) => toggleRecursive(prev))
   }
 
   // --- Handlers: Schools & Majors ---
@@ -688,28 +548,12 @@ export const SuperAdminPage: React.FC = () => {
         })
       }
       const refreshed = await superAdminService.getSchools()
-      if (refreshed.length > 0) {
-        setSchools(refreshed)
-        return
-      }
+      setSchools(refreshed)
+      return
     } catch (err) {
-      console.warn('API error saving school, updating local state:', err)
-    }
-
-    if (schoolData.id) {
-      setSchools((prev) =>
-        prev.map((s) => (s.id === schoolData.id ? { ...s, ...schoolData } : s))
-      )
-    } else {
-      const newSchool: SuperAdminSchool = {
-        id: Date.now(),
-        name: schoolData.name || 'Khoa/Trường mới',
-        description: schoolData.description,
-        isActive: true,
-        majorsCount: 0,
-        majors: [],
-      }
-      setSchools((prev) => [...prev, newSchool])
+      console.warn('API error saving school:', err)
+      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      return
     }
   }
 
@@ -730,39 +574,12 @@ export const SuperAdminPage: React.FC = () => {
         })
       }
       const refreshed = await superAdminService.getSchools()
-      if (refreshed.length > 0) {
-        setSchools(refreshed)
-        return
-      }
+      setSchools(refreshed)
+      return
     } catch (err) {
-      console.warn('API error saving major, updating local state:', err)
-    }
-
-    if (majorData.id) {
-      setSchools((prev) =>
-        prev.map((s) => ({
-          ...s,
-          majors: s.majors?.map((m) =>
-            m.id === majorData.id ? { ...m, ...majorData } : m
-          ),
-        }))
-      )
-    } else {
-      const newMajor: SuperAdminMajor = {
-        id: Date.now(),
-        code: majorData.code || `7480${Math.floor(100 + Math.random() * 900)}`,
-        name: majorData.name || 'Chuyên ngành mới',
-        schoolId: currentSchoolIdForMajor,
-        isActive: true,
-        studentCount: 0,
-      }
-      setSchools((prev) =>
-        prev.map((s) =>
-          s.id === currentSchoolIdForMajor
-            ? { ...s, majors: [...(s.majors || []), newMajor] }
-            : s
-        )
-      )
+      console.warn('API error saving major:', err)
+      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      return
     }
   }
 
@@ -775,6 +592,17 @@ export const SuperAdminPage: React.FC = () => {
       searchQuery={globalSearchQuery}
       onSearchChange={setGlobalSearchQuery}
     >
+      {!isLoading && loadError && (
+        <div
+          role="alert"
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+        >
+          <span>{loadError}</span>
+          <Button variant="outline" size="sm" onClick={loadBackendData}>
+            Thử lại
+          </Button>
+        </div>
+      )}
       {/* Loading state indicator */}
       {isLoading ? (
         <div className="space-y-6 animate-pulse">
@@ -786,7 +614,10 @@ export const SuperAdminPage: React.FC = () => {
           {/* 4 Stats Cards Skeleton */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-white dark:bg-card p-5 rounded-2xl border border-border shadow-xs space-y-3">
+              <div
+                key={i}
+                className="bg-white dark:bg-card p-5 rounded-2xl border border-border shadow-xs space-y-3"
+              >
                 <div className="flex items-center justify-between">
                   <Skeleton className="h-4 w-24 rounded" />
                   <Skeleton className="h-8 w-8 rounded-xl" />
@@ -799,11 +630,17 @@ export const SuperAdminPage: React.FC = () => {
           {/* Tables / Content Blocks Skeleton */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {[1, 2].map((i) => (
-              <div key={i} className="bg-white dark:bg-card p-6 rounded-2xl border border-border shadow-xs space-y-4">
+              <div
+                key={i}
+                className="bg-white dark:bg-card p-6 rounded-2xl border border-border shadow-xs space-y-4"
+              >
                 <Skeleton className="h-5 w-44 rounded" />
                 <div className="space-y-3">
                   {[1, 2, 3].map((j) => (
-                    <div key={j} className="flex items-center justify-between p-3 border border-border/60 rounded-xl">
+                    <div
+                      key={j}
+                      className="flex items-center justify-between p-3 border border-border/60 rounded-xl"
+                    >
                       <div className="flex items-center gap-3">
                         <Skeleton className="h-10 w-10 rounded-xl" />
                         <div className="space-y-1.5">
@@ -818,21 +655,6 @@ export const SuperAdminPage: React.FC = () => {
               </div>
             ))}
           </div>
-        </div>
-      ) : loadError && users.length === 0 && fanpages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white dark:bg-card rounded-2xl border border-border shadow-sm">
-          <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/40 flex items-center justify-center text-red-600">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-          <p className="text-sm font-semibold text-foreground">Không thể kết nối đến máy chủ</p>
-          <p className="text-xs text-muted-foreground max-w-sm text-center">{loadError}</p>
-          <button
-            type="button"
-            onClick={loadBackendData}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition-colors shadow-xs cursor-pointer"
-          >
-            Thử lại
-          </button>
         </div>
       ) : (
         <>
@@ -920,7 +742,7 @@ export const SuperAdminPage: React.FC = () => {
         isOpen={isUserModalOpen}
         onClose={() => setIsUserModalOpen(false)}
         onToggleStatus={handleToggleUserStatus}
-        onChangeRole={handleChangeUserRole}
+        onToggleSuperAdmin={handleToggleUserSuperAdmin}
       />
 
       <FanpageReviewModal

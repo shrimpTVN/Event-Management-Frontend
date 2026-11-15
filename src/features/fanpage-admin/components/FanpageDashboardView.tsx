@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -45,10 +46,10 @@ export const FanpageDashboardView: React.FC<FanpageDashboardViewProps> = ({
   // 3. Computed real statistics from events
   const totalEvents = events.length
   const activeEventsCount = events.filter(
-    (e) => e.status === 'PUBLISHED' || e.status === 'OPEN_REGISTRATION' as any
+    (e) => e.status === 'PUBLISHED' || e.status === ('OPEN_REGISTRATION' as any)
   ).length
   const closedEventsCount = events.filter(
-    (e) => e.status === 'CLOSED' || e.status === 'FINISHED' as any
+    (e) => e.status === 'CLOSED' || e.status === ('FINISHED' as any)
   ).length
   const totalRegistrations = useMemo(
     () => events.reduce((sum, e) => sum + (e.registeredCount || 0), 0),
@@ -59,9 +60,7 @@ export const FanpageDashboardView: React.FC<FanpageDashboardViewProps> = ({
     [events]
   )
   const checkinRate =
-    totalRegistrations > 0
-      ? ((totalCheckins / totalRegistrations) * 100).toFixed(1)
-      : '100.0'
+    totalRegistrations > 0 ? ((totalCheckins / totalRegistrations) * 100).toFixed(1) : '100.0'
   const followersCount = currentFanpage.followersCount || stats?.newFollowersCount || 0
 
   // 4. Trend Badge Helper
@@ -190,9 +189,7 @@ export const FanpageDashboardView: React.FC<FanpageDashboardViewProps> = ({
 
   // 7. Upcoming events sorted by dateStart
   const upcomingEvents = useMemo(() => {
-    return [...events]
-      .sort((a, b) => (a.dateStart > b.dateStart ? 1 : -1))
-      .slice(0, 3)
+    return [...events].sort((a, b) => (a.dateStart > b.dateStart ? 1 : -1)).slice(0, 3)
   }, [events])
 
   // 8. Recent Activities dynamically generated from real data
@@ -219,7 +216,8 @@ export const FanpageDashboardView: React.FC<FanpageDashboardViewProps> = ({
         title: `Cập nhật sự kiện: ${latest.name}`,
         description: `Sự kiện đã ghi nhận ${latest.registeredCount}/${latest.capacity} lượt sinh viên đăng ký tại ${latest.location}.`,
         badge: 'Cập nhật',
-        badgeColor: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400',
+        badgeColor:
+          'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400',
         iconColor: 'bg-blue-50 text-blue-600 dark:bg-blue-950/40',
       })
     }
@@ -233,7 +231,8 @@ export const FanpageDashboardView: React.FC<FanpageDashboardViewProps> = ({
         title: 'Tương tác sinh viên mới',
         description: `Đã có ${stats.interactionsCount} lượt tương tác và phản hồi hỏi đáp về quyền lợi điểm rèn luyện.`,
         badge: `${stats.interactionsCount} tương tác`,
-        badgeColor: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400',
+        badgeColor:
+          'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400',
         iconColor: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40',
       })
     }
@@ -247,7 +246,8 @@ export const FanpageDashboardView: React.FC<FanpageDashboardViewProps> = ({
         title: 'Lượt theo dõi fanpage gia tăng',
         description: `Fanpage hiện có ${followersCount.toLocaleString('vi-VN')} người theo dõi từ sinh viên các khoa và câu lạc bộ.`,
         badge: `+${followersCount} theo dõi`,
-        badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400',
+        badgeColor:
+          'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400',
         iconColor: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40',
       })
     }
@@ -262,7 +262,8 @@ export const FanpageDashboardView: React.FC<FanpageDashboardViewProps> = ({
         title: `Sự kiện đã hoàn tất điểm danh`,
         description: `Sự kiện "${closedEvent.name}" đã hoàn thành điểm danh (${closedEvent.checkedInCount}/${closedEvent.registeredCount} sinh viên).`,
         badge: 'Đã hoàn tất',
-        badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400',
+        badgeColor:
+          'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400',
         iconColor: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40',
       })
     }
@@ -289,12 +290,7 @@ export const FanpageDashboardView: React.FC<FanpageDashboardViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 rounded-lg gap-2"
-          >
+          <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg gap-2">
             <Download className="h-3.5 w-3.5 text-muted-foreground" />
             <span>Xuất báo cáo</span>
           </Button>
@@ -328,9 +324,7 @@ export const FanpageDashboardView: React.FC<FanpageDashboardViewProps> = ({
               {getTrendBadge(card.trend, card.trendVariant)}
             </div>
 
-            <div className="text-xs text-muted-foreground truncate">
-              {card.trend.subText}
-            </div>
+            <div className="text-xs text-muted-foreground truncate">{card.trend.subText}</div>
           </div>
         ))}
       </div>
@@ -489,74 +483,67 @@ export const FanpageDashboardView: React.FC<FanpageDashboardViewProps> = ({
                 const isHovered = hoveredMonth === idx
 
                 return (
-                  <g
+                  <Tooltip
                     key={idx}
-                    onMouseEnter={() => setHoveredMonth(idx)}
-                    onMouseLeave={() => setHoveredMonth(null)}
-                    className="cursor-pointer"
+                    content={`${d.month}\nĐăng ký: ${d.reg} lượt\nCheck-in: ${d.chk} lượt`}
                   >
-                    {isHovered && (
-                      <line
-                        x1={d.x}
-                        y1="25"
-                        x2={d.x}
-                        y2="185"
-                        stroke="#1B4B8A"
-                        strokeWidth="1.5"
-                        strokeDasharray="2 2"
-                        opacity="0.6"
-                      />
-                    )}
-
-                    {(chartViewMode === 'ALL' || chartViewMode === 'REG') && (
-                      <circle
-                        cx={d.x}
-                        cy={regY}
-                        r={isHovered ? 5.5 : 4}
-                        fill="#FFFFFF"
-                        stroke="#1B4B8A"
-                        strokeWidth="2.5"
-                        className="transition-all"
-                      />
-                    )}
-
-                    {(chartViewMode === 'ALL' || chartViewMode === 'CHECKIN') && (
-                      <circle
-                        cx={d.x}
-                        cy={chkY}
-                        r={isHovered ? 5.5 : 4}
-                        fill="#FFFFFF"
-                        stroke="#16A34A"
-                        strokeWidth="2.5"
-                        className="transition-all"
-                      />
-                    )}
-
-                    <text
-                      x={d.x}
-                      y="198"
-                      textAnchor="middle"
-                      className={`text-[10px] font-medium transition-colors ${
-                        isHovered ? 'fill-primary font-bold' : 'fill-muted-foreground'
-                      }`}
+                    <g
+                      onMouseEnter={() => setHoveredMonth(idx)}
+                      onMouseLeave={() => setHoveredMonth(null)}
+                      className="cursor-pointer"
                     >
-                      {d.month}
-                    </text>
-                  </g>
+                      {isHovered && (
+                        <line
+                          x1={d.x}
+                          y1="25"
+                          x2={d.x}
+                          y2="185"
+                          stroke="#1B4B8A"
+                          strokeWidth="1.5"
+                          strokeDasharray="2 2"
+                          opacity="0.6"
+                        />
+                      )}
+
+                      {(chartViewMode === 'ALL' || chartViewMode === 'REG') && (
+                        <circle
+                          cx={d.x}
+                          cy={regY}
+                          r={isHovered ? 5.5 : 4}
+                          fill="#FFFFFF"
+                          stroke="#1B4B8A"
+                          strokeWidth="2.5"
+                          className="transition-all"
+                        />
+                      )}
+
+                      {(chartViewMode === 'ALL' || chartViewMode === 'CHECKIN') && (
+                        <circle
+                          cx={d.x}
+                          cy={chkY}
+                          r={isHovered ? 5.5 : 4}
+                          fill="#FFFFFF"
+                          stroke="#16A34A"
+                          strokeWidth="2.5"
+                          className="transition-all"
+                        />
+                      )}
+
+                      <text
+                        x={d.x}
+                        y="198"
+                        textAnchor="middle"
+                        className={`text-[10px] font-medium transition-colors ${
+                          isHovered ? 'fill-primary font-bold' : 'fill-muted-foreground'
+                        }`}
+                      >
+                        {d.month}
+                      </text>
+                    </g>
+                  </Tooltip>
                 )
               })}
             </svg>
-
-            {hoveredMonth !== null && (
-              <div
-                style={{ left: `${(chartData[hoveredMonth].x / 500) * 100}%` }}
-                className="absolute top-2 -translate-x-1/2 bg-slate-900 text-white text-[11px] py-1.5 px-3 rounded-lg shadow-lg pointer-events-none z-20 space-y-0.5 whitespace-nowrap"
-              >
-                <p className="font-bold text-slate-200">{chartData[hoveredMonth].month}</p>
-                <p className="text-blue-300">Đăng ký: {chartData[hoveredMonth].reg} lượt</p>
-                <p className="text-emerald-300">Check-in: {chartData[hoveredMonth].chk} lượt</p>
-              </div>
-            )}
           </div>
 
           {/* Quick Highlight Footer */}
@@ -752,7 +739,8 @@ export const FanpageDashboardView: React.FC<FanpageDashboardViewProps> = ({
               <span>Gợi ý cho ban tổ chức</span>
             </div>
             <p className="text-muted-foreground text-[11px] leading-relaxed">
-              Sinh viên K48 và K47 tích cực nhất. Nên tăng cường các chủ đề học thuật và chứng nhận ĐRL.
+              Sinh viên K48 và K47 tích cực nhất. Nên tăng cường các chủ đề học thuật và chứng nhận
+              ĐRL.
             </p>
           </div>
         </div>

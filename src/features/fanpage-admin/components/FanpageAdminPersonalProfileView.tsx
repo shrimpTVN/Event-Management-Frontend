@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -55,7 +56,10 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      setFeedback({ type: 'error', message: 'Vui lòng chọn tệp định dạng hình ảnh (PNG, JPG, JPEG, WEBP).' })
+      setFeedback({
+        type: 'error',
+        message: 'Vui lòng chọn tệp định dạng hình ảnh (PNG, JPG, JPEG, WEBP).',
+      })
       return
     }
 
@@ -72,10 +76,16 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] })
       queryClient.invalidateQueries({ queryKey: ['fanpage-members'] })
       queryClient.invalidateQueries({ queryKey: ['staff-my-fanpages'] })
-      setFeedback({ type: 'success', message: 'Đã cập nhật ảnh đại diện lên Cloudinary thành công!' })
+      setFeedback({
+        type: 'success',
+        message: 'Đã cập nhật ảnh đại diện lên Cloudinary thành công!',
+      })
       setTimeout(() => setFeedback(null), 4000)
     } catch (err: any) {
-      setFeedback({ type: 'error', message: err?.message || 'Không thể tải ảnh đại diện lên Cloudinary.' })
+      setFeedback({
+        type: 'error',
+        message: err?.message || 'Không thể tải ảnh đại diện lên Cloudinary.',
+      })
     } finally {
       setIsUploadingAvatar(false)
       if (fileInputRef.current) {
@@ -267,50 +277,53 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
       <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-card border border-[#E5E7EB] dark:border-border shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4 min-w-0">
           <div className="relative group">
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-primary/30 shadow-xs relative cursor-pointer"
-              title="Nhấn để tải ảnh đại diện lên Cloudinary"
-            >
-              {displayAvatar ? (
-                <img
-                  src={displayAvatar}
-                  alt={displayName}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-[#1B4B8A] text-white flex items-center justify-center font-bold text-xl sm:text-2xl shadow-xs">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
-              )}
+            <Tooltip content="Nhấn để tải ảnh đại diện lên Cloudinary">
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-primary/30 shadow-xs relative cursor-pointer"
+              >
+                {displayAvatar ? (
+                  <img
+                    src={displayAvatar}
+                    alt={displayName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-[#1B4B8A] text-white flex items-center justify-center font-bold text-xl sm:text-2xl shadow-xs">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
 
-              {isUploadingAvatar && (
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-0.5">
-                  <Loader2 className="h-4 w-4 animate-spin text-white" />
-                  <span className="text-[8px] font-medium">Tải...</span>
-                </div>
-              )}
+                {isUploadingAvatar && (
+                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-0.5">
+                    <Loader2 className="h-4 w-4 animate-spin text-white" />
+                    <span className="text-[8px] font-medium">Tải...</span>
+                  </div>
+                )}
 
-              {!isUploadingAvatar && (
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
-                  <Camera className="h-5 w-5" />
-                </div>
-              )}
-            </div>
+                {!isUploadingAvatar && (
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                    <Camera className="h-5 w-5" />
+                  </div>
+                )}
+              </div>
+            </Tooltip>
 
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploadingAvatar}
-              title="Tải ảnh lên Cloudinary"
-              className="absolute -bottom-1 -right-1 p-1 bg-white dark:bg-card hover:bg-muted rounded-full shadow-xs cursor-pointer border border-border transition-colors"
-            >
-              {isUploadingAvatar ? (
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              ) : (
-                <Camera className="h-4 w-4 text-[#1B4B8A] dark:text-blue-400" />
-              )}
-            </button>
+            <Tooltip content="Tải ảnh lên Cloudinary">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingAvatar}
+                aria-label="Tải ảnh lên Cloudinary"
+                className="absolute -bottom-1 -right-1 p-1 bg-white dark:bg-card hover:bg-muted rounded-full shadow-xs cursor-pointer border border-border transition-colors"
+              >
+                {isUploadingAvatar ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                ) : (
+                  <Camera className="h-4 w-4 text-[#1B4B8A] dark:text-blue-400" />
+                )}
+              </button>
+            </Tooltip>
           </div>
 
           <div className="min-w-0 space-y-1">
@@ -390,7 +403,9 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
             {isStaff ? (
               <>
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground font-medium">Mã số cán bộ</Label>
+                  <Label className="text-[11px] text-muted-foreground font-medium">
+                    Mã số cán bộ
+                  </Label>
                   <Input
                     type="text"
                     value={staffData.staffId}
@@ -409,7 +424,9 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground font-medium">Đơn vị công tác</Label>
+                  <Label className="text-[11px] text-muted-foreground font-medium">
+                    Đơn vị công tác
+                  </Label>
                   <Input
                     type="text"
                     value={staffData.department}
@@ -418,7 +435,9 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground font-medium">Vai trò hệ thống</Label>
+                  <Label className="text-[11px] text-muted-foreground font-medium">
+                    Vai trò hệ thống
+                  </Label>
                   <div className="h-9 px-3 rounded-lg border border-border bg-muted/40 flex items-center text-xs font-semibold text-primary">
                     FANPAGE_ADMIN (Quản trị viên Fanpage)
                   </div>
@@ -427,7 +446,9 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
             ) : (
               <>
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground font-medium">Mã số sinh viên (MSSV)</Label>
+                  <Label className="text-[11px] text-muted-foreground font-medium">
+                    Mã số sinh viên (MSSV)
+                  </Label>
                   <Input
                     type="text"
                     value={studentForm.studentId}
@@ -436,7 +457,9 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground font-medium">Lớp sinh hoạt</Label>
+                  <Label className="text-[11px] text-muted-foreground font-medium">
+                    Lớp sinh hoạt
+                  </Label>
                   <Input
                     type="text"
                     value={studentForm.classId}
@@ -445,7 +468,9 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground font-medium">Khoa / Đơn vị đào tạo</Label>
+                  <Label className="text-[11px] text-muted-foreground font-medium">
+                    Khoa / Đơn vị đào tạo
+                  </Label>
                   <Input
                     type="text"
                     value={studentForm.faculty}
@@ -454,7 +479,9 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground font-medium">Chi đoàn / Chi hội</Label>
+                  <Label className="text-[11px] text-muted-foreground font-medium">
+                    Chi đoàn / Chi hội
+                  </Label>
                   <Input
                     type="text"
                     value={studentForm.youthUnionBranch}
@@ -491,7 +518,9 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
             </div>
 
             <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground font-medium">Email liên hệ (CTU)</Label>
+              <Label className="text-[11px] text-muted-foreground font-medium">
+                Email liên hệ (CTU)
+              </Label>
               <Input
                 type="email"
                 value={user?.email || staffData.email}
@@ -502,7 +531,9 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground font-medium">Số điện thoại</Label>
+                <Label className="text-[11px] text-muted-foreground font-medium">
+                  Số điện thoại
+                </Label>
                 <Input
                   type="text"
                   value={isStaff ? staffData.phoneNumber : studentForm.phoneNumber}
@@ -562,9 +593,7 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
               {isStaff ? 'Fanpage bạn đang quản lý' : 'Fanpage bạn tham gia ban tổ chức'}
             </h3>
           </div>
-          <span className="text-xs text-muted-foreground">
-            {availableFanpages.length} trang
-          </span>
+          <span className="text-xs text-muted-foreground">{availableFanpages.length} trang</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -592,9 +621,7 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
                     </div>
                   )}
                   <div className="min-w-0">
-                    <p className="font-semibold text-xs text-foreground truncate">
-                      {fp.name}
-                    </p>
+                    <p className="font-semibold text-xs text-foreground truncate">{fp.name}</p>
                     <p className="text-[11px] text-muted-foreground truncate">
                       {fp.role || 'Quản trị viên'}
                     </p>

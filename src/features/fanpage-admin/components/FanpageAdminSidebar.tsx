@@ -1,11 +1,6 @@
 import React from 'react'
-import {
-  LayoutDashboard,
-  CalendarDays,
-  Users,
-  FilePenLine,
-  Settings,
-} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { LayoutDashboard, CalendarDays, Users, FilePenLine, Settings } from 'lucide-react'
 import type { FanpageSummary, AdminNavTab } from '../types/fanpageAdmin.types'
 
 interface FanpageAdminSidebarProps {
@@ -40,19 +35,22 @@ export const FanpageAdminSidebar: React.FC<FanpageAdminSidebarProps> = ({
             const Icon = item.icon
             const isActive = activeTab === item.id
             return (
-              <button
+              <Button
+                variant="ghost"
                 key={item.id}
                 type="button"
                 onClick={() => onSelectTab && onSelectTab(item.id)}
-                className={`w-full h-10 px-3 rounded-xl flex items-center gap-3 text-xs font-medium transition-all cursor-pointer ${
+                className={`w-full h-10 px-3 rounded-lg flex items-center justify-start gap-3 text-xs font-medium transition-all cursor-pointer ${
                   isActive
-                    ? 'bg-[#1B4B8A] text-white shadow-xs font-semibold'
+                    ? 'bg-brand-subtle text-brand-subtle-foreground hover:bg-brand-subtle hover:text-brand-subtle-foreground font-semibold'
                     : 'text-[#4B5563] dark:text-muted-foreground hover:text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted'
                 }`}
               >
-                <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+                <Icon
+                  className={`h-4 w-4 shrink-0 ${isActive ? 'text-brand-subtle-foreground' : 'text-muted-foreground'}`}
+                />
                 <span>{item.label}</span>
-              </button>
+              </Button>
             )
           })}
         </nav>

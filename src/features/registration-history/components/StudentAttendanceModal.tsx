@@ -1,5 +1,9 @@
-import React, { useState } from 'react'
-import { X, Camera, UploadCloud, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Tooltip } from '@/components/ui/tooltip'
+import React, { useEffect, useState } from 'react'
+import { studentAttendanceStep } from '@/shared/utils/attendanceState'
+import { Button } from '@/components/ui/button'
+import { X, Trash2, AlertCircle } from 'lucide-react'
+import { AttendancePhotoPicker } from './AttendancePhotoPicker'
 import { sanitizeImageSrc } from '@/shared'
 import { mediaService } from '@/shared/services/mediaService'
 import type { RegisteredEventItem } from '../types/history.types'
@@ -12,37 +16,48 @@ interface StudentAttendanceModalProps {
   onSuccess: (message: string) => void
 }
 
-export const StudentAttendanceModal: React.FC<StudentAttendanceModalProps> = ({
+export const StudentAttendanceModal: React.FC<StudentAttendanceModalProps> = (props) => {
+  if (!props.isOpen || !props.event) return null
+  if (!studentAttendanceStep(props.event.status)) return null
+  return (
+    <StudentAttendanceForm
+      {...props}
+      key={`${props.event.eventId}:${props.event.status}:${props.event.checkInAt ?? ''}:${props.event.checkOutAt ?? ''}`}
+    />
+  )
+}
+
+const StudentAttendanceForm: React.FC<StudentAttendanceModalProps> = ({
   isOpen,
   onClose,
   event,
   onSuccess,
 }) => {
-  const attendanceSessionType = event?.attendanceSessionType || 'BOTH'
-
-  // Available sessions to check in based on event configuration
-  const allowCheckIn = attendanceSessionType === 'CHECK_IN' || attendanceSessionType === 'BOTH'
-  const allowCheckOut = attendanceSessionType === 'CHECK_OUT' || attendanceSessionType === 'BOTH'
-
-  const [sessionType, setSessionType] = useState<'check-in' | 'check-out'>(
-    allowCheckIn ? 'check-in' : 'check-out'
-  )
+  // BE requires check-in first, then check-out, then fanpage confirmation.
+  const sessionType = studentAttendanceStep(event?.status ?? '') ?? 'check-in'
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(
+    () => () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    },
+    [previewUrl]
+  )
+
   if (!isOpen || !event) return null
 
   const title = event.title || event.eventName || 'Sự kiện'
   const eventId = String(event.eventId || event.id || '')
-  const organizerName = event.organizer?.name || 'Ban Tổ Chức'
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleFileChange = (file: File) => {
     if (file) {
-      if (!file.type.startsWith('image/')) {
-        setError('Vui lòng chỉ tải lên tệp hình ảnh (PNG, JPG, JPEG)')
+      setSelectedFile(null)
+      setPreviewUrl(null)
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        setError('Vui lòng chỉ tải lên tệp hình ảnh (PNG, JPG, WEBP)')
         return
       }
       if (file.size > 5 * 1024 * 1024) {
@@ -57,16 +72,14 @@ export const StudentAttendanceModal: React.FC<StudentAttendanceModalProps> = ({
   }
 
   const handleRemoveImage = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-    }
     setSelectedFile(null)
     setPreviewUrl(null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!previewUrl && !selectedFile) {
+    if (isSubmitting) return
+    if (!selectedFile) {
       setError('Vui lòng tải lên ảnh minh chứng tham gia (ảnh selfie hoặc chụp tại sự kiện)')
       return
     }
@@ -75,23 +88,14 @@ export const StudentAttendanceModal: React.FC<StudentAttendanceModalProps> = ({
     setError(null)
 
     try {
-      let uploadedProofUrl: string | undefined = undefined
-
-      if (selectedFile) {
-        try {
-          uploadedProofUrl = await mediaService.uploadImage(selectedFile, 'EVIDENCE')
-        } catch (uploadErr: any) {
-          console.warn('Media upload warning, using fallback:', uploadErr)
-          uploadedProofUrl = 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/proofs/checkin_proof.jpg'
-        }
-      }
-
-      await historyService.submitAttendance(eventId, sessionType, uploadedProofUrl || '')
+      const uploadedProofUrl = await mediaService.uploadImage(selectedFile, 'EVIDENCE')
+      if (!uploadedProofUrl) throw new Error('Chưa tải được ảnh minh chứng. Vui lòng thử lại.')
+      await historyService.submitAttendance(eventId, sessionType, uploadedProofUrl)
 
       onSuccess(
         sessionType === 'check-in'
-          ? 'Điểm danh đầu buổi thành công!'
-          : 'Điểm danh cuối buổi thành công!'
+          ? 'Đã gửi ảnh điểm danh đầu buổi.'
+          : 'Đã gửi ảnh cuối buổi. Chờ ban tổ chức xác nhận điểm danh.'
       )
       handleClose()
     } catch (err: any) {
@@ -100,11 +104,14 @@ export const StudentAttendanceModal: React.FC<StudentAttendanceModalProps> = ({
 
       let friendlyMsg = 'Có lỗi xảy ra khi gửi điểm danh. Vui lòng thử lại.'
       if (rawMsg.includes('not started yet')) {
-        friendlyMsg = 'Sự kiện này chưa bắt đầu hoặc hôm nay chưa phải ngày diễn ra sự kiện (hệ thống chỉ mở điểm danh vào ngày diễn ra sự kiện).'
+        friendlyMsg =
+          'Sự kiện này chưa bắt đầu hoặc hôm nay chưa phải ngày diễn ra sự kiện (hệ thống chỉ mở điểm danh vào ngày diễn ra sự kiện).'
       } else if (rawMsg.includes('not registered')) {
         friendlyMsg = 'Bạn chưa đăng ký tham gia sự kiện này.'
       } else if (rawMsg.includes('has not checked in') || rawMsg.includes('cannot check out')) {
         friendlyMsg = 'Bạn chưa điểm danh vào (check-in) nên chưa thể điểm danh ra (check-out).'
+      } else if (rawMsg.includes('pending confirmation') || rawMsg.includes('already checkout')) {
+        friendlyMsg = 'Bạn đã gửi ảnh cuối buổi và đang chờ ban tổ chức xác nhận.'
       } else if (rawMsg.includes('already completed')) {
         friendlyMsg = 'Bạn đã hoàn tất điểm danh sự kiện này rồi!'
       } else if (rawMsg) {
@@ -127,101 +134,49 @@ export const StudentAttendanceModal: React.FC<StudentAttendanceModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-lg bg-white dark:bg-card rounded-2xl shadow-xl border border-border overflow-hidden animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto bg-background rounded-xl shadow-xl border border-border animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
+        aria-label="Điểm danh sự kiện"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border/80 bg-muted/20">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-blue-50 text-[#1B4B8A] dark:bg-blue-950/60 dark:text-blue-300">
-              <Camera className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold font-heading text-foreground">
-                Điểm danh sự kiện
-              </h2>
-              <p className="text-xs text-muted-foreground truncate max-w-xs">{title}</p>
-            </div>
+        <div className="flex items-start justify-between gap-3 px-5 pt-5">
+          <div className="min-w-0 flex flex-col gap-1">
+            <h2 className="text-base font-semibold font-heading text-foreground">
+              {sessionType === 'check-in' ? 'Điểm danh đầu buổi' : 'Điểm danh cuối buổi'}
+            </h2>
+            <p className="text-xs text-muted-foreground break-words">{title}</p>
           </div>
 
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             type="button"
             onClick={handleClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+            disabled={isSubmitting}
+            aria-label="Đóng điểm danh"
+            className="h-8 w-8 shrink-0 rounded-lg text-muted-foreground"
           >
             <X className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
           {error && (
-            <div className="flex items-center gap-2 p-3 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-xl dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900">
+            <div
+              role="alert"
+              className="flex items-center gap-2 p-3 text-xs font-medium text-red-700 bg-rose-50 border border-rose-200 rounded-xl dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900"
+            >
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* Event Quick Info */}
-          <div className="p-3 bg-[#F8FAFC] dark:bg-muted/30 border border-[#EDF2F7] dark:border-border/40 rounded-xl text-xs space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Ban tổ chức:</span>
-              <span className="font-semibold text-foreground truncate">{organizerName}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Thời gian:</span>
-              <span className="font-medium text-foreground">{event.timeHappen || 'Đang cập nhật'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Địa điểm:</span>
-              <span className="font-medium text-foreground truncate">{event.location || 'Hội trường Rùa'}</span>
-            </div>
-          </div>
-
-          {/* Session Selection (Đầu buổi vs Cuối buổi) */}
-          {allowCheckIn && allowCheckOut && (
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
-                Chọn phiên điểm danh <span className="text-rose-500">*</span>
-              </label>
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setSessionType('check-in')}
-                  className={`py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                    sessionType === 'check-in'
-                      ? 'border-[#1B4B8A] bg-blue-50/70 text-[#1B4B8A] dark:bg-blue-950/40 dark:text-blue-300 shadow-2xs'
-                      : 'border-border bg-white dark:bg-card text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <CheckCircle2 className={`w-3.5 h-3.5 ${sessionType === 'check-in' ? 'opacity-100' : 'opacity-40'}`} />
-                  <span>Điểm danh đầu buổi</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSessionType('check-out')}
-                  className={`py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                    sessionType === 'check-out'
-                      ? 'border-[#1B4B8A] bg-blue-50/70 text-[#1B4B8A] dark:bg-blue-950/40 dark:text-blue-300 shadow-2xs'
-                      : 'border-border bg-white dark:bg-card text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <CheckCircle2 className={`w-3.5 h-3.5 ${sessionType === 'check-out' ? 'opacity-100' : 'opacity-40'}`} />
-                  <span>Điểm danh cuối buổi</span>
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Photo Upload Area */}
-          <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">
-              Ảnh minh chứng tham gia sự kiện <span className="text-rose-500">*</span>
-            </label>
-            <p className="text-[11px] text-muted-foreground mb-2">
-              Chụp ảnh selfie tại hội trường hoặc ảnh chụp cùng slide/sân khấu sự kiện để BTC xác minh.
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-muted-foreground">
+              Gửi ảnh tại sự kiện để ban tổ chức xác nhận.
             </p>
 
             {previewUrl && sanitizeImageSrc(previewUrl) ? (
@@ -231,61 +186,54 @@ export const StudentAttendanceModal: React.FC<StudentAttendanceModalProps> = ({
                   alt="Ảnh minh chứng điểm danh"
                   className="w-full h-44 object-contain"
                 />
-                <button
-                  type="button"
-                  onClick={handleRemoveImage}
-                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 text-white hover:bg-black/80 transition-colors cursor-pointer"
-                  title="Xóa ảnh"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <Tooltip content="Xóa ảnh">
+                  <Button
+                    variant="ghost"
+                    type="button"
+                    onClick={handleRemoveImage}
+                    disabled={isSubmitting}
+                    aria-label="Xóa ảnh"
+                    className="absolute top-2 right-2 h-8 w-8 p-1.5 rounded-lg bg-black/60 text-white hover:bg-black/80 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </Tooltip>
               </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-border/80 rounded-xl hover:border-[#1B4B8A]/60 bg-muted/10 hover:bg-muted/20 transition-all cursor-pointer">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
-                  <UploadCloud className="w-7 h-7 text-[#1B4B8A] mb-2" />
-                  <p className="text-xs font-semibold text-foreground mb-1">
-                    Nhấp để tải ảnh lên hoặc kéo thả vào đây
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Hỗ trợ định dạng PNG, JPG, JPEG (tối đa 5MB)
-                  </p>
-                </div>
-                <input
-                  type="file"
-                  accept="image/png, image/jpeg, image/jpg"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
-            )}
+            ) : null}
+            <AttendancePhotoPicker disabled={isSubmitting} onSelect={handleFileChange} />
+            <p className="text-xs text-muted-foreground">PNG, JPG, WEBP · Tối đa 5 MB</p>
           </div>
 
           {/* Modal Actions */}
           <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border/70">
-            <button
+            <Button
+              variant="outline"
               type="button"
               onClick={handleClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              className="h-8 rounded-lg px-4 text-xs"
             >
               Hủy
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="submit"
-              disabled={isSubmitting}
-              className="px-5 py-2 text-xs font-semibold text-white bg-[#1B4B8A] hover:bg-[#153a6b] rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              disabled={
+                isSubmitting ||
+                !selectedFile ||
+                (sessionType === 'check-in' ? Boolean(event.checkInAt) : Boolean(event.checkOutAt))
+              }
+              className="h-8 px-4 text-xs rounded-lg flex items-center gap-1.5"
             >
               {isSubmitting ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Đang gửi điểm danh...</span>
+                  <span>Đang gửi...</span>
                 </>
               ) : (
-                <span>Xác nhận điểm danh</span>
+                <span>Gửi ảnh</span>
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -51,17 +52,18 @@ export const Navbar: React.FC = () => {
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="w-full flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* 1. Brand Logo: CTU Event (HTQL Sự Kiện) */}
-        <Link
-          to={homePath}
-          className="flex items-center shrink-0 group transition-transform hover:opacity-95"
-          title={isStaff ? 'Trung tâm Fanpage' : 'Trang chủ'}
-        >
-          <img
-            src={logoImg}
-            alt="CTU Event - HTQL Sự Kiện"
-            className="h-10 w-auto object-contain"
-          />
-        </Link>
+        <Tooltip content={isStaff ? 'Trung tâm Fanpage' : 'Trang chủ'}>
+          <Link
+            to={homePath}
+            className="flex items-center shrink-0 group transition-transform hover:opacity-95"
+          >
+            <img
+              src={logoImg}
+              alt="CTU Event - HTQL Sự Kiện"
+              className="h-10 w-auto object-contain"
+            />
+          </Link>
+        </Tooltip>
 
         {/* 2. Center: Search Bar with Autocomplete Suggestions & Filter Popup */}
         <NavbarSearchAutocomplete />
@@ -69,35 +71,38 @@ export const Navbar: React.FC = () => {
         {/* 3. Right: Communication, Notifications, & User Avatar */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Chat / Feedback button */}
-          <button
-            type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            title="Tin nhắn & Hỗ trợ"
-          >
-            <MessageSquare className="h-5 w-5" />
-          </button>
+          <Tooltip content="Tin nhắn & Hỗ trợ">
+            <button
+              type="button"
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              aria-label="Tin nhắn & Hỗ trợ"
+            >
+              <MessageSquare className="h-5 w-5" />
+            </button>
+          </Tooltip>
 
           {/* Notifications Bell */}
           <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setShowNotifications((prev) => !prev)
-                setShowDropdown(false)
-              }}
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-              title="Thông báo"
-              aria-label={`Thông báo ${totalUnreadCount > 0 ? `(${totalUnreadCount} chưa đọc)` : ''}`}
-            >
-              <div className="relative flex items-center justify-center">
-                <Bell className="h-5 w-5" />
-                {totalUnreadCount > 0 && (
-                  <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white font-bold text-[9px] leading-none flex items-center justify-center ring-2 ring-card shadow-xs animate-in zoom-in-50">
-                    {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
-                  </span>
-                )}
-              </div>
-            </button>
+            <Tooltip content="Thông báo">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNotifications((prev) => !prev)
+                  setShowDropdown(false)
+                }}
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                aria-label={`Thông báo ${totalUnreadCount > 0 ? `(${totalUnreadCount} chưa đọc)` : ''}`}
+              >
+                <div className="relative flex items-center justify-center">
+                  <Bell className="h-5 w-5" />
+                  {totalUnreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white font-bold text-[9px] leading-none flex items-center justify-center ring-2 ring-card shadow-xs animate-in zoom-in-50">
+                      {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                    </span>
+                  )}
+                </div>
+              </button>
+            </Tooltip>
 
             {/* Notification Dropdown (Matching Facebook-style image) */}
             <NotificationDropdown

@@ -1,293 +1,312 @@
-import React, { useState } from 'react'
+import { Tooltip } from '@/components/ui/tooltip'
 import {
-  Shield,
-  Lock,
-  Unlock,
-  Mail,
-  Phone,
-  School,
-  Calendar,
-  Award,
-  Copy,
-  Check,
-  GraduationCap,
-  Briefcase,
-  Users,
-} from 'lucide-react'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from '@/components/ui/sheet'
+  getSuperAdminRoles,
+  isValidUserId,
+  getUserDisplayRole,
+  superAdminService,
+} from '../../services/superAdminService'
+import { useEffect, useState } from 'react'
+import { Check, Copy, Lock, Unlock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/shared/utils/cn'
-import type { SuperAdminUser } from '../../types/superAdmin.types'
+import {
+  UserPermissionBadges,
+  UserStatusBadge,
+  AdminDetailField,
+  AdminDetailSection,
+  AdminDetailSheet,
+  AdminBadge,
+} from '../AdminDetails'
+import type { SuperAdminUser, UserFanpageMembership } from '../../types/superAdmin.types'
 
 interface UserDetailModalProps {
   user: SuperAdminUser | null
   isOpen: boolean
   onClose: () => void
   onToggleStatus: (userId: string) => void
-  onChangeRole: (userId: string, newRole: SuperAdminUser['role']) => void
+  onToggleSuperAdmin: (userId: string, enabled: boolean) => Promise<boolean>
 }
-
-export const UserDetailModal: React.FC<UserDetailModalProps> = ({
+export function UserDetailModal({
   user,
   isOpen,
   onClose,
   onToggleStatus,
-  onChangeRole,
-}) => {
-  const [copiedField, setCopiedField] = useState<string | null>(null)
+  onToggleSuperAdmin,
+}: UserDetailModalProps) {
+  const [copied, setCopied] = useState(false)
+  const [memberships, setMemberships] = useState<UserFanpageMembership[]>([])
+  const [membershipsLoading, setMembershipsLoading] = useState(false)
+  const [membershipsError, setMembershipsError] = useState('')
+  const [retryMemberships, setRetryMemberships] = useState(0)
+  useEffect(() => {
+    if (!isOpen || !user) return
+    let active = true
+    setMembershipsLoading(true)
+    setMemberships([])
+    setMembershipsError('')
+    void superAdminService
+      .getUserFanpages(user.id, user.email)
+      .then((result) => {
+        if (!active) return
+        setMemberships(result.items)
+        if (result.incomplete) setMembershipsError('Chưa tải được đầy đủ các fanpage.')
+      })
+      .catch(() => {
+        if (active) setMembershipsError('Không thể tải danh sách fanpage.')
+      })
+      .finally(() => {
+        if (active) setMembershipsLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [user?.id, user?.email, isOpen, retryMemberships])
+  const [isSaving, setIsSaving] = useState(false)
+  const [roleError, setRoleError] = useState('')
 
+  useEffect(() => {
+    setCopied(false)
+
+    setRoleError('')
+  }, [user?.id, isOpen])
+  useEffect(() => {
+    if (!copied) return
+    const timer = setTimeout(() => setCopied(false), 2000)
+    return () => clearTimeout(timer)
+  }, [copied])
   if (!user) return null
-
-  const handleCopy = (text: string, fieldName: string) => {
-    if (!text) return
-    navigator?.clipboard?.writeText(text)
-    setCopiedField(fieldName)
-    setTimeout(() => {
-      setCopiedField((prev) => (prev === fieldName ? null : prev))
-    }, 2000)
-  }
-
   const isLocked = user.status === 'LOCKED'
-
+  const student = user.studentProfile
+  const staff = user.staffProfile
+  const isSuperAdmin = getUserDisplayRole(user) === 'SUPERADMIN'
+  let canDemote = true
+  try {
+    if (isSuperAdmin) getSuperAdminRoles(user, false)
+  } catch {
+    canDemote = false
+  }
+  const toggleSuperAdmin = async () => {
+    setIsSaving(true)
+    setRoleError('')
+    try {
+      if (!(await onToggleSuperAdmin(user.id, !isSuperAdmin)))
+        setRoleError('Không thể lưu thay đổi. Vui lòng thử lại.')
+    } catch {
+      setRoleError('Không thể lưu thay đổi. Vui lòng thử lại.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+  const copyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(user.email)
+      setCopied(true)
+    } catch {
+      setCopied(false)
+    }
+  }
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent
-        side="right"
-        className="w-full sm:max-w-lg flex flex-col p-0 gap-0 text-left bg-white dark:bg-card border-l border-border shadow-2xl"
-      >
-        {/* 1. Header Drawer */}
-        <SheetHeader className="px-6 py-5 border-b border-border/80 bg-slate-50/50 dark:bg-muted/20">
-          <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
-            <Shield className="w-4 h-4" />
-            <span>Hồ sơ người dùng hệ thống</span>
-          </div>
-          <SheetTitle className="text-xl font-k2d font-bold text-foreground mt-1 flex items-center justify-between">
-            <span>{user.name}</span>
-          </SheetTitle>
-          <SheetDescription className="text-xs text-muted-foreground">
-            Mã định danh: <span className="font-semibold text-foreground">{user.code}</span> • ID hệ thống #{user.id}
-          </SheetDescription>
-        </SheetHeader>
-
-        {/* 2. Body Drawer (Scrollable) */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-          {/* Avatar & Profile Badge Card */}
-          <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-muted/30 border border-border/70">
-            {user.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.name}
-                className="w-16 h-16 rounded-full object-cover border-2 border-primary/20 shadow-xs shrink-0"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-[#1B4B8A] text-white font-bold text-base flex items-center justify-center shrink-0 shadow-xs">
-                {user.name ? user.name.substring(0, 2).toUpperCase() : 'ND'}
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <h4 className="text-base font-bold text-foreground truncate">{user.name}</h4>
-              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                {/* Badge trạng thái */}
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border',
-                    user.status === 'ACTIVE'
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                      : 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border-red-200 dark:border-red-800'
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'w-1.5 h-1.5 rounded-full',
-                      user.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-red-500'
-                    )}
-                  />
-                  <span>{user.status === 'ACTIVE' ? 'Đang hoạt động' : 'Đã bị khóa'}</span>
-                </span>
-
-                {/* Badge vai trò */}
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border',
-                    user.role === 'STUDENT'
-                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-                      : user.role === 'STAFF'
-                      ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800'
-                      : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                  )}
-                >
-                  {user.role === 'STUDENT' ? (
-                    <GraduationCap className="w-3 h-3" />
-                  ) : user.role === 'STAFF' ? (
-                    <Briefcase className="w-3 h-3" />
-                  ) : (
-                    <Users className="w-3 h-3" />
-                  )}
-                  <span>
-                    {user.role === 'STUDENT'
-                      ? 'Sinh viên'
-                      : user.role === 'STAFF'
-                      ? 'Cán bộ'
-                      : 'Ban tổ chức'}
-                  </span>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Section: Thông tin liên hệ & định danh */}
-          <div className="space-y-3">
-            <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Thông tin liên hệ &amp; Tổ chức
-            </h5>
-            <div className="grid grid-cols-1 gap-2.5 text-xs bg-slate-50/60 dark:bg-muted/20 p-4 rounded-xl border border-border/70">
-              <div className="flex items-center justify-between py-1 border-b border-border/50">
-                <span className="text-muted-foreground flex items-center gap-2">
-                  <Mail className="w-3.5 h-3.5 text-primary" />
-                  Email trường:
-                </span>
-                <div className="flex items-center gap-1.5 font-medium text-foreground">
-                  <span>{user.email}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(user.email, 'email')}
-                    className="p-1 rounded text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                    title="Sao chép email"
-                  >
-                    {copiedField === 'email' ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between py-1 border-b border-border/50">
-                <span className="text-muted-foreground flex items-center gap-2">
-                  <Phone className="w-3.5 h-3.5 text-primary" />
-                  Số điện thoại:
-                </span>
-                <span className="font-medium text-foreground">{user.phone || 'Chưa cập nhật'}</span>
-              </div>
-
-              <div className="flex items-center justify-between py-1 border-b border-border/50">
-                <span className="text-muted-foreground flex items-center gap-2">
-                  <School className="w-3.5 h-3.5 text-primary" />
-                  Đơn vị / Khoa:
-                </span>
-                <span className="font-medium text-foreground text-right">{user.schoolName || 'Trường ĐH Cần Thơ'}</span>
-              </div>
-
-              {user.majorName && (
-                <div className="flex items-center justify-between py-1 border-b border-border/50">
-                  <span className="text-muted-foreground flex items-center gap-2">
-                    <Award className="w-3.5 h-3.5 text-primary" />
-                    Chuyên ngành:
-                  </span>
-                  <span className="font-medium text-foreground text-right">{user.majorName}</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between py-1">
-                <span className="text-muted-foreground flex items-center gap-2">
-                  <Calendar className="w-3.5 h-3.5 text-primary" />
-                  Ngày tham gia:
-                </span>
-                <span className="font-medium text-foreground">{user.createdAt || '11/11/2026'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Section: Phân quyền vai trò tài khoản */}
-          <div className="space-y-2.5">
-            <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Phân quyền vai trò hệ thống
-            </h5>
-            <div className="grid grid-cols-3 gap-2">
-              {(['STUDENT', 'STAFF', 'ORGANIZER'] as const).map((r) => {
-                const isCurrent = user.role === r
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => onChangeRole(user.id, r)}
-                    className={cn(
-                      'py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex flex-col items-center gap-1',
-                      isCurrent
-                        ? 'border-primary bg-primary text-white shadow-xs'
-                        : 'border-border bg-white dark:bg-card text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted'
-                    )}
-                  >
-                    {r === 'STUDENT' ? (
-                      <GraduationCap className="w-4 h-4" />
-                    ) : r === 'STAFF' ? (
-                      <Briefcase className="w-4 h-4" />
-                    ) : (
-                      <Users className="w-4 h-4" />
-                    )}
-                    <span>
-                      {r === 'STUDENT'
-                        ? 'Sinh viên'
-                        : r === 'STAFF'
-                        ? 'Cán bộ'
-                        : 'Ban tổ chức'}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Thay đổi vai trò sẽ cập nhật quyền truy cập chức năng của người dùng ngay lập tức.
-            </p>
-          </div>
-        </div>
-
-        {/* 3. Footer Actions */}
-        <SheetFooter className="px-6 py-4 border-t border-border/80 bg-slate-50/50 dark:bg-muted/20 flex flex-row items-center justify-between gap-3">
+    <AdminDetailSheet
+      open={isOpen}
+      onClose={onClose}
+      title="Chi tiết người dùng"
+      description={
+        isValidUserId(user.id) ? `ID tài khoản ${user.id}` : 'Chưa lấy được ID tài khoản'
+      }
+      footer={
+        <>
           <Button
-            type="button"
             variant="outline"
+            className={isLocked ? 'mr-auto' : 'mr-auto text-red-700 dark:text-red-300'}
+            disabled={!isValidUserId(user.id)}
             onClick={() => onToggleStatus(user.id)}
-            className={cn(
-              'gap-2 text-xs font-semibold cursor-pointer',
-              isLocked
-                ? 'border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-                : 'border-red-300 text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40'
-            )}
           >
-            {isLocked ? (
-              <>
-                <Unlock className="w-3.5 h-3.5" />
-                <span>Mở khóa tài khoản</span>
-              </>
-            ) : (
-              <>
-                <Lock className="w-3.5 h-3.5" />
-                <span>Khóa tài khoản này</span>
-              </>
-            )}
+            {isLocked ? <Unlock className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}
+            {isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản'}
           </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            className="text-xs cursor-pointer"
-          >
+          <Button variant="outline" onClick={onClose}>
             Đóng
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </>
+      }
+    >
+      <div className="flex items-start gap-4">
+        {user.avatarUrl ? (
+          <img
+            src={user.avatarUrl}
+            alt={user.name}
+            className="h-14 w-14 shrink-0 rounded-full border border-border object-cover"
+          />
+        ) : (
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground">
+            {user.name.slice(0, 2).toUpperCase()}
+          </div>
+        )}
+        <div className="flex min-w-0 flex-col gap-2">
+          <h2 className="break-words font-k2d text-xl font-semibold">{user.name}</h2>
+          <UserStatusBadge status={user.status} />
+        </div>
+      </div>
+      <AdminDetailSection title="Thông tin tài khoản">
+        <dl className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <AdminDetailField label="Email" wide>
+            <div className="flex items-start gap-2">
+              <span className="min-w-0 flex-1 break-all">{user.email}</span>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 shrink-0"
+                onClick={copyEmail}
+                aria-label={copied ? 'Đã sao chép email' : 'Sao chép email'}
+              >
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+              <span className="sr-only" role="status">
+                {copied ? 'Đã sao chép email' : ''}
+              </span>
+            </div>
+          </AdminDetailField>
+          {user.phone && !staff && (
+            <AdminDetailField label="Số điện thoại">{user.phone}</AdminDetailField>
+          )}
+          {user.createdAt && (
+            <AdminDetailField label="Ngày tạo tài khoản">{user.createdAt}</AdminDetailField>
+          )}
+          <AdminDetailField label="Vai trò" wide>
+            <UserPermissionBadges user={user} />
+          </AdminDetailField>
+        </dl>
+      </AdminDetailSection>
+      {student && (
+        <AdminDetailSection title="Hồ sơ sinh viên">
+          <dl className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <AdminDetailField label="Mã số sinh viên">{student.studentId}</AdminDetailField>
+            <AdminDetailField label="Khóa">{student.kNumber}</AdminDetailField>
+            <AdminDetailField label="Khoa / Trường" wide>
+              {student.schoolName}
+            </AdminDetailField>
+            <AdminDetailField label="Chuyên ngành" wide>
+              {student.majorName}
+            </AdminDetailField>
+            {student.associationName && (
+              <AdminDetailField label="Đơn vị Đoàn / Hội" wide>
+                {student.associationName}
+              </AdminDetailField>
+            )}
+            {user.eventsParticipatedCount != null && (
+              <AdminDetailField label="Sự kiện đã tham gia">
+                {user.eventsParticipatedCount}
+              </AdminDetailField>
+            )}
+          </dl>
+        </AdminDetailSection>
+      )}
+      {staff && (
+        <AdminDetailSection title="Hồ sơ cán bộ">
+          <dl className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <AdminDetailField label="Mã số cán bộ">{staff.staffId}</AdminDetailField>
+            <AdminDetailField label="Số điện thoại">{staff.phoneNumber}</AdminDetailField>
+            <AdminDetailField label="Đơn vị công tác" wide>
+              {staff.orgName}
+            </AdminDetailField>
+            <AdminDetailField label="Chức danh" wide>
+              {staff.title}
+            </AdminDetailField>
+          </dl>
+        </AdminDetailSection>
+      )}
+      {!student && !staff && (
+        <AdminDetailSection title="Hồ sơ cá nhân">
+          <p className="text-sm text-muted-foreground">Chưa có thông tin hồ sơ cá nhân.</p>
+        </AdminDetailSection>
+      )}
+      <AdminDetailSection title="Fanpage tham gia">
+        {membershipsLoading ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            Đang tải fanpage…
+          </p>
+        ) : (
+          <>
+            {memberships.length > 0 && (
+              <div className="flex flex-col divide-y divide-border">
+                {memberships.map((fanpage) => (
+                  <div
+                    key={fanpage.id}
+                    className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                  >
+                    {fanpage.avatarUrl ? (
+                      <img
+                        src={fanpage.avatarUrl}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground">
+                        {fanpage.name.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
+                      <Tooltip content={fanpage.name}>
+                        <span className="break-words text-sm font-medium">{fanpage.name}</span>
+                      </Tooltip>
+                      <AdminBadge tone={fanpage.role === 'ADMIN' ? 'primary' : 'neutral'}>
+                        {fanpage.role === 'ADMIN' ? 'Quản trị viên' : 'Thành viên'}
+                      </AdminBadge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {membershipsError ? (
+              <div className="flex items-center justify-between gap-3">
+                <p role="status" className="text-sm text-muted-foreground">
+                  {membershipsError}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRetryMemberships((value) => value + 1)}
+                >
+                  Thử lại
+                </Button>
+              </div>
+            ) : (
+              !memberships.length && (
+                <p className="text-sm text-muted-foreground">Chưa tham gia fanpage nào.</p>
+              )
+            )}
+          </>
+        )}
+      </AdminDetailSection>
+      <AdminDetailSection title="Quyền Super admin">
+        {!isValidUserId(user.id) && (
+          <p className="text-xs text-muted-foreground">
+            Cần ID tài khoản hợp lệ để thay đổi quyền hoặc trạng thái.
+          </p>
+        )}
+        <div className="flex flex-col items-start gap-3">
+          {!canDemote && (
+            <p className="text-xs text-muted-foreground">
+              Chưa xác định được loại tài khoản gốc để gỡ quyền Super admin.
+            </p>
+          )}
+          {roleError && (
+            <p role="alert" className="text-xs text-destructive">
+              {roleError}
+            </p>
+          )}
+          <Button
+            variant={isSuperAdmin ? 'outline' : 'default'}
+            disabled={isSaving || !canDemote || !isValidUserId(user.id)}
+            onClick={toggleSuperAdmin}
+          >
+            {isSaving
+              ? 'Đang lưu…'
+              : isSuperAdmin
+                ? 'Gỡ quyền Super admin'
+                : 'Cấp quyền Super admin'}
+          </Button>
+        </div>
+      </AdminDetailSection>
+    </AdminDetailSheet>
   )
 }

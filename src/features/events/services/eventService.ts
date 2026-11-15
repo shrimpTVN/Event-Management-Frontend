@@ -1,4 +1,5 @@
 import { apiClient, formatEventTitle } from '@/shared'
+import { normalizeAttendanceConfig } from '@/shared/utils/attendanceConfig'
 import type {
   Event,
   EventCategory,
@@ -53,6 +54,102 @@ export const DEFAULT_FANPAGES_MAP: Record<string, CachedFanpageInfo> = {
     fullName: 'Đoàn Thanh niên - Hội Sinh viên Trường Đại học Cần Thơ',
     avatarUrl: 'https://res.cloudinary.com/depaiphq0/image/upload/v1793963013/ctu-event/fanpages/u_2_606320c599474b7d.jpg',
   },
+}
+
+const KNOWN_EVENT_TYPE_MAP: Record<string, number> = {
+  'workshop': 1,
+  'giao lưu': 2,
+  'thể thao': 3,
+  'tình nguyện': 4,
+  'học thuật': 5,
+  'tọa đàm': 6,
+  'cuộc thi': 7,
+  'hướng nghiệp': 8,
+  'văn nghệ': 9,
+  'tuyên dương': 10,
+  'chào tân': 11,
+  'đoàn - hội': 12,
+  'kỹ năng': 13,
+  'hội nhập': 14,
+  'hiến máu': 15,
+  'môi trường': 16,
+  'triển lãm': 17,
+  'đối thoại': 18,
+}
+
+export function resolveEventTypeId(raw: any): number | undefined {
+  if (raw.eventTypeId !== undefined && raw.eventTypeId !== null) return Number(raw.eventTypeId)
+  if (raw.eventType?.id !== undefined && raw.eventType?.id !== null) return Number(raw.eventType.id)
+  const name = (raw.eventTypeName || raw.eventType?.name || '').trim().toLowerCase()
+  if (name && KNOWN_EVENT_TYPE_MAP[name]) return KNOWN_EVENT_TYPE_MAP[name]
+  return undefined
+}
+
+export const KNOWN_CRITERIA_MAP: Record<string, number> = {
+  // 10: Đạo đức tốt
+  'điểm rèn luyện đạt từ 85 điểm trở lên': 101,
+  'không vi phạm pháp luật': 102,
+  'tham gia cuộc thi tìm hiểu về các môn khoa học chính trị': 1031,
+  'tham gia hoạt động giáo dục lòng yêu nước': 1032,
+  'tham gia hoạt động giáo dục đạo đức, lối sống văn hóa cho sinh viên': 1033,
+  'thanh niên tiêu biểu': 1034,
+  'đảng viên hoàn thành tốt nhiệm vụ': 1035,
+  'đạo đức tốt': 10,
+
+  // 20: Học tập tốt
+  'điểm trung bình cộng năm học xét đạt từ 3.0 trở lên': 201,
+  'tích lũy tối thiểu 12 tín chỉ': 202,
+  'học tập tốt': 20,
+
+  // 30: Thể lực tốt
+  'học phần giáo dục thể chất': 301,
+  'tham gia ít nhất 01 hoạt động rèn luyện thể lực do đoàn - hội cấp cơ sở trở lên tổ chức': 302,
+  'thể lực tốt': 30,
+
+  // 40: Tình nguyện tốt
+  'được các cấp đảng, đoàn, hội, chính quyền khen thưởng trong hoạt động tình nguyện': 401,
+  'tham gia ít nhất 03 ngày tình nguyện trong năm học': 402,
+  'tham gia ít nhất 02 lần hiến máu tình nguyện trong năm học': 403,
+  'tình nguyện tốt': 40,
+
+  // 50: Hội nhập tốt
+  'được khen thưởng cuộc thi ngoại ngữ cấp đại học cần thơ trở lên': 5011,
+  'chứng chỉ ngoại ngữ': 5012,
+  'hoàn thành hoặc được miễn 03 học phần ngoại ngữ': 5013,
+  'hoàn thành hoặc được miễn 02 học phần ngoại ngữ': 5014,
+  'sinh viên chuyên ngành ngoại ngữ': 5015,
+  'chứng chỉ ứng dụng công nghệ thông tin cơ bản': 5021,
+  'chứng chỉ tin học quốc tế ic3 hoặc mos': 5022,
+  'cuộc thi tin học': 5023,
+  'năng lực số ứng dụng': 5024,
+  'chuyên ngành công nghệ thông tin': 5026,
+  'hoạt động hội nhập': 5031,
+  'khen thưởng thành tích xuất sắc phong trào tn-sv': 5032,
+  'tập huấn bồi dưỡng kỹ năng': 5033,
+  'học phần kỹ năng': 5034,
+  'kiến thức hội nhập': 5035,
+  'hội nhập tốt': 50,
+}
+
+export const ROOT_CRITERIA_CHILDREN: Record<number, number[]> = {
+  10: [10, 101, 102, 103, 1031, 1032, 1033, 1034, 1035],
+  20: [20, 201, 202],
+  30: [30, 301, 302],
+  40: [40, 401, 402, 403],
+  50: [50, 501, 502, 503, 5011, 5012, 5013, 5014, 5015, 5021, 5022, 5023, 5024, 5025, 5026, 5031, 5032, 5033, 5034, 5035],
+}
+
+export function resolveCriteriaId(raw: any): number | undefined {
+  if (raw.criteriaId !== undefined && raw.criteriaId !== null) return Number(raw.criteriaId)
+  if (raw.criteria?.id !== undefined && raw.criteria?.id !== null) return Number(raw.criteria.id)
+  if (raw.sv5tCriteriaId !== undefined && raw.sv5tCriteriaId !== null) return Number(raw.sv5tCriteriaId)
+  const name = (raw.criteriaName || raw.sv5tCriteriaName || raw.criteria?.name || '').trim().toLowerCase()
+  if (!name) return undefined
+  if (KNOWN_CRITERIA_MAP[name]) return KNOWN_CRITERIA_MAP[name]
+  for (const [key, id] of Object.entries(KNOWN_CRITERIA_MAP)) {
+    if (name.includes(key) || key.includes(name)) return id
+  }
+  return undefined
 }
 
 const fanpageCache = new Map<string, CachedFanpageInfo>(Object.entries(DEFAULT_FANPAGES_MAP))
@@ -259,8 +356,9 @@ export function normalizeEvent(raw: Partial<EventResponseDto> & Record<string, a
     fanpageName,
     fanpageFullName,
     pointsReward: pointsReward || undefined,
-    criteriaName: raw.criteriaName || raw.eventTypeName || undefined,
+    criteriaName: raw.criteriaName || raw.sv5tCriteriaName || raw.criteria?.name || undefined,
     eventPoints: Array.isArray(raw.eventPoints) ? raw.eventPoints : [],
+    ...normalizeAttendanceConfig(raw),
     quotaText: raw.quotaText || (capacity > 0 ? `${capacity} sinh viên` : undefined),
     isFollowed: Boolean(raw.isFollowed),
     isSaved: Boolean(raw.isSaved),
@@ -271,11 +369,11 @@ export function normalizeEvent(raw: Partial<EventResponseDto> & Record<string, a
     dateOpen: raw.dateOpen,
     dateClose: raw.dateClose,
     dateHappen: raw.dateHappen,
-    eventTypeId: raw.eventTypeId ?? (raw.eventType?.id ? Number(raw.eventType.id) : undefined),
+    eventTypeId: resolveEventTypeId(raw),
     eventTypeName: raw.eventTypeName || raw.eventType?.name,
     semesterId: raw.semester?.id ? Number(raw.semester.id) : (raw.semesterId ? Number(raw.semesterId) : undefined),
     semester: raw.semester || undefined,
-    criteriaId: raw.criteria?.id ? Number(raw.criteria.id) : (raw.criteriaId ? Number(raw.criteriaId) : undefined),
+    criteriaId: resolveCriteriaId(raw),
     fanpageId: raw.fanpageId ? Number(raw.fanpageId) : (raw.organizerId ? Number(raw.organizerId) : undefined),
     createdAt: raw.createdAt || raw.updatedAt || '',
     updatedAt: raw.updatedAt || raw.createdAt || '',
@@ -315,6 +413,8 @@ export function isEventMatchingRegistrationStatus(
 
   if (statusKey === 'COMPLETED') {
     if (evt.status === 'CLOSED' || evt.status === 'COMPLETED' || evt.status === 'FINISHED') return true
+    // Nếu sự kiện vẫn đang trong thời gian mở đăng ký thì chưa thể coi là đã kết thúc
+    if (dateCloseMs && nowMs <= dateCloseMs) return false
     if (dateHappenMs && dateHappenMs < nowMs) return true
     if (dateCloseMs && dateCloseMs < nowMs && (!dateHappenMs || dateHappenMs < nowMs)) return true
     return false
@@ -385,6 +485,12 @@ export function resolveAllowedPointCategoryIds(
   return allowed
 }
 
+function toInstantIsoString(dateStr: string, isEndOfDay: boolean = false): string {
+  if (!dateStr) return dateStr
+  if (dateStr.includes('T')) return dateStr
+  return isEndOfDay ? `${dateStr}T23:59:59Z` : `${dateStr}T00:00:00Z`
+}
+
 /**
  * Builds backend query parameters from frontend EventFilters
  */
@@ -399,18 +505,48 @@ function buildEventFilterParams(filters?: EventFilters): Record<string, any> {
     if (filters.status === 'OPEN_REGISTRATION' || filters.status === 'PUBLISHED') {
       params.status = 'PUBLISHED'
     } else if (filters.status === 'COMPLETED' || filters.status === 'CLOSED') {
-      params.status = 'CLOSED'
+      params.status = 'COMPLETED'
     } else {
       params.status = filters.status
     }
   }
   if (filters.semesterId !== undefined) params.semesterId = filters.semesterId
   if (filters.fanpageId !== undefined) params.fanpageId = filters.fanpageId
-  if (filters.eventTypeId !== undefined) params.eventTypeId = filters.eventTypeId
-  if (filters.criteriaId !== undefined) params.criteriaId = filters.criteriaId
-  if (filters.pointCategoryId !== undefined) params.pointCategoryId = filters.pointCategoryId
-  if (filters.dateHappenFrom) params.dateHappenFrom = filters.dateHappenFrom
-  if (filters.dateHappenTo) params.dateHappenTo = filters.dateHappenTo
+
+  // Backend Spring Boot EventFilterRequestDto uses List<Long> criteriaIds, eventTypeIds, pointCategoryIds
+  if (filters.eventTypeIds) {
+    params.eventTypeIds = Array.isArray(filters.eventTypeIds) ? filters.eventTypeIds.join(',') : filters.eventTypeIds
+  } else if (filters.eventTypeId !== undefined) {
+    params.eventTypeIds = filters.eventTypeId
+  }
+
+  if (filters.criteriaIds) {
+    params.criteriaIds = Array.isArray(filters.criteriaIds) ? filters.criteriaIds.join(',') : filters.criteriaIds
+  } else if (filters.childCriteriaIds && filters.childCriteriaIds.length > 0) {
+    params.criteriaIds = filters.childCriteriaIds.join(',')
+  } else if (filters.criteriaId !== undefined) {
+    const rawIds = String(filters.criteriaId).split(',').map((s) => s.trim()).filter(Boolean)
+    const expandedIds = new Set<string>()
+    rawIds.forEach((idStr) => {
+      expandedIds.add(idStr)
+      const num = Number(idStr)
+      if (ROOT_CRITERIA_CHILDREN[num]) {
+        ROOT_CRITERIA_CHILDREN[num].forEach((c) => expandedIds.add(String(c)))
+      }
+    })
+    params.criteriaIds = Array.from(expandedIds).join(',')
+  }
+
+  if (filters.pointCategoryIds) {
+    params.pointCategoryIds = Array.isArray(filters.pointCategoryIds) ? filters.pointCategoryIds.join(',') : filters.pointCategoryIds
+  } else if (filters.childCategoryIds && filters.childCategoryIds.length > 0) {
+    params.pointCategoryIds = filters.childCategoryIds.join(',')
+  } else if (filters.pointCategoryId !== undefined) {
+    params.pointCategoryIds = filters.pointCategoryId
+  }
+  // Backend Spring Boot expects java.time.Instant for dateHappenFrom / dateHappenTo
+  if (filters.dateHappenFrom) params.dateHappenFrom = toInstantIsoString(filters.dateHappenFrom, false)
+  if (filters.dateHappenTo) params.dateHappenTo = toInstantIsoString(filters.dateHappenTo, true)
   if (filters.page !== undefined) params.page = filters.page
   const size = filters.size ?? filters.limit
   if (size !== undefined) params.size = size
@@ -427,21 +563,57 @@ export const eventService = {
    */
   async getEvents(filters?: EventFilters): Promise<Event[]> {
     loadFanpagesCache().catch(() => {})
-    const params = buildEventFilterParams(filters)
-    const res: any = await apiClient.get('/events', { params })
 
-    let rawList: any[] = []
-    if (res && Array.isArray(res.content)) {
-      rawList = res.content
-    } else if (Array.isArray(res)) {
-      rawList = res
-    } else if (res && Array.isArray(res.items)) {
-      rawList = res.items
-    } else if (res && res.data && Array.isArray(res.data.content)) {
-      rawList = res.data.content
+    // When status is specifically requested, query Backend directly with that status
+    if (filters?.status && (filters.status as any) !== 'ALL') {
+      const params = buildEventFilterParams(filters)
+      const res: any = await apiClient.get('/events', { params })
+
+      let rawList: any[] = []
+      if (res && Array.isArray(res.content)) {
+        rawList = res.content
+      } else if (Array.isArray(res)) {
+        rawList = res
+      } else if (res && Array.isArray(res.items)) {
+        rawList = res.items
+      } else if (res && res.data && Array.isArray(res.data.content)) {
+        rawList = res.data.content
+      }
+
+      return rawList.map(normalizeEvent)
     }
 
-    return rawList.map(normalizeEvent)
+    // When no specific status is requested, Backend by default only returns PUBLISHED events.
+    // Fetch both PUBLISHED and COMPLETED so full event lifecycle is available for client filtering & preview.
+    const baseFilters = { ...filters }
+    delete baseFilters.status
+    const [pubRes, compRes] = await Promise.allSettled([
+      apiClient.get('/events', { params: { ...buildEventFilterParams(baseFilters), status: 'PUBLISHED' } }),
+      apiClient.get('/events', { params: { ...buildEventFilterParams(baseFilters), status: 'COMPLETED' } }),
+    ])
+
+    const pubVal: any = pubRes.status === 'fulfilled' ? pubRes.value : null
+    const compVal: any = compRes.status === 'fulfilled' ? compRes.value : null
+
+    const pubList: any[] =
+      pubVal?.content ||
+      pubVal?.data?.content ||
+      pubVal?.data ||
+      (Array.isArray(pubVal) ? pubVal : [])
+    const compList: any[] =
+      compVal?.content ||
+      compVal?.data?.content ||
+      compVal?.data ||
+      (Array.isArray(compVal) ? compVal : [])
+
+    const eventMap = new Map<string, any>()
+    ;[...pubList, ...compList].forEach((item: any) => {
+      if (item && item.id != null) {
+        eventMap.set(String(item.id), item)
+      }
+    })
+
+    return Array.from(eventMap.values()).map(normalizeEvent)
   },
 
   /**

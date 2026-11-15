@@ -1,7 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { Loader2, ChevronDown, ChevronUp, AlertCircle, CalendarCheck, Ban, GraduationCap } from 'lucide-react'
+import {
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  CalendarCheck,
+  Ban,
+  GraduationCap,
+} from 'lucide-react'
 import { apiClient } from '@/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/features/auth'
@@ -12,6 +20,7 @@ export interface RegisterButtonProps {
   isRegistered?: boolean
   registrationStatus?: 'REGISTERED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED' | string
   disabled?: boolean
+  disabledReason?: 'closed' | 'full' | 'unavailable'
   className?: string
   size?: 'sm' | 'md' | 'lg'
   onRegisterSuccess?: () => void
@@ -29,6 +38,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
   isRegistered: initialRegistered = false,
   registrationStatus: initialStatus,
   disabled = false,
+  disabledReason = 'unavailable',
   className = '',
   size = 'md',
   onRegisterSuccess,
@@ -177,7 +187,8 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
     } catch (err: any) {
       console.error('Registration failed:', err)
       const rawMsg = err?.response?.data?.message || err?.message || ''
-      let serverMsg = 'Đã có lỗi xảy ra trong quá trình đăng ký sự kiện. Vui lòng thử lại sau hoặc liên hệ Ban tổ chức.'
+      let serverMsg =
+        'Đã có lỗi xảy ra trong quá trình đăng ký sự kiện. Vui lòng thử lại sau hoặc liên hệ Ban tổ chức.'
 
       if (rawMsg.includes('had registered') || rawMsg.includes('already registered')) {
         serverMsg = 'Bạn đã đăng ký tham gia sự kiện này rồi!'
@@ -266,12 +277,12 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
           isLoading
             ? 'bg-[#72A8DE] hover:bg-[#72A8DE] text-white cursor-wait'
             : isRegistered
-            ? registrationStatus === 'COMPLETED'
-              ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white cursor-pointer shadow-xs focus:ring-2 focus:ring-emerald-500/40'
-              : 'bg-[#16A34A] hover:bg-[#15803D] active:bg-[#166534] text-white cursor-pointer shadow-xs focus:ring-2 focus:ring-[#16A34A]/40'
-            : disabled
-            ? 'bg-[#F3F4F6] dark:bg-muted text-[#6B7280] dark:text-muted-foreground border border-[#E5E7EB] dark:border-border cursor-not-allowed shadow-none'
-            : 'bg-[#1F5CA9] hover:bg-[#1B4B8A] active:bg-[#1B406F] text-white cursor-pointer focus:ring-2 focus:ring-[#00AFF0]'
+              ? registrationStatus === 'COMPLETED'
+                ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white cursor-pointer shadow-xs focus:ring-2 focus:ring-emerald-500/40'
+                : 'bg-[#16A34A] hover:bg-[#15803D] active:bg-[#166534] text-white cursor-pointer shadow-xs focus:ring-2 focus:ring-[#16A34A]/40'
+              : disabled
+                ? 'bg-[#F3F4F6] dark:bg-muted text-[#6B7280] dark:text-muted-foreground border border-[#E5E7EB] dark:border-border cursor-not-allowed shadow-none'
+                : 'bg-[#1F5CA9] hover:bg-[#1B4B8A] active:bg-[#1B406F] text-white cursor-pointer focus:ring-2 focus:ring-[#00AFF0]'
         } ${className}`}
       >
         {isLoading ? (
@@ -285,8 +296,8 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
               {registrationStatus === 'COMPLETED'
                 ? 'Đã hoàn thành'
                 : registrationStatus === 'CHECKED_IN'
-                ? 'Đang tham gia'
-                : 'Đã đăng ký'}
+                  ? 'Đang tham gia'
+                  : 'Đã đăng ký'}
             </span>
             {isOpen ? (
               <ChevronUp className="h-3.5 w-3.5 shrink-0 stroke-[2.5]" />
@@ -295,7 +306,13 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
             )}
           </>
         ) : disabled ? (
-          <span>Hết lượt đăng ký</span>
+          <span>
+            {disabledReason === 'closed'
+              ? 'Đã đóng đăng ký'
+              : disabledReason === 'full'
+                ? 'Đã đủ chỗ'
+                : 'Không thể đăng ký'}
+          </span>
         ) : (
           <span>Đăng ký ngay</span>
         )}
@@ -366,7 +383,9 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
                   Xác nhận hủy đăng ký?
                 </h3>
                 <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Bạn có chắc chắn muốn hủy đăng ký tham gia sự kiện {eventTitle ? `"${eventTitle}"` : 'này'} không? Sau khi hủy, bạn có thể phải chờ đăng ký lại nếu sự kiện còn chỉ tiêu.
+                  Bạn có chắc chắn muốn hủy đăng ký tham gia sự kiện{' '}
+                  {eventTitle ? `"${eventTitle}"` : 'này'} không? Sau khi hủy, bạn có thể phải chờ
+                  đăng ký lại nếu sự kiện còn chỉ tiêu.
                 </p>
               </div>
 
@@ -454,7 +473,8 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
                     Yêu cầu thông tin sinh viên
                   </h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Để đăng ký tham gia sự kiện và được ghi nhận điểm rèn luyện, bạn cần cập nhật thông tin cá nhân (MSSV, lớp, ngành học).
+                    Để đăng ký tham gia sự kiện và được ghi nhận điểm rèn luyện, bạn cần cập nhật
+                    thông tin cá nhân (MSSV, lớp, ngành học).
                   </p>
                 </div>
               </div>
@@ -471,7 +491,9 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
                   type="button"
                   onClick={() => {
                     setShowProfilePrompt(false)
-                    navigate(`/onboarding/student?redirect=${encodeURIComponent(window.location.pathname)}`)
+                    navigate(
+                      `/onboarding/student?redirect=${encodeURIComponent(window.location.pathname)}`
+                    )
                   }}
                   className="px-5 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
                 >

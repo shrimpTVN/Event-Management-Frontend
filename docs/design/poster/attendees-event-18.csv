@@ -1,0 +1,17 @@
+﻿# EVENT INFORMATION
+Event ID,18
+Event Name,[TEST 15/11] Gửi ảnh - xác nhận rồi kết thúc
+Location,Phòng thực hành - Trường CNTT và Truyền thông
+Event Date,2026-11-14 15:11:49
+Registration Window,2026-11-12 17:11:49 - 2026-11-21 17:11:49
+Capacity,30
+Status,PUBLISHED
+
+No.,Student ID,Full Name,Email,Gender,Major,Registration Date,Status,Check-in Time,Check-out Time,Note / Reason
+1,B2100123,Lê Hoàng Anh,anhlhb2100123@student.ctu.edu.vn,MALE,Kỹ thuật phần mềm,2026-11-13 17:11:49,COMPLETED,2026-11-14 16:11:49,2026-11-14 17:40:13,"Bản ghi chuẩn bị sẵn để kiểm thử, không phải điểm danh thật"
+2,B2100456,Trần Ngọc Bích,bichtnb2100456@student.ctu.edu.vn,FEMALE,Khoa học máy tính,2026-11-13 17:11:49,CONFIRMED,2026-11-14 16:11:49,2026-11-14 17:26:15,"Bản ghi chuẩn bị sẵn để kiểm thử, không phải điểm danh thật"
+3,B2200321,Phạm Thu Thảo,thaoptb2200321@student.ctu.edu.vn,FEMALE,Kỹ thuật phần mềm,2026-11-13 17:11:49,ABSENT,,,"Bản ghi chuẩn bị sẵn để kiểm thử, không phải điểm danh thật"
+4,B2200789,Nguyễn Văn Minh,minhnvb2200789@student.ctu.edu.vn,MALE,Hệ thống thông tin,2026-11-13 17:11:49,CONFIRMED,2026-11-14 16:11:49,2026-11-14 16:41:49,"Bản ghi chuẩn bị sẵn để kiểm thử, không phải điểm danh thật"
+5,B2300000,Đoàn Tài Lộc,loc@student.ctu.edu.vn,MALE,Kỹ thuật phần mềm,2026-11-13 17:11:49,REGISTERED,,,"Bản ghi chuẩn bị sẵn để kiểm thử, không phải điểm danh thật"
+6,B2300654,Võ Quốc Huy,huyvqb2300654@student.ctu.edu.vn,MALE,Khoa học máy tính,2026-11-13 17:11:49,CANCELLED,,,"Bản ghi chuẩn bị sẵn để kiểm thử, không phải điểm danh thật"
+7,B2303827,Đoàn Tài Lộc,locb2303827@student.ctu.edu.vn,MALE,Kỹ thuật phần mềm,2026-11-13 17:11:49,COMPLETED,2026-11-14 17:39:59,2026-11-14 17:40:13,"Bản ghi chuẩn bị sẵn để kiểm thử, không phải điểm danh thật"

@@ -20,6 +20,7 @@ export interface AttendanceSession {
 
 export interface RegisteredEventItem {
   id: string
+  userId?: string | number
   eventId: string | number
   title?: string
   eventName?: string
@@ -50,9 +51,11 @@ export interface RegisteredEventItem {
   evidenceUrl?: string | null
   reason?: string | null
   attendanceMethod?: 'MANUAL' | 'STUDENT_PROOF'
-  attendanceSessionType?: 'CHECK_IN' | 'CHECK_OUT' | 'BOTH'
+  attendanceSessionType?: 'START' | 'END' | 'CHECK_IN' | 'CHECK_OUT' | 'BOTH'
   checkInAt?: string | null
   checkOutAt?: string | null
+  checkInBy?: string | number | null
+  checkOutBy?: string | number | null
   checkInEvidenceUrl?: string | null
   checkOutEvidenceUrl?: string | null
   studentInfo?: {
@@ -98,10 +101,9 @@ export function normalizeHistoryStatus(
 ): 'UPCOMING' | 'COMPLETED' | 'ABSENT' | 'CANCELLED' {
   if (!status) return 'UPCOMING'
   const upper = status.trim().toUpperCase()
-  if (upper === 'COMPLETED') return 'COMPLETED'
+  if (upper === 'COMPLETED' || upper === 'CONFIRMED' || upper === 'RECORDED') return 'COMPLETED'
   if (upper === 'CANCELLED') return 'CANCELLED'
   if (upper === 'ABSENT' || upper === 'REJECTED') return 'ABSENT'
   if (upper === 'UPCOMING' || upper === 'REGISTERED' || upper === 'CHECKED_IN') return 'UPCOMING'
   return 'UPCOMING'
 }
-

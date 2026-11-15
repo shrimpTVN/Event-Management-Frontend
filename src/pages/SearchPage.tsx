@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -15,12 +16,7 @@ import {
 } from '@/features/events'
 import { useAuthStore } from '@/features/auth'
 import { apiClient } from '@/shared'
-import {
-  Search,
-  Filter,
-  X,
-  RotateCcw,
-} from 'lucide-react'
+import { Search, Filter, X, RotateCcw } from 'lucide-react'
 
 export const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -34,7 +30,9 @@ export const SearchPage: React.FC = () => {
   // Parse filters from URL
   const keyword = searchParams.get('keyword') || searchParams.get('search') || ''
   const academicYear = searchParams.get('academicYear') || undefined
-  const semesterId = searchParams.get('semesterId') ? Number(searchParams.get('semesterId')) : undefined
+  const semesterId = searchParams.get('semesterId')
+    ? Number(searchParams.get('semesterId'))
+    : undefined
   const eventTypeId = searchParams.get('eventTypeId') || undefined
   const rawFanpageId = searchParams.get('fanpageId')
   const rawFanpageIds = searchParams.get('fanpageIds')
@@ -59,7 +57,11 @@ export const SearchPage: React.FC = () => {
     () => ({
       keyword: keyword || undefined,
       semesterId,
-      eventTypeId: eventTypeId?.includes(',') ? undefined : (eventTypeId ? Number(eventTypeId) : undefined),
+      eventTypeId: eventTypeId?.includes(',')
+        ? undefined
+        : eventTypeId
+          ? Number(eventTypeId)
+          : undefined,
       fanpageId,
       criteriaId: undefined,
       pointCategoryId: undefined,
@@ -190,13 +192,20 @@ export const SearchPage: React.FC = () => {
     // Multi-type filter
     if (eventTypeId) {
       const typeIds = eventTypeId.split(',').filter(Boolean)
-      const selectedLabels = filterOptions?.eventTypes
-        ?.filter((et) => typeIds.includes(String(et.id)))
-        .map((et) => et.label.toLowerCase()) || []
+      const selectedLabels =
+        filterOptions?.eventTypes
+          ?.filter((et) => typeIds.includes(String(et.id)))
+          .map((et) => et.label.toLowerCase()) || []
 
       result = result.filter((evt: any) => {
         const tid = String(evt.eventTypeId || evt.categoryId || '')
-        const tName = (evt.eventTypeName || evt.category || evt.name || evt.title || '').toLowerCase()
+        const tName = (
+          evt.eventTypeName ||
+          evt.category ||
+          evt.name ||
+          evt.title ||
+          ''
+        ).toLowerCase()
         const matchesId = tid && typeIds.includes(tid)
         const matchesName = selectedLabels.some((lbl) => lbl && tName.includes(lbl))
         const matchesFallback = typeIds.some((t) => tName.includes(t.toLowerCase()))
@@ -206,10 +215,7 @@ export const SearchPage: React.FC = () => {
 
     if (pointCategoryId && filterOptions?.pointCategories) {
       const catIdList = pointCategoryId.split(',').filter(Boolean)
-      const allowedCatIds = resolveAllowedPointCategoryIds(
-        catIdList,
-        filterOptions.pointCategories
-      )
+      const allowedCatIds = resolveAllowedPointCategoryIds(catIdList, filterOptions.pointCategories)
 
       if (allowedCatIds.size > 0) {
         result = result.filter((evt: any) => {
@@ -233,16 +239,28 @@ export const SearchPage: React.FC = () => {
       const critIdList = criteriaId.split(',').filter(Boolean)
       const allowedCritIds = new Set<number>()
       const critNames: string[] = []
+      const keywords: string[] = []
 
       critIdList.forEach((cid) => {
+        allowedCritIds.add(Number(cid))
         const found = filterOptions.criterias.find((c) => String(c.id) === String(cid))
         if (found?.childIds) {
           found.childIds.forEach((id) => allowedCritIds.add(Number(id)))
-        } else {
-          allowedCritIds.add(Number(cid))
+        }
+        if (found?.childNames) {
+          found.childNames.forEach((cn) => critNames.push(cn.toLowerCase()))
+        }
+        if (found?.keywords) {
+          found.keywords.forEach((kw) => keywords.push(kw.toLowerCase()))
         }
         if (found?.label) {
-          critNames.push(found.label.toLowerCase().replace('tiêu chuẩn', '').trim())
+          const clean = found.label.toLowerCase().replace('tiêu chuẩn', '').trim()
+          critNames.push(clean)
+          if (clean.includes('tình nguyện')) keywords.push('tình nguyện', 'hiến máu')
+          else if (clean.includes('đạo đức')) keywords.push('đạo đức', 'lối sống')
+          else if (clean.includes('thể lực')) keywords.push('thể lực', 'thể thao')
+          else if (clean.includes('học tập')) keywords.push('học tập')
+          else if (clean.includes('hội nhập')) keywords.push('hội nhập', 'ngoại ngữ', 'tin học')
         }
       })
 
@@ -252,17 +270,44 @@ export const SearchPage: React.FC = () => {
         }
         if (evt.criteriaName) {
           const lowerName = evt.criteriaName.toLowerCase()
-          return critNames.some((cn) => cn && lowerName.includes(cn))
+          if (critNames.some((cn) => cn && (lowerName.includes(cn) || cn.includes(lowerName)))) {
+            return true
+          }
+          if (keywords.some((kw) => kw && lowerName.includes(kw))) {
+            return true
+          }
         }
         return false
       })
     }
 
-    // Multi-fanpage filter
-    if (fanpageIds.length > 1) {
+    // Fanpage filter
+    if (fanpageIds.length > 0) {
       result = result.filter((evt: any) =>
         fanpageIds.includes(String(evt.organizerId || evt.fanpageId || ''))
       )
+    }
+
+    // Semester filter
+    if (semesterId) {
+      result = result.filter((evt: any) => {
+        const sid = Number(evt.semesterId || evt.semester?.id)
+        return sid ? sid === semesterId : true
+      })
+    }
+
+    // Date Range Filter
+    if (dateHappenFrom) {
+      result = result.filter((evt: any) => {
+        const evtDate = evt.startTime || evt.dateHappen || evt.createdAt
+        return evtDate ? evtDate >= dateHappenFrom : true
+      })
+    }
+    if (dateHappenTo) {
+      result = result.filter((evt: any) => {
+        const evtDate = evt.endTime || evt.startTime || evt.dateHappen || evt.createdAt
+        return evtDate ? evtDate.slice(0, 10) <= dateHappenTo : true
+      })
     }
 
     return result
@@ -270,10 +315,13 @@ export const SearchPage: React.FC = () => {
     eventsWithFollowState,
     status,
     academicYear,
+    semesterId,
     eventTypeId,
     pointCategoryId,
     criteriaId,
     fanpageIds,
+    dateHappenFrom,
+    dateHappenTo,
     filterOptions,
   ])
 
@@ -294,7 +342,11 @@ export const SearchPage: React.FC = () => {
     queryClient.setQueryData(['events', 'search', filters], (old: Event[] = []) =>
       old.map((e) =>
         e.id === eventId
-          ? { ...e, isRegistered: false, registeredCount: Math.max(0, (e.registeredCount || 1) - 1) }
+          ? {
+              ...e,
+              isRegistered: false,
+              registeredCount: Math.max(0, (e.registeredCount || 1) - 1),
+            }
           : e
       )
     )
@@ -335,6 +387,12 @@ export const SearchPage: React.FC = () => {
   const handleRemoveFilter = (key: string) => {
     const next = new URLSearchParams(searchParams)
     next.delete(key)
+    if (key === 'criteriaId') {
+      next.delete('childCriteriaIds')
+    }
+    if (key === 'pointCategoryId') {
+      next.delete('childCategoryIds')
+    }
     if (key === 'fanpageId' || key === 'fanpageIds') {
       next.delete('fanpageId')
       next.delete('fanpageIds')
@@ -372,7 +430,10 @@ export const SearchPage: React.FC = () => {
     if (semesterId) {
       const sem = filterOptions?.semesters.find((s) => Number(s.id) === Number(semesterId))
       const sLabel = sem?.shortLabel || sem?.label
-      chips.push({ key: 'semesterId', label: sLabel ? `Học kỳ: ${sLabel}` : `Học kỳ #${semesterId}` })
+      chips.push({
+        key: 'semesterId',
+        label: sLabel ? `Học kỳ: ${sLabel}` : `Học kỳ #${semesterId}`,
+      })
     }
     if (eventTypeId) {
       const typeIds = eventTypeId.split(',')
@@ -393,14 +454,20 @@ export const SearchPage: React.FC = () => {
     if (criteriaId) {
       const critIds = criteriaId.split(',')
       const labels = critIds
-        .map((id) => filterOptions?.criterias.find((c) => String(c.id) === id)?.label || `Tiêu chuẩn #${id}`)
+        .map(
+          (id) =>
+            filterOptions?.criterias.find((c) => String(c.id) === id)?.label || `Tiêu chuẩn #${id}`
+        )
         .join(', ')
       chips.push({ key: 'criteriaId', label: `SV5T: ${labels}` })
     }
     if (pointCategoryId) {
       const catIds = pointCategoryId.split(',')
       const labels = catIds
-        .map((id) => filterOptions?.pointCategories.find((pc) => String(pc.id) === id)?.label || `Mục ${id}`)
+        .map(
+          (id) =>
+            filterOptions?.pointCategories.find((pc) => String(pc.id) === id)?.label || `Mục ${id}`
+        )
         .join(', ')
       chips.push({ key: 'pointCategoryId', label: `ĐRL: ${labels}` })
     }
@@ -423,7 +490,19 @@ export const SearchPage: React.FC = () => {
       if (dateHappenTo) chips.push({ key: 'dateHappenTo', label: `Đến: ${dateHappenTo}` })
     }
     return chips
-  }, [keyword, academicYear, semesterId, eventTypeId, fanpageIds, criteriaId, pointCategoryId, status, dateHappenFrom, dateHappenTo, filterOptions])
+  }, [
+    keyword,
+    academicYear,
+    semesterId,
+    eventTypeId,
+    fanpageIds,
+    criteriaId,
+    pointCategoryId,
+    status,
+    dateHappenFrom,
+    dateHappenTo,
+    filterOptions,
+  ])
 
   const currentModalValues: EventFilterFormValues = {
     academicYear,
@@ -519,14 +598,16 @@ export const SearchPage: React.FC = () => {
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium"
                     >
                       <span>{chip.label}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFilter(chip.key)}
-                        className="hover:bg-primary/20 rounded-full p-0.5 cursor-pointer"
-                        title="Bỏ tiêu chí này"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+                      <Tooltip content="Bỏ tiêu chí này">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFilter(chip.key)}
+                          className="hover:bg-primary/20 rounded-full p-0.5 cursor-pointer"
+                          aria-label="Bỏ tiêu chí này"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Tooltip>
                     </span>
                   ))}
                 </div>
@@ -577,7 +658,8 @@ export const SearchPage: React.FC = () => {
                   <p className="text-xs text-muted-foreground max-w-md leading-relaxed">
                     {keyword ? (
                       <>
-                        Không có sự kiện nào khớp với từ khóa <strong>"{keyword}"</strong> cùng các tiêu chí lọc đang chọn.
+                        Không có sự kiện nào khớp với từ khóa <strong>"{keyword}"</strong> cùng các
+                        tiêu chí lọc đang chọn.
                       </>
                     ) : (
                       'Không có sự kiện nào phù hợp với các tiêu chí lọc đã chọn.'
@@ -628,4 +710,3 @@ export const SearchPage: React.FC = () => {
   )
 }
 export default SearchPage
-

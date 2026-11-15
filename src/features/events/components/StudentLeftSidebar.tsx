@@ -1,14 +1,7 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import {
-  Home,
-  Bookmark,
-  Clock,
-  ClipboardList,
-  Hand,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react'
+import { Home, Bookmark, Clock, ClipboardList, Hand, ChevronDown, ChevronUp } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/shared'
 import { useAuthStore } from '@/features/auth'
@@ -34,7 +27,6 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
   const currentPath = location.pathname
 
   const [isExpanded, setIsExpanded] = useState(false)
-  const [hoveredOrg, setHoveredOrg] = useState<{ id: string; name: string; x: number; y: number } | null>(null)
 
   const { isAuthenticated } = useAuthStore()
 
@@ -49,8 +41,16 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
           if (Array.isArray(list) && list.length > 0) {
             return list.map((fp: any, idx: number) => ({
               id: String(fp.id),
-              name: fp.orgName || (fp.name?.includes('CNTT') ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông' : fp.name),
-              avatarUrl: fp.avatarUrl || (String(fp.id) === '1' ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg' : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'),
+              name:
+                fp.orgName ||
+                (fp.name?.includes('CNTT')
+                  ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông'
+                  : fp.name),
+              avatarUrl:
+                fp.avatarUrl ||
+                (String(fp.id) === '1'
+                  ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
+                  : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'),
               hasUnread: idx < 2,
             }))
           }
@@ -63,8 +63,14 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
       const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
       return list.map((fp: any, _idx: number) => ({
         id: String(fp.id),
-        name: fp.orgName || (fp.name?.includes('CNTT') ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông' : fp.name),
-        avatarUrl: fp.avatarUrl || (String(fp.id) === '1' ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg' : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'),
+        name:
+          fp.orgName ||
+          (fp.name?.includes('CNTT') ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông' : fp.name),
+        avatarUrl:
+          fp.avatarUrl ||
+          (String(fp.id) === '1'
+            ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
+            : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'),
         hasUnread: false,
       }))
     },
@@ -85,7 +91,7 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
 
   return (
     // add resize left size bar
-      //refactor: add maximize button
+    //refactor: add maximize button
     <aside className="w-full flex flex-col gap-6 text-sm">
       {/* 0. Home Link (Optional - for profile or inner pages) */}
       {showHomeLink && (
@@ -97,16 +103,16 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
               : 'text-foreground/80 hover:bg-muted/80 hover:text-foreground'
           }`}
         >
-          <Home className={`h-5 w-5 ${currentPath === '/' ? 'text-primary' : 'text-muted-foreground'}`} />
+          <Home
+            className={`h-5 w-5 ${currentPath === '/' ? 'text-primary' : 'text-muted-foreground'}`}
+          />
           <span>Trang chủ</span>
         </Link>
       )}
 
       {/* 1. Trang đã theo dõi */}
       <div>
-        <h3 className="font-medium text-sm text-[#9CA3AF] mb-2.5 px-1">
-          Trang đã theo dõi
-        </h3>
+        <h3 className="font-medium text-sm text-[#9CA3AF] mb-2.5 px-1">Trang đã theo dõi</h3>
 
         {isLoading && !followedOrgs ? (
           <div className="flex flex-col gap-1.5">
@@ -122,51 +128,42 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
             {visibleOrgs.map((org) => {
               const isActive = currentPath === `/fanpage/${org.id}`
               return (
-                <Link
-                  key={org.id}
-                  to={`/fanpage/${org.id}`}
-                  onMouseMove={(e) => {
-                    setHoveredOrg({
-                      id: org.id,
-                      name: org.name,
-                      x: e.clientX,
-                      y: e.clientY,
-                    })
-                  }}
-                  onMouseLeave={() => setHoveredOrg(null)}
-                  className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl transition-colors text-left group ${
-                    isActive
-                      ? 'bg-[#BDD7F0]/60 dark:bg-primary/20 text-[#1B406F] dark:text-primary font-semibold'
-                      : 'text-[#656565] dark:text-foreground/85 hover:bg-muted/80 hover:text-primary'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <img
-                      src={org.avatarUrl}
-                      alt={org.name}
-                      className={`h-5 w-5 rounded-full object-cover shrink-0 transition-all ${
-                        isActive
-                          ? 'border border-[#1B406F] dark:border-primary shadow-xs'
-                          : 'border border-border'
-                      }`}
-                    />
-                    <span
-                      className={`text-xs truncate transition-colors ${
-                        isActive
-                          ? 'text-[#1B406F] dark:text-primary font-semibold'
-                          : 'font-medium text-[#656565] dark:text-foreground/90 group-hover:text-primary'
-                      }`}
-                    >
-                      {org.name}
-                    </span>
-                  </div>
-                  {org.hasUnread && (
-                    <span
-                      className="h-2 w-2 rounded-full bg-[#00AFF0] shrink-0"
-                      title="Có bài đăng mới"
-                    />
-                  )}
-                </Link>
+                <Tooltip content={org.name} key={org.id}>
+                  <Link
+                    to={`/fanpage/${org.id}`}
+                    className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl transition-colors text-left group ${
+                      isActive
+                        ? 'bg-[#BDD7F0]/60 dark:bg-primary/20 text-[#1B406F] dark:text-primary font-semibold'
+                        : 'text-[#656565] dark:text-foreground/85 hover:bg-muted/80 hover:text-primary'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img
+                        src={org.avatarUrl}
+                        alt={org.name}
+                        className={`h-5 w-5 rounded-full object-cover shrink-0 transition-all ${
+                          isActive
+                            ? 'border border-[#1B406F] dark:border-primary shadow-xs'
+                            : 'border border-border'
+                        }`}
+                      />
+                      <span
+                        className={`text-xs truncate transition-colors ${
+                          isActive
+                            ? 'text-[#1B406F] dark:text-primary font-semibold'
+                            : 'font-medium text-[#656565] dark:text-foreground/90 group-hover:text-primary'
+                        }`}
+                      >
+                        {org.name}
+                      </span>
+                    </div>
+                    {org.hasUnread && (
+                      <Tooltip content="Có bài đăng mới">
+                        <span className="h-2 w-2 rounded-full bg-[#00AFF0] shrink-0" />
+                      </Tooltip>
+                    )}
+                  </Link>
+                </Tooltip>
               )
             })}
 
@@ -195,9 +192,7 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
 
       {/* 2. Sự kiện */}
       <div>
-        <h3 className="font-medium text-sm text-[#9CA3AF] mb-2 px-1">
-          Sự kiện
-        </h3>
+        <h3 className="font-medium text-sm text-[#9CA3AF] mb-2 px-1">Sự kiện</h3>
         <nav className="flex flex-col gap-1">
           <Link
             to="/events/saved"
@@ -238,9 +233,7 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
 
       {/* 3. Bạn */}
       <div>
-        <h3 className="font-medium text-sm text-[#9CA3AF] mb-2 px-1">
-          Bạn
-        </h3>
+        <h3 className="font-medium text-sm text-[#9CA3AF] mb-2 px-1">Bạn</h3>
         <nav className="flex flex-col gap-1">
           <Link
             to="/training-points"
@@ -307,26 +300,11 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
             Xem thêm
           </a>
         </div>
-        <div className="text-[11px] text-muted-foreground/70">
-          Đại học Cần Thơ © 2026
-        </div>
+        <div className="text-[11px] text-muted-foreground/70">Đại học Cần Thơ © 2026</div>
       </div>
 
       {/* Bottom spacer for sidebar scroll breathing room */}
       <div className="h-16 w-full shrink-0" aria-hidden="true" />
-
-      {/* Floating tooltip on hover directly below mouse cursor */}
-      {hoveredOrg && (
-        <div
-          className="fixed z-50 pointer-events-none px-2.5 py-1 text-xs font-medium text-white bg-[#0B1626] dark:bg-card dark:text-foreground dark:border-border rounded-md shadow-xl border border-white/10 animate-in fade-in duration-75 max-w-xs break-words"
-          style={{
-            top: hoveredOrg.y + 16,
-            left: hoveredOrg.x + 8,
-          }}
-        >
-          {hoveredOrg.name}
-        </div>
-      )}
     </aside>
   )
 }

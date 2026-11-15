@@ -38,9 +38,7 @@ describe('EventCalendarWidget', () => {
       },
     ]
 
-    render(
-      <EventCalendarWidget registeredEvents={mockEvents} initialMonth={initialMonth} />
-    )
+    render(<EventCalendarWidget registeredEvents={mockEvents} initialMonth={initialMonth} />)
 
     // Dot on day 25 should be present
     const dot25 = screen.getByTestId('event-dot-25')
@@ -73,9 +71,7 @@ describe('EventCalendarWidget', () => {
       },
     ]
 
-    render(
-      <EventCalendarWidget registeredEvents={mockEvents} initialMonth={initialMonth} />
-    )
+    render(<EventCalendarWidget registeredEvents={mockEvents} initialMonth={initialMonth} />)
 
     // Day 15 should NOT have a dot because registration is cancelled
     expect(screen.queryByTestId('event-dot-15')).toBeNull()
@@ -86,20 +82,18 @@ describe('EventCalendarWidget', () => {
 
     expect(screen.getByText('Tháng 10, 2026')).toBeInTheDocument()
 
-    const nextBtn = screen.getByTitle('Tháng sau')
+    const nextBtn = screen.getByLabelText('Tháng sau')
     fireEvent.click(nextBtn)
     expect(screen.getByText('Tháng 11, 2026')).toBeInTheDocument()
 
-    const prevBtn = screen.getByTitle('Tháng trước')
+    const prevBtn = screen.getByLabelText('Tháng trước')
     fireEvent.click(prevBtn)
     expect(screen.getByText('Tháng 10, 2026')).toBeInTheDocument()
   })
 
   it('calls onSelectDate when a date cell is clicked', () => {
     const onSelectDate = vi.fn()
-    render(
-      <EventCalendarWidget initialMonth={initialMonth} onSelectDate={onSelectDate} />
-    )
+    render(<EventCalendarWidget initialMonth={initialMonth} onSelectDate={onSelectDate} />)
 
     // Click day 20
     const day20 = screen.getByText('20')
@@ -119,4 +113,3 @@ describe('EventCalendarWidget', () => {
     expect(screen.getByText(expectedMonthLabel)).toBeInTheDocument()
   })
 })
-

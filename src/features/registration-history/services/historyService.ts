@@ -1,4 +1,6 @@
 import { apiClient } from '@/shared'
+import { normalizeAttendanceConfig } from '@/shared/utils/attendanceConfig'
+import { createSv5tLabelFormatter } from '@/shared/utils/sv5tLabels'
 import type { RegisteredEventItem, AttendanceSession, EventStatus } from '../types/history.types'
 
 export const CTU_CRITERIA_CODE_MAP: Record<number, string> = {
@@ -104,8 +106,15 @@ export function formatHappenTime(rawDate?: string): string {
 /**
  * Maps raw backend registration entity to UI model RegisteredEventItem
  */
-export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
+export function normalizeRegisteredEvent(
+  raw: any,
+  formatCriteria: (name: string, criteriaId?: number | string) => string = (name) => name
+): RegisteredEventItem {
   const info = raw.eventInfo || {}
+  const criteriaName = formatCriteria(
+    info.criteriaName || raw.criteriaSv5t || '',
+    info.criteriaId ?? raw.criteriaId
+  )
   const eventId = raw.eventId || info.id || raw.id || '0'
   const id = String(raw.id || eventId)
   const title = info.name || raw.eventName || raw.title || 'Sự kiện chưa đặt tên'
@@ -139,7 +148,7 @@ export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
   // Map status
   let status: EventStatus = 'UPCOMING'
   const rawStatus = String(raw.status || '').toUpperCase()
-  if (rawStatus === 'COMPLETED') {
+  if (rawStatus === 'COMPLETED' || rawStatus === 'CONFIRMED' || rawStatus === 'RECORDED') {
     status = 'COMPLETED'
   } else if (rawStatus === 'ABSENT' || rawStatus === 'REJECTED') {
     status = 'ABSENT'
@@ -186,7 +195,7 @@ export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
   }
 
   if (info.criteriaName) {
-    formattedBenefits.push(`Tiêu chuẩn SV5T: ${info.criteriaName}`)
+    formattedBenefits.push(`Tiêu chuẩn SV5T: ${criteriaName}`)
   }
 
   const totalEventPoints = Array.isArray(info.eventPoints)
@@ -197,27 +206,23 @@ export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
     formattedBenefits.length > 0
       ? formattedBenefits
       : Array.isArray(raw.benefits) && raw.benefits.length > 0
-        ? raw.benefits
+        ? raw.benefits.map((benefit: string) => {
+            const prefix = /^(?:Tiêu chuẩn|Tiêu chí)?\s*(?:SV\s*5\s*T|sinh viên 5 tốt)\s*:\s*/i
+            return prefix.test(benefit)
+              ? `Tiêu chuẩn SV5T: ${formatCriteria(benefit.replace(prefix, ''))}`
+              : benefit
+          })
         : totalEventPoints > 0
           ? [`+${totalEventPoints} ĐRL`]
           : ['ĐRL theo quy định']
 
   const attendanceSessions: AttendanceSession[] = Array.isArray(raw.attendanceSessions)
     ? raw.attendanceSessions
-    : raw.checkInAt
-      ? [
-          {
-            id: `session-${eventId}-1`,
-            sessionName: 'Buổi chính',
-            checkInTime: raw.checkInAt,
-            checkedBy: 'Hệ thống tự động',
-            status: 'VALID',
-          },
-        ]
-      : []
+    : []
 
   return {
     id,
+    userId: raw.userId,
     eventId,
     title,
     eventName,
@@ -228,11 +233,11 @@ export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
     dateClose: info.dateClose || raw.dateClose,
     regDate: raw.regDate,
     location: info.location || raw.location || 'Đang cập nhật',
-    status,
+    status: rawStatus || status,
     pointsCategory:
       formattedBenefits[0] ||
       (totalEventPoints > 0 ? `ĐRL: +${totalEventPoints}` : 'ĐRL theo quy định'),
-    criteriaSv5t: info.criteriaName || raw.criteriaSv5t || '',
+    criteriaSv5t: criteriaName,
     benefits,
     extraBenefitsCount:
       typeof raw.extraBenefitsCount === 'number'
@@ -243,7 +248,9 @@ export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
     bannerUrl: info.bannerUrl || raw.bannerUrl || '',
     registrationDate: raw.registrationDate || raw.regDate || '',
     attendanceSessions,
-    canCancel: typeof raw.canCancel === 'boolean' ? raw.canCancel : status === 'UPCOMING',
+    canCancel:
+      ['REGISTERED', 'UPCOMING', 'APPROVED'].includes(rawStatus) &&
+      (typeof raw.canCancel === 'boolean' ? raw.canCancel : true),
     canRequestAbsence:
       typeof raw.canRequestAbsence === 'boolean' ? raw.canRequestAbsence : status === 'UPCOMING',
     hasProof:
@@ -252,16 +259,24 @@ export function normalizeRegisteredEvent(raw: any): RegisteredEventItem {
         : Boolean(raw.evidenceUrl || raw.checkInEvidenceUrl || raw.checkInAt),
     evidenceUrl: raw.evidenceUrl || raw.checkInEvidenceUrl || null,
     reason: raw.reason || null,
-    attendanceMethod: raw.attendanceMethod || 'MANUAL',
-    attendanceSessionType: raw.attendanceSessionType || 'BOTH',
+    ...normalizeAttendanceConfig({
+      attendanceMethod: info.attendanceMethod ?? raw.attendanceMethod,
+      attendanceSessionType: info.attendanceSessionType ?? raw.attendanceSessionType,
+    }),
     checkInAt: raw.checkInAt || null,
     checkOutAt: raw.checkOutAt || null,
+    checkInBy: raw.checkInBy ?? null,
+    checkOutBy: raw.checkOutBy ?? null,
     checkInEvidenceUrl: raw.checkInEvidenceUrl || null,
     checkOutEvidenceUrl: raw.checkOutEvidenceUrl || null,
-    studentInfo: raw.studentInfo || (raw.studentId || raw.studentName ? {
-      mssv: raw.studentId || '',
-      fullName: raw.studentName || raw.fullName || '',
-    } : undefined),
+    studentInfo:
+      raw.studentInfo ||
+      (raw.studentId || raw.studentName
+        ? {
+            mssv: raw.studentId || '',
+            fullName: raw.studentName || raw.fullName || '',
+          }
+        : undefined),
   }
 }
 
@@ -271,9 +286,10 @@ export const historyService = {
    */
   async getMyHistory(): Promise<RegisteredEventItem[]> {
     try {
-      const res: any = await apiClient.get('/registrations/me/history', {
-        params: { page: 0, size: 100 },
-      })
+      const [res, criterias]: any[] = await Promise.all([
+        apiClient.get('/registrations/me/history', { params: { page: 0, size: 100 } }),
+        apiClient.get('/criterias').catch(() => []),
+      ])
       let rawList: any[] = []
       if (Array.isArray(res)) {
         rawList = res
@@ -286,7 +302,10 @@ export const historyService = {
       } else if (res && Array.isArray(res.data)) {
         rawList = res.data
       }
-      return rawList.map(normalizeRegisteredEvent)
+      const formatCriteria = createSv5tLabelFormatter(
+        Array.isArray(criterias) ? criterias : Array.isArray(criterias?.data) ? criterias.data : []
+      )
+      return rawList.map((raw) => normalizeRegisteredEvent(raw, formatCriteria))
     } catch (err) {
       console.error('Failed to fetch registration history:', err)
       return []

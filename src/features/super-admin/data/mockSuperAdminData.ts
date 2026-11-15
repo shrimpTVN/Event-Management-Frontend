@@ -68,7 +68,7 @@ export const MOCK_USERS: SuperAdminUser[] = [
     name: 'Đặng Quốc Bảo',
     code: 'B2200789',
     email: 'baob2200789@student.ctu.edu.vn',
-    role: 'ORGANIZER',
+    role: 'STAFF',
     schoolName: 'Trường Bách khoa',
     majorName: 'Kỹ thuật Điện tử - Viễn thông',
     status: 'ACTIVE',

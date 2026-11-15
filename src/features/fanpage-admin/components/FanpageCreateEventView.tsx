@@ -1,4 +1,6 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useRef, useMemo, useEffect } from 'react'
+import { normalizeAttendanceConfig } from '@/shared/utils/attendanceConfig'
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -29,9 +31,17 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
 import { TimeSelect } from '@/components/ui/time-select'
-import { SelectPointCategoriesModal, type SelectedPointCategory } from './SelectPointCategoriesModal'
+import {
+  SelectPointCategoriesModal,
+  type SelectedPointCategory,
+} from './SelectPointCategoriesModal'
 import { SelectSv5tCriteriaModal, type SelectedSv5tCriteria } from './SelectSv5tCriteriaModal'
-import type { AdminEvent, FanpageSummary, PointCategoryItem, Sv5tCriteriaItem } from '../types/fanpageAdmin.types'
+import type {
+  AdminEvent,
+  FanpageSummary,
+  PointCategoryItem,
+  Sv5tCriteriaItem,
+} from '../types/fanpageAdmin.types'
 import {
   MOCK_EVENT_TYPES,
   MOCK_SEMESTERS,
@@ -96,7 +106,9 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
   const [name, setName] = useState(initialEvent?.name || '')
   const [eventTypeId, setEventTypeId] = useState<number>(initialEvent?.eventTypeId || 1)
   const [semesterId, setSemesterId] = useState<number>(initialEvent?.semesterId || 1)
-  const [format, setFormat] = useState<'OFFLINE' | 'ONLINE' | 'HYBRID'>(initialEvent?.format || 'OFFLINE')
+  const [format, setFormat] = useState<'OFFLINE' | 'ONLINE' | 'HYBRID'>(
+    initialEvent?.format || 'OFFLINE'
+  )
   const [location, setLocation] = useState(initialEvent?.location || '')
 
   // 2. Thời gian tổ chức & Thời gian mở/đóng đăng ký (Schema: dateHappen, dateOpen, dateClose)
@@ -106,21 +118,11 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
   const [timeStart, setTimeStart] = useState(
     parseIsoToLocalTime(initialEvent?.timeStart || initialEvent?.dateHappen, '08:00')
   )
-  const [timeEnd, setTimeEnd] = useState(
-    parseIsoToLocalTime(initialEvent?.timeEnd, '11:30')
-  )
-  const [dateOpen, setDateOpen] = useState(
-    parseIsoToLocalDate(initialEvent?.dateOpen)
-  )
-  const [timeOpen, setTimeOpen] = useState(
-    parseIsoToLocalTime(initialEvent?.dateOpen, '07:00')
-  )
-  const [dateClose, setDateClose] = useState(
-    parseIsoToLocalDate(initialEvent?.dateClose)
-  )
-  const [timeClose, setTimeClose] = useState(
-    parseIsoToLocalTime(initialEvent?.dateClose, '23:59')
-  )
+  const [timeEnd, setTimeEnd] = useState(parseIsoToLocalTime(initialEvent?.timeEnd, '11:30'))
+  const [dateOpen, setDateOpen] = useState(parseIsoToLocalDate(initialEvent?.dateOpen))
+  const [timeOpen, setTimeOpen] = useState(parseIsoToLocalTime(initialEvent?.dateOpen, '07:00'))
+  const [dateClose, setDateClose] = useState(parseIsoToLocalDate(initialEvent?.dateClose))
+  const [timeClose, setTimeClose] = useState(parseIsoToLocalTime(initialEvent?.dateClose, '23:59'))
 
   // 3. Quy mô & Hình thức đăng ký (Schema: capacity, male_quantity, female_quantity, requiresApproval)
   const [capacity, setCapacity] = useState<number | ''>(
@@ -138,10 +140,10 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
 
   // 4. Cấu hình điểm danh (attendanceMethod, attendanceSessionType)
   const [attendanceMethod, setAttendanceMethod] = useState<'MANUAL' | 'STUDENT_PROOF'>(
-    initialEvent?.attendanceMethod || 'MANUAL'
+    normalizeAttendanceConfig(initialEvent ?? {}).attendanceMethod
   )
   const [attendanceSessionType, setAttendanceSessionType] = useState<'START' | 'END' | 'BOTH'>(
-    initialEvent?.attendanceSessionType || 'BOTH'
+    normalizeAttendanceConfig(initialEvent ?? {}).attendanceSessionType
   )
 
   // 5. Quyền lợi sinh viên - Phân cấp Điểm rèn luyện & Tiêu chí SV5T
@@ -166,7 +168,10 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (eventTypeComboboxRef.current && !eventTypeComboboxRef.current.contains(e.target as Node)) {
+      if (
+        eventTypeComboboxRef.current &&
+        !eventTypeComboboxRef.current.contains(e.target as Node)
+      ) {
         setIsEventTypeOpen(false)
       }
     }
@@ -186,31 +191,33 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
 
   // Modal và danh sách mục Điểm rèn luyện đã chọn (hỗ trợ chọn nhiều mục)
   const [isPointModalOpen, setIsPointModalOpen] = useState(false)
-  const [selectedPointCategories, setSelectedPointCategories] = useState<SelectedPointCategory[]>(() => {
-    if (initialEvent?.eventPoints && initialEvent.eventPoints.length > 0) {
-      return initialEvent.eventPoints
+  const [selectedPointCategories, setSelectedPointCategories] = useState<SelectedPointCategory[]>(
+    () => {
+      if (initialEvent?.eventPoints && initialEvent.eventPoints.length > 0) {
+        return initialEvent.eventPoints
+      }
+      if (initialEvent?.trainingPointCategoryId) {
+        return [
+          {
+            pointCategoryId: initialEvent.trainingPointCategoryId,
+            pointCategoryName: initialEvent.trainingPointCategoryName || 'Điểm rèn luyện',
+            pointCategoryCode: initialEvent.trainingPointCategoryCode,
+            point: initialEvent.trainingPoints || 5,
+          },
+        ]
+      }
+      return []
     }
-    if (initialEvent?.trainingPointCategoryId) {
-      return [
-        {
-          pointCategoryId: initialEvent.trainingPointCategoryId,
-          pointCategoryName: initialEvent.trainingPointCategoryName || 'Điểm rèn luyện',
-          pointCategoryCode: initialEvent.trainingPointCategoryCode,
-          point: initialEvent.trainingPoints || 5,
-        },
-      ]
-    }
-    return []
-  })
+  )
 
   const totalTrainingPoints = useMemo(() => {
     return selectedPointCategories.reduce((sum, item) => sum + (item.point || 0), 0)
   }, [selectedPointCategories])
 
-
-
   // Tiêu chuẩn & Tiêu chí Sinh viên 5 Tốt
-  const [selectedSv5tCriteria, setSelectedSv5tCriteria] = useState<SelectedSv5tCriteria | null>(null)
+  const [selectedSv5tCriteria, setSelectedSv5tCriteria] = useState<SelectedSv5tCriteria | null>(
+    null
+  )
   const [isSv5tModalOpen, setIsSv5tModalOpen] = useState(false)
   const [hasCertificate, setHasCertificate] = useState<boolean>(
     initialEvent ? Boolean(initialEvent.hasCertificate) : false
@@ -240,29 +247,22 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       setSemesterId(initialEvent.semesterId || 1)
       setFormat(initialEvent.format || 'OFFLINE')
       setLocation(initialEvent.location || '')
-      setDateHappen(
-        parseIsoToLocalDate(initialEvent.dateStart || initialEvent.dateHappen)
-      )
-      setTimeStart(
-        parseIsoToLocalTime(initialEvent.timeStart || initialEvent.dateHappen, '08:00')
-      )
-      setTimeEnd(
-        parseIsoToLocalTime(initialEvent.timeEnd, '11:30')
-      )
+      setDateHappen(parseIsoToLocalDate(initialEvent.dateStart || initialEvent.dateHappen))
+      setTimeStart(parseIsoToLocalTime(initialEvent.timeStart || initialEvent.dateHappen, '08:00'))
+      setTimeEnd(parseIsoToLocalTime(initialEvent.timeEnd, '11:30'))
       setDateOpen(parseIsoToLocalDate(initialEvent.dateOpen))
-      setTimeOpen(
-        parseIsoToLocalTime(initialEvent.dateOpen, '07:00')
-      )
+      setTimeOpen(parseIsoToLocalTime(initialEvent.dateOpen, '07:00'))
       setDateClose(parseIsoToLocalDate(initialEvent.dateClose))
-      setTimeClose(
-        parseIsoToLocalTime(initialEvent.dateClose, '23:59')
-      )
+      setTimeClose(parseIsoToLocalTime(initialEvent.dateClose, '23:59'))
       setCapacity(initialEvent.capacity || '')
       setMaleQuantity(initialEvent.maleQuantity !== undefined ? initialEvent.maleQuantity : '')
-      setFemaleQuantity(initialEvent.femaleQuantity !== undefined ? initialEvent.femaleQuantity : '')
+      setFemaleQuantity(
+        initialEvent.femaleQuantity !== undefined ? initialEvent.femaleQuantity : ''
+      )
       setRequiresApproval(Boolean(initialEvent.requiresApproval))
-      setAttendanceMethod(initialEvent.attendanceMethod || 'MANUAL')
-      setAttendanceSessionType(initialEvent.attendanceSessionType || 'BOTH')
+      const attendanceConfig = normalizeAttendanceConfig(initialEvent)
+      setAttendanceMethod(attendanceConfig.attendanceMethod)
+      setAttendanceSessionType(attendanceConfig.attendanceSessionType)
       if (initialEvent.eventPoints && initialEvent.eventPoints.length > 0) {
         setSelectedPointCategories(initialEvent.eventPoints)
       } else if (initialEvent.trainingPointCategoryId) {
@@ -280,9 +280,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       setHasCertificate(Boolean(initialEvent.hasCertificate))
       setDescription(initialEvent.description || '')
       setTags(
-        Array.isArray(initialEvent.tags)
-          ? initialEvent.tags.join(', ')
-          : initialEvent.tags || ''
+        Array.isArray(initialEvent.tags) ? initialEvent.tags.join(', ') : initialEvent.tags || ''
       )
       setBannerPreview(initialEvent.bannerUrl || '')
       setBannerFile(null)
@@ -389,11 +387,15 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
     }
 
     const safeCapacity = Number(capacity) || 0
-    const safeMaleQuantity = maleQuantity !== '' && maleQuantity !== undefined ? Number(maleQuantity) : 0
-    const safeFemaleQuantity = femaleQuantity !== '' && femaleQuantity !== undefined ? Number(femaleQuantity) : 0
+    const safeMaleQuantity =
+      maleQuantity !== '' && maleQuantity !== undefined ? Number(maleQuantity) : 0
+    const safeFemaleQuantity =
+      femaleQuantity !== '' && femaleQuantity !== undefined ? Number(femaleQuantity) : 0
 
     if (safeMaleQuantity + safeFemaleQuantity > safeCapacity) {
-      alert(`Tổng số lượng Nam (${safeMaleQuantity}) và Nữ (${safeFemaleQuantity}) không được vượt quá tổng sức chứa (${safeCapacity})!`)
+      alert(
+        `Tổng số lượng Nam (${safeMaleQuantity}) và Nữ (${safeFemaleQuantity}) không được vượt quá tổng sức chứa (${safeCapacity})!`
+      )
       return
     }
 
@@ -424,7 +426,8 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
 
     const activeSv5tId = selectedSv5tCriteria?.id
     const activeSv5tName = selectedSv5tCriteria?.name
-    const selectedEventType = selectedEventTypeObj || MOCK_EVENT_TYPES.find((t) => t.id === eventTypeId)
+    const selectedEventType =
+      selectedEventTypeObj || MOCK_EVENT_TYPES.find((t) => t.id === eventTypeId)
     const selectedSemester = MOCK_SEMESTERS.find((s) => s.id === semesterId)
 
     // Helper to extract YYYY-MM-DD from any date format (DD/MM/YYYY, ISO, etc.) in local time
@@ -439,14 +442,20 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       try {
         const d = new Date(`${standardDate}T${time}:00`)
         if (!isNaN(d.getTime())) return d.toISOString()
-      } catch {}
+      } catch {
+        // Fall back to the normalized date string below.
+      }
       return `${standardDate}T${time}:00Z`
     }
 
     const standardDateHappen = toStandardDateStr(dateHappen)
     const todayStandard = parseIsoToLocalDate(new Date().toISOString())
 
-    const effectiveDateOpen = dateOpen ? dateOpen : (standardDateHappen < todayStandard ? standardDateHappen : todayStandard)
+    const effectiveDateOpen = dateOpen
+      ? dateOpen
+      : standardDateHappen < todayStandard
+        ? standardDateHappen
+        : todayStandard
     const effectiveDateClose = dateClose ? dateClose : dateHappen
 
     let dateOpenIso = formatToInstantIso(effectiveDateOpen, timeOpen, '07:00')
@@ -471,10 +480,9 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       closeTimeMs = new Date(dateCloseIso).getTime()
     }
 
-    let happenTimeMs = new Date(dateHappenIso).getTime()
+    const happenTimeMs = new Date(dateHappenIso).getTime()
     if (happenTimeMs < closeTimeMs) {
       dateHappenIso = new Date(closeTimeMs + 60 * 1000).toISOString()
-      happenTimeMs = new Date(dateHappenIso).getTime()
     }
 
     // Validate date relations
@@ -518,7 +526,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       femaleQuantity: safeFemaleQuantity,
       registeredCount: initialEvent ? initialEvent.registeredCount : 0,
       checkedInCount: initialEvent ? initialEvent.checkedInCount : 0,
-      status: isPublished ? 'PUBLISHED' : (initialEvent ? initialEvent.status : 'DRAFT'),
+      status: isPublished ? 'PUBLISHED' : initialEvent ? initialEvent.status : 'DRAFT',
       bannerUrl: finalBannerUrl,
       requiresApproval,
       attendanceMethod,
@@ -527,13 +535,21 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
       isPublic: true,
       trainingPointCategoryId: selectedPointCategories[0]?.pointCategoryId,
       trainingPointCategoryName: selectedPointCategories.map((c) => c.pointCategoryName).join('; '),
-      trainingPointCategoryCode: selectedPointCategories.map((c) => c.pointCategoryCode).filter(Boolean).join(', '),
+      trainingPointCategoryCode: selectedPointCategories
+        .map((c) => c.pointCategoryCode)
+        .filter(Boolean)
+        .join(', '),
       trainingPoints: totalTrainingPoints,
       eventPoints: selectedPointCategories,
       sv5tCriteriaId: activeSv5tId,
       sv5tCriteriaName: activeSv5tName,
       hasCertificate,
-      tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
+      tags: tags
+        ? tags
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : [],
       createdAt: initialEvent ? initialEvent.createdAt : new Date().toISOString(),
     }
 
@@ -551,6 +567,8 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
           femaleQuantity: safeFemaleQuantity,
           bannerUrl: finalBannerUrl,
           status: eventPayload.status,
+          attendanceMethod,
+          attendanceSessionType,
           eventTypeId: Number(eventPayload.eventTypeId || 1),
           semesterId: Number(eventPayload.semesterId || 1),
           criteriaId: activeSv5tId ? Number(activeSv5tId) : null,
@@ -582,6 +600,8 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
           femaleQuantity: safeFemaleQuantity,
           bannerUrl: finalBannerUrl,
           status: eventPayload.status,
+          attendanceMethod,
+          attendanceSessionType,
           eventTypeId: Number(eventPayload.eventTypeId || 1),
           fanpageId: Number(currentFanpage?.id || 1),
           semesterId: Number(eventPayload.semesterId || 1),
@@ -638,7 +658,9 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
               Sự kiện
             </button>
             <span>/</span>
-            <span className="text-primary font-bold">{isEditMode ? 'Chỉnh sửa sự kiện' : 'Tạo sự kiện mới'}</span>
+            <span className="text-primary font-bold">
+              {isEditMode ? 'Chỉnh sửa sự kiện' : 'Tạo sự kiện mới'}
+            </span>
           </p>
           <div className="flex items-center gap-2 mt-1.5">
             <button
@@ -711,7 +733,8 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
               1. Thông tin sự kiện & Học kỳ áp dụng
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Gắn sự kiện với học kỳ để hệ thống tự động quản lý điểm rèn luyện và xét điều kiện tham gia.
+              Gắn sự kiện với học kỳ để hệ thống tự động quản lý điểm rèn luyện và xét điều kiện
+              tham gia.
             </p>
           </div>
 
@@ -762,7 +785,11 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                 onClick={() => setIsEventTypeOpen((prev) => !prev)}
                 className="w-full h-10 px-3 rounded-xl border border-input bg-background text-sm text-foreground flex items-center justify-between gap-2 hover:bg-accent/40 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-all cursor-pointer text-left"
               >
-                <span className={selectedEventTypeObj ? 'font-medium truncate' : 'text-muted-foreground truncate'}>
+                <span
+                  className={
+                    selectedEventTypeObj ? 'font-medium truncate' : 'text-muted-foreground truncate'
+                  }
+                >
                   {selectedEventTypeObj ? selectedEventTypeObj.name : 'Chọn loại sự kiện'}
                 </span>
                 <ChevronDown
@@ -874,7 +901,8 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
               2. Thời gian tổ chức & Cổng đăng ký
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Xác định ngày diễn ra sự kiện và khoảng thời gian cho phép sinh viên đăng ký trên ứng dụng.
+              Xác định ngày diễn ra sự kiện và khoảng thời gian cho phép sinh viên đăng ký trên ứng
+              dụng.
             </p>
           </div>
 
@@ -898,16 +926,8 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                 Khung giờ diễn ra (Bắt đầu - Kết thúc) <span className="text-destructive">*</span>
               </Label>
               <div className="grid grid-cols-2 gap-2">
-                <TimeSelect
-                  value={timeStart}
-                  onChange={setTimeStart}
-                  placeholder="Giờ bắt đầu"
-                />
-                <TimeSelect
-                  value={timeEnd}
-                  onChange={setTimeEnd}
-                  placeholder="Giờ kết thúc"
-                />
+                <TimeSelect value={timeStart} onChange={setTimeStart} placeholder="Giờ bắt đầu" />
+                <TimeSelect value={timeEnd} onChange={setTimeEnd} placeholder="Giờ kết thúc" />
               </div>
             </div>
 
@@ -925,11 +945,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                   />
                 </div>
                 <div className="col-span-2">
-                  <TimeSelect
-                    value={timeOpen}
-                    onChange={setTimeOpen}
-                    placeholder="Giờ mở"
-                  />
+                  <TimeSelect value={timeOpen} onChange={setTimeOpen} placeholder="Giờ mở" />
                 </div>
               </div>
             </div>
@@ -948,11 +964,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                   />
                 </div>
                 <div className="col-span-2">
-                  <TimeSelect
-                    value={timeClose}
-                    onChange={setTimeClose}
-                    placeholder="Giờ đóng"
-                  />
+                  <TimeSelect value={timeClose} onChange={setTimeClose} placeholder="Giờ đóng" />
                 </div>
               </div>
             </div>
@@ -983,7 +995,9 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                     min={0}
                     value={maleQuantity}
                     onChange={(e) =>
-                      setMaleQuantity(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))
+                      setMaleQuantity(
+                        e.target.value === '' ? '' : Math.max(0, Number(e.target.value))
+                      )
                     }
                     placeholder="Tùy chọn"
                     className="w-24 text-center text-xs"
@@ -997,7 +1011,9 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                     min={0}
                     value={femaleQuantity}
                     onChange={(e) =>
-                      setFemaleQuantity(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))
+                      setFemaleQuantity(
+                        e.target.value === '' ? '' : Math.max(0, Number(e.target.value))
+                      )
                     }
                     placeholder="Tùy chọn"
                     className="w-24 text-center text-xs"
@@ -1036,9 +1052,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MANUAL">
-                    Ban tổ chức điểm danh trực tiếp
-                  </SelectItem>
+                  <SelectItem value="MANUAL">Ban tổ chức điểm danh trực tiếp</SelectItem>
                   <SelectItem value="STUDENT_PROOF">
                     Sinh viên tự nộp ảnh minh chứng (chờ BTC duyệt)
                   </SelectItem>
@@ -1075,7 +1089,8 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
               4. Quyền lợi rèn luyện & Tiêu chí SV5T
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Lựa chọn danh mục điểm rèn luyện phân cấp nhiều tầng và tiêu chí Sinh viên 5 Tốt tương ứng.
+              Lựa chọn danh mục điểm rèn luyện phân cấp nhiều tầng và tiêu chí Sinh viên 5 Tốt tương
+              ứng.
             </p>
           </div>
 
@@ -1084,9 +1099,7 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
             <div className="space-y-4">
               <div className="border-b border-border/60 pb-2 flex items-center justify-between gap-2">
                 <div>
-                  <h4 className="text-sm font-semibold text-foreground">
-                    Quy định Điểm rèn luyện
-                  </h4>
+                  <h4 className="text-sm font-semibold text-foreground">Quy định Điểm rèn luyện</h4>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     Chọn các mục tiêu chí cộng điểm rèn luyện cho sinh viên.
                   </p>
@@ -1156,18 +1169,20 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                             +{item.point} ĐRL
                           </span>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedPointCategories((prev) =>
-                                prev.filter((p) => p.pointCategoryId !== item.pointCategoryId)
-                              )
-                            }}
-                            className="p-1 text-muted-foreground hover:text-rose-600 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                            title="Xóa mục này"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          <Tooltip content="Xóa mục này">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPointCategories((prev) =>
+                                  prev.filter((p) => p.pointCategoryId !== item.pointCategoryId)
+                                )
+                              }}
+                              className="p-1 text-muted-foreground hover:text-rose-600 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                              aria-label="Xóa mục này"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </Tooltip>
                         </div>
                       </div>
                     ))}
@@ -1207,7 +1222,8 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                       Chưa chọn tiêu chí Sinh viên 5 Tốt
                     </p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Mở bảng danh mục SV5T để chọn đúng mục tiêu chuẩn công nhận quyền lợi cho sinh viên
+                      Mở bảng danh mục SV5T để chọn đúng mục tiêu chuẩn công nhận quyền lợi cho sinh
+                      viên
                     </p>
                   </div>
                   <Button
@@ -1247,14 +1263,16 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setSelectedSv5tCriteria(null)}
-                      className="p-1 text-muted-foreground hover:text-rose-600 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0"
-                      title="Bỏ chọn tiêu chí này"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <Tooltip content="Bỏ chọn tiêu chí này">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSv5tCriteria(null)}
+                        className="p-1 text-muted-foreground hover:text-rose-600 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0"
+                        aria-label="Bỏ chọn tiêu chí này"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </Tooltip>
                   </div>
 
                   <div className="pt-2 border-t border-primary/20 flex items-center justify-between">
@@ -1406,12 +1424,13 @@ export const FanpageCreateEventView: React.FC<FanpageCreateEventViewProps> = ({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Nhập nội dung, lộ trình, diễn giả và quyền lợi cụ thể của sự kiện... (Hỗ trợ định dạng xuống dòng, dán bài viết dài)"
                 className={cn(
-                  "leading-relaxed font-sans text-sm resize-y whitespace-pre-wrap transition-all shadow-2xs",
-                  isExpandedDesc ? "min-h-[420px]" : "min-h-[220px]"
+                  'leading-relaxed font-sans text-sm resize-y whitespace-pre-wrap transition-all shadow-2xs',
+                  isExpandedDesc ? 'min-h-[420px]' : 'min-h-[220px]'
                 )}
               />
               <p className="text-[11px] text-muted-foreground">
-                Gợi ý: Bạn có thể kéo góc dưới bên phải để chỉnh chiều cao tùy ý. Các đoạn xuống dòng được bảo toàn nguyên vẹn khi hiển thị lên bài đăng.
+                Gợi ý: Bạn có thể kéo góc dưới bên phải để chỉnh chiều cao tùy ý. Các đoạn xuống
+                dòng được bảo toàn nguyên vẹn khi hiển thị lên bài đăng.
               </p>
 
               {/* Từ khóa tìm kiếm (Tags) */}

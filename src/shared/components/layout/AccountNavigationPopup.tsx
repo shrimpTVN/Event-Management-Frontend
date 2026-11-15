@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Users, LogOut } from 'lucide-react'
@@ -62,11 +63,7 @@ export const SwitchAvatar: React.FC<{
         className={`w-[22px] h-[22px] rounded-full overflow-hidden flex items-center justify-center border border-white dark:border-background shadow-2xs select-none ${bgClassName}`}
       >
         {avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt={name}
-            className="w-full h-full object-cover"
-          />
+          <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
         ) : (
           <span className={textClassName}>{initial}</span>
         )}
@@ -104,7 +101,11 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
     if (email.endsWith('@student.ctu.edu.vn') || email.startsWith('student')) return true
     if (user.studentId) return true
     if (user.role === 'STUDENT' || user.role === 'ROLE_STUDENT') return true
-    if (Array.isArray(user.roles) && user.roles.some((r) => r === 'STUDENT' || r === 'ROLE_STUDENT')) return true
+    if (
+      Array.isArray(user.roles) &&
+      user.roles.some((r) => r === 'STUDENT' || r === 'ROLE_STUDENT')
+    )
+      return true
     return !isStaffEmail(email)
   }, [user])
 
@@ -306,12 +307,18 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
   // Chuyển sang không gian làm việc của Fanpage:
   // - Nếu là Admin: /fanpage/admin
   // - Nếu là Member / Sinh viên cộng tác viên: /fanpage/workspace (tránh /admin)
-  const handleSwitchToFanpage = (fp: { id: string; role?: string; isAdmin?: boolean; name?: string }) => {
+  const handleSwitchToFanpage = (fp: {
+    id: string
+    role?: string
+    isAdmin?: boolean
+    name?: string
+  }) => {
     onClose()
     if (onSelectFanpage) {
       onSelectFanpage(fp)
     }
-    const isTargetAdmin = fp.isAdmin || fp.role === 'ADMIN' || fp.role === 'Quản trị viên' || isStaff
+    const isTargetAdmin =
+      fp.isAdmin || fp.role === 'ADMIN' || fp.role === 'Quản trị viên' || isStaff
     const path = isTargetAdmin ? '/fanpage/admin' : '/fanpage/workspace'
     navigate(path, { state: { fanpageId: String(fp.id) } })
   }
@@ -331,7 +338,8 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
       navigate('/staff/fanpages')
     } else if (allFanpages.length > 0) {
       const first = allFanpages[0]
-      const isTargetAdmin = first.isAdmin || first.role === 'ADMIN' || first.role === 'Quản trị viên'
+      const isTargetAdmin =
+        first.isAdmin || first.role === 'ADMIN' || first.role === 'Quản trị viên'
       navigate(isTargetAdmin ? '/fanpage/admin' : '/fanpage/workspace', {
         state: { fanpageId: String(first.id) },
       })
@@ -357,57 +365,60 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
       {isFanpageWorkspace ? (
         <>
           {/* Thông tin tài khoản cá nhân & Fanpage đang quản lý với logo fanpage nhỏ dưới avatar */}
-          <button
-            type="button"
-            onClick={handleGoToProfile}
-            className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left"
-            role="menuitem"
-            title="Xem thông tin cá nhân"
-          >
-            {/* Avatar cá nhân với logo fanpage nhỏ ở góc dưới */}
-            <div className="relative shrink-0 w-12 h-12">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden border border-border/60 bg-[#1B4B8A] text-white shadow-xs">
-                {userAvatarUrl ? (
-                  <img
-                    src={userAvatarUrl}
-                    alt={displayName}
-                    className="w-full h-full object-cover"
-                  />
+          <Tooltip content="Xem thông tin cá nhân">
+            <button
+              type="button"
+              onClick={handleGoToProfile}
+              className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left"
+              role="menuitem"
+            >
+              {/* Avatar cá nhân với logo fanpage nhỏ ở góc dưới */}
+              <div className="relative shrink-0 w-12 h-12">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden border border-border/60 bg-[#1B4B8A] text-white shadow-xs">
+                  {userAvatarUrl ? (
+                    <img
+                      src={userAvatarUrl}
+                      alt={displayName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-bold text-base text-white">{userInitial}</span>
+                  )}
+                </div>
+
+                {/* Logo fanpage hiện tại nhỏ ở góc dưới avatar (kích thước 20px rõ nét) */}
+                {currentFanpage?.avatarUrl ? (
+                  <Tooltip content={`Fanpage: ${currentFanpage.name}`}>
+                    <img
+                      src={currentFanpage.avatarUrl}
+                      alt={currentFanpage.name}
+                      className="absolute -bottom-1 -right-1 w-5 h-5 min-w-[20px] max-w-[20px] min-h-[20px] max-h-[20px] rounded-full object-cover border-2 border-white dark:border-card shadow-xs"
+                    />
+                  </Tooltip>
                 ) : (
-                  <span className="font-bold text-base text-white">{userInitial}</span>
+                  <Tooltip content={`Fanpage: ${currentFanpage?.name}`}>
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 min-w-[20px] max-w-[20px] min-h-[20px] max-h-[20px] rounded-full bg-[#374151] text-white text-[9px] font-bold flex items-center justify-center border-2 border-white dark:border-card shadow-xs">
+                      {(currentFanpage?.name || 'FP').slice(0, 1).toUpperCase()}
+                    </div>
+                  </Tooltip>
                 )}
               </div>
 
-              {/* Logo fanpage hiện tại nhỏ ở góc dưới avatar (kích thước 20px rõ nét) */}
-              {currentFanpage?.avatarUrl ? (
-                <img
-                  src={currentFanpage.avatarUrl}
-                  alt={currentFanpage.name}
-                  title={`Fanpage: ${currentFanpage.name}`}
-                  className="absolute -bottom-1 -right-1 w-5 h-5 min-w-[20px] max-w-[20px] min-h-[20px] max-h-[20px] rounded-full object-cover border-2 border-white dark:border-card shadow-xs"
-                />
-              ) : (
-                <div
-                  title={`Fanpage: ${currentFanpage?.name}`}
-                  className="absolute -bottom-1 -right-1 w-5 h-5 min-w-[20px] max-w-[20px] min-h-[20px] max-h-[20px] rounded-full bg-[#374151] text-white text-[9px] font-bold flex items-center justify-center border-2 border-white dark:border-card shadow-xs"
-                >
-                  {(currentFanpage?.name || 'FP').slice(0, 1).toUpperCase()}
-                </div>
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <span className="font-bold text-sm text-foreground block truncate">
-                {displayName}
-              </span>
-              <span className="font-medium text-xs text-foreground/90 block truncate" title={currentFanpage?.name}>
-                {currentFanpage?.name || 'Không gian Fanpage'}
-              </span>
-              <span className="text-[11px] text-muted-foreground block truncate">
-                {currentFanpage?.role || currentFanpageRole || 'Quản trị viên'}
-              </span>
-            </div>
-          </button>
+              <div className="min-w-0 flex-1">
+                <span className="font-bold text-sm text-foreground block truncate">
+                  {displayName}
+                </span>
+                <Tooltip content={currentFanpage?.name}>
+                  <span className="font-medium text-xs text-foreground/90 block truncate">
+                    {currentFanpage?.name || 'Không gian Fanpage'}
+                  </span>
+                </Tooltip>
+                <span className="text-[11px] text-muted-foreground block truncate">
+                  {currentFanpage?.role || currentFanpageRole || 'Quản trị viên'}
+                </span>
+              </div>
+            </button>
+          </Tooltip>
 
           <div className="w-full h-px bg-[#EDF0F4] dark:bg-border/60 my-2" />
 
@@ -425,53 +436,54 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
 
                 {/* Các Fanpage khác mà user có quyền quản lý/tham gia */}
                 {availableSwitchFanpages.map((fp) => (
-                  <button
-                    key={fp.id}
-                    type="button"
-                    onClick={() => handleSwitchToFanpage(fp)}
-                    className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
-                    role="menuitem"
-                    title={`Chuyển sang ${fp.name}`}
-                  >
-                    <SwitchAvatar avatarUrl={fp.avatarUrl} name={fp.name} />
-                    <div className="min-w-0 flex-1">
-                      <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
-                        {fp.name}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground block truncate">
-                        {fp.role || (fp.isAdmin ? 'Quản trị viên' : 'Cộng tác viên')}
-                      </span>
-                    </div>
-                  </button>
+                  <Tooltip content={`Chuyển sang ${fp.name}`} key={fp.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchToFanpage(fp)}
+                      className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
+                      role="menuitem"
+                    >
+                      <SwitchAvatar avatarUrl={fp.avatarUrl} name={fp.name} />
+                      <div className="min-w-0 flex-1">
+                        <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
+                          {fp.name}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground block truncate">
+                          {fp.role || (fp.isAdmin ? 'Quản trị viên' : 'Cộng tác viên')}
+                        </span>
+                      </div>
+                    </button>
+                  </Tooltip>
                 ))}
 
                 {/* Chuyển lại tài khoản sinh viên (nếu là sinh viên) */}
                 {isStudent && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose()
-                      navigate('/')
-                    }}
-                    className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
-                    role="menuitem"
-                    title="Quay lại trang chủ sinh viên"
-                  >
-                    <SwitchAvatar
-                      avatarUrl={userAvatarUrl}
-                      name={displayName}
-                      bgClassName="bg-[#1B4B8A] text-white"
-                      textClassName="text-[11px] font-bold text-white"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
-                        {displayName}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground block truncate">
-                        {studentMssv ? `MSSV: ${studentMssv} · Sinh viên` : 'Tài khoản sinh viên'}
-                      </span>
-                    </div>
-                  </button>
+                  <Tooltip content="Quay lại trang chủ sinh viên">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose()
+                        navigate('/')
+                      }}
+                      className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left group"
+                      role="menuitem"
+                    >
+                      <SwitchAvatar
+                        avatarUrl={userAvatarUrl}
+                        name={displayName}
+                        bgClassName="bg-[#1B4B8A] text-white"
+                        textClassName="text-[11px] font-bold text-white"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <span className="font-semibold text-xs text-foreground block truncate group-hover:text-primary transition-colors">
+                          {displayName}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground block truncate">
+                          {studentMssv ? `MSSV: ${studentMssv} · Sinh viên` : 'Tài khoản sinh viên'}
+                        </span>
+                      </div>
+                    </button>
+                  </Tooltip>
                 )}
               </div>
 
@@ -487,39 +499,40 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
            ========================================================================= */
         <>
           {/* Thẻ tài khoản cá nhân hiện tại */}
-          <button
-            type="button"
-            onClick={handleGoToProfile}
-            className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left"
-            role="menuitem"
-            title="Nhấn để xem thông tin cá nhân"
-          >
-            {/* Avatar cá nhân thật (ảnh hoặc chữ cái viết tắt nền xanh #1B4B8A) */}
-            <div className="relative shrink-0">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden border border-border/60 bg-[#1B4B8A] text-white shadow-xs">
-                {userAvatarUrl ? (
-                  <img
-                    src={userAvatarUrl}
-                    alt={displayName}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="font-bold text-sm text-white">{userInitial}</span>
+          <Tooltip content="Nhấn để xem thông tin cá nhân">
+            <button
+              type="button"
+              onClick={handleGoToProfile}
+              className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left"
+              role="menuitem"
+            >
+              {/* Avatar cá nhân thật (ảnh hoặc chữ cái viết tắt nền xanh #1B4B8A) */}
+              <div className="relative shrink-0">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden border border-border/60 bg-[#1B4B8A] text-white shadow-xs">
+                  {userAvatarUrl ? (
+                    <img
+                      src={userAvatarUrl}
+                      alt={displayName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-bold text-sm text-white">{userInitial}</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <span className="font-bold text-sm text-foreground block truncate">
+                  {displayName}
+                </span>
+                {displaySubtitle && (
+                  <span className="font-medium text-xs text-muted-foreground block truncate">
+                    {displaySubtitle}
+                  </span>
                 )}
               </div>
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <span className="font-bold text-sm text-foreground block truncate">
-                {displayName}
-              </span>
-              {displaySubtitle && (
-                <span className="font-medium text-xs text-muted-foreground block truncate">
-                  {displaySubtitle}
-                </span>
-              )}
-            </div>
-          </button>
+            </button>
+          </Tooltip>
 
           <div className="w-full h-px bg-[#EDF0F4] dark:bg-border/60 my-2" />
 

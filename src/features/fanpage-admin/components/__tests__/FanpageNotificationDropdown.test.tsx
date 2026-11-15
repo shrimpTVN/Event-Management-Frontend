@@ -126,7 +126,7 @@ describe('FanpageNotificationDropdown', () => {
       </MemoryRouter>
     )
 
-    const markAllBtn = screen.getByTitle('Đánh dấu tất cả là đã đọc')
+    const markAllBtn = screen.getByRole('button', { name: 'Đã đọc tất cả' })
     fireEvent.click(markAllBtn)
 
     expect(mockMarkAllAsRead).toHaveBeenCalled()

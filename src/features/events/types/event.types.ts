@@ -47,6 +47,8 @@ export interface EventSemester {
 }
 
 export interface Event {
+  attendanceMethod?: 'MANUAL' | 'STUDENT_PROOF'
+  attendanceSessionType?: 'START' | 'END' | 'CHECK_IN' | 'CHECK_OUT' | 'BOTH'
   id: string
   title: string
   description: string
@@ -94,9 +96,14 @@ export interface EventFilters {
   search?: string
   semesterId?: number
   fanpageId?: number
-  eventTypeId?: number
-  criteriaId?: number
-  pointCategoryId?: number
+  eventTypeId?: number | string
+  eventTypeIds?: (number | string)[] | string
+  criteriaId?: number | string
+  criteriaIds?: (number | string)[] | string
+  childCriteriaIds?: (number | string)[]
+  pointCategoryId?: number | string
+  pointCategoryIds?: (number | string)[] | string
+  childCategoryIds?: (number | string)[]
   dateHappenFrom?: string
   dateHappenTo?: string
   category?: EventCategory
@@ -121,6 +128,8 @@ export interface PageResponse<T> {
 }
 
 export interface EventResponseDto {
+  attendanceMethod?: 'MANUAL' | 'STUDENT_PROOF'
+  attendanceSessionType?: 'START' | 'END' | 'CHECK_IN' | 'CHECK_OUT' | 'BOTH'
   id: number | string
   name?: string
   title?: string
@@ -161,6 +170,8 @@ export interface EventResponseDto {
 }
 
 export interface EventCreateRequestDto {
+  attendanceMethod?: 'MANUAL' | 'STUDENT_PROOF'
+  attendanceSessionType?: 'START' | 'END' | 'BOTH'
   name: string
   description: string
   location: string

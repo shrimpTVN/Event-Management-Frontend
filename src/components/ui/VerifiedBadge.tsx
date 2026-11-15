@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React from 'react'
 import verifyIcon from '@/assets/verify.png'
 
@@ -11,12 +12,12 @@ export const VerifiedBadge: React.FC<VerifiedBadgeProps> = ({
   title = 'Đã xác thực',
 }) => {
   return (
-    <img
-      src={verifyIcon}
-      alt={title}
-      title={title}
-      className={`${className} shrink-0 inline-block object-contain select-none`}
-    />
+    <Tooltip content={title}>
+      <img
+        src={verifyIcon}
+        alt={title}
+        className={`${className} shrink-0 inline-block object-contain select-none`}
+      />
+    </Tooltip>
   )
 }
-

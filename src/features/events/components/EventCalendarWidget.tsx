@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
@@ -96,24 +97,26 @@ export const EventCalendarWidget: React.FC<EventCalendarWidgetProps> = ({
           Tháng {format(currentMonth, 'M, yyyy')}
         </span>
         <div className="flex items-center gap-1 text-[#9CA3AF]">
-          <button
-            type="button"
-            onClick={handlePrevMonth}
-            className="p-1 rounded-lg hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-            title="Tháng trước"
-            aria-label="Tháng trước"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={handleNextMonth}
-            className="p-1 rounded-lg hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-            title="Tháng sau"
-            aria-label="Tháng sau"
-          >
-            <ChevronRight className="h-3.5 w-3.5" />
-          </button>
+          <Tooltip content="Tháng trước">
+            <button
+              type="button"
+              onClick={handlePrevMonth}
+              className="p-1 rounded-lg hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              aria-label="Tháng trước"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+          <Tooltip content="Tháng sau">
+            <button
+              type="button"
+              onClick={handleNextMonth}
+              className="p-1 rounded-lg hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              aria-label="Tháng sau"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -145,34 +148,33 @@ export const EventCalendarWidget: React.FC<EventCalendarWidgetProps> = ({
             : undefined
 
           return (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => handleDateClick(dayDate, inCurrentMonth)}
-              title={tooltipText}
-              className={`relative flex flex-col items-center justify-center h-7 rounded-md transition-colors cursor-pointer ${
-                isSelected
-                  ? 'bg-[#BDD7F0] text-[#1B365D] font-bold shadow-xs'
-                  : inCurrentMonth
-                  ? isCurrentDay
-                    ? 'text-primary font-bold ring-1 ring-primary/40'
-                    : 'text-[#374151] dark:text-foreground hover:bg-muted/70 font-medium'
-                  : 'text-[#9CA3AF]/40 hover:text-[#9CA3AF]/70'
-              }`}
-            >
-              <span>{dayNum}</span>
-              {/* Only show dot if there are actual registered events on this date */}
-              {hasRegisteredEvent && (
-                <span
-                  data-testid={`event-dot-${dayNum}`}
-                  className="absolute bottom-0.5 h-1 w-1 rounded-full bg-[#008CCC]"
-                />
-              )}
-            </button>
+            <Tooltip content={tooltipText} key={idx}>
+              <button
+                type="button"
+                onClick={() => handleDateClick(dayDate, inCurrentMonth)}
+                className={`relative flex flex-col items-center justify-center h-7 rounded-md transition-colors cursor-pointer ${
+                  isSelected
+                    ? 'bg-[#BDD7F0] text-[#1B365D] font-bold shadow-xs'
+                    : inCurrentMonth
+                      ? isCurrentDay
+                        ? 'text-primary font-bold ring-1 ring-primary/40'
+                        : 'text-[#374151] dark:text-foreground hover:bg-muted/70 font-medium'
+                      : 'text-[#9CA3AF]/40 hover:text-[#9CA3AF]/70'
+                }`}
+              >
+                <span>{dayNum}</span>
+                {/* Only show dot if there are actual registered events on this date */}
+                {hasRegisteredEvent && (
+                  <span
+                    data-testid={`event-dot-${dayNum}`}
+                    className="absolute bottom-0.5 h-1 w-1 rounded-full bg-[#008CCC]"
+                  />
+                )}
+              </button>
+            </Tooltip>
           )
         })}
       </div>
     </div>
   )
 }
-

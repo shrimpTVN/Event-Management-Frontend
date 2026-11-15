@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Search, Filter, Calendar, Building, ArrowRight, Loader2, X } from 'lucide-react'
@@ -135,8 +136,8 @@ export const NavbarSearchAutocomplete: React.FC = () => {
   const parsedFanpageIds = rawFanpageIds
     ? rawFanpageIds.split(',').filter(Boolean)
     : fanpageId
-    ? [fanpageId]
-    : undefined
+      ? [fanpageId]
+      : undefined
 
   const currentFilterValues: EventFilterFormValues = {
     academicYear: searchParams.get('academicYear') || undefined,
@@ -171,38 +172,45 @@ export const NavbarSearchAutocomplete: React.FC = () => {
           />
 
           {query && (
-            <button
-              type="button"
-              onClick={() => {
-                setQuery('')
-                setSuggestions([])
-              }}
-              className="absolute right-10 text-muted-foreground hover:text-foreground p-1 cursor-pointer"
-              title="Xóa tìm kiếm"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            <Tooltip content="Xóa tìm kiếm">
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('')
+                  setSuggestions([])
+                }}
+                className="absolute right-10 text-muted-foreground hover:text-foreground p-1 cursor-pointer"
+                aria-label="Xóa tìm kiếm"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
           )}
 
           {/* Filter Trigger Button */}
-          <button
-            type="button"
-            onClick={() => setIsFilterOpen(true)}
-            className={`absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg border transition-colors cursor-pointer ${
-              activeFiltersCount > 0
-                ? 'border-primary bg-primary/10 text-primary font-bold'
-                : 'border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted'
-            }`}
-            title={activeFiltersCount > 0 ? `Đang bật ${activeFiltersCount} bộ lọc` : 'Bộ lọc nâng cao'}
-            aria-label="Mở bộ lọc nâng cao"
+          <Tooltip
+            content={
+              activeFiltersCount > 0 ? `Đang bật ${activeFiltersCount} bộ lọc` : 'Bộ lọc nâng cao'
+            }
           >
-            <Filter className="h-3.5 w-3.5" />
-            {activeFiltersCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white shadow-xs">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsFilterOpen(true)}
+              className={`absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg border transition-colors cursor-pointer ${
+                activeFiltersCount > 0
+                  ? 'border-primary bg-primary/10 text-primary font-bold'
+                  : 'border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+              aria-label="Mở bộ lọc nâng cao"
+            >
+              <Filter className="h-3.5 w-3.5" />
+              {activeFiltersCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white shadow-xs">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+          </Tooltip>
         </form>
 
         {/* Suggestions Popover */}
@@ -296,4 +304,3 @@ export const NavbarSearchAutocomplete: React.FC = () => {
     </>
   )
 }
-

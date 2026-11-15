@@ -54,9 +54,28 @@ apiClient.interceptors.response.use(
   },
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      unauthorizedHandler()
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+      const errData = error.response?.data as any
+      const exceptionCode = errData?.exceptionCode
+      const errMsg = (errData?.message || '').toLowerCase()
+
+      // Backend returns 401 (instead of 403) for domain authorization/permission errors
+      // such as AUTH.007 ("You are not admin of the fanpage"), AUTH.003 ("Access denied"),
+      // or fanpage/club member permission restrictions.
+      // Do NOT log out or redirect to /login for resource permission issues!
+      const isPermissionDenied =
+        exceptionCode === 'AUTH.007' ||
+        exceptionCode === 'AUTH.003' ||
+        exceptionCode === 'AUTH.006' ||
+        errMsg.includes('not admin') ||
+        errMsg.includes('not an admin') ||
+        errMsg.includes('permission') ||
+        errMsg.includes('access denied')
+
+      if (!isPermissionDenied) {
+        unauthorizedHandler()
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+        }
       }
     }
     return Promise.reject(error)
