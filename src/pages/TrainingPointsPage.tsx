@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button'
 import React, { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { StudentLeftSidebar } from '@/features/events'
@@ -48,7 +49,8 @@ export const TrainingPointsPage: React.FC = () => {
   // Set default active semester when data arrives
   useEffect(() => {
     if (semesters.length > 0 && !selectedSemester) {
-      const activeSem = semesters.find((s) => s.status === 'ONGOING' || s.status === 'ACTIVE') || semesters[0]
+      const activeSem =
+        semesters.find((s) => s.status === 'ONGOING' || s.status === 'ACTIVE') || semesters[0]
       if (activeSem) {
         setSelectedSemester(String(activeSem.number))
         setAppliedSemester(String(activeSem.number))
@@ -61,8 +63,7 @@ export const TrainingPointsPage: React.FC = () => {
     const semNum = Number(appliedSemester) || 1
     const matchedYearObj = academicYears.find(
       (y) =>
-        y.code === appliedYear ||
-        y.code.replace(/\s+/g, '') === appliedYear.replace(/\s+/g, '')
+        y.code === appliedYear || y.code.replace(/\s+/g, '') === appliedYear.replace(/\s+/g, '')
     )
     const found = semesters.find(
       (s) =>
@@ -71,14 +72,21 @@ export const TrainingPointsPage: React.FC = () => {
           s.academicYear === appliedYear ||
           s.academicYear === matchedYearObj?.code)
     )
-    return found ? found.id : 1
+    return found?.id
   }, [semesters, academicYears, appliedYear, appliedSemester])
 
   // 3. Fetch Grouped Tree Semester Points (API MỚI: GET /student-semester-points/grouped-tree/{semesterId})
-  const { data: groupedTree = [], isLoading: isLoadingTree } = useQuery({
+  const {
+    data: groupedTree = [],
+    isLoading: isLoadingTree,
+    isError: treeError,
+    refetch: refetchTree,
+  } = useQuery({
     queryKey: ['student-semester-points-tree', currentSemesterId],
-    queryFn: () => trainingPointsService.getSemesterPointGroupedTree(currentSemesterId),
+    queryFn: () => trainingPointsService.getSemesterPointGroupedTree(currentSemesterId!),
     enabled: Boolean(currentSemesterId),
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 
   // 4. Fallback to standard point categories grouped tree if student has no tree records yet
@@ -105,35 +113,26 @@ export const TrainingPointsPage: React.FC = () => {
   const [studentScores, setStudentScores] = useState<Record<number, number>>({})
   const [studentDescriptions, setStudentDescriptions] = useState<Record<number, string>>({})
 
-  // Initialize self-evaluated scores from manualPointRecord in groupedTree
   useEffect(() => {
-    if (groupedTree.length > 0) {
-      const initialScores: Record<number, number> = {}
-      groupedTree.forEach((root) => {
-        if (root.items) {
-          root.items.forEach((item) => {
-            if (item.manualPointRecord > 0) {
-              initialScores[item.id] = item.manualPointRecord
-            }
-          })
-        }
-      })
-      setStudentScores(initialScores)
-    }
-  }, [groupedTree])
+    setStudentScores({})
+    setStudentDescriptions({})
+  }, [currentSemesterId])
 
   // Mutation to save self evaluation
   const selfEvalMutation = useMutation({
     mutationFn: (payload: { categoryId: number; score: number; description?: string }) =>
       trainingPointsService.saveSelfEvaluation({
-        semesterId: currentSemesterId,
+        semesterId: currentSemesterId!,
         pointCategoryId: payload.categoryId,
         points: payload.score,
         description: payload.description || 'Sinh viên tự đánh giá',
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['student-semester-points-tree', currentSemesterId] })
+      queryClient.invalidateQueries({
+        queryKey: ['student-semester-points-tree', currentSemesterId],
+      })
       queryClient.invalidateQueries({ queryKey: ['student-semester-points', currentSemesterId] })
+      queryClient.invalidateQueries({ queryKey: ['point-transactions', currentSemesterId] })
     },
   })
 
@@ -142,37 +141,31 @@ export const TrainingPointsPage: React.FC = () => {
     mutationFn: (transactionId: number) =>
       trainingPointsService.deletePointTransaction(transactionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['student-semester-points-tree', currentSemesterId] })
+      queryClient.invalidateQueries({
+        queryKey: ['student-semester-points-tree', currentSemesterId],
+      })
       queryClient.invalidateQueries({ queryKey: ['student-semester-points', currentSemesterId] })
+      queryClient.invalidateQueries({ queryKey: ['point-transactions', currentSemesterId] })
     },
   })
 
   const handleSaveSelfScore = async (categoryId: number, score: number, description?: string) => {
-    // Optimistically update local score & description
+    await selfEvalMutation.mutateAsync({ categoryId, score, description })
+    // Update local values only after saving successfully.
     setStudentScores((prev) => ({ ...prev, [categoryId]: score }))
     if (description !== undefined) {
       setStudentDescriptions((prev) => ({ ...prev, [categoryId]: description }))
     }
-    await selfEvalMutation.mutateAsync({ categoryId, score, description })
   }
 
   const handleDeleteSelfScore = async (transactionId: number, categoryId: number) => {
-    // Optimistically remove local score & description
-    setStudentScores((prev) => {
-      const next = { ...prev }
-      delete next[categoryId]
-      return next
-    })
-    setStudentDescriptions((prev) => {
-      const next = { ...prev }
-      delete next[categoryId]
-      return next
-    })
-
     let targetTxId = transactionId
     if (!targetTxId || targetTxId <= 0) {
       try {
-        const txs = await trainingPointsService.getPointTransactionsByCategory(currentSemesterId, categoryId)
+        const txs = await trainingPointsService.getPointTransactionsByCategory(
+          currentSemesterId!,
+          categoryId
+        )
         const manual = txs.find((t) => t.type === 'MANUAL')
         if (manual) targetTxId = manual.id
       } catch (err) {
@@ -182,6 +175,17 @@ export const TrainingPointsPage: React.FC = () => {
 
     if (targetTxId && targetTxId > 0) {
       await deleteSelfEvalMutation.mutateAsync(targetTxId)
+      // Clear local values only after deletion succeeds.
+      setStudentScores((prev) => {
+        const next = { ...prev }
+        delete next[categoryId]
+        return next
+      })
+      setStudentDescriptions((prev) => {
+        const next = { ...prev }
+        delete next[categoryId]
+        return next
+      })
     }
   }
 
@@ -207,7 +211,7 @@ export const TrainingPointsPage: React.FC = () => {
   const isLoading = isLoadingTree && fallbackCategories.length === 0
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden bg-[#F0F2F5] dark:bg-background">
+    <div className="w-full h-full flex flex-col overflow-hidden bg-muted/40 font-sans">
       <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
         {/* Left Sidebar */}
         <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
@@ -247,6 +251,17 @@ export const TrainingPointsPage: React.FC = () => {
             </div>
 
             {/* 4. Detailed Evaluation Table */}
+            {treeError && (
+              <div
+                role="alert"
+                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-3 text-sm"
+              >
+                <p>Không tải được điểm rèn luyện.</p>
+                <Button variant="outline" size="sm" onClick={() => void refetchTree()}>
+                  Thử lại
+                </Button>
+              </div>
+            )}
             <TrainingPointsTable
               sections={sections}
               studentScores={studentScores}

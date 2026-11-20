@@ -41,7 +41,7 @@ export const Sv5tHeader: React.FC<Sv5tHeaderProps> = ({
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 select-none">
       {/* Page Title */}
-      <h1 className="text-xl sm:text-2xl font-bold font-heading text-foreground tracking-tight">
+      <h1 className="text-xl sm:text-2xl font-bold font-k2d text-foreground tracking-tight">
         Bảng tiêu chuẩn Sinh viên 5 tốt
       </h1>
 

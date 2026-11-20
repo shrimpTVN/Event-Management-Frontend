@@ -23,9 +23,12 @@ export type LoginInput = z.infer<typeof loginSchema>
 
 export const registerSchema = z
   .object({
+    fullName: z
+      .string()
+      .min(2, 'Vui lòng nhập họ và tên'),
     email: z
       .string()
-      .min(1, 'Vui lòng nhập email trường')
+      .min(1, 'Vui lòng nhập email')
       .email('Email không đúng định dạng')
       .refine(
         (val) => val.endsWith('@ctu.edu.vn') || val.endsWith('@student.ctu.edu.vn'),

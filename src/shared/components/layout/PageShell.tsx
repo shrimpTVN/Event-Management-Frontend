@@ -17,6 +17,7 @@ export const PageShell: React.FC = () => {
           : 'min-h-screen bg-background'
       }`}
     >
+
       <Navbar />
       <main
         className={`flex-1 min-h-0 ${

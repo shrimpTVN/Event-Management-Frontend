@@ -93,7 +93,7 @@ export const Sv5tSelfEvaluationModal: React.FC<Sv5tSelfEvaluationModalProps> = (
         {/* Header matching SelfEvaluationModal */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/40">
           <div className="min-w-0 pr-2">
-            <h3 className="font-semibold text-base text-foreground font-heading">
+            <h3 className="font-semibold text-base text-foreground font-k2d">
               Sinh viên tự đánh giá
             </h3>
             <p className="text-xs text-muted-foreground truncate">

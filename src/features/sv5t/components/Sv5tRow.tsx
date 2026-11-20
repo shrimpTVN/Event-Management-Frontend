@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button'
 import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState } from 'react'
 import { Eye } from 'lucide-react'
@@ -30,16 +31,18 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
   const [selfModalInitialCompleted, setSelfModalInitialCompleted] = useState<boolean | null>(null)
   const [selfModalTransactionId, setSelfModalTransactionId] = useState<number | null>(null)
 
+  const isSelfEvaluated = Boolean(node.isSelfEvaluated)
+
   // 1. Group banner row (e.g. 1.3: Đạt thêm 01 trong 05 tiêu chí sau:)
   if (isGroupBanner) {
     return (
-      <div className="flex items-stretch bg-[#ECFBFF] dark:bg-cyan-950/25 border-b border-[#E5E7EB] dark:border-border text-xs min-h-[38px] select-none">
+      <div className="flex items-stretch bg-muted/40 border-b border-border text-xs min-h-[38px] select-none">
         {/* Mã TC (86px) */}
-        <div className="w-[86px] min-w-[86px] max-w-[86px] px-1 py-2 flex items-center justify-center border-r border-[#E5E7EB] dark:border-border font-semibold text-[#065C85] dark:text-cyan-400 shrink-0 text-center">
+        <div className="w-[86px] min-w-[86px] max-w-[86px] px-1 py-2 flex items-center justify-center border-r border-border font-semibold text-primary shrink-0 text-center">
           {criteriaCode}
         </div>
         {/* Nội dung gộp (căn giữa theo yêu cầu của giao diện) */}
-        <div className="flex-1 px-3 py-2 flex items-center justify-center text-center font-medium text-[#065C85] dark:text-cyan-300">
+        <div className="flex-1 px-3 py-2 flex items-center justify-center text-center font-medium text-foreground">
           {node.name}
         </div>
       </div>
@@ -53,14 +56,14 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
 
   return (
     <>
-      <div className="flex items-stretch border-b border-[#E5E7EB] dark:border-border text-xs min-h-[40px] bg-white dark:bg-card hover:bg-muted/20 transition-colors">
+      <div className="flex items-stretch border-b border-border text-xs min-h-[40px] bg-background hover:bg-muted/20 transition-colors">
         {/* 1. Mã TC (86px) */}
-        <div className="w-[86px] min-w-[86px] max-w-[86px] px-1 py-2.5 flex items-center justify-center border-r border-[#E5E7EB] dark:border-border font-medium text-foreground/80 shrink-0 text-center">
+        <div className="w-[86px] min-w-[86px] max-w-[86px] px-1 py-2.5 flex items-center justify-center border-r border-border font-medium text-foreground/80 shrink-0 text-center">
           {criteriaCode}
         </div>
 
         {/* 2. Tên tiêu chuẩn (flex-1) */}
-        <div className="flex-1 min-w-[280px] px-3 py-2.5 flex flex-col justify-center border-r border-[#E5E7EB] dark:border-border">
+        <div className="flex-1 min-w-[280px] px-3 py-2.5 flex flex-col justify-center border-r border-border">
           <span className="text-foreground/90 leading-relaxed font-normal">{node.name}</span>
           {node.note && (
             <span className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
@@ -70,9 +73,16 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
         </div>
 
         {/* 3. Dữ liệu ghi nhận (136px) */}
-        <div className="w-[136px] min-w-[136px] max-w-[136px] px-2 py-2.5 flex items-center justify-center border-r border-[#E5E7EB] dark:border-border shrink-0 text-center">
-          {isEventRecorded ? (
-            <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#EFF5FC] dark:bg-primary/20 text-[#1B4B8A] dark:text-primary border border-[#BDD7F0] dark:border-primary/40 block">
+        <div className="w-[136px] min-w-[136px] max-w-[136px] px-2 py-2.5 flex items-center justify-center border-r border-border shrink-0 text-center">
+          {(node.requiredOccurrences || 1) > 1 ? (
+            <span
+              className={`text-xs font-medium ${(node.recordedOccurrences || 0) >= (node.requiredOccurrences || 1) ? 'text-emerald-700 dark:text-emerald-400' : 'text-primary'}`}
+            >
+              {node.recordedOccurrences || 0}/{node.requiredOccurrences} lần
+              {(node.recordedOccurrences || 0) >= (node.requiredOccurrences || 1) ? ' · Đạt' : ''}
+            </span>
+          ) : isEventRecorded ? (
+            <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 block">
               Đạt
             </span>
           ) : (
@@ -81,45 +91,50 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
         </div>
 
         {/* 4. SV đánh giá (136px) */}
-        <div className="w-[136px] min-w-[136px] max-w-[136px] px-2 py-2.5 flex items-center justify-center border-r border-[#E5E7EB] dark:border-border shrink-0 text-center">
+        <div className="w-[136px] min-w-[136px] max-w-[136px] px-2 py-2.5 flex items-center justify-center border-r border-border shrink-0 text-center">
           {isLeaf ? (
             <Tooltip content="Nhấp để tự đánh giá tiêu chuẩn và bổ sung minh chứng">
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={() => {
-                  setSelfModalInitialNote(node.isCompleted ? node.selfEvaluationNote || '' : '')
-                  setSelfModalInitialCompleted(node.isCompleted)
+                  setSelfModalInitialNote(isSelfEvaluated ? node.selfEvaluationNote || '' : '')
+                  setSelfModalInitialCompleted(isSelfEvaluated)
+                  setSelfModalTransactionId(null)
                   setIsSelfModalOpen(true)
                 }}
-                className="cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                className="h-8 px-0 hover:bg-transparent"
               >
-                {node.isCompleted ? (
-                  <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#EFF5FC] dark:bg-primary/20 text-[#1B4B8A] dark:text-primary border border-[#BDD7F0] dark:border-primary/40 block">
+                {isSelfEvaluated ? (
+                  <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 block">
                     Đạt
                   </span>
                 ) : (
-                  <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#FFFEEB] dark:bg-amber-950/40 text-[#7D7716] dark:text-amber-400 border border-[#A89F1D]/40 block">
+                  <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-muted text-muted-foreground border border-border block">
                     Chưa đánh giá
                   </span>
                 )}
-              </button>
+              </Button>
             </Tooltip>
           ) : (
             <span className="text-muted-foreground/50 font-medium">—</span>
           )}
         </div>
 
-        {/* 5. Chi tiết tổng hợp/Tổng (184px) */}
+        {/* 5. Chi tiết (184px) */}
         <div className="w-[184px] min-w-[184px] max-w-[184px] px-2 py-2.5 flex items-center justify-center shrink-0 text-center">
-          <Tooltip content="Xem thông tin chi tiết">
-            <button
+          <Tooltip content="Chi tiết tiêu chí">
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               onClick={() => setIsDetailModalOpen(true)}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold text-primary hover:bg-primary/10 transition-colors cursor-pointer"
             >
               <Eye className="h-3.5 w-3.5" />
-              <span>Xem</span>
-            </button>
+              <span>Chi tiết</span>
+            </Button>
           </Tooltip>
         </div>
       </div>
@@ -132,12 +147,12 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
           criterionName={node.name}
           criteriaCode={criteriaCode}
           isCompleted={
-            selfModalInitialCompleted !== null ? selfModalInitialCompleted : node.isCompleted
+            selfModalInitialCompleted !== null ? selfModalInitialCompleted : isSelfEvaluated
           }
           currentNote={
             selfModalInitialNote !== null
               ? selfModalInitialNote
-              : node.isCompleted
+              : isSelfEvaluated
                 ? node.selfEvaluationNote || ''
                 : ''
           }
@@ -170,7 +185,7 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
           onOpenSelfEvaluation={
             isLeaf
               ? (currentNote?: string, isCompleted?: boolean, transactionId?: number) => {
-                  const resolvedCompleted = isCompleted ?? node.isCompleted
+                  const resolvedCompleted = isCompleted ?? isSelfEvaluated
                   setSelfModalInitialNote(
                     resolvedCompleted ? (currentNote ?? node.selfEvaluationNote ?? '') : ''
                   )

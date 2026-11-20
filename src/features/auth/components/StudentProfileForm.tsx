@@ -48,7 +48,10 @@ export const StudentProfileForm: React.FC = () => {
   } = useForm<StudentProfileInput>({
     resolver: zodResolver(studentProfileSchema),
     defaultValues: {
-      fullName: '',
+      fullName:
+        user?.name && user.name !== 'Người dùng CTU' && user.name !== 'Sinh viên CTU'
+          ? user.name
+          : pending?.fullName || '',
       studentId: initialStudentId,
       gender: 'MALE',
       email: defaultEmail,
@@ -73,6 +76,11 @@ export const StudentProfileForm: React.FC = () => {
   const currentGender = watch('gender')
   const facultyValue = watch('faculty')
   const academicYearValue = watch('academicYear')
+
+  const handleSkip = () => {
+    const redirectUrl = searchParams.get('redirect') || '/'
+    navigate(redirectUrl, { replace: true })
+  }
 
   const onSubmit = async (data: StudentProfileInput) => {
     try {
@@ -109,15 +117,27 @@ export const StudentProfileForm: React.FC = () => {
   return (
     <div className="auth-layout notranslate relative min-h-screen w-full overflow-x-hidden bg-[#F0F2F5] dark:bg-background flex flex-col items-center justify-center py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-[1200px] w-full space-y-4 my-auto">
-        {/* Top Back Navigation */}
-        <div>
+        {/* Top Back / Skip Navigation */}
+        <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={() => {
+              const redirectUrl = searchParams.get('redirect') || '/'
+              navigate(redirectUrl, { replace: true })
+            }}
             className="inline-flex items-center gap-2 text-sm font-medium text-[#4B5563] dark:text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span>Quay lại</span>
+            <span>Về trang chủ</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSkip}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#1B4B8A] hover:text-[#1E40AF] dark:text-blue-400 hover:underline transition-colors cursor-pointer"
+          >
+            <span>Bỏ qua, cập nhật sau</span>
+            <ArrowRight className="h-4 w-4" />
           </button>
         </div>
 
@@ -346,23 +366,22 @@ export const StudentProfileForm: React.FC = () => {
             {/* Bottom Actions Row */}
             <div className="pt-6 border-t border-[#E5E7EB] dark:border-border flex flex-col md:flex-row items-center justify-between gap-6">
               <p className="text-xs text-[#6B7280] dark:text-muted-foreground max-w-lg leading-relaxed text-left">
-                Sau khi lưu, bạn sẽ được chuyển tới website sự kiện thông thường để tiếp tục đăng ký
-                hoạt động, theo dõi thông báo và cập nhật lịch sinh hoạt.
+                Bạn có thể hoàn thiện ngay bây giờ hoặc cập nhật sau trong phần Hồ sơ sinh viên. Sau khi lưu, bạn sẽ được chuyển tới website sự kiện thông thường.
               </p>
 
-              <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
+              <div className="flex flex-wrap items-center gap-3 w-full md:w-auto shrink-0 justify-end">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => navigate(-1)}
-                  className="w-full md:w-auto px-6 h-11"
+                  onClick={handleSkip}
+                  className="w-full sm:w-auto px-5 h-11 border-border text-foreground hover:bg-muted font-medium cursor-pointer"
                 >
-                  Quay lại
+                  Bỏ qua, cập nhật sau
                 </Button>
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full md:w-auto px-6 h-11 bg-[#1B4B8A] hover:bg-[#1E40AF] text-white flex items-center justify-center gap-2 shrink-0 shadow-sm"
+                  className="w-full sm:w-auto px-6 h-11 bg-[#1B4B8A] hover:bg-[#1E40AF] text-white flex items-center justify-center gap-2 shrink-0 shadow-sm font-medium cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>

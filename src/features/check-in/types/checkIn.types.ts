@@ -14,6 +14,8 @@ export interface AttendanceEventItem {
   location?: string
   dateHappen?: string
   bannerUrl?: string
+  allowSelfCheck?: boolean
+  attendanceMethod?: 'MANUAL' | 'STUDENT_PROOF'
   status: string
   checkInAt?: string | null
   checkOutAt?: string | null

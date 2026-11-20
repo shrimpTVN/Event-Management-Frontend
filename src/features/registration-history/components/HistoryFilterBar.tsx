@@ -24,7 +24,7 @@ export const HistoryTabBar: React.FC<HistoryTabBarProps> = ({
   const tabs: { id: HistoryStatus; label: string; count: number }[] = [
     { id: 'ALL', label: 'Tất cả', count: counts?.all ?? 0 },
     { id: 'UPCOMING', label: 'Sắp diễn ra', count: counts?.upcoming ?? 0 },
-    { id: 'COMPLETED', label: 'Hoàn thành', count: counts?.completed ?? 0 },
+    { id: 'COMPLETED', label: 'Đã điểm danh', count: counts?.completed ?? 0 },
     { id: 'ABSENT', label: 'Vắng', count: counts?.absent ?? 0 },
     { id: 'CANCELLED', label: 'Đã hủy', count: counts?.cancelled ?? 0 },
   ]

@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button'
 import React, { useState, useMemo } from 'react'
 import { Info } from 'lucide-react'
 import {
@@ -48,8 +49,7 @@ export const TrainingPointsHeader: React.FC<TrainingPointsHeaderProps> = ({
 
     const matchedYear = academicYears.find(
       (y) =>
-        y.code === selectedYear ||
-        y.code.replace(/\s+/g, '') === selectedYear.replace(/\s+/g, '')
+        y.code === selectedYear || y.code.replace(/\s+/g, '') === selectedYear.replace(/\s+/g, '')
     )
 
     const yearId = matchedYear?.id
@@ -67,25 +67,27 @@ export const TrainingPointsHeader: React.FC<TrainingPointsHeaderProps> = ({
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
       {/* Title */}
-      <h1 className="text-xl sm:text-2xl font-bold font-heading text-foreground tracking-tight">
+      <h1 className="text-xl sm:text-2xl font-bold font-k2d text-foreground tracking-tight">
         Bảng điểm rèn luyện
       </h1>
 
       {/* Filter and Regulations controls */}
       <div className="flex flex-wrap items-center gap-2.5 sm:gap-3.5 self-start sm:self-auto">
         {/* Quy định thời gian đánh giá */}
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           type="button"
           onClick={() => setIsRegulationModalOpen(true)}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer py-1"
         >
           <Info className="h-3.5 w-3.5 shrink-0" />
           <span>Quy định thời gian đánh giá</span>
-        </button>
+        </Button>
 
         {/* Dropdown Năm học */}
         <Select value={selectedYear} onValueChange={onYearChange}>
-          <SelectTrigger className="w-[130px] sm:w-[145px] h-8 text-xs font-medium bg-white dark:bg-card border-[#E5E7EB] dark:border-border text-foreground shadow-2xs">
+          <SelectTrigger className="w-[130px] sm:w-[145px] h-8 text-xs font-medium bg-background border-border text-foreground shadow-2xs">
             <SelectValue placeholder="Chọn năm học">
               {selectedYear ? formatYearLabel(selectedYear) : 'Chọn năm học'}
             </SelectValue>
@@ -101,7 +103,7 @@ export const TrainingPointsHeader: React.FC<TrainingPointsHeaderProps> = ({
 
         {/* Dropdown Học kì */}
         <Select value={selectedSemester} onValueChange={onSemesterChange}>
-          <SelectTrigger className="w-[105px] sm:w-[115px] h-8 text-xs font-medium bg-white dark:bg-card border-[#E5E7EB] dark:border-border text-foreground shadow-2xs">
+          <SelectTrigger className="w-[105px] sm:w-[115px] h-8 text-xs font-medium bg-background border-border text-foreground shadow-2xs">
             <SelectValue placeholder="Chọn học kì">
               {selectedSemester ? `Học kì ${selectedSemester}` : 'Chọn học kì'}
             </SelectValue>
@@ -116,13 +118,15 @@ export const TrainingPointsHeader: React.FC<TrainingPointsHeaderProps> = ({
         </Select>
 
         {/* Nút Tìm */}
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           type="button"
           onClick={onSearch}
-          className="h-8 px-4 text-xs font-semibold text-white bg-[#1B4B8A] hover:bg-[#153a6b] rounded-md transition-colors shadow-2xs cursor-pointer flex items-center justify-center shrink-0"
+          className="h-8 px-4 text-xs font-semibold text-white bg-primary hover:bg-primary/90 rounded-md transition-colors shadow-2xs cursor-pointer flex items-center justify-center shrink-0"
         >
           Tìm
-        </button>
+        </Button>
       </div>
 
       {/* Regulation Modal */}

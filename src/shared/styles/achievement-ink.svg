@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 180" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="wash" x1="0" x2="1">
+      <stop stop-color="#1b4b8a" stop-opacity="0"/>
+      <stop offset=".32" stop-color="#1b4b8a" stop-opacity=".24"/>
+      <stop offset=".65" stop-color="#1b4b8a" stop-opacity=".46"/>
+      <stop offset="1" stop-color="#0f766e" stop-opacity=".52"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="0" x2="1">
+      <stop stop-color="#0f766e" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0f766e" stop-opacity=".32"/>
+    </linearGradient>
+    <filter id="diffusion" x="-15%" y="-40%" width="130%" height="180%">
+      <feTurbulence type="fractalNoise" baseFrequency=".012 .035" numOctaves="3" seed="14" result="flow"/>
+      <feDisplacementMap in="SourceGraphic" in2="flow" scale="38" xChannelSelector="R" yChannelSelector="G"/>
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+  </defs>
+  <g filter="url(#diffusion)">
+    <path fill="url(#wash)" d="M750-40H370C410-5 320 14 355 38S248 60 280 83 172 103 210 130 100 161 80 220H750Z"/>
+    <path fill="url(#wash)" opacity=".55" d="M750 18C640-10 585 46 500 28S452 70 376 64 310 111 244 108 225 164 142 191H750Z"/>
+    <path fill="url(#teal)" d="M750-30H580C535 3 590 35 515 55S540 104 455 127 430 174 360 220H750Z"/>
+  </g>
+</svg>

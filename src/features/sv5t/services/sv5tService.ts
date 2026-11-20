@@ -1,6 +1,7 @@
 import { apiClient } from '@/shared'
 import type {
   AcademicYearOption,
+  CriteriaTransaction,
   StudentCriteriaProgressResponse,
   ManualCriteriaProgressRequest,
   CriteriaProgressNode,
@@ -15,10 +16,14 @@ function normalizeCriteriaNode(node: any): CriteriaProgressNode {
     name: node.name || '',
     note: node.note ?? null,
     scope: node.scope || 'UNIVERSITY',
-    level: Number(node.level || 1),
+    level: Number(node.level ?? 1),
     childrenOrder: Number(node.childrenOrder || 1),
     requiredChildren: node.requiredChildren ?? null,
+    requiredOccurrences: Number(node.requiredOccurrences ?? 1),
+    recordedOccurrences: Number(node.recordedOccurrences ?? 0),
     isCompleted: Boolean(node.isCompleted),
+    isSystemRecorded: Boolean(node.isSystemRecorded),
+    isSelfEvaluated: Boolean(node.isSelfEvaluated),
     completedChildren: Number(node.completedChildren ?? node.completedChildrenCount ?? 0),
     totalChildren: Number(node.totalChildren ?? children.length),
     completionSource: node.completionSource ?? null,
@@ -43,11 +48,15 @@ export const sv5tService = {
   /**
    * Lấy cây tiến độ tiêu chuẩn Sinh viên 5 tốt của sinh viên theo năm học
    */
-  async getStudentCriteriaProgress(academicYearId?: number): Promise<StudentCriteriaProgressResponse> {
+  async getStudentCriteriaProgress(
+    academicYearId?: number
+  ): Promise<StudentCriteriaProgressResponse> {
     try {
       if (academicYearId) {
         // Backend endpoint: /criteria-progress/me/academic-years/{academicYearId}
-        const res = await apiClient.get<unknown, any>(`/criteria-progress/me/academic-years/${academicYearId}`)
+        const res = await apiClient.get<unknown, any>(
+          `/criteria-progress/me/academic-years/${academicYearId}`
+        )
         if (res) {
           const rawCriteria = res.criteria || res.criterias || []
           const normalizedCriteria: CriteriaProgressNode[] = Array.isArray(rawCriteria)
@@ -86,14 +95,19 @@ export const sv5tService = {
     criteriaId: number,
     payload: ManualCriteriaProgressRequest
   ): Promise<void> {
-    const targetYearId = payload.academicYearId && payload.academicYearId > 0 ? payload.academicYearId : 2
+    const targetYearId =
+      payload.academicYearId && payload.academicYearId > 0 ? payload.academicYearId : 2
 
     // Khi sinh viên chọn "Chưa đạt", cần xóa các bản ghi manual transaction đã lưu
     // Backend sẽ tự động gọi markUncompleted để hạ trạng thái tiêu chuẩn
     if (!payload.completed) {
       try {
         const existingTxs = await this.getCriteriaTransactions(criteriaId, targetYearId)
-        const manualTxs = existingTxs.filter((t: any) => t.completionSource === 'MANUAL')
+        const manualTxs = existingTxs.filter(
+          (t: any) =>
+            t.completionSource === 'MANUAL' ||
+            (!t.eventId && (t.completionSource === null || t.completionSource === undefined || t.completionSource === 'MANUAL'))
+        )
         if (manualTxs.length > 0) {
           for (const tx of manualTxs) {
             try {
@@ -128,30 +142,22 @@ export const sv5tService = {
   async getCriteriaTransactions(
     criteriaId: number,
     academicYearId: number
-  ): Promise<any[]> {
-    try {
-      const res: any = await apiClient.get(
-        `/criteria-transactions/me/criterias/${criteriaId}/academic-years/${academicYearId}`
-      )
-      return Array.isArray(res) ? res : res?.data || []
-    } catch {
-      return []
-    }
+  ): Promise<CriteriaTransaction[]> {
+    const res: any = await apiClient.get(
+      `/criteria-transactions/me/criterias/${criteriaId}/academic-years/${academicYearId}`
+    )
+    const list = Array.isArray(res) ? res : res?.data
+    if (!Array.isArray(list)) throw new Error('Dữ liệu ghi nhận SV5T không hợp lệ')
+    return list.filter((t) => t.isActive !== false)
   },
 
-  /**
-   * Lấy toàn bộ giao dịch / minh chứng tiêu chí SV5T của sinh viên trong năm học
-   * Backend endpoint: GET /criteria-transactions/me/academic-years/{academicYearId}
-   */
-  async getAllCriteriaTransactions(academicYearId: number): Promise<any[]> {
-    try {
-      const res: any = await apiClient.get(
-        `/criteria-transactions/me/academic-years/${academicYearId}`
-      )
-      return Array.isArray(res) ? res : res?.data || []
-    } catch {
-      return []
-    }
+  async getAllCriteriaTransactions(academicYearId: number): Promise<CriteriaTransaction[]> {
+    const res: any = await apiClient.get(
+      `/criteria-transactions/me/academic-years/${academicYearId}`
+    )
+    const list = Array.isArray(res) ? res : res?.data
+    if (!Array.isArray(list)) return []
+    return list.filter((t) => t.isActive !== false)
   },
 
   /**

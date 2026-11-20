@@ -2,7 +2,7 @@ import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Search, Filter, Plus, Menu, X, MessageSquare, Bell } from 'lucide-react'
+import { Search, Plus, Menu, X, MessageSquare, Bell } from 'lucide-react'
 import logoSvg from '@/assets/logo.svg'
 import { useAuthStore, isStaffUser } from '@/features/auth'
 import { useFanpageUnreadNotificationCount } from '@/features/notifications'
@@ -128,18 +128,8 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm sự kiện, hoạt động..."
-              className="w-full h-10 rounded-xl border border-[#E5E7EB] dark:border-border bg-[#F9FAFB] dark:bg-background pl-10 pr-12 text-sm text-[#374151] dark:text-foreground placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-sans"
+              className="w-full h-10 rounded-xl border border-[#E5E7EB] dark:border-border bg-[#F9FAFB] dark:bg-background pl-10 pr-4 text-sm text-[#374151] dark:text-foreground placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-sans"
             />
-            <Tooltip content="Bộ lọc nâng cao">
-              <button
-                type="button"
-                onClick={() => navigate('/events')}
-                className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-                aria-label="Bộ lọc nâng cao"
-              >
-                <Filter className="h-3.5 w-3.5" />
-              </button>
-            </Tooltip>
           </div>
         </form>
 

@@ -1,13 +1,19 @@
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Tooltip } from '@/components/ui/tooltip'
-import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Search, Filter, Calendar, Building, ArrowRight, Loader2, X } from 'lucide-react'
+import React, { useState, useEffect, useRef, useId } from 'react'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { Search, Filter, Calendar, ArrowRight, Loader2, X } from 'lucide-react'
 import { eventService } from '../services/eventService'
 import type { Event } from '../types/event.types'
 import { EventFilterModal, type EventFilterFormValues } from './EventFilterModal'
 
 export const NavbarSearchAutocomplete: React.FC = () => {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const showFilter = pathname !== '/' && pathname !== '/search'
+  const listId = useId()
+  const [activeIndex, setActiveIndex] = useState(-1)
   const [searchParams] = useSearchParams()
 
   const [query, setQuery] = useState('')
@@ -22,9 +28,9 @@ export const NavbarSearchAutocomplete: React.FC = () => {
   // Sync initial query from URL if on search page
   useEffect(() => {
     const q = searchParams.get('keyword') || searchParams.get('search') || ''
-    if (q) {
-      setQuery(q)
-    }
+    setQuery(q)
+    setIsOpen(false)
+    setActiveIndex(-1)
   }, [searchParams])
 
   // Count active filters in URL params
@@ -56,6 +62,8 @@ export const NavbarSearchAutocomplete: React.FC = () => {
       return
     }
 
+    if (debouncedQuery !== query.trim()) return
+
     let isCancelled = false
     setIsLoading(true)
 
@@ -63,7 +71,7 @@ export const NavbarSearchAutocomplete: React.FC = () => {
       .getEvents({ keyword: debouncedQuery, size: 5 })
       .then((results) => {
         if (!isCancelled) {
-          setSuggestions(results)
+          setSuggestions(results.slice(0, 5))
         }
       })
       .catch(() => {
@@ -80,7 +88,7 @@ export const NavbarSearchAutocomplete: React.FC = () => {
     return () => {
       isCancelled = true
     }
-  }, [debouncedQuery])
+  }, [debouncedQuery, query])
 
   // Close suggestions on outside click
   useEffect(() => {
@@ -100,6 +108,7 @@ export const NavbarSearchAutocomplete: React.FC = () => {
     const params = new URLSearchParams(searchParams)
     if (query.trim()) {
       params.set('keyword', query.trim())
+      params.delete('search')
     } else {
       params.delete('keyword')
       params.delete('search')
@@ -154,140 +163,215 @@ export const NavbarSearchAutocomplete: React.FC = () => {
 
   return (
     <>
-      <div ref={containerRef} className="hidden md:flex flex-1 max-w-xl mx-8 relative items-center">
+      <div
+        ref={containerRef}
+        className="hidden md:flex min-w-0 flex-1 max-w-xl mx-8 relative items-center"
+      >
         <form onSubmit={handleSubmit} className="relative w-full flex items-center">
-          <Search className="absolute left-3.5 h-4 w-4 text-[#9CA3AF] pointer-events-none" />
-          <input
+          <Search className="absolute left-3.5 h-4 w-4 text-muted-foreground/70 pointer-events-none" />
+          <Input
+            role="combobox"
+            aria-label="Tìm kiếm sự kiện"
+            aria-autocomplete="list"
+            aria-expanded={isOpen && Boolean(query.trim())}
+            aria-controls={isOpen && !isLoading && suggestions.length > 0 ? listId : undefined}
+            aria-activedescendant={
+              isOpen && activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined
+            }
             type="text"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value)
+              setSuggestions([])
+              setIsLoading(Boolean(e.target.value.trim()))
+              setActiveIndex(-1)
               setIsOpen(true)
             }}
             onFocus={() => {
               if (query.trim()) setIsOpen(true)
             }}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape' || event.key === 'Tab') {
+                setIsOpen(false)
+                setActiveIndex(-1)
+              }
+              if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && suggestions.length) {
+                event.preventDefault()
+                setIsOpen(true)
+                setActiveIndex((index) =>
+                  event.key === 'ArrowDown'
+                    ? (index + 1) % suggestions.length
+                    : index <= 0
+                      ? suggestions.length - 1
+                      : index - 1
+                )
+              }
+              if (event.key === 'Enter' && isOpen && activeIndex >= 0 && suggestions[activeIndex]) {
+                event.preventDefault()
+                handleSelectSuggestion(suggestions[activeIndex])
+              }
+            }}
             placeholder="Tìm kiếm sự kiện..."
-            className="w-full h-10 rounded-xl border border-[#E5E7EB] dark:border-border bg-[#F9FAFB] dark:bg-background pl-10 pr-20 text-sm text-[#374151] dark:text-foreground placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-sans"
+            className={`h-10 w-full min-w-0 rounded-lg border-border bg-muted/30 pl-10 ${showFilter ? 'pr-20' : 'pr-10'} text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20`}
           />
 
           {query && (
             <Tooltip content="Xóa tìm kiếm">
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 type="button"
                 onClick={() => {
                   setQuery('')
                   setSuggestions([])
                 }}
-                className="absolute right-10 text-muted-foreground hover:text-foreground p-1 cursor-pointer"
+                className={`${showFilter ? 'right-10' : 'right-2'} absolute h-8 w-8 text-muted-foreground hover:text-foreground p-1 cursor-pointer`}
                 aria-label="Xóa tìm kiếm"
               >
                 <X className="h-3.5 w-3.5" />
-              </button>
+              </Button>
             </Tooltip>
           )}
 
-          {/* Filter Trigger Button */}
-          <Tooltip
-            content={
-              activeFiltersCount > 0 ? `Đang bật ${activeFiltersCount} bộ lọc` : 'Bộ lọc nâng cao'
-            }
-          >
-            <button
-              type="button"
-              onClick={() => setIsFilterOpen(true)}
-              className={`absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg border transition-colors cursor-pointer ${
-                activeFiltersCount > 0
-                  ? 'border-primary bg-primary/10 text-primary font-bold'
-                  : 'border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}
-              aria-label="Mở bộ lọc nâng cao"
-            >
-              <Filter className="h-3.5 w-3.5" />
-              {activeFiltersCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white shadow-xs">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </button>
-          </Tooltip>
+          {showFilter && (
+            <>
+              {/* Filter Trigger Button */}
+              <Tooltip
+                content={
+                  activeFiltersCount > 0
+                    ? `Đang bật ${activeFiltersCount} bộ lọc`
+                    : 'Bộ lọc nâng cao'
+                }
+              >
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  onClick={() => setIsFilterOpen(true)}
+                  className={`absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg border transition-colors cursor-pointer ${
+                    activeFiltersCount > 0
+                      ? 'border-primary bg-primary/10 text-primary font-bold'
+                      : 'border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                  aria-label="Mở bộ lọc nâng cao"
+                >
+                  <Filter className="h-3.5 w-3.5" />
+                  {activeFiltersCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white shadow-xs">
+                      {activeFiltersCount}
+                    </span>
+                  )}
+                </Button>
+              </Tooltip>{' '}
+            </>
+          )}
         </form>
 
-        {/* Suggestions Popover */}
         {isOpen && query.trim().length > 0 && (
-          <div className="absolute left-0 right-0 top-full mt-1.5 rounded-xl border border-border bg-white dark:bg-card shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-left">
+          <div className="absolute left-0 right-0 top-full z-50 mt-1.5 min-w-0 overflow-hidden rounded-xl border border-border bg-background text-left shadow-lg">
             {isLoading ? (
-              <div className="flex items-center justify-center py-6 text-muted-foreground gap-2 text-xs">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span>Đang tìm kiếm gợi ý...</span>
+              <div
+                role="status"
+                className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground"
+              >
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                Đang tìm kiếm…
               </div>
             ) : suggestions.length > 0 ? (
-              <div className="py-1">
-                <div className="px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/50">
-                  Gợi ý sự kiện phù hợp
-                </div>
-                <div className="divide-y divide-border/40 max-h-72 overflow-y-auto">
-                  {suggestions.map((evt) => (
-                    <button
-                      key={evt.id}
-                      type="button"
-                      onClick={() => handleSelectSuggestion(evt)}
-                      className="w-full text-left px-3.5 py-2.5 hover:bg-[#F3F4F6] dark:hover:bg-muted/80 transition-colors cursor-pointer flex items-center gap-3 group"
-                    >
-                      {evt.bannerUrl ? (
-                        <img
-                          src={evt.bannerUrl}
-                          alt={evt.title}
-                          className="h-10 w-14 object-cover rounded-md shrink-0 border border-border"
-                        />
-                      ) : (
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                          <Calendar className="h-5 w-5" />
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1 space-y-0.5">
-                        <p className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                          {evt.title}
-                        </p>
-                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                          <span className="flex items-center gap-1 truncate max-w-[150px]">
-                            <Building className="h-3 w-3 shrink-0" />
-                            {evt.organizerName || evt.fanpageName || 'CTU'}
+              <>
+                <p className="px-3 pt-2.5 pb-1 text-xs font-medium text-muted-foreground">
+                  Gợi ý sự kiện
+                </p>
+                <div
+                  id={listId}
+                  role="listbox"
+                  aria-label="Gợi ý sự kiện"
+                  className="max-h-[320px] overflow-x-hidden overflow-y-auto p-1.5"
+                >
+                  {suggestions.slice(0, 5).map((event, index) => {
+                    const date = event.startTime ? new Date(event.startTime) : null
+                    const time =
+                      date && Number.isFinite(date.getTime())
+                        ? date.toLocaleString('vi-VN', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false,
+                          })
+                        : ''
+                    return (
+                      <Button
+                        key={event.id}
+                        id={`${listId}-${index}`}
+                        role="option"
+                        aria-selected={activeIndex === index}
+                        aria-label={event.title}
+                        tabIndex={-1}
+                        variant="ghost"
+                        type="button"
+                        onMouseEnter={() => setActiveIndex(index)}
+                        onClick={() => handleSelectSuggestion(event)}
+                        className={`flex h-auto w-full min-w-0 max-w-full justify-start gap-3 rounded-lg px-2 py-2 text-left whitespace-normal ${activeIndex === index ? 'bg-primary/5' : 'hover:bg-muted/60'}`}
+                      >
+                        {event.bannerUrl ? (
+                          <img
+                            src={event.bannerUrl}
+                            alt=""
+                            loading="lazy"
+                            className="h-12 w-12 shrink-0 rounded-md border border-border/60 object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-primary/5 text-primary">
+                            <Calendar className="h-5 w-5" />
                           </span>
-                          {evt.pointsReward && (
-                            <span className="text-primary font-medium shrink-0">
-                              • {evt.pointsReward}
+                        )}
+                        <span className="flex min-w-0 flex-1 flex-col gap-1">
+                          <span className="line-clamp-2 text-sm font-medium leading-5 text-foreground">
+                            {event.title}
+                          </span>
+                          <span className="flex min-w-0 items-center gap-1.5 text-xs font-normal text-muted-foreground">
+                            {time && (
+                              <>
+                                <span className="shrink-0">{time}</span>
+                                <span aria-hidden="true">·</span>
+                              </>
+                            )}
+                            <span className="min-w-0 truncate">
+                              {event.organizerFullName ||
+                                event.organizerName ||
+                                event.fanpageName ||
+                                'CTU'}
                             </span>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                          </span>
+                        </span>
+                      </Button>
+                    )
+                  })}
                 </div>
-
-                {/* View all search results option */}
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={() => handleSubmit()}
-                  className="w-full text-left px-3.5 py-2.5 bg-muted/40 hover:bg-muted text-primary text-xs font-medium border-t border-border flex items-center justify-between transition-colors cursor-pointer"
+                  className="flex h-10 w-full justify-between rounded-none border-t border-border px-3 text-xs font-medium text-primary hover:bg-primary/5"
                 >
-                  <span>
-                    Xem tất cả kết quả cho <strong>"{query.trim()}"</strong>
-                  </span>
+                  Xem tất cả kết quả
                   <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
+                </Button>
+              </>
             ) : (
-              <div className="py-4 px-3.5 text-center text-xs text-muted-foreground space-y-1">
-                <p>Không tìm thấy sự kiện nào khớp với "{query.trim()}"</p>
-                <button
+              <div className="flex flex-col items-center gap-1 p-4 text-xs text-muted-foreground">
+                <p>Chưa có kết quả phù hợp</p>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handleSubmit()}
-                  className="text-primary font-medium hover:underline cursor-pointer inline-flex items-center gap-1 mt-1"
+                  className="h-8 gap-1.5 text-xs text-primary"
                 >
-                  <span>Tìm kiếm nâng cao với bộ lọc</span>
+                  Tìm kiếm tất cả
                   <ArrowRight className="h-3 w-3" />
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -295,12 +379,14 @@ export const NavbarSearchAutocomplete: React.FC = () => {
       </div>
 
       {/* Filter Modal dropping from top */}
-      <EventFilterModal
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        initialValues={currentFilterValues}
-        onApply={handleApplyFilter}
-      />
+      {showFilter && (
+        <EventFilterModal
+          isOpen={isFilterOpen}
+          onClose={() => setIsFilterOpen(false)}
+          initialValues={currentFilterValues}
+          onApply={handleApplyFilter}
+        />
+      )}
     </>
   )
 }

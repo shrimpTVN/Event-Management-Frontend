@@ -51,7 +51,7 @@ describe('event benefit tooltip content', () => {
     )
     expect(result.current[0]).toEqual({
       label: 'Cộng 02 điểm rèn luyện mục V.b',
-      title: 'Tham gia hoạt động tình nguyện',
+      title: 'V.b.1. Tham gia hoạt động tình nguyện',
     })
   })
   it('replaces an outdated hardcoded category code with the actual hierarchy code', () => {
@@ -86,14 +86,14 @@ describe('event benefit tooltip content', () => {
     )
     expect(result.current[0]).toEqual({
       label: 'Cộng 02 điểm rèn luyện mục V.b',
-      title: 'Tham gia hoạt động tình nguyện',
+      title: 'V.b.1. Tham gia hoạt động tình nguyện',
     })
   })
   it('resolves a displayed code when older events omit point category IDs', () => {
     const { result } = renderHook(() => useEventBenefitLines('Cộng 02 điểm rèn luyện mục Vb'), {
       wrapper,
     })
-    expect(result.current[0].title).toBe('Tham gia công tác xã hội')
+    expect(result.current[0].title).toBe('V.b. Tham gia công tác xã hội')
   })
   it('uses Xét for SV5T while keeping only the child name in its tooltip', () => {
     const { result } = renderHook(
@@ -102,7 +102,23 @@ describe('event benefit tooltip content', () => {
     )
     expect(result.current[0]).toEqual({
       label: 'Xét Tình nguyện tốt (4.3)',
-      title: 'Tham gia ít nhất 02 lần hiến máu',
+      title: '4.3. Tham gia ít nhất 02 lần hiến máu',
     })
+  })
+  it('does NOT display "Cộng điểm rèn luyện" when an event awards only SV5T without training points', () => {
+    const { result } = renderHook(
+      () => useEventBenefitLines(undefined, 403, 'Tiêu chuẩn Tình nguyện tốt', []),
+      { wrapper }
+    )
+    expect(result.current).toHaveLength(1)
+    expect(result.current[0].label).toBe('Xét Tình nguyện tốt (4.3)')
+    expect(result.current.some((b) => b.label.includes('điểm rèn luyện'))).toBe(false)
+  })
+  it('returns empty array when an event awards neither training points nor SV5T criteria', () => {
+    const { result } = renderHook(
+      () => useEventBenefitLines(undefined, undefined, undefined, []),
+      { wrapper }
+    )
+    expect(result.current).toEqual([])
   })
 })

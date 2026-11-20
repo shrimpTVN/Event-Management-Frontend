@@ -147,7 +147,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
     }
 
     // 2. Kiểm tra thông tin sinh viên - chỉ yêu cầu khi sinh viên chưa hoàn thiện hồ sơ
-    if (user.role === 'STUDENT' && user.isProfileComplete === false) {
+    if (user.role === 'STUDENT' && (user.isProfileComplete === false || !user.studentId)) {
       setShowProfilePrompt(true)
       return
     }
@@ -186,9 +186,21 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
       onRegisterSuccess?.()
     } catch (err: any) {
       console.error('Registration failed:', err)
-      const rawMsg = err?.response?.data?.message || err?.message || ''
+      const rawMsg = (err?.response?.data?.message || err?.message || '').toString()
       let serverMsg =
         'Đã có lỗi xảy ra trong quá trình đăng ký sự kiện. Vui lòng thử lại sau hoặc liên hệ Ban tổ chức.'
+
+      // Nếu hệ thống yêu cầu thông tin sinh viên trước khi đăng ký
+      if (
+        rawMsg.toLowerCase().includes('profile') ||
+        rawMsg.toLowerCase().includes('student profile') ||
+        rawMsg.toLowerCase().includes('thông tin cá nhân') ||
+        rawMsg.toLowerCase().includes('hồ sơ')
+      ) {
+        useAuthStore.getState().updateUser({ isProfileComplete: false })
+        setShowProfilePrompt(true)
+        return
+      }
 
       if (rawMsg.includes('had registered') || rawMsg.includes('already registered')) {
         serverMsg = 'Bạn đã đăng ký tham gia sự kiện này rồi!'
@@ -437,11 +449,27 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-end pt-2 border-t border-border/60">
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border/60">
+                {(errorModal.message.toLowerCase().includes('profile') ||
+                  errorModal.message.toLowerCase().includes('thông tin') ||
+                  errorModal.message.toLowerCase().includes('hồ sơ')) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorModal({ isOpen: false, message: '' })
+                      navigate(
+                        `/onboarding/student?redirect=${encodeURIComponent(window.location.pathname)}`
+                      )
+                    }}
+                    className="px-4 py-1.5 bg-[#1F5CA9] hover:bg-[#1B4B8A] text-white text-xs sm:text-sm font-semibold rounded-md transition-colors cursor-pointer"
+                  >
+                    Cập nhật thông tin ngay
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setErrorModal({ isOpen: false, message: '' })}
-                  className="px-4 py-1.5 bg-[#1F5CA9] hover:bg-[#1B4B8A] text-white text-xs sm:text-sm font-semibold rounded-md transition-colors cursor-pointer"
+                  className="px-4 py-1.5 border border-border hover:bg-muted text-xs sm:text-sm font-medium rounded-md transition-colors cursor-pointer"
                 >
                   Đã hiểu
                 </button>

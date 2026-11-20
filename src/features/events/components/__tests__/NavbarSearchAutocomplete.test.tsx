@@ -15,7 +15,8 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
-vi.mock('../../services/eventService', () => ({
+vi.mock('../../services/eventService', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/eventService')>()),
   eventService: {
     getEvents: vi.fn(),
   },
@@ -38,19 +39,31 @@ describe('NavbarSearchAutocomplete', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(eventService.getEvents).mockResolvedValue([])
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
   })
 
-  const renderComponent = () =>
+  const renderComponent = (path = '/events') =>
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[path]}>
           <NavbarSearchAutocomplete />
         </MemoryRouter>
       </QueryClientProvider>
     )
+
+  it('hides the header filter on the student home page', () => {
+    renderComponent('/')
+    expect(screen.queryByLabelText('Mở bộ lọc nâng cao')).not.toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Tìm kiếm sự kiện...')).toBeInTheDocument()
+  })
+
+  it('leaves filtering to the results toolbar on the search page', () => {
+    renderComponent('/search')
+    expect(screen.queryByLabelText('Mở bộ lọc nâng cao')).not.toBeInTheDocument()
+  })
 
   it('renders search input and filter button', () => {
     renderComponent()
@@ -76,8 +89,30 @@ describe('NavbarSearchAutocomplete', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Hội thảo AI trong giáo dục')).toBeInTheDocument()
-      expect(screen.getByText(/Gợi ý sự kiện phù hợp/i)).toBeInTheDocument()
+      expect(screen.getByText('Gợi ý sự kiện')).toBeInTheDocument()
     })
+  })
+
+  it('keeps long reward text out of suggestions and supports selecting with the keyboard', async () => {
+    const title = 'Workshop tên rất dài để kiểm tra kết quả tìm kiếm'
+    vi.mocked(eventService.getEvents).mockResolvedValueOnce([
+      {
+        id: 'ev-99',
+        title,
+        organizerName: 'Đoàn trường',
+        startTime: '2026-11-20T08:00:00',
+        pointsReward: 'Quyền lợi dài không được làm tràn dropdown',
+      },
+    ] as any)
+    renderComponent()
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: 'Workshop' } })
+    expect(await screen.findByRole('option', { name: title })).toBeInTheDocument()
+    expect(screen.queryByText('Quyền lợi dài không được làm tràn dropdown')).not.toBeInTheDocument()
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    expect(screen.getByRole('option', { name: title })).toHaveAttribute('aria-selected', 'true')
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(mockNavigate).toHaveBeenCalledWith('/events/ev-99')
   })
 
   it('submits search on Enter and navigates to /search?keyword=...', async () => {
@@ -102,4 +137,3 @@ describe('NavbarSearchAutocomplete', () => {
     })
   })
 })
-

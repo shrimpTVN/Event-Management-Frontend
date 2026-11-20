@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button'
 import { Tooltip } from '@/components/ui/tooltip'
 import { TextTooltip } from '@/components/ui/text-tooltip'
 import { PosterBackdrop } from '@/features/events/components/PosterBackdrop'
@@ -304,7 +305,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             <span>{post.eventTypeName}</span>
           </div>
         )}
-        <h2 className="font-k2d font-semibold text-base leading-snug text-foreground line-clamp-2">
+        <h2 className="font-k2d font-semibold text-base leading-snug text-foreground line-clamp-3">
           {post.title}
         </h2>
 
@@ -389,26 +390,31 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             </div>
 
             {/* Benefits */}
-            <div className="flex items-start gap-2 min-w-0">
-              <Gift className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2] mt-0.5" />
-              <div className="flex flex-col gap-0.5 min-w-0">
-                {benefitLines.map((benefit, i) => (
-                  <TextTooltip
-                    key={i}
-                    className="truncate font-medium text-white/85"
-                    label={benefit.label}
-                    content={benefit.title}
-                  />
-                ))}
+            {benefitLines.length > 0 && (
+              <div className="flex items-start gap-2 min-w-0">
+                <Gift className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2] mt-0.5" />
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  {benefitLines.map((benefit, i) => (
+                    <TextTooltip
+                      key={i}
+                      className="truncate font-medium text-white/85"
+                      label={benefit.label}
+                      content={benefit.title}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Quota */}
             <div className="flex items-center gap-2 min-w-0">
               <Users className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
               <span className="truncate font-medium text-white/85">
-                {post.quotaText ||
-                  (post.capacity ? `${post.capacity} sinh viên` : 'Không giới hạn')}
+                {post.capacity && post.capacity > 0
+                  ? `${post.registeredCount || 0}/${post.capacity} sinh viên`
+                  : (post.registeredCount || 0) > 0
+                    ? `${post.registeredCount} sinh viên`
+                    : (post.quotaText || 'Không giới hạn')}
               </span>
             </div>
           </div>
@@ -431,24 +437,29 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
                 <span className="truncate text-foreground font-medium">{locationDisplay}</span>
               </Tooltip>
             </div>
-            <div className="flex items-center gap-2 min-w-0">
-              <Gift className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
-              <div className="flex flex-col gap-0.5 min-w-0">
-                {benefitLines.map((benefit, i) => (
-                  <TextTooltip
-                    key={i}
-                    className="truncate text-muted-foreground"
-                    label={benefit.label}
-                    content={benefit.title}
-                  />
-                ))}
+            {benefitLines.length > 0 && (
+              <div className="flex items-center gap-2 min-w-0">
+                <Gift className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  {benefitLines.map((benefit, i) => (
+                    <TextTooltip
+                      key={i}
+                      className="truncate text-muted-foreground"
+                      label={benefit.label}
+                      content={benefit.title}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
             <div className="flex items-center gap-2 min-w-0">
               <Users className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
-              <span className="truncate text-muted-foreground">
-                {post.quotaText ||
-                  (post.capacity ? `${post.capacity} sinh viên` : 'Không giới hạn')}
+              <span className="truncate text-muted-foreground font-medium">
+                {post.capacity && post.capacity > 0
+                  ? `${post.registeredCount || 0}/${post.capacity} sinh viên`
+                  : (post.registeredCount || 0) > 0
+                    ? `${post.registeredCount} sinh viên`
+                    : (post.quotaText || 'Không giới hạn')}
               </span>
             </div>
           </div>
@@ -494,14 +505,15 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
           <RegistrationDeadline info={closeInfo} isAdmin />
 
           <Tooltip content="Xem số liệu thống kê sự kiện">
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => onViewAnalytics?.(post)}
-              className="h-8 px-3 rounded-lg border border-[#1B4B8A]/30 text-[#1B4B8A] dark:text-blue-400 hover:bg-[#1B4B8A]/10 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              className="gap-1.5 font-medium text-muted-foreground hover:text-foreground"
             >
-              <BarChart3 className="h-4 w-4" />
+              <BarChart3 className="h-3.5 w-3.5" />
               <span>Xem số liệu</span>
-            </button>
+            </Button>
           </Tooltip>
         </div>
       </div>

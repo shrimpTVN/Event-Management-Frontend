@@ -12,6 +12,7 @@ import { fanpageAdminService } from '@/features/fanpage-admin/services/fanpageAd
 describe('attendance configuration across frontend views', () => {
   it('keeps manual defaults for old responses and accepts both session naming formats', () => {
     expect(normalizeAttendanceConfig({})).toEqual({
+      allowSelfCheck: false,
       attendanceMethod: 'MANUAL',
       attendanceSessionType: 'BOTH',
     })
@@ -20,13 +21,21 @@ describe('attendance configuration across frontend views', () => {
         attendanceMethod: 'STUDENT_PROOF',
         attendanceSessionType: 'CHECK_IN',
       })
-    ).toEqual({ attendanceMethod: 'STUDENT_PROOF', attendanceSessionType: 'START' })
+    ).toEqual({
+      allowSelfCheck: true,
+      attendanceMethod: 'STUDENT_PROOF',
+      attendanceSessionType: 'START',
+    })
     expect(
       normalizeAttendanceConfig({
         attendanceMethod: 'STUDENT_PROOF',
         attendanceSessionType: 'CHECK_OUT',
       })
-    ).toEqual({ attendanceMethod: 'STUDENT_PROOF', attendanceSessionType: 'END' })
+    ).toEqual({
+      allowSelfCheck: true,
+      attendanceMethod: 'STUDENT_PROOF',
+      attendanceSessionType: 'END',
+    })
   })
 
   it('reads configuration from nested history eventInfo instead of losing it at registration level', () => {
@@ -56,3 +65,24 @@ describe('attendance configuration across frontend views', () => {
     })
   })
 })
+
+it.each([true, false])(
+  'uses backend allowSelfCheck=%s across every event mapper',
+  async (allowSelfCheck) => {
+    const raw = {
+      id: 17,
+      name: 'Sự kiện',
+      allowSelfCheck,
+      attendanceMethod: allowSelfCheck ? ('MANUAL' as const) : ('STUDENT_PROOF' as const),
+    }
+    const expected = {
+      allowSelfCheck,
+      attendanceMethod: allowSelfCheck ? 'STUDENT_PROOF' : 'MANUAL',
+    }
+    expect(normalizeAttendanceConfig(raw)).toMatchObject(expected)
+    expect(normalizeEvent(raw)).toMatchObject(expected)
+    expect(normalizeRegisteredEvent({ eventId: 17, eventInfo: raw })).toMatchObject(expected)
+    vi.mocked(apiClient.get).mockResolvedValue([raw] as any)
+    expect((await fanpageAdminService.getAdminEvents('7'))[0]).toMatchObject(expected)
+  }
+)

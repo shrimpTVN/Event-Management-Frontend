@@ -1,3 +1,10 @@
+import {
+  EventFilterButton,
+  EventFilterChips,
+} from '@/features/events/components/EventFilterControls'
+import { matchesEventFilters } from '@/features/events/utils/eventFilters'
+import type { EventFilterFormValues } from '@/features/events/components/EventFilterModal'
+import { eventFilterOptionsService } from '@/features/events/services/eventFilterOptionsService'
 import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useMemo } from 'react'
 import { LayoutList, PanelsTopLeft } from 'lucide-react'
@@ -20,6 +27,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 export const HomePage: React.FC = () => {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<FeedTabType>('DISCOVER')
+  const [filterValues, setFilterValues] = useState<EventFilterFormValues>({})
+  const { data: filterOptions } = useQuery({
+    queryKey: ['event-filter-options'],
+    queryFn: () => eventFilterOptionsService.getFilterOptions(),
+    staleTime: 5 * 60_000,
+    enabled: Object.values(filterValues).some(Boolean),
+  })
   const [viewMode, setViewMode] = useState<'post' | 'list'>(() => {
     try {
       return localStorage.getItem('student-home-view') === 'list' ? 'list' : 'post'
@@ -139,7 +153,7 @@ export const HomePage: React.FC = () => {
   }, [events, followedFanpageIds, storedEventIds, registeredEventMap, isAuthenticated])
 
   // Filter events by selected feed tab
-  const filteredEvents = eventsWithFollowState.filter((evt) => {
+  const tabEvents = eventsWithFollowState.filter((evt) => {
     if (activeTab === 'FOLLOWING') {
       return evt.isFollowed === true
     }
@@ -149,6 +163,10 @@ export const HomePage: React.FC = () => {
     }
     return true
   })
+
+  const filteredEvents = tabEvents.filter((event) =>
+    matchesEventFilters(event, filterValues, filterOptions)
+  )
 
   const handleRegister = (eventId: string) => {
     queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
@@ -337,6 +355,12 @@ export const HomePage: React.FC = () => {
               <div className="min-w-0 flex-1">
                 <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
               </div>
+              <EventFilterButton
+                values={filterValues}
+                onChange={setFilterValues}
+                options={filterOptions}
+                events={tabEvents}
+              />
               <div
                 role="group"
                 aria-label="Kiểu hiển thị sự kiện"
@@ -370,6 +394,12 @@ export const HomePage: React.FC = () => {
                 </Tooltip>
               </div>
             </div>
+
+            <EventFilterChips
+              values={filterValues}
+              onChange={setFilterValues}
+              options={filterOptions}
+            />
 
             {/* Feed List (Figma gap: 8px between consecutive cards) */}
             <div className="flex flex-col gap-2">
@@ -425,12 +455,20 @@ export const HomePage: React.FC = () => {
                 <div className="rounded-2xl border border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-2">
                   <span className="text-3xl">🎉</span>
                   <h3 className="font-semibold text-foreground text-base">
-                    Chưa có sự kiện trong mục này
+                    {Object.values(filterValues).some(Boolean)
+                      ? 'Không có sự kiện phù hợp'
+                      : 'Chưa có sự kiện trong mục này'}
                   </h3>
-                  <p className="text-xs text-muted-foreground max-w-sm">
-                    Hãy thử chuyển sang tab "Khám phá" để xem các hoạt động mới nhất từ các Đoàn -
-                    Hội và CLB.
-                  </p>
+                  {Object.values(filterValues).some(Boolean) ? (
+                    <Button variant="outline" size="sm" onClick={() => setFilterValues({})}>
+                      Xóa bộ lọc
+                    </Button>
+                  ) : (
+                    <p className="text-xs text-muted-foreground max-w-sm">
+                      Hãy thử chuyển sang tab "Khám phá" để xem các hoạt động mới nhất từ các Đoàn -
+                      Hội và CLB.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

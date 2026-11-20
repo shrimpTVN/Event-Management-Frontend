@@ -35,6 +35,14 @@ describe('SearchPage', () => {
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+    queryClient.setQueryData(['event-filter-options'], {
+      academicYears: [],
+      semesters: [{ id: 1, label: 'Học kỳ 1' }],
+      eventTypes: [],
+      fanpages: [],
+      pointCategories: [],
+      criterias: [],
+    })
   })
 
   const renderPage = (initialEntries = ['/search?keyword=Workshop&semesterId=1']) =>
@@ -55,6 +63,7 @@ describe('SearchPage', () => {
         organizerId: '1',
         organizerName: 'Đoàn Trường CNTT & TT',
         status: 'PUBLISHED',
+        semesterId: 1,
         startTime: '2026-10-10T08:00:00',
         endTime: '2026-10-10T10:00:00',
         location: { type: 'OFFLINE', address: 'Lab 1' },
@@ -66,8 +75,10 @@ describe('SearchPage', () => {
 
     // Title and chips
     expect(screen.getByText(/Kết quả cho:/i)).toBeInTheDocument()
-    expect(screen.getByText(/Từ khóa: "Workshop"/i)).toBeInTheDocument()
-    expect(screen.getByText(/Học kỳ #1/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Bỏ lọc: Học kỳ 1' })).toBeInTheDocument()
+    expect(await screen.findByText('Workshop Lập trình Web Hiện Đại')).toBeInTheDocument()
+    expect(screen.queryByText('Chi tiết workshop...')).not.toBeInTheDocument()
+    expect(screen.getByText('1 sự kiện')).toBeInTheDocument()
   })
 
   it('renders empty state when no events match the search query', async () => {
@@ -79,4 +90,3 @@ describe('SearchPage', () => {
     expect(screen.getByText('Về trang chủ')).toBeInTheDocument()
   })
 })
-

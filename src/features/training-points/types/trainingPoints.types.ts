@@ -111,10 +111,11 @@ export interface PointTransaction {
   semesterId: number
   pointCategoryId: number
   eventId: number | null
+  eventDate?: string | null
   eventName?: string
   points: number
   type: 'EVENT' | 'MANUAL' | 'SYSTEM'
-  status: 'PENDING' | 'CONFIRMED' | 'APPROVED' | 'REJECTED'
+  status: 'PENDING' | 'CONFIRMED' | 'APPROVED' | 'REJECTED' | 'REVOKED'
   description: string
   createdAt: string
 }

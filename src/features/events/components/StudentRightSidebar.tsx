@@ -10,6 +10,7 @@ import {
 } from '@/features/training-points'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EventCalendarWidget } from './EventCalendarWidget'
+import { DrlScoreGauge } from './DrlScoreGauge'
 
 interface CriteriaItem {
   id: string
@@ -108,12 +109,6 @@ export const StudentRightSidebar: React.FC = () => {
   }, [semesterPointsTree])
 
   const maxScore = 100
-  const scorePercentage = Math.min(100, (currentScore / maxScore) * 100)
-
-  // SVG Circle calculations for circular gauge
-  const radius = 54
-  const circumference = 2 * Math.PI * radius
-  const strokeDashoffset = circumference - (scorePercentage / 100) * circumference
 
   const isPointsLoading =
     isAuthenticated && (isSemestersLoading || isSemesterPointsLoading)
@@ -153,39 +148,14 @@ export const StudentRightSidebar: React.FC = () => {
               <span>{currentSemesterLabel}</span>
             </div>
 
-            {/* Circular Gauge + Classification */}
+            {/* ECharts Circular Gauge + Classification */}
             <div className="flex items-center justify-between gap-4 pt-1">
-              <div className="relative flex items-center justify-center shrink-0">
-                <svg className="h-28 w-28 -rotate-90 transform" viewBox="0 0 128 128">
-                  {/* Background circle track */}
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r={radius}
-                    className="stroke-[#D9D9D9] dark:stroke-muted"
-                    strokeWidth="12"
-                    fill="none"
-                  />
-                  {/* Progress circle */}
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r={radius}
-                    className="stroke-[#008CCC]"
-                    strokeWidth="12"
-                    strokeLinecap="round"
-                    fill="none"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={strokeDashoffset}
-                  />
-                </svg>
-                <div className="absolute flex flex-col items-center justify-center text-center">
-                  <span className="font-k2d font-semibold text-[22.4px] text-black dark:text-foreground leading-none">
-                    {currentScore}
-                  </span>
-                  <span className="text-[10.4px] font-medium text-[#6B7280] mt-0.5">/{maxScore}</span>
-                </div>
-              </div>
+              <DrlScoreGauge
+                score={currentScore}
+                maxScore={maxScore}
+                classification={classification}
+                size={112}
+              />
 
               <div className="flex-1 flex flex-col items-center justify-center text-center">
                 <span className="text-[15px] font-normal text-black dark:text-foreground">Xếp loại:</span>

@@ -1,3 +1,6 @@
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/ui/button'
 import React, { useState, useEffect } from 'react'
 import { X, AlertCircle, Trash2 } from 'lucide-react'
 
@@ -90,14 +93,16 @@ export const SelfEvaluationModal: React.FC<SelfEvaluationModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/40">
           <div className="min-w-0 pr-2">
-            <h3 className="font-semibold text-base text-foreground font-heading">
+            <h3 className="font-semibold text-base text-foreground font-k2d">
               Sinh viên tự đánh giá
             </h3>
             <p className="text-xs text-muted-foreground truncate">
               {criteriaCode} - {criterionName}
             </p>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             onClick={onClose}
             disabled={isSaving}
@@ -105,18 +110,16 @@ export const SelfEvaluationModal: React.FC<SelfEvaluationModalProps> = ({
             aria-label="Đóng"
           >
             <X className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Form Body */}
         <form onSubmit={handleSubmit}>
-          <div className="p-5 space-y-4 text-xs md:text-sm">
+          <div className="p-5 flex flex-col gap-4 text-xs md:text-sm">
             {/* Limit notification */}
-            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-blue-900 dark:text-blue-200 text-xs flex items-center justify-between">
+            <div className="p-3 rounded-lg bg-muted/40 border border-border text-foreground text-xs flex items-center justify-between">
               <span>Điểm tối đa của tiêu chí này:</span>
-              <span className="font-bold text-sm text-[#1B4B8A] dark:text-blue-400">
-                {maxPoints} điểm
-              </span>
+              <span className="font-bold text-sm text-primary">{maxPoints} điểm</span>
             </div>
 
             {error && (
@@ -127,12 +130,12 @@ export const SelfEvaluationModal: React.FC<SelfEvaluationModalProps> = ({
             )}
 
             {/* Field: Số điểm tự đánh giá */}
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <label className="font-medium text-foreground block">
                 Số điểm tự chấm <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <input
+                <Input
                   type="number"
                   min={0}
                   max={maxPoints}
@@ -154,11 +157,11 @@ export const SelfEvaluationModal: React.FC<SelfEvaluationModalProps> = ({
             </div>
 
             {/* Field: Nội dung minh chứng / diễn giải */}
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <label className="font-medium text-foreground block">
                 Nội dung tự đánh giá / Minh chứng
               </label>
-              <textarea
+              <Textarea
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -172,7 +175,9 @@ export const SelfEvaluationModal: React.FC<SelfEvaluationModalProps> = ({
           {/* Footer */}
           <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center justify-between">
             {currentScore > 0 && onDelete ? (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={handleDeleteClick}
                 disabled={isSaving || isDeleting}
@@ -180,26 +185,30 @@ export const SelfEvaluationModal: React.FC<SelfEvaluationModalProps> = ({
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isDeleting ? 'Đang xóa...' : 'Xóa đánh giá'}</span>
-              </button>
+              </Button>
             ) : (
               <div />
             )}
             <div className="flex items-center gap-2.5">
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={onClose}
                 disabled={isSaving || isDeleting}
                 className="px-4 py-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors cursor-pointer"
               >
                 Hủy
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 type="submit"
                 disabled={isSaving || isDeleting}
-                className="px-4 py-2 text-xs md:text-sm font-semibold text-white bg-[#1B4B8A] hover:bg-[#153a6b] rounded-md transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                className="px-4 py-2 text-xs md:text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-md transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
               >
                 {isSaving ? 'Đang lưu...' : 'Lưu đánh giá'}
-              </button>
+              </Button>
             </div>
           </div>
         </form>

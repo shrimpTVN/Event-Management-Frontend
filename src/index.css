@@ -1,3 +1,33 @@
+/* Self-hosted fonts keep Vietnamese text consistent without Google Fonts access. */
+@font-face {
+  font-family: 'Readex Pro';
+  src: url('/fonts/ReadexPro-Variable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'K2D';
+  src: url('/fonts/K2D-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'K2D';
+  src: url('/fonts/K2D-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'K2D';
+  src: url('/fonts/K2D-ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -163,4 +193,10 @@
 
 .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.55);
+}
+
+@keyframes progress-shimmer {
+  0% { opacity: 0; transform: translateX(-100px); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(100vw); }
 }

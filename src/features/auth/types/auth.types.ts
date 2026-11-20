@@ -81,6 +81,9 @@ export interface LoginPayload {
 export interface RegisterPayload {
   email: string
   password: string
+  otpCode: string
+  firstName: string
+  lastName: string
   confirmPassword?: string
 }
 

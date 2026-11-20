@@ -1,5 +1,7 @@
+import { Button } from '@/components/ui/button'
 import React, { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { BadgeCheck, ChevronRight } from 'lucide-react'
+import '@/shared/styles/achievementAccordion.css'
 import { TrainingPointsRow } from './TrainingPointsRow'
 import type {
   PointCategoryNode,
@@ -39,6 +41,7 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const sectionRef = React.useRef<HTMLDivElement>(null)
+  const contentId = React.useId()
 
   const handleToggle = () => {
     const nextState = !isExpanded
@@ -96,7 +99,11 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
   // Flatten rows to render in sequence with generated codes like I.a, I.a.1, I.a.2.1
   const rows = React.useMemo(() => {
     // 1. ƯU TIÊN: Dùng mảng items đã được Backend phân cấp và trải phẳng DFS sẵn
-    if ('items' in section && Array.isArray((section as any).items) && (section as any).items.length > 0) {
+    if (
+      'items' in section &&
+      Array.isArray((section as any).items) &&
+      (section as any).items.length > 0
+    ) {
       const items: StudentSemesterPointFlattenedItem[] = (section as any).items
       const list: Array<{
         item: StudentSemesterPointFlattenedItem
@@ -109,7 +116,7 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
       let level1Index = 0
 
       items.forEach((item) => {
-        let code = ''
+        let code: string
         if (item.level === 1 || !item.parentCategoryId || item.parentCategoryId === section.id) {
           code = `${sectionRoman}.${String.fromCharCode(97 + level1Index)}`
           level1Index++
@@ -157,7 +164,7 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
     }
 
     if ((section as any).children) {
-      (section as any).children.forEach((child: any, idx: number) => {
+      ;(section as any).children.forEach((child: any, idx: number) => {
         const char = String.fromCharCode(97 + idx)
         traverse(child, `${sectionRoman}.${char}`, 2)
       })
@@ -216,108 +223,133 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
     return aggregateScore ?? (section as any).totalPoint ?? 0
   }, [section, totalRecorded, totalSelf, aggregateScore, recordedMap, studentScores])
 
-  const progressPercent = section.maximum > 0
-    ? Math.min(100, Math.round((finalSectionScore / section.maximum) * 100))
-    : 0
+  const progressPercent =
+    section.maximum > 0
+      ? Math.max(0, Math.min(100, (finalSectionScore / section.maximum) * 100))
+      : 0
+  const isMaximumReached = section.maximum > 0 && finalSectionScore >= section.maximum
 
   return (
     <div
       ref={sectionRef}
-      className="scroll-mt-4 border border-[#E5E7EB] dark:border-border rounded-md overflow-hidden bg-white dark:bg-card mb-3 shadow-2xs"
+      className="achievement-accordion scroll-mt-4 border border-border rounded-xl overflow-hidden bg-background mb-3"
+      data-expanded={isExpanded}
+      data-completed={isMaximumReached}
     >
       {/* Accordion Header (Bar Mục I, II, III...) */}
-      <button
+      <Button
+        variant="ghost"
+        aria-expanded={isExpanded}
+        aria-controls={contentId}
         type="button"
         onClick={handleToggle}
-        className="w-full flex items-center justify-between px-3 sm:px-4 py-2.5 bg-[#EFF5FC] dark:bg-primary/10 hover:bg-[#E2EEFB] dark:hover:bg-primary/15 transition-colors cursor-pointer text-left select-none border-b border-[#E5E7EB] dark:border-border"
+        className="achievement-accordion__trigger relative h-auto min-h-[64px] rounded-none w-full flex items-center justify-between gap-3 px-3 sm:px-4 py-3 whitespace-normal cursor-pointer text-left select-none focus-visible:ring-inset"
       >
-        <div className="flex items-center gap-2.5 min-w-0 pr-2">
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-[#1B4B8A] dark:text-primary shrink-0" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-[#1B4B8A] dark:text-primary shrink-0" />
-          )}
-          <span className="font-semibold text-xs sm:text-sm text-[#1B4B8A] dark:text-primary truncate">
-            {section.name}
-          </span>
-        </div>
-
-        {/* Right side: Score badge & progress bar */}
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="font-semibold text-xs text-[#008CCC] dark:text-cyan-400 whitespace-nowrap">
+        <span className="achievement-accordion__heading relative z-10 flex flex-col gap-1 min-w-0 text-xs sm:text-sm leading-relaxed">
+          <span className="font-semibold">{section.name}</span>
+          <span className="achievement-accordion__description text-xs font-normal tabular-nums">
             {finalSectionScore}/{section.maximum} điểm
           </span>
-
-          {/* Mini progress bar (width 120px to 200px) */}
-          <div className="hidden sm:block w-36 md:w-48 h-2 bg-white dark:bg-muted rounded-full overflow-hidden border border-[#D1D5DB] dark:border-border">
-            <div
-              className="h-full bg-[#008CCC] dark:bg-cyan-500 rounded-full transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-        </div>
-      </button>
+        </span>
+        <span className="relative z-10 flex shrink-0 items-center gap-3">
+          {isMaximumReached && (
+            <span
+              role="img"
+              aria-label="Đạt điểm tối đa"
+              title="Đạt điểm tối đa"
+              className="achievement-accordion__completed flex h-8 w-6 items-center justify-center"
+            >
+              <BadgeCheck
+                aria-hidden="true"
+                className="h-6 w-6 fill-current stroke-white"
+                strokeWidth={2}
+              />
+            </span>
+          )}
+          <ChevronRight aria-hidden="true" className="achievement-accordion__chevron h-4 w-4" />
+        </span>
+        <span
+          aria-hidden="true"
+          className="achievement-accordion__track absolute inset-x-0 bottom-0 z-10 h-[3px]"
+        >
+          <span
+            className="achievement-accordion__progress block h-full origin-left"
+            style={{ transform: `scaleX(${progressPercent / 100})` }}
+          />
+        </span>
+      </Button>
 
       {/* Accordion Content */}
-      {isExpanded && (
-        <div className="w-full flex flex-col">
-          {/* List of criterion rows */}
-          {rows.map((row) => (
-            <TrainingPointsRow
-              key={row.item.id}
-              item={row.item}
-              criteriaCode={row.code}
-              recordedPoints={
-                (row.item as any).systemPointRecord !== undefined
-                  ? (row.item as any).systemPointRecord
-                  : recordedMap.get(row.item.id) || 0
-              }
-              recordedTransactions={recordedTxMap.get(row.item.id) || []}
-              manualTransaction={manualTxMap.get(row.item.id)}
-              selfScore={
-                studentScores[row.item.id] !== undefined
-                  ? studentScores[row.item.id]
-                  : (row.item as any).manualPointRecord || 0
-              }
-              selfDescription={
-                studentDescriptions[row.item.id] || selfTxDescriptionMap.get(row.item.id) || ''
-              }
-              isLeaf={row.isLeaf}
-              semesterId={semesterId}
-              onSaveSelfScore={onSaveSelfScore}
-              onDeleteSelfScore={onDeleteSelfScore}
-            />
-          ))}
+      <div
+        id={contentId}
+        className="achievement-accordion__body"
+        inert={!isExpanded}
+        aria-hidden={!isExpanded}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="w-full flex flex-col border-t border-border">
+            {/* List of criterion rows */}
+            {rows.map((row) => (
+              <TrainingPointsRow
+                key={row.item.id}
+                item={row.item}
+                criteriaCode={row.code}
+                recordedPoints={
+                  (row.item as any).systemPointRecord !== undefined
+                    ? (row.item as any).systemPointRecord
+                    : recordedMap.get(row.item.id) || 0
+                }
+                recordedTransactions={recordedTxMap.get(row.item.id) || []}
+                manualTransaction={manualTxMap.get(row.item.id)}
+                selfScore={
+                  studentScores[row.item.id] !== undefined
+                    ? studentScores[row.item.id]
+                    : (row.item as any).manualPointRecord || 0
+                }
+                selfDescription={
+                  studentDescriptions[row.item.id] || selfTxDescriptionMap.get(row.item.id) || ''
+                }
+                isLeaf={row.isLeaf}
+                semesterId={semesterId}
+                onSaveSelfScore={onSaveSelfScore}
+                onDeleteSelfScore={onDeleteSelfScore}
+              />
+            ))}
 
-          {/* Bottom Section Total Row ("Cộng điểm mục I") */}
-          <div className="flex items-stretch bg-[#F0F2F5] dark:bg-muted/60 border-t border-[#E5E7EB] dark:border-border font-semibold text-xs h-8">
-            {/* Title spans across Tiêu chí (80px) + Tên tiêu chí (flex-1 min-w-[280px]) */}
-            <div className="flex-1 min-w-[360px] px-3 flex items-center border-r border-[#E5E7EB] dark:border-border text-foreground font-heading">
-              Cộng điểm mục {sectionRoman}
-            </div>
+            {/* Bottom Section Total Row ("Cộng điểm mục I") */}
+            <div className="flex items-stretch bg-muted/40 border-t border-border font-semibold text-xs h-8">
+              {/* Title spans across Tiêu chí (80px) + Tên tiêu chí (flex-1 min-w-[280px]) */}
+              <div className="flex-1 min-w-[360px] px-3 flex items-center border-r border-border text-foreground font-k2d">
+                Cộng điểm mục {sectionRoman}
+              </div>
 
-            {/* Điểm tối đa (96px) */}
-            <div className="w-24 min-w-[96px] max-w-[96px] px-1 flex items-center justify-center border-r border-[#E5E7EB] dark:border-border text-foreground text-center shrink-0">
-              {section.maximum}
-            </div>
+              {/* Điểm tối đa (96px) */}
+              <div className="w-24 min-w-[96px] max-w-[96px] px-1 flex items-center justify-center border-r border-border text-foreground text-center shrink-0">
+                {section.maximum}
+              </div>
 
-            {/* Dữ liệu ghi nhận (112px) */}
-            <div className="w-28 min-w-[112px] max-w-[112px] px-1 flex items-center justify-center border-r border-[#E5E7EB] dark:border-border text-foreground text-center shrink-0">
-              {totalRecorded > 0 ? totalRecorded : (finalSectionScore > 0 && totalSelf === 0 ? finalSectionScore : 0)}
-            </div>
+              {/* Dữ liệu ghi nhận (112px) */}
+              <div className="w-28 min-w-[112px] max-w-[112px] px-1 flex items-center justify-center border-r border-border text-foreground text-center shrink-0">
+                {totalRecorded > 0
+                  ? totalRecorded
+                  : finalSectionScore > 0 && totalSelf === 0
+                    ? finalSectionScore
+                    : 0}
+              </div>
 
-            {/* SV đánh giá (112px) */}
-            <div className="w-28 min-w-[112px] max-w-[112px] px-1 flex items-center justify-center border-r border-[#E5E7EB] dark:border-border text-foreground text-center shrink-0">
-              {totalSelf}
-            </div>
+              {/* SV đánh giá (112px) */}
+              <div className="w-28 min-w-[112px] max-w-[112px] px-1 flex items-center justify-center border-r border-border text-foreground text-center shrink-0">
+                {totalSelf}
+              </div>
 
-            {/* Chi tiết tổng hợp/Tổng (144px) */}
-            <div className="w-36 min-w-[144px] max-w-[144px] px-1 flex items-center justify-center text-[#1B4B8A] dark:text-primary text-center shrink-0 font-bold">
-              {finalSectionScore}
+              {/* Chi tiết tổng hợp/Tổng (144px) */}
+              <div className="w-36 min-w-[144px] max-w-[144px] px-1 flex items-center justify-center text-primary text-center shrink-0 font-bold">
+                {finalSectionScore}
+              </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

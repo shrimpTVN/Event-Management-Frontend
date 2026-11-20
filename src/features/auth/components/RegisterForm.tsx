@@ -1,15 +1,18 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, User as UserIcon } from 'lucide-react'
 import { registerSchema, type RegisterInput } from '../types/auth.schemas'
 import { authService } from '../services/authService'
+import { useAuthStore } from '../store/authStore'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 import { GoogleAuthButton } from './GoogleAuthButton'
 
 export const RegisterForm: React.FC = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const { setAuth } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
@@ -24,6 +27,7 @@ export const RegisterForm: React.FC = () => {
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
+      fullName: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -35,9 +39,22 @@ export const RegisterForm: React.FC = () => {
       setIsSubmitting(true)
       setApiError(null)
       clearErrors()
-      sessionStorage.setItem("pending_registration", JSON.stringify({ email: data.email, password: data.password }))
-      await authService.sendOtp(data.email)
 
+      const parts = data.fullName.trim().split(/\s+/)
+      const lastName = parts.length > 1 ? parts[0] : 'Sinh viên'
+      const firstName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'CTU'
+
+      sessionStorage.setItem(
+        'pending_registration',
+        JSON.stringify({
+          email: data.email,
+          password: data.password,
+          fullName: data.fullName,
+          firstName,
+          lastName,
+        })
+      )
+      await authService.sendOtp(data.email)
 
       // Direct user to OTP Verification Step (Figma 968:5594)
       navigate(`/verify-otp?email=${encodeURIComponent(data.email)}`)
@@ -66,12 +83,30 @@ export const RegisterForm: React.FC = () => {
     }
   }
 
-  const handleGoogleSuccess = async () => {
+  const handleGoogleSuccess = async (credentialResponse?: any) => {
     try {
       setIsSubmitting(true)
-      navigate('/onboarding/student')
-    } catch {
-      setApiError('Đăng ký bằng Google không thành công.')
+      setApiError(null)
+      const idToken = credentialResponse?.credential
+      const redirectParam = searchParams.get('redirect')
+      const targetUrl = redirectParam
+        ? `/onboarding/student?redirect=${encodeURIComponent(redirectParam)}`
+        : '/onboarding/student'
+
+      if (idToken && !idToken.startsWith('mock-google-token')) {
+        const res = await authService.exchangeGoogleToken({ idToken })
+        setAuth(res.user, res.tokens?.accessToken || null)
+        navigate(targetUrl, { replace: true })
+      } else {
+        navigate(targetUrl)
+      }
+    } catch (err: any) {
+      console.error('Google sign-up exchange error:', err)
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Đăng ký bằng Google không thành công. Vui lòng thử lại.'
+      setApiError(msg)
     } finally {
       setIsSubmitting(false)
     }
@@ -90,10 +125,34 @@ export const RegisterForm: React.FC = () => {
           </div>
         )}
 
-        {/* School Email Field */}
+        {/* Full Name Field */}
         <div className="space-y-1.5 text-left">
           <label className="block text-sm font-medium text-foreground">
-            Email trường
+            Họ và tên
+          </label>
+          <div className="relative">
+            <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              {...register('fullName')}
+              placeholder="Ví dụ: Nguyễn Văn A"
+              autoComplete="name"
+              className={`w-full h-11 pl-10 pr-3.5 rounded-lg border bg-[#F9FAFB] dark:bg-background text-sm text-foreground placeholder:text-[#9CA3AF] dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all ${
+                errors.fullName
+                  ? 'border-destructive focus:border-destructive'
+                  : 'border-[#D1D5DB] dark:border-border focus:border-primary'
+              }`}
+            />
+          </div>
+          {errors.fullName && (
+            <p className="text-xs text-destructive mt-1">{errors.fullName.message}</p>
+          )}
+        </div>
+
+        {/* Email Field */}
+        <div className="space-y-1.5 text-left">
+          <label className="block text-sm font-medium text-foreground">
+            Email
           </label>
           <div className="relative">
             <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -210,7 +269,14 @@ export const RegisterForm: React.FC = () => {
         <GoogleAuthButton
           text="Đăng ký bằng Google"
           onSuccess={handleGoogleSuccess}
-          onError={() => setApiError('Đăng ký bằng Google không thành công.')}
+          onError={() => {
+            console.error(
+              'Google Auth SDK onError: Popup was closed or origin http://localhost:5173 is not configured in Authorized JavaScript origins.'
+            )
+            setApiError(
+              'Đăng ký bằng Google không thành công. Vui lòng kiểm tra cấu hình Authorized JavaScript origins trong Google Cloud Console.'
+            )
+          }}
           disabled={isSubmitting}
         />
 

@@ -1,5 +1,7 @@
 import { Tooltip } from '@/components/ui/tooltip'
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Button } from '@/components/ui/button'
 import { Pencil, Eye } from 'lucide-react'
 import { SelfEvaluationModal } from './SelfEvaluationModal'
 import { CriterionDetailModal } from './CriterionDetailModal'
@@ -40,41 +42,21 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
   const [isSelfModalOpen, setIsSelfModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
 
-  // Lazy-load transactions for this category on demand when modal opens
-  const [lazyTransactions, setLazyTransactions] = useState<PointTransaction[]>([])
-  const [, setIsLoadingTxs] = useState(false)
-
-  useEffect(() => {
-    let isMounted = true
-    if ((isDetailModalOpen || isSelfModalOpen) && isLeaf && semesterId) {
-      if (recordedTransactions && recordedTransactions.length > 0) {
-        setLazyTransactions(recordedTransactions)
-      } else {
-        setIsLoadingTxs(true)
-        trainingPointsService
-          .getPointTransactionsByCategory(semesterId, item.id)
-          .then((txs) => {
-            if (isMounted) setLazyTransactions(txs)
-          })
-          .catch(() => {
-            if (isMounted) setLazyTransactions([])
-          })
-          .finally(() => {
-            if (isMounted) setIsLoadingTxs(false)
-          })
-      }
-    }
-    return () => {
-      isMounted = false
-    }
-  }, [isDetailModalOpen, isSelfModalOpen, isLeaf, semesterId, item.id, recordedTransactions])
-
-  const effectiveRecordedTxs =
-    recordedTransactions && recordedTransactions.length > 0
-      ? recordedTransactions
-      : lazyTransactions.filter((t) => t.type !== 'MANUAL')
-
-  const effectiveManualTx = manualTransaction || lazyTransactions.find((t) => t.type === 'MANUAL')
+  const {
+    data: lazyTransactions = [],
+    isFetching,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ['point-transactions', semesterId, item.id],
+    queryFn: () => trainingPointsService.getPointTransactionsByCategory(semesterId!, item.id),
+    enabled: (isDetailModalOpen || isSelfModalOpen) && isLeaf && Boolean(semesterId),
+    staleTime: 0,
+  })
+  const effectiveRecordedTxs = (
+    lazyTransactions.length ? lazyTransactions : recordedTransactions || []
+  ).filter((tx) => tx.type !== 'MANUAL')
+  const effectiveManualTx = lazyTransactions.find((tx) => tx.type === 'MANUAL') || manualTransaction
 
   const effectiveDescription = selfDescription || effectiveManualTx?.description || ''
 
@@ -84,25 +66,24 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
 
   // Total for this criterion: recorded points + student score, capped at maximum
   const rowTotal = Math.min(item.maximum, recordedPoints + selfScore)
-  const hasDetails = isLeaf && (recordedPoints > 0 || selfScore > 0)
 
   return (
     <>
       <div
-        className={`flex items-stretch border-b border-[#E5E7EB] dark:border-border text-xs min-h-[36px] transition-colors ${
+        className={`flex items-stretch border-b border-border text-xs min-h-[36px] transition-colors ${
           isGroupHeader
-            ? 'bg-[#F9FAFB] dark:bg-muted/40 font-medium text-foreground'
-            : 'bg-white dark:bg-card hover:bg-muted/20 text-foreground/90'
+            ? 'bg-muted/40 font-medium text-foreground'
+            : 'bg-background hover:bg-muted/20 text-foreground/90'
         }`}
       >
         {/* 1. Tiêu chí (80px) */}
-        <div className="w-20 min-w-[80px] max-w-[80px] px-1 py-2 flex items-center justify-center border-r border-[#E5E7EB] dark:border-border font-medium text-foreground/80 shrink-0 text-center">
+        <div className="w-20 min-w-[80px] max-w-[80px] px-1 py-2 flex items-center justify-center border-r border-border font-medium text-foreground/80 shrink-0 text-center">
           {criteriaCode}
         </div>
 
         {/* 2. Tên tiêu chí (flex-1 min-w-[280px]) */}
         <div
-          className={`flex-1 min-w-[280px] px-3 py-2 flex flex-col justify-center border-r border-[#E5E7EB] dark:border-border ${indentClass}`}
+          className={`flex-1 min-w-[280px] px-3 py-2 flex flex-col justify-center border-r border-border ${indentClass}`}
         >
           <span
             className={`${isGroupHeader ? 'font-semibold text-foreground' : 'text-foreground/90'} leading-relaxed`}
@@ -117,24 +98,26 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
         </div>
 
         {/* 3. Điểm tối đa (96px) */}
-        <div className="w-24 min-w-[96px] max-w-[96px] px-1 py-2 flex items-center justify-center border-r border-[#E5E7EB] dark:border-border font-medium text-foreground/80 shrink-0 text-center">
+        <div className="w-24 min-w-[96px] max-w-[96px] px-1 py-2 flex items-center justify-center border-r border-border font-medium text-foreground/80 shrink-0 text-center">
           {item.maximum > 0 ? item.maximum : ''}
         </div>
 
         {/* 4. Dữ liệu ghi nhận (112px) */}
-        <div className="w-28 min-w-[112px] max-w-[112px] px-1 py-2 flex items-center justify-center border-r border-[#E5E7EB] dark:border-border text-center shrink-0">
+        <div className="w-28 min-w-[112px] max-w-[112px] px-1 py-2 flex items-center justify-center border-r border-border text-center shrink-0">
           {recordedPoints > 0 ? (
-            <span className="font-semibold text-[#1B4B8A] dark:text-primary">{recordedPoints}</span>
+            <span className="font-semibold text-primary">{recordedPoints}</span>
           ) : (
             <span className="text-muted-foreground/60">—</span>
           )}
         </div>
 
         {/* 5. SV đánh giá (112px) - Click cây bút mở Modal tự chấm điểm */}
-        <div className="w-28 min-w-[112px] max-w-[112px] px-1 py-2 flex items-center justify-center border-r border-[#E5E7EB] dark:border-border shrink-0">
+        <div className="w-28 min-w-[112px] max-w-[112px] px-1 py-2 flex items-center justify-center border-r border-border shrink-0">
           {isLeaf ? (
             <Tooltip content="Nhấp để tự chấm điểm và nhập minh chứng">
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={() => setIsSelfModalOpen(true)}
                 className="group flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-md border border-transparent hover:border-[#A6ADB8] hover:bg-muted/60 transition-all cursor-pointer"
@@ -143,7 +126,7 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
                   {selfScore}
                 </span>
                 <Pencil className="h-3.5 w-3.5 text-[#A6ADB8] group-hover:text-primary transition-colors shrink-0" />
-              </button>
+              </Button>
             </Tooltip>
           ) : null}
         </div>
@@ -159,16 +142,18 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
               </span>
 
               {/* Eye icon shown only if row has selfScore > 0 or recordedPoints > 0 */}
-              {hasDetails && (
+              {isLeaf && (
                 <Tooltip content="Xem chi tiết hoạt động được cộng và nội dung đánh giá">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setIsDetailModalOpen(true)}
-                    aria-label="Xem chi tiết hoạt động được cộng và nội dung đánh giá"
-                    className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer shrink-0"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Chi tiết điểm và minh chứng"
+                    className="h-8 w-8 shrink-0 text-primary hover:bg-primary/10"
                   >
-                    <Eye className="h-4 w-4" />
-                  </button>
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
                 </Tooltip>
               )}
             </>
@@ -207,6 +192,9 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
           selfScore={selfScore}
           selfDescription={effectiveDescription}
           totalPoints={rowTotal}
+          isLoading={isFetching}
+          loadError={isError}
+          onRetry={() => void refetch()}
           onOpenSelfEvaluation={() => {
             setIsDetailModalOpen(false)
             setIsSelfModalOpen(true)

@@ -25,7 +25,7 @@ export const Sv5tRegulationModal: React.FC<Sv5tRegulationModalProps> = ({
             <div className="p-1.5 rounded-md bg-primary/10 text-primary">
               <Info className="h-5 w-5" />
             </div>
-            <h3 className="font-semibold text-base text-foreground font-heading">
+            <h3 className="font-semibold text-base text-foreground font-k2d">
               Quy định xét chọn Sinh viên 5 tốt
             </h3>
           </div>

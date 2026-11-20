@@ -1,54 +1,44 @@
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { FanpageActivityStats } from '../types/fanpageAdmin.types'
 
-interface FanpageActivityStatsCardProps {
+interface Props {
   stats: FanpageActivityStats
+  isLoading?: boolean
+  onRetry?: () => void
 }
-
-export const FanpageActivityStatsCard: React.FC<FanpageActivityStatsCardProps> = ({ stats }) => {
-  return (
-    <div className="w-full bg-white dark:bg-card rounded-xl border border-border/50 dark:border-border/60 p-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] space-y-4 text-left">
-      {/* Header with Title and Period Label on the same row */}
-      <div className="flex items-center justify-between">
-        <h3 className="font-k2d font-bold text-base text-[#0B1626] dark:text-foreground">
-          Trạng thái hoạt động
-        </h3>
-        <span className="text-xs text-[#5B6675] dark:text-muted-foreground font-normal">
-          {stats.periodLabel}
-        </span>
-      </div>
-
-      {/* 3 Metric Columns (Figma: Số liệu hoạt động [338x60]) */}
-      <div className="grid grid-cols-3 gap-2 py-0.5">
-        {/* Metric 1 */}
-        <div className="p-2.5 rounded-xl bg-[#F9FAFB] dark:bg-background/80 border border-[#E5E7EB] dark:border-border text-center">
-          <p className="font-k2d font-bold text-lg text-primary">
-            {stats.eventsCount < 10 ? `0${stats.eventsCount}` : stats.eventsCount}
-          </p>
-          <p className="text-[11px] text-[#5B6675] dark:text-muted-foreground mt-0.5">
-            Sự kiện
-          </p>
-        </div>
-
-        {/* Metric 2 */}
-        <div className="p-2.5 rounded-xl bg-[#F9FAFB] dark:bg-background/80 border border-[#E5E7EB] dark:border-border text-center">
-          <p className="font-k2d font-bold text-lg text-primary">
-            {stats.interactionsCount}
-          </p>
-          <p className="text-[11px] text-[#5B6675] dark:text-muted-foreground mt-0.5">
-            Tương tác
-          </p>
-        </div>
-
-        {/* Metric 3 */}
-        <div className="p-2.5 rounded-xl bg-[#F9FAFB] dark:bg-background/80 border border-[#E5E7EB] dark:border-border text-center">
-          <p className="font-k2d font-bold text-lg text-primary">
-            {stats.newFollowersCount}
-          </p>
-          <p className="text-[11px] text-[#5B6675] dark:text-muted-foreground mt-0.5">
-            Theo dõi mới
-          </p>
-        </div>
-      </div>
+export const FanpageActivityStatsCard = ({ stats, isLoading, onRetry }: Props) => (
+  <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 text-left shadow-sm">
+    <div className="flex flex-wrap items-center justify-between gap-1">
+      <h3 className="font-k2d text-sm font-semibold text-foreground">Hoạt động</h3>
+      <span className="text-[11px] text-muted-foreground">Toàn thời gian</span>
     </div>
-  )
-}
+    {isLoading ? (
+      <Skeleton className="h-20 w-full" />
+    ) : stats.available === false ? (
+      <div className="flex flex-col items-start gap-1" role="status">
+        <p className="text-xs text-muted-foreground">Chưa tải được số liệu.</p>
+        {onRetry && (
+          <Button variant="ghost" size="sm" onClick={onRetry}>
+            Thử lại
+          </Button>
+        )}
+      </div>
+    ) : (
+      <dl className="flex flex-col gap-2.5 text-xs">
+        {[
+          ['Sự kiện', stats.eventsCount],
+          ['Lượt đăng ký', stats.totalRegistrations],
+          ['Đã điểm danh', stats.totalAttendees],
+        ].map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between gap-3">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="font-medium tabular-nums text-foreground">
+              {typeof value === 'number' ? value.toLocaleString('vi-VN') : '—'}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    )}
+  </section>
+)

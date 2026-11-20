@@ -54,7 +54,7 @@ export function useEventBenefitLines(
     staleTime: 5 * 60_000,
   })
   const formatCriteria = useMemo(
-    () => createSv5tLabelFormatter(criterias, { childOnly: true }),
+    () => createSv5tLabelFormatter(criterias, { childOnly: true, codeWithChild: true }),
     [criterias]
   )
   const formatCompactCriteria = useMemo(
@@ -65,7 +65,32 @@ export function useEventBenefitLines(
     label: `Xét ${formatCompactCriteria(name, criteriaId).replace(/^(?:Tiêu chuẩn|Xét)\s+/i, '')}`,
     title: formatCriteria(name, criteriaId).replace(/^Tiêu chuẩn\s+/i, ''),
   })
-  const lines = (pointsReward || 'Cộng điểm rèn luyện').split(' · ')
+  const rawLines = pointsReward
+    ? pointsReward
+        .split(' · ')
+        .map((l) => l.trim())
+        .filter(Boolean)
+    : []
+
+  // If pointsReward is empty, but eventPoints has actual points:
+  if (rawLines.length === 0 && eventPoints.length > 0) {
+    const totalPoints = eventPoints.reduce((sum, p: any) => sum + (Number(p.point) || 0), 0)
+    if (totalPoints > 0) {
+      const pointsFormatted = totalPoints < 10 ? `0${totalPoints}` : `${totalPoints}`
+      rawLines.push(`Cộng ${pointsFormatted} điểm rèn luyện`)
+    }
+  }
+
+  // Filter out any bare/bogus "Cộng điểm rèn luyện" if the event actually has NO training points
+  const lines = rawLines.filter((line) => {
+    if (line === 'Cộng điểm rèn luyện') {
+      const hasRealPoints =
+        eventPoints.some((p: any) => Number(p.point) > 0) ||
+        (pointsReward && /\d+\s*điểm|\d+\s*đrl|\+\d+/i.test(pointsReward))
+      return Boolean(hasRealPoints)
+    }
+    return true
+  })
   let hasCriteria = false
   const formatted = lines.map((line) => {
     const name = line.replace(/^Tiêu (?:chuẩn|chí) SV5T:\s*/i, '')
@@ -87,7 +112,13 @@ export function useEventBenefitLines(
           ? `${line.replace(/\s+mục\s+.*$/i, '').replace(/\s+[IVX]+[a-z]?(?:\.[a-z0-9]+)*$/i, '')} mục ${[...new Set(codes)].join(', ')}`
           : line
       const names = eventPoints
-        .map((point) => pointNames.get(Number(point.pointCategoryId)) || point.pointCategoryName)
+        .map((point) => {
+          const name = pointNames.get(Number(point.pointCategoryId)) || point.pointCategoryName
+          const code = (pointCodes.get(Number(point.pointCategoryId)) || point.pointCategoryCode)
+            ?.replace(/^mục\s*/i, '')
+            .replace(/\.$/, '')
+          return name && code ? `${code}. ${name}` : name
+        })
         .filter(Boolean)
       if (!names.length) {
         const match = line.match(/mục\s*([IVX]+)[.\s]*([a-z])(?:[.\s]*(\d+))?/i)
@@ -96,7 +127,7 @@ export function useEventBenefitLines(
           : null
         const id = code ? [...pointCodes].find(([, value]) => value === code)?.[0] : undefined
         const name = id !== undefined ? pointNames.get(id) : undefined
-        if (name) names.push(name)
+        if (name) names.push(`${code}. ${name}`)
       }
       return { label, title: names.length ? [...new Set(names)].join('\n') : label }
     }

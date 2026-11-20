@@ -26,7 +26,9 @@ export const FanpageAdminPage: React.FC = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
-  const initialFanpageId = (location.state as { fanpageId?: string } | undefined)?.fanpageId
+  const locationFanpageId = (location.state as { fanpageId?: string } | undefined)?.fanpageId
+  const [selectedFanpageId, setSelectedFanpageId] = useState<string | null>(null)
+  const [profileOverrides, setProfileOverrides] = useState<Record<string, Partial<FanpageSummary>>>({})
 
   // Lấy danh sách Fanpage khả dụng mà người dùng có tham gia (Admin hoặc Thành viên/Cộng tác viên)
   const { data: availableFanpages = [] } = useQuery<FanpageSummary[]>({
@@ -68,18 +70,26 @@ export const FanpageAdminPage: React.FC = () => {
     refetchOnMount: 'always',
   })
 
-  // Nếu có initialFanpageId cụ thể được truyền vào từ URL / state, tải thông tin chi tiết của Fanpage đó
-  const { data: targetFanpage } = useQuery<FanpageSummary | null>({
-    queryKey: ['fanpage-detail-by-id', initialFanpageId, user?.id, user?.email],
+  // Xác định ID của fanpage đang hoạt động (active):
+  // Ưu tiên locationFanpageId nếu có, hoặc selectedFanpageId, hoặc fanpage đầu tiên trong danh sách
+  const activeFanpageId =
+    locationFanpageId ||
+    selectedFanpageId ||
+    availableFanpages[0]?.id ||
+    '1'
+
+  // Luôn tải thông tin chi tiết đầy đủ (mô tả, email, phone, địa chỉ, tổ chức trực thuộc) cho activeFanpageId:
+  const { data: activeFanpageDetail } = useQuery<FanpageSummary | null>({
+    queryKey: ['fanpage-detail-by-id', activeFanpageId, user?.id, user?.email],
     queryFn: async () => {
-      if (!initialFanpageId) return null
+      if (!activeFanpageId) return null
       try {
-        const fp = await fanpageService.getFanpageById(initialFanpageId)
+        const fp = await fanpageService.getFanpageById(activeFanpageId)
         if (fp) {
           let userRole = 'Cộng tác viên'
           try {
-            const members = await fanpageAdminService.getFanpageMembers(initialFanpageId)
-            const myMem = members.find((m) => m.id === user?.id || m.email === user?.email)
+            const members = await fanpageAdminService.getFanpageMembers(activeFanpageId)
+            const myMem = members.find((m) => String(m.id) === String(user?.id) || m.email === user?.email)
             if (myMem?.role === 'ADMIN') {
               userRole = 'Quản trị viên'
             }
@@ -101,7 +111,7 @@ export const FanpageAdminPage: React.FC = () => {
             followersCount: fp.followerCount || 0,
             eventsCount: fp.eventCount || 0,
             description: fp.description || '',
-            parentOrg: fp.orgName || '',
+            parentOrg: fp.parentOrg || fp.orgName || '',
           }
         }
       } catch (e) {
@@ -109,11 +119,9 @@ export const FanpageAdminPage: React.FC = () => {
       }
       return null
     },
-    enabled: Boolean(initialFanpageId),
+    enabled: Boolean(activeFanpageId),
     staleTime: 30 * 1000,
   })
-
-  const [selectedFanpage, setSelectedFanpage] = useState<FanpageSummary | null>(null)
 
   const fallbackFanpage: FanpageSummary = {
     id: '1',
@@ -133,12 +141,22 @@ export const FanpageAdminPage: React.FC = () => {
     parentOrg: 'Đoàn Thanh niên - Hội Sinh viên ĐH Cần Thơ',
   }
 
-  const currentFanpage: FanpageSummary =
-    selectedFanpage ||
-    targetFanpage ||
-    (initialFanpageId ? availableFanpages.find((fp) => fp.id === initialFanpageId) : undefined) ||
-    availableFanpages[0] ||
-    fallbackFanpage
+  // Lấy dữ liệu tóm tắt từ availableFanpages để hiển thị ngay tức thì
+  const baseSummary =
+    availableFanpages.find((fp) => String(fp.id) === String(activeFanpageId)) ||
+    (availableFanpages.length > 0 ? availableFanpages[0] : fallbackFanpage)
+
+  // Kết hợp với activeFanpageDetail để luôn có đủ description, email, phone, address, parentOrg
+  const currentFanpage: FanpageSummary = {
+    ...baseSummary,
+    ...(activeFanpageDetail || {}),
+    ...(profileOverrides[activeFanpageId] || {}),
+    role:
+      profileOverrides[activeFanpageId]?.role ||
+      activeFanpageDetail?.role ||
+      baseSummary?.role ||
+      'Quản trị viên',
+  }
 
   const { data: posts = [], isLoading: isLoadingPosts } = useQuery({
     queryKey: ['admin-feed-posts', currentFanpage?.id],
@@ -164,7 +182,7 @@ export const FanpageAdminPage: React.FC = () => {
     followersCount: followerCount > 0 ? followerCount : (currentFanpage.followersCount || 0),
   }
 
-  const { data: stats = EMPTY_ACTIVITY_STATS } = useQuery({
+  const { data: stats = EMPTY_ACTIVITY_STATS, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['admin-activity-stats', currentFanpage?.id],
     queryFn: () => fanpageAdminService.getActivityStats(currentFanpage?.id),
     enabled: Boolean(currentFanpage?.id),
@@ -310,10 +328,10 @@ export const FanpageAdminPage: React.FC = () => {
   }
 
   const handleSaveFanpageProfile = (updatedProfile: Partial<FanpageSummary>) => {
-    setSelectedFanpage((prev) => {
-      const base = prev || currentFanpage
-      return { ...base, ...updatedProfile }
-    })
+    setProfileOverrides((prev) => ({
+      ...prev,
+      [activeFanpageId]: { ...(prev[activeFanpageId] || {}), ...updatedProfile },
+    }))
     queryClient.invalidateQueries({ queryKey: ['admin-available-fanpages'] })
     queryClient.invalidateQueries({ queryKey: ['fanpage-detail'] })
     queryClient.invalidateQueries({ queryKey: ['fanpage-detail-by-id'] })
@@ -351,7 +369,7 @@ export const FanpageAdminPage: React.FC = () => {
       currentFanpage={enrichedFanpage}
       availableFanpages={availableFanpages}
       onSelectFanpage={(fp) => {
-        setSelectedFanpage(fp)
+        setSelectedFanpageId(String(fp.id))
         setActiveTab(null) // Return to home on fanpage change
         setSearchParams((prev) => {
           const next = new URLSearchParams(prev)
@@ -363,7 +381,7 @@ export const FanpageAdminPage: React.FC = () => {
           fp.role === 'ADMIN' ||
           (user?.role ? ['ADMIN', 'SUPER_ADMIN', 'ORGANIZER'].includes(user.role) : false)
         const targetPath = isFpAdmin ? '/fanpage/admin' : '/fanpage/workspace'
-        navigate({ pathname: targetPath }, { state: { fanpageId: fp.id }, replace: true })
+        navigate({ pathname: targetPath }, { state: { fanpageId: String(fp.id) }, replace: true })
       }}
       activeTab={activeTab}
       onSelectTab={handleSelectTab}
@@ -384,6 +402,8 @@ export const FanpageAdminPage: React.FC = () => {
           <FanpageRightSidebar
             currentFanpage={enrichedFanpage}
             stats={stats}
+            statsLoading={statsLoading}
+            onRetryStats={() => void refetchStats()}
             onManageMembersClick={() => handleSelectTab('members')}
           />
         ) : undefined
@@ -394,17 +414,12 @@ export const FanpageAdminPage: React.FC = () => {
         <FanpageHomeView
           currentFanpage={enrichedFanpage}
           stats={stats}
+            statsLoading={statsLoading}
+            onRetryStats={() => void refetchStats()}
           reminder={reminder}
           posts={posts}
           isLoadingPosts={isLoadingPosts}
-          onOpenEventsTab={() => {
-            setActiveTab('events')
-            setSearchParams((prev) => {
-              const next = new URLSearchParams(prev)
-              next.set('tab', 'events')
-              return next
-            })
-          }}
+          onOpenEventRegistrations={handleEventClick}
           onCreateEventClick={handleCreateEventClick}
           onEditProfileClick={isCurrentUserAdmin ? handleEditProfileClick : undefined}
           onEditEvent={handleEditFeedPost}

@@ -382,6 +382,8 @@ export function useAttendanceDraft(event: AdminEvent) {
         queryClient.invalidateQueries({ queryKey: ['registrations'] }),
         queryClient.invalidateQueries({ queryKey: ['student-semester-points'] }),
         queryClient.invalidateQueries({ queryKey: ['point-transactions'] }),
+        queryClient.invalidateQueries({ queryKey: ['student-criteria-progress'] }),
+        queryClient.invalidateQueries({ queryKey: ['student-criteria-transactions-all'] }),
       ])
       return true
     } catch (error) {

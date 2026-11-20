@@ -1,8 +1,9 @@
-import { Tooltip } from '@/components/ui/tooltip'
+import { Button } from '@/components/ui/button'
 import React, { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { BadgeCheck, ChevronRight } from 'lucide-react'
 import { Sv5tRow } from './Sv5tRow'
 import type { CriteriaProgressNode, CriteriaRowItem } from '../types/sv5t.types'
+import '@/shared/styles/achievementAccordion.css'
 
 interface Sv5tSectionAccordionProps {
   standard: CriteriaProgressNode
@@ -25,6 +26,7 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const sectionRef = React.useRef<HTMLDivElement>(null)
+  const contentId = React.useId()
 
   const handleToggle = () => {
     const nextState = !isExpanded
@@ -72,102 +74,104 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
   // Required criteria to pass this standard (from backend or default)
   const requiredCount = standard.requiredChildren ?? standard.children.length
   const completedDirect = standard.completedChildren
+  const progress =
+    requiredCount > 0 ? Math.min(100, Math.max(0, (completedDirect / requiredCount) * 100)) : 0
 
   return (
     <div
       ref={sectionRef}
-      className="scroll-mt-4 border border-[#E5E7EB] dark:border-border rounded-md overflow-hidden bg-white dark:bg-card mb-3 shadow-2xs"
+      className="achievement-accordion scroll-mt-4 border border-border rounded-xl overflow-hidden bg-background"
+      data-expanded={isExpanded}
+      data-completed={standard.isCompleted}
     >
       {/* Accordion Header */}
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={handleToggle}
-        className="w-full flex items-center justify-between px-3 sm:px-4 py-2.5 bg-[#EFF5FC] dark:bg-primary/10 hover:bg-[#E2EEFB] dark:hover:bg-primary/15 transition-colors cursor-pointer text-left select-none border-b border-[#E5E7EB] dark:border-border"
+        aria-expanded={isExpanded}
+        aria-controls={contentId}
+        className="achievement-accordion__trigger group relative h-auto min-h-[64px] rounded-none w-full flex items-center justify-between gap-3 px-3 sm:px-4 py-3 whitespace-normal cursor-pointer text-left select-none focus-visible:ring-inset"
       >
-        {/* Left: Chevron & Standard Title */}
-        <div className="flex items-center gap-2.5 min-w-0 pr-2">
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-[#1B4B8A] dark:text-primary shrink-0" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-[#1B4B8A] dark:text-primary shrink-0" />
-          )}
-          <span className="font-semibold text-xs sm:text-sm text-[#1B4B8A] dark:text-primary truncate">
-            {standard.name}
+        <span className="achievement-accordion__heading relative z-10 flex flex-col gap-1 min-w-0 text-xs sm:text-sm leading-relaxed">
+          <span className="font-semibold">{standard.name}</span>
+          <span className="achievement-accordion__description text-xs font-normal tabular-nums">
+            Đã đạt {completedDirect}/{requiredCount} tiêu chí
           </span>
-        </div>
-
-        {/* Right: Status badge & Dot indicators */}
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Status badge: Đạt / Chưa đạt */}
-          <span
-            className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-              standard.isCompleted
-                ? 'bg-[#F0FDF4] dark:bg-emerald-950/50 text-[#15803D] dark:text-emerald-300'
-                : 'bg-[#E5E7EB] dark:bg-muted text-[#6B7280] dark:text-muted-foreground'
-            }`}
-          >
-            {standard.isCompleted ? 'Đạt' : 'Chưa đạt'}
-          </span>
-
-          {/* Indicator dots: dấu chấm là số lượng tiêu chí, số lượng là đã đạt / cần đạt */}
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-1">
-              {standard.children.map((child) => (
-                <Tooltip
-                  content={`${child.name}: ${child.isCompleted ? 'Đạt' : 'Chưa đạt'}`}
-                  key={child.criteriaId}
-                >
-                  <span
-                    className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full transition-colors ${
-                      child.isCompleted
-                        ? 'bg-[#15803D] dark:bg-emerald-400 border border-[#15803D]'
-                        : 'bg-[#D1D5DB] dark:bg-muted-foreground/40 border border-[#D1D5DB] dark:border-border'
-                    }`}
-                  />
-                </Tooltip>
-              ))}
-            </div>
+        </span>
+        <span className="relative z-10 flex shrink-0 items-center gap-3">
+          {standard.isCompleted ? (
             <span
-              className={`text-xs font-semibold ml-1 font-heading ${
-                standard.isCompleted
-                  ? 'text-[#15803D] dark:text-emerald-400 font-bold'
-                  : 'text-[#6B7280] dark:text-muted-foreground'
-              }`}
+              role="img"
+              aria-label="Đạt tiêu chuẩn"
+              title="Đạt tiêu chuẩn"
+              className="achievement-accordion__completed flex h-8 w-6 items-center justify-center"
             >
-              {completedDirect}/{requiredCount}
+              <BadgeCheck
+                aria-hidden="true"
+                className="h-6 w-6 fill-current stroke-white"
+                strokeWidth={2}
+              />
             </span>
-          </div>
-        </div>
-      </button>
+          ) : (
+            <span className="sr-only">Chưa đạt tiêu chuẩn</span>
+          )}
+          <ChevronRight aria-hidden="true" className="achievement-accordion__chevron h-4 w-4" />
+        </span>
+        <span
+          aria-hidden="true"
+          className="achievement-accordion__track absolute inset-x-0 bottom-0 h-[3px]"
+        >
+          <span
+            className="achievement-accordion__progress block h-full origin-left"
+            style={{ transform: `scaleX(${progress / 100})` }}
+          />
+        </span>
+      </Button>
 
       {/* Accordion Body */}
-      {isExpanded && (
-        <div className="w-full flex flex-col">
-          {rows.map((r) => (
-            <Sv5tRow
-              key={r.node.criteriaId}
-              node={r.node}
-              criteriaCode={r.code}
-              isLeaf={r.isLeaf}
-              isGroupBanner={r.isGroupBanner}
-              academicYearId={academicYearId}
-              onSaveProgress={onSaveProgress}
-              onDeleteProgress={onDeleteProgress}
-            />
-          ))}
-
-          {/* Bottom Result Row: Kết quả tiêu chuẩn */}
-          <div
-            className={`flex items-center justify-center py-2 px-4 border-t border-[#E5E7EB] dark:border-border text-xs font-semibold ${
-              standard.isCompleted
-                ? 'bg-[#F0FDF4] dark:bg-emerald-950/25 text-[#15803D] dark:text-emerald-300'
-                : 'bg-[#F9FAFB] dark:bg-muted/40 text-muted-foreground'
-            }`}
-          >
-            Kết quả tiêu chuẩn: {standard.isCompleted ? 'Đạt' : 'Chưa đạt'}
+      <div
+        id={contentId}
+        className="achievement-accordion__body"
+        inert={!isExpanded}
+        aria-hidden={!isExpanded}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="w-full overflow-x-auto custom-scrollbar border-t border-border">
+            <div className="min-w-[822px] flex flex-col">
+              <div className="flex items-stretch bg-muted/40 text-muted-foreground text-xs font-semibold min-h-10 border-b border-border">
+                <div className="w-[86px] shrink-0 px-1 py-2 flex items-center justify-center border-r border-border text-center">
+                  Mã TC
+                </div>
+                <div className="flex-1 min-w-[280px] px-3 py-2 flex items-center border-r border-border">
+                  Tên tiêu chí
+                </div>
+                <div className="w-[136px] shrink-0 px-1 py-2 flex items-center justify-center border-r border-border text-center">
+                  Dữ liệu ghi nhận
+                </div>
+                <div className="w-[136px] shrink-0 px-1 py-2 flex items-center justify-center border-r border-border text-center">
+                  SV đánh giá
+                </div>
+                <div className="w-[184px] shrink-0 px-2 py-2 flex items-center justify-center text-center">
+                  Chi tiết
+                </div>
+              </div>
+              {rows.map((r) => (
+                <Sv5tRow
+                  key={r.node.criteriaId}
+                  node={r.node}
+                  criteriaCode={r.code}
+                  isLeaf={r.isLeaf}
+                  isGroupBanner={r.isGroupBanner}
+                  academicYearId={academicYearId}
+                  onSaveProgress={onSaveProgress}
+                  onDeleteProgress={onDeleteProgress}
+                />
+              ))}
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

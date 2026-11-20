@@ -16,7 +16,13 @@ const STORAGE_KEY_USER = 'event_mgmt_user'
 
 function getInitialToken(): string | null {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem(STORAGE_KEY_TOKEN)
+  const stored = localStorage.getItem(STORAGE_KEY_TOKEN)
+  // Google ID tokens (RS256) are for auth verification only, not backend session tokens
+  if (stored && stored.startsWith('eyJhbGciOiJSUzI1Ni')) {
+    localStorage.removeItem(STORAGE_KEY_TOKEN)
+    return null
+  }
+  return stored
 }
 
 function getInitialUser(): User | null {
@@ -38,9 +44,11 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
   isAuthenticated: Boolean(initialUser),
 
   setAuth: (user: User, token?: string | null) => {
+    // Ignore Google ID tokens (RS256) as backend Bearer tokens (real backend uses Cookie session)
+    const validToken = token && !token.startsWith('eyJhbGciOiJSUzI1Ni') ? token : null
     if (typeof window !== 'undefined') {
-      if (token) {
-        localStorage.setItem(STORAGE_KEY_TOKEN, token)
+      if (validToken) {
+        localStorage.setItem(STORAGE_KEY_TOKEN, validToken)
       } else {
         localStorage.removeItem(STORAGE_KEY_TOKEN)
       }
@@ -48,7 +56,7 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
     }
     set({
       user,
-      token: token || null,
+      token: validToken,
       isAuthenticated: true,
     })
   },

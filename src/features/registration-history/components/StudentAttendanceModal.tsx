@@ -1,3 +1,4 @@
+import { canStudentSelfCheck } from '@/shared/utils/attendanceConfig'
 import { Tooltip } from '@/components/ui/tooltip'
 import React, { useEffect, useState } from 'react'
 import { studentAttendanceStep } from '@/shared/utils/attendanceState'
@@ -18,7 +19,7 @@ interface StudentAttendanceModalProps {
 
 export const StudentAttendanceModal: React.FC<StudentAttendanceModalProps> = (props) => {
   if (!props.isOpen || !props.event) return null
-  if (!studentAttendanceStep(props.event.status)) return null
+  if (!canStudentSelfCheck(props.event) || !studentAttendanceStep(props.event.status)) return null
   return (
     <StudentAttendanceForm
       {...props}
@@ -37,6 +38,7 @@ const StudentAttendanceForm: React.FC<StudentAttendanceModalProps> = ({
   const sessionType = studentAttendanceStep(event?.status ?? '') ?? 'check-in'
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -54,14 +56,15 @@ const StudentAttendanceForm: React.FC<StudentAttendanceModalProps> = ({
 
   const handleFileChange = (file: File) => {
     if (file) {
+      setFileError(null)
       setSelectedFile(null)
       setPreviewUrl(null)
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-        setError('Vui lòng chỉ tải lên tệp hình ảnh (PNG, JPG, WEBP)')
+        setFileError('Vui lòng chỉ tải lên tệp hình ảnh (PNG, JPG, WEBP)')
         return
       }
       if (file.size > 5 * 1024 * 1024) {
-        setError('Kích thước ảnh không được vượt quá 5MB')
+        setFileError('Kích thước ảnh không được vượt quá 5MB')
         return
       }
       setSelectedFile(file)
@@ -72,6 +75,7 @@ const StudentAttendanceForm: React.FC<StudentAttendanceModalProps> = ({
   }
 
   const handleRemoveImage = () => {
+    setFileError(null)
     setSelectedFile(null)
     setPreviewUrl(null)
   }
@@ -79,23 +83,23 @@ const StudentAttendanceForm: React.FC<StudentAttendanceModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (isSubmitting) return
-    if (!selectedFile) {
-      setError('Vui lòng tải lên ảnh minh chứng tham gia (ảnh selfie hoặc chụp tại sự kiện)')
-      return
-    }
+    if (!canStudentSelfCheck(event) || fileError) return
 
     setIsSubmitting(true)
     setError(null)
 
     try {
-      const uploadedProofUrl = await mediaService.uploadImage(selectedFile, 'EVIDENCE')
-      if (!uploadedProofUrl) throw new Error('Chưa tải được ảnh minh chứng. Vui lòng thử lại.')
+      const uploadedProofUrl = selectedFile
+        ? await mediaService.uploadImage(selectedFile, 'EVIDENCE')
+        : undefined
+      if (selectedFile && !uploadedProofUrl)
+        throw new Error('Chưa tải được ảnh minh chứng. Vui lòng thử lại.')
       await historyService.submitAttendance(eventId, sessionType, uploadedProofUrl)
 
       onSuccess(
         sessionType === 'check-in'
-          ? 'Đã gửi ảnh điểm danh đầu buổi.'
-          : 'Đã gửi ảnh cuối buổi. Chờ ban tổ chức xác nhận điểm danh.'
+          ? 'Đã điểm danh đầu buổi.'
+          : 'Đã điểm danh cuối buổi. Chờ ban tổ chức xác nhận.'
       )
       handleClose()
     } catch (err: any) {
@@ -103,7 +107,9 @@ const StudentAttendanceForm: React.FC<StudentAttendanceModalProps> = ({
       const rawMsg = err?.response?.data?.message || err?.message || ''
 
       let friendlyMsg = 'Có lỗi xảy ra khi gửi điểm danh. Vui lòng thử lại.'
-      if (rawMsg.includes('not started yet')) {
+      if (rawMsg.includes('Self check-') && rawMsg.includes('not allowed')) {
+        friendlyMsg = 'Sự kiện đã tắt tự điểm danh. Vui lòng liên hệ ban tổ chức.'
+      } else if (rawMsg.includes('not started yet')) {
         friendlyMsg =
           'Sự kiện này chưa bắt đầu hoặc hôm nay chưa phải ngày diễn ra sự kiện (hệ thống chỉ mở điểm danh vào ngày diễn ra sự kiện).'
       } else if (rawMsg.includes('not registered')) {
@@ -142,7 +148,7 @@ const StudentAttendanceForm: React.FC<StudentAttendanceModalProps> = ({
         {/* Header */}
         <div className="flex items-start justify-between gap-3 px-5 pt-5">
           <div className="min-w-0 flex flex-col gap-1">
-            <h2 className="text-base font-semibold font-heading text-foreground">
+            <h2 className="text-base font-semibold font-k2d text-foreground">
               {sessionType === 'check-in' ? 'Điểm danh đầu buổi' : 'Điểm danh cuối buổi'}
             </h2>
             <p className="text-xs text-muted-foreground break-words">{title}</p>
@@ -163,21 +169,19 @@ const StudentAttendanceForm: React.FC<StudentAttendanceModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
-          {error && (
+          {(error || fileError) && (
             <div
               role="alert"
               className="flex items-center gap-2 p-3 text-xs font-medium text-red-700 bg-rose-50 border border-rose-200 rounded-xl dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900"
             >
               <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+              <span>{fileError || error}</span>
             </div>
           )}
 
           {/* Photo Upload Area */}
           <div className="flex flex-col gap-3">
-            <p className="text-xs text-muted-foreground">
-              Gửi ảnh tại sự kiện để ban tổ chức xác nhận.
-            </p>
+            <p className="text-xs text-muted-foreground">Ảnh minh chứng (không bắt buộc)</p>
 
             {previewUrl && sanitizeImageSrc(previewUrl) ? (
               <div className="relative rounded-xl border border-border overflow-hidden bg-muted/20">
@@ -220,7 +224,7 @@ const StudentAttendanceForm: React.FC<StudentAttendanceModalProps> = ({
               type="submit"
               disabled={
                 isSubmitting ||
-                !selectedFile ||
+                Boolean(fileError) ||
                 (sessionType === 'check-in' ? Boolean(event.checkInAt) : Boolean(event.checkOutAt))
               }
               className="h-8 px-4 text-xs rounded-lg flex items-center gap-1.5"
@@ -231,7 +235,7 @@ const StudentAttendanceForm: React.FC<StudentAttendanceModalProps> = ({
                   <span>Đang gửi...</span>
                 </>
               ) : (
-                <span>Gửi ảnh</span>
+                <span>{selectedFile ? 'Gửi ảnh' : 'Xác nhận điểm danh'}</span>
               )}
             </Button>
           </div>

@@ -42,7 +42,7 @@ export const HistoryStatsCards: React.FC<HistoryStatsCardsProps> = ({ stats }) =
     },
     {
       id: 'COMPLETED' as const,
-      title: 'Sự kiện đã hoàn thành',
+      title: 'Sự kiện đã điểm danh',
       value: safeStats.completed ?? 0,
       trend: safeStats.completedTrend || {
         value: '',

@@ -1,3 +1,4 @@
+import { buildPointCategoryCodes } from '@/shared/utils/pointCategoryCodes'
 import { apiClient } from '@/shared'
 
 export interface FilterOption {
@@ -30,15 +31,21 @@ export interface EventFilterOptions {
 
 export const eventFilterOptionsService = {
   async getFilterOptions(): Promise<EventFilterOptions> {
-    const [academicYearsRes, semestersRes, eventTypesRes, fanpagesRes, criteriasRes, pointCategoriesRes] =
-      await Promise.allSettled([
-        apiClient.get('/academic-years'),
-        apiClient.get('/semesters'),
-        apiClient.get('/event-types'),
-        apiClient.get('/fanpages', { params: { size: 100 } }),
-        apiClient.get('/criterias'),
-        apiClient.get('/point-categories'),
-      ])
+    const [
+      academicYearsRes,
+      semestersRes,
+      eventTypesRes,
+      fanpagesRes,
+      criteriasRes,
+      pointCategoriesRes,
+    ] = await Promise.allSettled([
+      apiClient.get('/academic-years'),
+      apiClient.get('/semesters'),
+      apiClient.get('/event-types'),
+      apiClient.get('/fanpages', { params: { size: 100 } }),
+      apiClient.get('/criterias'),
+      apiClient.get('/point-categories'),
+    ])
 
     // 1. Academic Years
     const rawAcademicYears =
@@ -97,38 +104,13 @@ export const eventFilterOptionsService = {
           : (eventTypesRes.value as any)?.data || []
         : []
 
-    let eventTypes: FilterOption[] = rawEventTypes.map((et: any) => ({
+    const eventTypes: FilterOption[] = rawEventTypes.map((et: any) => ({
       id: et.id,
       label: et.name || `Loại ${et.id}`,
     }))
 
-    // Fallback standard event types if API is blocked (e.g. 401 unauthenticated) or empty
-    if (eventTypes.length === 0) {
-      eventTypes = [
-        { id: 1, label: 'Workshop' },
-        { id: 2, label: 'Giao lưu' },
-        { id: 3, label: 'Thể thao' },
-        { id: 4, label: 'Tình nguyện' },
-        { id: 5, label: 'Học thuật' },
-        { id: 6, label: 'Tọa đàm' },
-        { id: 7, label: 'Cuộc thi' },
-        { id: 8, label: 'Hướng nghiệp' },
-        { id: 9, label: 'Văn nghệ' },
-        { id: 10, label: 'Tuyên dương' },
-        { id: 11, label: 'Chào tân' },
-        { id: 12, label: 'Đoàn - Hội' },
-        { id: 13, label: 'Kỹ năng' },
-        { id: 14, label: 'Hội nhập' },
-        { id: 15, label: 'Hiến máu' },
-        { id: 16, label: 'Môi trường' },
-        { id: 17, label: 'Triển lãm' },
-        { id: 18, label: 'Đối thoại' },
-      ]
-    }
-
     // 4. Fanpages with Avatar & Name
-    const rawFanpagesData: any =
-      fanpagesRes.status === 'fulfilled' ? fanpagesRes.value : null
+    const rawFanpagesData: any = fanpagesRes.status === 'fulfilled' ? fanpagesRes.value : null
     const rawFanpages = Array.isArray(rawFanpagesData)
       ? rawFanpagesData
       : rawFanpagesData?.content || rawFanpagesData?.data || []
@@ -153,13 +135,14 @@ export const eventFilterOptionsService = {
     let majorCriterias = rawCriterias
     if (
       rawCriterias.length === 1 &&
+      (rawCriterias[0]?.level === 0 || /danh hiệu/i.test(rawCriterias[0]?.name || '')) &&
       Array.isArray(rawCriterias[0]?.children) &&
       rawCriterias[0].children.length > 0
     ) {
       majorCriterias = rawCriterias[0].children
     }
 
-    let criterias: FilterOption[] = majorCriterias.map((c: any) => {
+    const criterias: FilterOption[] = majorCriterias.map((c: any) => {
       const childIds: (number | string)[] = [c.id]
       const childNames: string[] = []
       if (c.name) childNames.push(c.name.toLowerCase())
@@ -185,10 +168,12 @@ export const eventFilterOptionsService = {
       const sLower = shortName.toLowerCase()
       const keywords: string[] = []
       if (sLower.includes('đạo đức')) keywords.push('đạo đức', 'lối sống', 'tư tưởng', 'chính trị')
-      else if (sLower.includes('học tập')) keywords.push('học tập', 'học thuật', 'nghiên cứu', 'tín chỉ')
+      else if (sLower.includes('học tập'))
+        keywords.push('học tập', 'học thuật', 'nghiên cứu', 'tín chỉ')
       else if (sLower.includes('thể lực')) keywords.push('thể lực', 'thể thao', 'thể dục')
       else if (sLower.includes('tình nguyện')) keywords.push('tình nguyện', 'hiến máu')
-      else if (sLower.includes('hội nhập')) keywords.push('hội nhập', 'ngoại ngữ', 'tin học', 'kỹ năng')
+      else if (sLower.includes('hội nhập'))
+        keywords.push('hội nhập', 'ngoại ngữ', 'tin học', 'kỹ năng')
 
       return {
         id: c.id,
@@ -200,59 +185,26 @@ export const eventFilterOptionsService = {
       }
     })
 
-    // Fallback standard criteria if API is blocked or empty
-    if (criterias.length === 0) {
-      criterias = [
-        {
-          id: 10,
-          label: 'Đạo đức tốt',
-          note: 'Tiêu chuẩn Đạo đức tốt',
-          childIds: [10, 101, 102, 103, 1031, 1032, 1033, 1034, 1035],
-          keywords: ['đạo đức', 'lối sống', 'tư tưởng'],
-        },
-        {
-          id: 20,
-          label: 'Học tập tốt',
-          note: 'Tiêu chuẩn Học tập tốt',
-          childIds: [20, 201, 202],
-          keywords: ['học tập', 'học thuật'],
-        },
-        {
-          id: 30,
-          label: 'Thể lực tốt',
-          note: 'Tiêu chuẩn Thể lực tốt',
-          childIds: [30, 301, 302],
-          keywords: ['thể lực', 'thể thao'],
-        },
-        {
-          id: 40,
-          label: 'Tình nguyện tốt',
-          note: 'Tiêu chuẩn Tình nguyện tốt',
-          childIds: [40, 401, 402, 403],
-          childNames: [
-            'được các cấp đảng, đoàn, hội, chính quyền khen thưởng trong hoạt động tình nguyện',
-            'tham gia ít nhất 03 ngày tình nguyện trong năm học',
-            'tham gia ít nhất 02 lần hiến máu tình nguyện trong năm học',
-          ],
-          keywords: ['tình nguyện', 'hiến máu'],
-        },
-        {
-          id: 50,
-          label: 'Hội nhập tốt',
-          note: 'Tiêu chuẩn Hội nhập tốt',
-          childIds: [50, 501, 502, 503, 5011, 5012, 5013, 5014, 5015, 5021, 5022, 5023, 5024, 5025, 5026, 5031, 5032, 5033, 5034, 5035],
-          keywords: ['hội nhập', 'ngoại ngữ', 'tin học'],
-        },
-      ]
-    }
-
     // 6. Point Categories (Chỉ lấy các mục lớn: Mục I, Mục I.a, Mục II.b... KHÔNG lấy tên dài)
-    const rawPointCategories =
+    const pointCategoryResponse =
       pointCategoriesRes.status === 'fulfilled'
         ? Array.isArray(pointCategoriesRes.value)
           ? pointCategoriesRes.value
           : (pointCategoriesRes.value as any)?.data || []
         : []
+
+    const rawPointCategories: any[] = []
+    const flattenPoints = (items: any[], parentId: number | null = null, level = 0) =>
+      items.forEach((item) => {
+        rawPointCategories.push({
+          ...item,
+          parentCategoryId: item.parentCategoryId ?? parentId,
+          level: item.level ?? level,
+        })
+        if (Array.isArray(item.children)) flattenPoints(item.children, item.id, level + 1)
+      })
+    flattenPoints(pointCategoryResponse)
+    const categoryCodes = buildPointCategoryCodes(rawPointCategories)
 
     // Build parent-child tree mapping for point categories
     const childrenMap = new Map<number | string, (number | string)[]>()
@@ -275,36 +227,35 @@ export const eventFilterOptionsService = {
 
     // Filter main categories: Level 0 or Level 1
     const majorCategories = rawPointCategories.filter(
-      (pc: any) => pc.level === 0 || pc.level === 1
+      (pc: any) =>
+        !pc.parentCategoryId ||
+        !rawPointCategories.find((parent) => String(parent.id) === String(pc.parentCategoryId))
+          ?.parentCategoryId
     )
 
     const pointCategories: FilterOption[] = majorCategories.map((pc: any) => {
       const isRoot = pc.level === 0 || !pc.parentCategoryId
-      let codeLabel = ''
-      if (pc.note) {
-        const match = pc.note.match(/(?:Mã tiêu chí:\s*)?([I|V|X]+(?:\.[a-z0-9]+)?)/i)
-        if (match && match[1]) {
-          codeLabel = match[1]
-        }
-      }
-      if (!codeLabel) {
-        const nameMatch = pc.name?.match(/(?:Mục|Điều)\s*([I|V|X0-9]+(?:\.[a-z0-9]+)?)/i)
-        if (nameMatch && nameMatch[1]) {
-          codeLabel = nameMatch[1]
-        }
-      }
+      const codeLabel = categoryCodes.get(Number(pc.id)) || ''
 
       let displayLabel = ''
       if (isRoot) {
         const nameLower = (pc.name || '').toLowerCase()
         let shortSuffix = ''
         if (nameLower.includes('học tập')) shortSuffix = 'Học tập'
-        else if (nameLower.includes('nội quy') || nameLower.includes('quy chế')) shortSuffix = 'Kỷ luật'
-        else if (nameLower.includes('chính trị') || nameLower.includes('văn hóa') || nameLower.includes('thể thao')) shortSuffix = 'Hoạt động'
-        else if (nameLower.includes('công dân') || nameLower.includes('cộng đồng')) shortSuffix = 'Cộng đồng'
-        else if (nameLower.includes('phụ trách') || nameLower.includes('đoàn thể')) shortSuffix = 'Đoàn thể'
+        else if (nameLower.includes('nội quy') || nameLower.includes('quy chế'))
+          shortSuffix = 'Kỷ luật'
+        else if (
+          nameLower.includes('chính trị') ||
+          nameLower.includes('văn hóa') ||
+          nameLower.includes('thể thao')
+        )
+          shortSuffix = 'Hoạt động'
+        else if (nameLower.includes('công dân') || nameLower.includes('cộng đồng'))
+          shortSuffix = 'Cộng đồng'
+        else if (nameLower.includes('phụ trách') || nameLower.includes('đoàn thể'))
+          shortSuffix = 'Đoàn thể'
 
-        const romanNumber = ['I', 'II', 'III', 'IV', 'V'][Number(pc.id) - 1] || codeLabel || String(pc.id)
+        const romanNumber = codeLabel || String(pc.id)
         displayLabel = shortSuffix ? `Mục ${romanNumber} · ${shortSuffix}` : `Mục ${romanNumber}`
       } else {
         displayLabel = codeLabel ? `Mục ${codeLabel}` : `Mục ${pc.id}`

@@ -15,11 +15,11 @@ export const CheckInPage: React.FC = () => {
         <main className="flex-1 min-w-0 h-full overflow-y-auto py-5 px-1 flex justify-center custom-scrollbar">
           <div className="w-full max-w-md flex flex-col gap-6 pb-16">
             <div className="text-center space-y-1">
-              <h1 className="text-2xl sm:text-3xl font-bold font-heading text-foreground tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-bold font-k2d text-foreground tracking-tight">
                 Điểm danh sự kiện
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground">
-                Tải ảnh minh chứng hoặc quét khuôn mặt tại cổng sự kiện để xác nhận tham gia
+                Điểm danh đầu buổi và cuối buổi cho sự kiện đã đăng ký
               </p>
             </div>
 
