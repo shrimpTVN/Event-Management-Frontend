@@ -19,13 +19,18 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-reac
 import { Input } from '@/components/ui/input'
 import { cn } from '@/shared/utils/cn'
 
-export interface DatePickerProps {
+export interface DatePickerProps extends Pick<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'aria-invalid' | 'aria-describedby'
+> {
   value?: string // format: 'YYYY-MM-DD'
   onChange?: (val: string) => void
   placeholder?: string
   className?: string
   disabled?: boolean
   id?: string
+  minDate?: string
+  maxDate?: string
 }
 
 // Auto-masking helper: formats raw input into DD/MM/YYYY with automatic slashes
@@ -65,6 +70,9 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   className,
   disabled = false,
   id,
+  minDate,
+  maxDate,
+  ...inputProps
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -160,7 +168,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
 
   const handleSelectDay = (day: Date) => {
-    if (disabled) return
+    if (disabled || isDayDisabled(day)) return
     const formattedIso = format(day, 'yyyy-MM-dd')
     const formattedDisplay = format(day, 'dd/MM/yyyy')
     setInputText(formattedDisplay)
@@ -168,11 +176,17 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     setIsOpen(false)
   }
 
+  const isDayDisabled = (day: Date) => {
+    const date = format(day, 'yyyy-MM-dd')
+    return Boolean((minDate && date < minDate) || (maxDate && date > maxDate))
+  }
+
   return (
     <div ref={containerRef} className="relative w-full">
       {/* Input container allowing BOTH direct typing with auto-masking and calendar button */}
       <div className="relative">
         <Input
+          {...inputProps}
           id={id}
           type="text"
           disabled={disabled}
@@ -252,8 +266,9 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                   key={idx}
                   type="button"
                   onClick={() => handleSelectDay(dayDate)}
+                  disabled={isDayDisabled(dayDate)}
                   className={cn(
-                    'h-8 w-8 mx-auto flex items-center justify-center rounded-lg text-xs font-medium transition-colors cursor-pointer',
+                    'h-8 w-8 mx-auto flex items-center justify-center rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-30',
                     isSelected
                       ? 'bg-primary text-white font-bold shadow-xs'
                       : inCurrentMonth
@@ -273,7 +288,8 @@ export const DatePicker: React.FC<DatePickerProps> = ({
             <button
               type="button"
               onClick={() => handleSelectDay(new Date())}
-              className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+              disabled={isDayDisabled(new Date())}
+              className="text-[11px] font-semibold text-primary hover:underline cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
             >
               Hôm nay
             </button>

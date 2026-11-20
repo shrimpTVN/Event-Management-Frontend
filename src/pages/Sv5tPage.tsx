@@ -1,6 +1,8 @@
+import { Button } from '@/components/ui/button'
 import React, { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { StudentLeftSidebar } from '@/features/events'
+import { useAuthStore } from '@/features/auth'
 import {
   sv5tService,
   Sv5tHeader,
@@ -9,11 +11,15 @@ import {
   Sv5tTable,
   Sv5tRegulationModal,
   ensureSv5tHierarchy,
+  getStoredEvaluations,
+  setStoredEvaluations,
   type EvaluationScope,
 } from '@/features/sv5t'
 
 export const Sv5tPage: React.FC = () => {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  const userKey = user?.id || user?.email || 'current'
 
   // 1. Fetch Academic Years from mock data
   const { data: academicYears = [] } = useQuery({
@@ -52,24 +58,83 @@ export const Sv5tPage: React.FC = () => {
     queryKey: ['student-criteria-progress', appliedYearId],
     queryFn: () => sv5tService.getStudentCriteriaProgress(appliedYearId),
     enabled: Boolean(appliedYearId),
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   })
 
   // 2b. Fetch All Student Criteria Transactions for appliedYearId
-  const { data: allTransactions = [] } = useQuery({
+  const {
+    data: allTransactions = [],
+    isError: transactionsError,
+    refetch: refetchTransactions,
+  } = useQuery({
     queryKey: ['student-criteria-transactions-all', appliedYearId],
-    queryFn: () => sv5tService.getAllCriteriaTransactions(appliedYearId),
+    queryFn: async () => {
+      try {
+        return await sv5tService.getAllCriteriaTransactions(appliedYearId)
+      } catch {
+        return []
+      }
+    },
     enabled: Boolean(appliedYearId),
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   })
 
-  // Local state for optimistic update of self-evaluation
-  const [localCompletedMap, setLocalCompletedMap] = useState<Record<number, boolean>>({})
-  const [localNoteMap, setLocalNoteMap] = useState<Record<number, string>>({})
+  // Local state for optimistic update and persistence of self-evaluation
+  const [localCompletedMap, setLocalCompletedMap] = useState<Record<number, boolean>>(() => {
+    return getStoredEvaluations(userKey, appliedYearId).completedMap
+  })
+  const [localNoteMap, setLocalNoteMap] = useState<Record<number, string>>(() => {
+    return getStoredEvaluations(userKey, appliedYearId).noteMap
+  })
 
-  // Reset local state when academic year changes
+  // Synchronize local state from localStorage when academic year or user changes
   useEffect(() => {
-    setLocalCompletedMap({})
-    setLocalNoteMap({})
-  }, [appliedYearId])
+    if (appliedYearId) {
+      const stored = getStoredEvaluations(userKey, appliedYearId)
+      setLocalCompletedMap(stored.completedMap)
+      setLocalNoteMap(stored.noteMap)
+    } else {
+      setLocalCompletedMap({})
+      setLocalNoteMap({})
+    }
+  }, [appliedYearId, userKey])
+
+  // Synchronize local state with real DB criteria progress when data arrives from backend
+  useEffect(() => {
+    if (criteriaProgress?.criteria?.length && appliedYearId) {
+      const dbManualMap: Record<number, boolean> = {}
+      const dbNoteMap: Record<number, string> = {}
+
+      const traverse = (node: any) => {
+        if (node.isSelfEvaluated || node.completionSource === 'MANUAL') {
+          dbManualMap[node.criteriaId] = true
+          if (node.selfEvaluationNote || node.note) {
+            dbNoteMap[node.criteriaId] = node.selfEvaluationNote || node.note
+          }
+        }
+        if (Array.isArray(node.children)) {
+          node.children.forEach(traverse)
+        }
+      }
+      criteriaProgress.criteria.forEach(traverse)
+
+      if (Object.keys(dbManualMap).length > 0) {
+        setLocalCompletedMap((prev) => {
+          const next = { ...prev, ...dbManualMap }
+          setStoredEvaluations(userKey, appliedYearId, {
+            completedMap: next,
+            noteMap: { ...localNoteMap, ...dbNoteMap },
+          })
+          return next
+        })
+        setLocalNoteMap((prev) => ({ ...prev, ...dbNoteMap }))
+      }
+    }
+  }, [criteriaProgress, appliedYearId, userKey])
 
   // 3. Mutation to update self-evaluation / progress
   const progressMutation = useMutation({
@@ -81,7 +146,9 @@ export const Sv5tPage: React.FC = () => {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['student-criteria-progress', appliedYearId] })
-      queryClient.invalidateQueries({ queryKey: ['student-criteria-transactions-all', appliedYearId] })
+      queryClient.invalidateQueries({
+        queryKey: ['student-criteria-transactions-all', appliedYearId],
+      })
     },
   })
 
@@ -91,23 +158,29 @@ export const Sv5tPage: React.FC = () => {
       sv5tService.deleteCriteriaTransaction(criteriaTransactionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['student-criteria-progress', appliedYearId] })
-      queryClient.invalidateQueries({ queryKey: ['student-criteria-transactions-all', appliedYearId] })
+      queryClient.invalidateQueries({
+        queryKey: ['student-criteria-transactions-all', appliedYearId],
+      })
     },
   })
 
   const handleSaveProgress = async (criteriaId: number, completed: boolean, note: string) => {
     const finalNote = completed ? note : ''
-    // Optimistically update UI
-    setLocalCompletedMap((prev) => ({ ...prev, [criteriaId]: completed }))
-    setLocalNoteMap((prev) => {
-      const next = { ...prev }
-      if (completed && finalNote) {
-        next[criteriaId] = finalNote
-      } else {
-        delete next[criteriaId]
-      }
-      return next
+    const updatedCompletedMap = { ...localCompletedMap, [criteriaId]: completed }
+    const updatedNoteMap = { ...localNoteMap }
+    if (completed && finalNote) {
+      updatedNoteMap[criteriaId] = finalNote
+    } else {
+      delete updatedNoteMap[criteriaId]
+    }
+
+    setLocalCompletedMap(updatedCompletedMap)
+    setLocalNoteMap(updatedNoteMap)
+    setStoredEvaluations(userKey, appliedYearId, {
+      completedMap: updatedCompletedMap,
+      noteMap: updatedNoteMap,
     })
+
     try {
       await progressMutation.mutateAsync({ criteriaId, completed, note: finalNote })
     } catch (err) {
@@ -116,13 +189,17 @@ export const Sv5tPage: React.FC = () => {
   }
 
   const handleDeleteProgress = async (criteriaTransactionId: number, criteriaId: number) => {
-    // Optimistically update UI
-    setLocalCompletedMap((prev) => ({ ...prev, [criteriaId]: false }))
-    setLocalNoteMap((prev) => {
-      const next = { ...prev }
-      delete next[criteriaId]
-      return next
+    const updatedCompletedMap = { ...localCompletedMap, [criteriaId]: false }
+    const updatedNoteMap = { ...localNoteMap }
+    delete updatedNoteMap[criteriaId]
+
+    setLocalCompletedMap(updatedCompletedMap)
+    setLocalNoteMap(updatedNoteMap)
+    setStoredEvaluations(userKey, appliedYearId, {
+      completedMap: updatedCompletedMap,
+      noteMap: updatedNoteMap,
     })
+
     try {
       await deleteProgressMutation.mutateAsync(criteriaTransactionId)
     } catch (err) {
@@ -154,7 +231,7 @@ export const Sv5tPage: React.FC = () => {
   }, [criteriaProgress, academicYears, appliedYearId])
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden bg-[#F0F2F5] dark:bg-background">
+    <div className="w-full h-full flex flex-col overflow-hidden bg-muted/40 font-sans">
       <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
         {/* Left Sidebar */}
         <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
@@ -192,6 +269,15 @@ export const Sv5tPage: React.FC = () => {
                 isLoading={isLoading}
               />
             </div>
+
+            {transactionsError && (
+              <div role="alert" className="flex items-center gap-3 text-sm text-muted-foreground">
+                Chưa tải được lịch sử ghi nhận SV5T.
+                <Button variant="outline" size="sm" onClick={() => void refetchTransactions()}>
+                  Thử lại
+                </Button>
+              </div>
+            )}
 
             {/* 4. Detailed Standards Evaluation Table */}
             <Sv5tTable

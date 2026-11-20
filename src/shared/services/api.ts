@@ -33,9 +33,10 @@ apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = tokenGetter()
     const mock = isMockMode()
-    // Do not attach fake mock tokens when connecting to real backend (uses Cookie session)
+    // Do not attach fake mock tokens or Google ID tokens when connecting to real backend (uses Cookie session)
     if (token && config.headers) {
-      if (mock || (!token.startsWith('mock-') && token.trim().length > 0)) {
+      const isGoogleIdToken = token.startsWith('eyJhbGciOiJSUzI1Ni')
+      if (!isGoogleIdToken && (mock || (!token.startsWith('mock-') && token.trim().length > 0))) {
         config.headers.Authorization = `Bearer ${token}`
       }
     }

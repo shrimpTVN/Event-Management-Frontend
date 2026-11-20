@@ -12,11 +12,18 @@ interface EventDetailViewProps {
 }
 
 export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
-  const pointsRewardText =
-    event.pointsReward ||
-    (event.eventPoints && event.eventPoints.length > 0
-      ? event.eventPoints.map((ep) => `+${ep.point}đ ${ep.pointCategoryName || 'ĐRL'}`).join(' • ')
-      : 'Không áp dụng điểm rèn luyện')
+  const hasRealDrL =
+    (event.eventPoints && event.eventPoints.some((ep) => Number(ep.point) > 0)) ||
+    (event.pointsReward && /điểm rèn luyện|đrl|\+\d+\s*đ/i.test(event.pointsReward))
+
+  const pointsRewardText = hasRealDrL
+    ? event.pointsReward && /điểm rèn luyện|đrl|\+\d+\s*đ/i.test(event.pointsReward)
+      ? event.pointsReward
+          .split(' · ')
+          .filter((s) => /điểm rèn luyện|đrl|\+\d+\s*đ/i.test(s))
+          .join(' · ')
+      : event.eventPoints?.map((ep) => `+${ep.point}đ ${ep.pointCategoryName || 'ĐRL'}`).join(' • ')
+    : 'Không áp dụng điểm rèn luyện'
 
   const criteriaText = event.criteriaName || 'Không áp dụng tiêu chí SV5T'
   const organizerName = event.organizerName || event.fanpageName || 'Ban Tổ Chức'
@@ -138,7 +145,11 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
           <div>
             <p className="text-xs text-muted-foreground">Số lượng tham gia</p>
             <p className="text-sm font-semibold">
-              {event.registeredCount || 0} / {event.capacity} sinh viên
+              {event.capacity > 0
+                ? `${event.registeredCount || 0} / ${event.capacity} sinh viên`
+                : (event.registeredCount || 0) > 0
+                  ? `${event.registeredCount} sinh viên đã đăng ký (Không giới hạn)`
+                  : 'Không giới hạn số lượng'}
             </p>
           </div>
         </div>

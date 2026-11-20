@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { MapPin, Calendar as CalendarIcon, Tag } from 'lucide-react'
+import { MapPin, Calendar as CalendarIcon, Tag, Users } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/shared'
 import type { Event } from '../types/event.types'
 
@@ -17,7 +17,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event }) => {
           <span className="font-bold text-sm text-foreground">{formatCurrency(event.price)}</span>
         </div>
 
-        <h2 className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">
+        <h2 className="text-xl font-bold text-foreground group-hover:text-primary transition-colors line-clamp-3">
           <Link to={`/events/${event.id}`}>{event.title}</Link>
         </h2>
 
@@ -34,6 +34,16 @@ export const EventCard: React.FC<EventCardProps> = ({ event }) => {
               {event.location.type === 'ONLINE'
                 ? 'Online Stream'
                 : [event.location.address, event.location.city].filter(Boolean).join(', ') || 'Đang cập nhật địa điểm'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5 text-primary" />
+            <span>
+              {event.capacity > 0
+                ? `${event.registeredCount || 0}/${event.capacity} sinh viên`
+                : (event.registeredCount || 0) > 0
+                  ? `${event.registeredCount} sinh viên`
+                  : 'Không giới hạn'}
             </span>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { PageShell } from '@/shared'
+import { PageShell, RootLayout } from '@/shared'
 import { AuthGuard, STAFF_ROLES, ADMIN_ROLES, STUDENT_ROLES } from '@/features/auth'
 import { HomePage } from '../pages/HomePage'
 import { EventDetailPage } from '../pages/EventDetailPage'
@@ -25,6 +25,10 @@ import { SavedEventsPage } from '../pages/SavedEventsPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 
 export const router = createBrowserRouter([
+  {
+    // Root layout: bao toàn bộ app → TopProgressBar hiện ở MỌI route
+    element: <RootLayout />,
+    children: [
   // 1. Standalone Authentication & Onboarding Routes
   {
     path: '/login',
@@ -270,4 +274,6 @@ export const router = createBrowserRouter([
       },
     ],
   },
+    ], // end RootLayout children
+  },   // end RootLayout route
 ])

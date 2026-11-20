@@ -1,3 +1,4 @@
+import { canStudentSelfCheck } from '@/shared/utils/attendanceConfig'
 import { Tooltip } from '@/components/ui/tooltip'
 import { RegisteredEventBenefits } from './RegisteredEventBenefits'
 import React from 'react'
@@ -51,9 +52,14 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
         )
       case 'COMPLETED':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#E3F5E9] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#15803D] dark:bg-emerald-400" />
-            <span>Hoàn thành</span>
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium',
+              studentAttendanceBadgeClass(event.status)
+            )}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+            <span>{studentAttendanceLabel(event.status)}</span>
           </span>
         )
       case 'ABSENT':
@@ -78,7 +84,7 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
   const canCancel =
     (event.canCancel ?? normalizedStatus === 'UPCOMING') &&
     ['REGISTERED', 'UPCOMING', 'APPROVED'].includes(event.status)
-  const isSelfAttendance = studentAttendanceStep(event.status) != null
+  const isSelfAttendance = canStudentSelfCheck(event) && studentAttendanceStep(event.status) != null
 
   const handleCardClick = () => {
     navigate(`/events/${eventId}`)
@@ -171,7 +177,7 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
                 className="flex-1 inline-flex items-center justify-center py-2 px-3 text-xs font-semibold text-white bg-[#1B4B8A] hover:bg-[#153a6b] rounded-[6px] transition-colors shadow-2xs text-center cursor-pointer"
               >
                 {studentAttendanceStep(event.status) === 'check-out'
-                  ? 'Gửi ảnh cuối buổi'
+                  ? 'Điểm danh cuối buổi'
                   : 'Điểm danh'}
               </button>
             )}

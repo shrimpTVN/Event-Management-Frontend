@@ -119,42 +119,92 @@ export const OtpVerificationForm: React.FC = () => {
     try {
       setIsSubmitting(true)
       setApiError(null)
-      const res: any = await authService.verifyOtp({ email, otp: otpCode })
 
-      const emailUsername = email.split('@')[0] || ''
-      const isStaff = isStaffUser(res?.user) || isStaffEmail(email)
-      const newUserId = Date.now()
-      const defaultUser: User = res?.user || {
-        id: 'usr-' + newUserId,
-        email,
-        name: emailUsername.replace(/[._]/g, ' ') || (isStaff ? 'Cán bộ CTU' : 'Sinh viên CTU'),
-        studentId: !isStaff ? emailUsername.toUpperCase() : undefined,
-        role: isStaff ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT,
-        createdAt: new Date().toISOString(),
-        isProfileComplete: false,
-      }
+      const pendingRaw = sessionStorage.getItem('pending_registration')
+      const pending = pendingRaw ? JSON.parse(pendingRaw) : null
+      const isStaff = isStaffEmail(email)
 
-      const verifiedToken =
-        (res as any)?.tokens?.accessToken || `mock-jwt-token-${newUserId}-${Date.now()}`
+      if (pending && pending.password && !isStaff) {
+        // Complete student registration via backend POST /auth/register
+        const parts = (pending.fullName || '').trim().split(/\s+/)
+        const lastName = pending.lastName || (parts.length > 1 ? parts[0] : 'Sinh viên')
+        const firstName = pending.firstName || (parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'CTU')
 
-      setAuth(
-        {
-          ...defaultUser,
-          role: isStaff ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT,
-          isProfileComplete: false,
-        },
-        verifiedToken
-      )
+        await authService.register({
+          email,
+          password: pending.password,
+          otpCode,
+          firstName,
+          lastName,
+        })
 
-      if (isStaff) {
-        // Staff phải yêu cầu nhập thông tin cán bộ trước, rồi mới sang trang quản lý fanpage
-        navigate('/onboarding/staff', { replace: true })
-      } else {
-        // Sinh viên yêu cầu hoàn tất thông tin sinh viên ngay sau khi xác thực OTP
+        // Auto login immediately
+        const loginRes = await authService.login({
+          email,
+          password: pending.password,
+        })
+
+        sessionStorage.removeItem('pending_registration')
+        setAuth(
+          {
+            ...loginRes.user,
+            isProfileComplete: false,
+          },
+          loginRes.tokens?.accessToken || null
+        )
+
         navigate('/onboarding/student', { replace: true })
+      } else {
+        const res: any = await authService.verifyOtp({ email, otp: otpCode })
+
+        const emailUsername = email.split('@')[0] || ''
+        const staffDetected = isStaffUser(res?.user) || isStaff
+        const newUserId = Date.now()
+        const defaultUser: User = res?.user || {
+          id: 'usr-' + newUserId,
+          email,
+          name: emailUsername.replace(/[._]/g, ' ') || (staffDetected ? 'Cán bộ CTU' : 'Sinh viên CTU'),
+          studentId: !staffDetected ? emailUsername.toUpperCase() : undefined,
+          role: staffDetected ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT,
+          createdAt: new Date().toISOString(),
+          isProfileComplete: false,
+        }
+
+        const verifiedToken =
+          (res as any)?.tokens?.accessToken || `mock-jwt-token-${newUserId}-${Date.now()}`
+
+        setAuth(
+          {
+            ...defaultUser,
+            role: staffDetected ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT,
+            isProfileComplete: false,
+          },
+          verifiedToken
+        )
+
+        if (staffDetected) {
+          // Staff phải yêu cầu nhập thông tin cán bộ trước, rồi mới sang trang quản lý fanpage
+          navigate('/onboarding/staff', { replace: true })
+        } else {
+          // Sinh viên yêu cầu hoàn tất thông tin sinh viên ngay sau khi xác thực OTP
+          navigate('/onboarding/student', { replace: true })
+        }
       }
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || ''; if (typeof msg === 'string' && (msg.includes('can\'t be blank') || msg.includes('otpCode'))) { setApiError('Mã OTP không được để trống.'); } else if (typeof msg === 'string' && (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('expired') || msg.toLowerCase().includes('wrong'))) { setApiError('Mã OTP không chính xác hoặc đã hết hạn.'); } else { setApiError(msg || 'Mã OTP không chính xác hoặc đã hết hạn.'); }
+      const msg = err.response?.data?.message || err.message || ''
+      if (typeof msg === 'string' && (msg.includes("can't be blank") || msg.includes('otpCode'))) {
+        setApiError('Mã OTP không được để trống.')
+      } else if (
+        typeof msg === 'string' &&
+        (msg.toLowerCase().includes('invalid') ||
+          msg.toLowerCase().includes('expired') ||
+          msg.toLowerCase().includes('wrong') ||
+          msg.toLowerCase().includes('used'))
+      ) {
+        setApiError('Mã OTP không chính xác hoặc đã hết hạn.')
+      } else {
+        setApiError(msg || 'Mã OTP không chính xác hoặc đã hết hạn.')
+      }
     } finally {
       setIsSubmitting(false)
     }

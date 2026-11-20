@@ -529,24 +529,33 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
             </div>
 
             {/* 3. Benefits / Điểm rèn luyện */}
-            <div className="flex items-start gap-2.5 min-w-0">
-              <Gift className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2] mt-0.5" />
-              <div className="flex flex-col gap-0.5 min-w-0">
-                {(
-                  event.benefitLines ??
-                  (event.pointsReward || 'Cộng điểm rèn luyện')
-                    .split(' · ')
-                    .map((line) => ({ label: line, title: line }))
-                ).map((benefit, i) => (
-                  <TextTooltip
-                    key={i}
-                    className="truncate text-xs font-medium text-foreground"
-                    label={benefit.label}
-                    content={benefit.title}
-                  />
-                ))}
+            {Boolean(
+              (event.benefitLines && event.benefitLines.length > 0) ||
+                (event.pointsReward && event.pointsReward.trim())
+            ) && (
+              <div className="flex items-start gap-2.5 min-w-0">
+                <Gift className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2] mt-0.5" />
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  {(
+                    event.benefitLines ??
+                    (event.pointsReward
+                      ? event.pointsReward
+                          .split(' · ')
+                          .map((line) => line.trim())
+                          .filter(Boolean)
+                          .map((line) => ({ label: line, title: line }))
+                      : [])
+                  ).map((benefit, i) => (
+                    <TextTooltip
+                      key={i}
+                      className="truncate text-xs font-medium text-foreground"
+                      label={benefit.label}
+                      content={benefit.title}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* 4. Quota / Sức chứa */}
             <div className="flex items-center gap-2.5 min-w-0">

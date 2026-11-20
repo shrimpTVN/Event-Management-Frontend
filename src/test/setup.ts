@@ -45,6 +45,10 @@ class MockOffscreenCanvas {
 if (typeof window !== 'undefined') {
   // @ts-ignore
   window.OffscreenCanvas = MockOffscreenCanvas
+  if (typeof HTMLCanvasElement !== 'undefined') {
+    // @ts-ignore
+    HTMLCanvasElement.prototype.getContext = () => new MockOffscreenCanvas().getContext()
+  }
 }
 if (typeof globalThis !== 'undefined') {
   // @ts-ignore

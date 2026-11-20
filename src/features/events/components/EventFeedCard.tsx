@@ -278,7 +278,7 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             <span>{eventTypeDisplay}</span>
           </div>
         )}
-        <h2 className="font-k2d font-semibold text-base leading-snug text-foreground hover:text-[#1F5CA9] transition-colors line-clamp-2">
+        <h2 className="font-k2d font-semibold text-base leading-snug text-foreground hover:text-[#1F5CA9] transition-colors line-clamp-3">
           <Link
             to={`/events/${event.id}`}
             state={{ from: `${location.pathname}${location.search}` }}
@@ -368,26 +368,31 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             </div>
 
             {/* Benefits */}
-            <div className="flex items-start gap-2 min-w-0">
-              <Gift className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2] mt-0.5" />
-              <div className="flex flex-col gap-0.5 min-w-0">
-                {benefitLines.map((benefit, i) => (
-                  <TextTooltip
-                    key={i}
-                    className="truncate font-medium text-white/85"
-                    label={benefit.label}
-                    content={benefit.title}
-                  />
-                ))}
+            {benefitLines.length > 0 && (
+              <div className="flex items-start gap-2 min-w-0">
+                <Gift className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2] mt-0.5" />
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  {benefitLines.map((benefit, i) => (
+                    <TextTooltip
+                      key={i}
+                      className="truncate font-medium text-white/85"
+                      label={benefit.label}
+                      content={benefit.title}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Quota */}
             <div className="flex items-center gap-2 min-w-0">
               <Users className="h-3.5 w-3.5 text-white shrink-0 stroke-[2.2]" />
               <span className="truncate font-medium text-white/85">
-                {event.quotaText ||
-                  (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
+                {event.capacity > 0
+                  ? `${event.registeredCount || 0}/${event.capacity} sinh viên`
+                  : (event.registeredCount || 0) > 0
+                    ? `${event.registeredCount} sinh viên`
+                    : (event.quotaText || 'Không giới hạn')}
               </span>
             </div>
           </div>
@@ -415,26 +420,31 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             </div>
 
             {/* Benefits */}
-            <div className="flex items-start gap-2 min-w-0">
-              <Gift className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0 mt-0.5" />
-              <div className="flex flex-col gap-0.5 min-w-0">
-                {benefitLines.map((benefit, i) => (
-                  <TextTooltip
-                    key={i}
-                    className="truncate text-muted-foreground"
-                    label={benefit.label}
-                    content={benefit.title}
-                  />
-                ))}
+            {benefitLines.length > 0 && (
+              <div className="flex items-start gap-2 min-w-0">
+                <Gift className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0 mt-0.5" />
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  {benefitLines.map((benefit, i) => (
+                    <TextTooltip
+                      key={i}
+                      className="truncate text-muted-foreground"
+                      label={benefit.label}
+                      content={benefit.title}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Quota */}
             <div className="flex items-center gap-2 min-w-0">
               <Users className="h-3.5 w-3.5 text-[#0070A5] dark:text-blue-400 shrink-0" />
-              <span className="truncate text-muted-foreground">
-                {event.quotaText ||
-                  (event.capacity ? `${event.capacity} sinh viên` : 'Không giới hạn')}
+              <span className="truncate text-muted-foreground font-medium">
+                {event.capacity > 0
+                  ? `${event.registeredCount || 0}/${event.capacity} sinh viên`
+                  : (event.registeredCount || 0) > 0
+                    ? `${event.registeredCount} sinh viên`
+                    : (event.quotaText || 'Không giới hạn')}
               </span>
             </div>
           </div>

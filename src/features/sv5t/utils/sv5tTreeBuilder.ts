@@ -288,236 +288,115 @@ export function ensureSv5tHierarchy(
   localNoteMap?: Record<number, string>,
   transactions: any[] = []
 ): CriteriaProgressNode[] {
-  // If server returns dynamic criteria tree, use it directly as primary source of truth
-  if (criteriaProgress?.criteria && criteriaProgress.criteria.length > 0) {
-    let sourceNodes = criteriaProgress.criteria
-    // If backend returns the root node (level 0: Danh hiệu SV5T), unwrap its 5 child standards
-    if (sourceNodes.length === 1 && sourceNodes[0].level === 0 && sourceNodes[0].children?.length) {
-      sourceNodes = sourceNodes[0].children
+  function buildCanonicalNode(
+    definition: {
+      criteriaId: number
+      name: string
+      note?: string | null
+      requiredChildren?: number
+      children?: any[]
+    },
+    index: number,
+    level: number
+  ): CriteriaProgressNode {
+    const children = (definition.children || []).map((child, childIndex) =>
+      buildCanonicalNode(child, childIndex, level + 1)
+    )
+    return {
+      criteriaId: definition.criteriaId,
+      name: definition.name,
+      note: definition.note ?? SV5T_CRITERIA_GUIDES[definition.criteriaId] ?? null,
+      scope: 'UNIVERSITY',
+      level,
+      childrenOrder: index + 1,
+      requiredChildren: children.length ? (definition.requiredChildren ?? 1) : null,
+      isCompleted: false,
+      completedChildren: 0,
+      totalChildren: children.length,
+      children,
     }
+  }
 
-    function applyLocalUpdates(node: CriteriaProgressNode): CriteriaProgressNode {
-      const updatedChildren = node.children ? node.children.map(applyLocalUpdates) : []
-      let isCompleted = node.isCompleted
-      const guideNote = node.note // Giữ nguyên hướng dẫn / quy chế chính thức của tiêu chuẩn
+  let sourceNodes = criteriaProgress?.criteria?.length
+    ? criteriaProgress.criteria
+    : CANONICAL_SV5T_STANDARDS.map((standard, index) => buildCanonicalNode(standard, index, 1))
+  if (sourceNodes.length === 1 && sourceNodes[0].level === 0 && sourceNodes[0].children?.length) {
+    sourceNodes = sourceNodes[0].children
+  }
 
-      const matchingTxs = transactions
-        .filter((t) => Number(t.criteriaId) === node.criteriaId)
-        .sort((a, b) => {
-          const timeA = new Date(a.createdAt || 0).getTime() || a.id || 0
-          const timeB = new Date(b.createdAt || 0).getTime() || b.id || 0
-          return timeB - timeA
-        })
-      const systemTx = matchingTxs.find(
-        (t) => t.completionSource === 'EVENT_CHECKOUT' || t.completionSource === 'SYSTEM' || Boolean(t.eventId)
+  function applyProgress(node: CriteriaProgressNode): CriteriaProgressNode {
+    const children = (node.children || []).map(applyProgress)
+    const matchingTxs = transactions
+      .filter((transaction) => Number(transaction.criteriaId) === node.criteriaId)
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime() ||
+          Number(b.id || 0) - Number(a.id || 0)
       )
-      const manualTx = matchingTxs.find((t) => t.completionSource === 'MANUAL')
-
-      const isSystemRecorded = Boolean(systemTx)
-
-      if (localCompletedMap && Object.prototype.hasOwnProperty.call(localCompletedMap, node.criteriaId)) {
-        isCompleted = Boolean(localCompletedMap[node.criteriaId])
-      } else if (updatedChildren.length > 0) {
-        const doneCount = updatedChildren.filter((c) => c.isCompleted).length
-        const req = node.requiredChildren ?? updatedChildren.length
-        isCompleted = doneCount >= req
-      }
-
-      const isSelfEvaluated = isCompleted && !isSystemRecorded
-
-      const completionSource = isCompleted
-        ? systemTx
-          ? (systemTx.completionSource as any)
-          : manualTx
-            ? 'MANUAL'
-            : node.completionSource ?? 'MANUAL'
-        : null
-
-      const completedChildren = updatedChildren.filter((c) => c.isCompleted).length
-
-      // Nội dung tự đánh giá chỉ tồn tại khi tiêu chuẩn đạt (isCompleted). Khi chưa đạt thì xóa sạch.
-      const customNote = isCompleted
-        ? (localNoteMap?.[node.criteriaId] && !isGenericText(localNoteMap[node.criteriaId])
-            ? localNoteMap[node.criteriaId]
-            : manualTx?.note && !isGenericText(manualTx.note)
-              ? manualTx.note
-              : null)
-        : null
-
-      return {
-        ...node,
-        isCompleted,
-        note: guideNote,
-        completedChildren,
-        totalChildren: updatedChildren.length,
-        completionSource,
-        isSystemRecorded,
-        isSelfEvaluated,
-        systemEventName: systemTx?.eventName || null,
-        selfEvaluationNote: customNote,
-        children: updatedChildren,
-      }
-    }
-
-    return sourceNodes.map(applyLocalUpdates)
-  }
-
-  // Collect completed statuses from API response
-  const completedMap = new Map<number, { completionSource?: string; completedAt?: string; note?: string; isSystemRecorded?: boolean; eventName?: string }>()
-
-  // Overlay transactions data if available (sorted newest first)
-  if (transactions && transactions.length > 0) {
-    const sortedAll = [...transactions].sort((a, b) => {
-      const timeA = new Date(a.createdAt || 0).getTime() || a.id || 0
-      const timeB = new Date(b.createdAt || 0).getTime() || b.id || 0
-      return timeB - timeA
-    })
-    sortedAll.forEach((t) => {
-      const id = Number(t.criteriaId)
-      if (!completedMap.has(id)) {
-        const isSystem = t.completionSource === 'EVENT_CHECKOUT' || t.completionSource === 'SYSTEM' || Boolean(t.eventId)
-        completedMap.set(id, {
-          completionSource: t.completionSource,
-          completedAt: t.createdAt,
-          note: t.note,
-          isSystemRecorded: isSystem,
-          eventName: t.eventName,
-        })
-      }
-    })
-  }
-
-  // Overlay API data if available
-  if (criteriaProgress?.criteria) {
-    function indexNodes(nodes: CriteriaProgressNode[]) {
-      nodes.forEach((n) => {
-        if (n.isCompleted) {
-          completedMap.set(n.criteriaId, {
-            completionSource: n.completionSource || 'MANUAL',
-            completedAt: n.completedAt || undefined,
-            note: n.note || undefined,
-          })
-        }
-        if (n.children && n.children.length > 0) {
-          indexNodes(n.children)
-        }
-      })
-    }
-    indexNodes(criteriaProgress.criteria)
-  }
-
-  // Overlay local optimistic changes
-  if (localCompletedMap) {
-    Object.entries(localCompletedMap).forEach(([idStr, done]) => {
-      const id = Number(idStr)
-      if (done) {
-        const prev = completedMap.get(id) || {}
-        const customNote = localNoteMap?.[id] && !isGenericText(localNoteMap[id]) ? localNoteMap[id] : undefined
-        completedMap.set(id, {
-          ...prev,
-          completionSource: 'MANUAL',
-          note: customNote || (!isGenericText(prev.note) ? prev.note : undefined) || SV5T_CRITERIA_GUIDES[id],
-        })
-      } else {
-        completedMap.delete(id)
-      }
-    })
-  }
-
-  // Construct standards tree
-  return CANONICAL_SV5T_STANDARDS.map((std, stdIdx) => {
-    const directChildrenNodes: CriteriaProgressNode[] = std.children.map((child, chIdx) => {
-      // Check if child has subChildren
-      if (child.children && child.children.length > 0) {
-        const subNodes: CriteriaProgressNode[] = child.children.map((sub, sIdx) => {
-          const compInfo = completedMap.get(sub.criteriaId)
-          const isCompleted = Boolean(compInfo)
-          const customNote = compInfo?.note && !isGenericText(compInfo.note) ? compInfo.note : null
-          const guideNote = sub.note || SV5T_CRITERIA_GUIDES[sub.criteriaId] || null
-          return {
-            criteriaId: sub.criteriaId,
-            name: sub.name,
-            note: guideNote,
-            scope: 'UNIVERSITY',
-            level: 3,
-            childrenOrder: sIdx + 1,
-            requiredChildren: null,
-            isCompleted,
-            completedChildren: isCompleted ? 1 : 0,
-            totalChildren: 0,
-            completionSource: (compInfo?.completionSource as any) || null,
-            completedAt: compInfo?.completedAt || (isCompleted ? '2026-08-15T14:00:00Z' : null),
-            isSystemRecorded: compInfo?.isSystemRecorded,
-            isSelfEvaluated: isCompleted && !compInfo?.isSystemRecorded,
-            systemEventName: compInfo?.eventName || null,
-            selfEvaluationNote: isCompleted ? (customNote || null) : null,
-            children: [],
-          }
-        })
-
-        const completedSub = subNodes.filter((s) => s.isCompleted).length
-        const isGroupCompleted = completedSub >= 1
-
-        return {
-          criteriaId: child.criteriaId,
-          name: child.name,
-          note: child.note ?? SV5T_CRITERIA_GUIDES[child.criteriaId] ?? null,
-          scope: 'UNIVERSITY',
-          level: 2,
-          childrenOrder: chIdx + 1,
-          requiredChildren: 1,
-          isCompleted: isGroupCompleted,
-          completedChildren: completedSub,
-          totalChildren: subNodes.length,
-          completionSource: isGroupCompleted ? 'MANUAL' : null,
-          completedAt: isGroupCompleted ? '2026-08-15T14:00:00Z' : null,
-          children: subNodes,
-        }
-      }
-
-      // Direct leaf
-      const compInfo = completedMap.get(child.criteriaId)
-      const isCompleted = Boolean(compInfo)
-      const customNote = compInfo?.note && !isGenericText(compInfo.note) ? compInfo.note : null
-      const guideNote = child.note || SV5T_CRITERIA_GUIDES[child.criteriaId] || null
-      return {
-        criteriaId: child.criteriaId,
-        name: child.name,
-        note: guideNote,
-        scope: 'UNIVERSITY',
-        level: 2,
-        childrenOrder: chIdx + 1,
-        requiredChildren: null,
-        isCompleted,
-        completedChildren: isCompleted ? 1 : 0,
-        totalChildren: 0,
-        completionSource: (compInfo?.completionSource as any) || null,
-        completedAt: compInfo?.completedAt || (isCompleted ? '2026-08-15T14:00:00Z' : null),
-        isSystemRecorded: compInfo?.isSystemRecorded,
-        isSelfEvaluated: isCompleted && !compInfo?.isSystemRecorded,
-        systemEventName: compInfo?.eventName || null,
-        selfEvaluationNote: isCompleted ? (customNote || null) : null,
-        children: [],
-      }
-    })
-
-    const completedDirect = directChildrenNodes.filter((c) => c.isCompleted).length
-    const isStandardCompleted = completedDirect >= std.requiredChildren
+    const systemTxs = matchingTxs.filter(
+      (transaction) =>
+        transaction.completionSource === 'EVENT_CHECKOUT' ||
+        transaction.completionSource === 'SYSTEM' ||
+        Boolean(transaction.eventId)
+    )
+    const systemTx = systemTxs[0]
+    const recordedOccurrences = Math.max(
+      Number(node.recordedOccurrences || 0),
+      new Set(systemTxs.map((t) => (t.eventId != null ? `event:${t.eventId}` : `system:${t.id}`)))
+        .size
+    )
+    const manualTx = matchingTxs.find((transaction) => transaction.completionSource === 'MANUAL')
+    const hasLocalEvaluation = Object.prototype.hasOwnProperty.call(
+      localCompletedMap || {},
+      node.criteriaId
+    )
+    // Only an explicit manual record or a student's own action can set self-evaluation.
+    const isSelfEvaluated = hasLocalEvaluation
+      ? Boolean(localCompletedMap?.[node.criteriaId])
+      : Boolean(manualTx || node.isSelfEvaluated || node.completionSource === 'MANUAL')
+    const isSystemRecorded = Boolean(
+      systemTx ||
+      node.isSystemRecorded ||
+      node.completionSource === 'EVENT_CHECKOUT' ||
+      node.completionSource === 'SYSTEM' ||
+      recordedOccurrences > 0
+    )
+    const isSystemCompleted =
+      (node.requiredOccurrences || 1) > 1
+        ? recordedOccurrences >= (node.requiredOccurrences || 1)
+        : isSystemRecorded
+    const completedChildren = children.filter((child) => child.isCompleted).length
+    const isCompleted = children.length
+      ? completedChildren >= (node.requiredChildren ?? children.length)
+      : (node.requiredOccurrences || 1) > 1
+        ? isSystemCompleted
+        : isSystemCompleted ||
+          isSelfEvaluated ||
+          (!hasLocalEvaluation && node.isCompleted && !node.completionSource)
+    const manualNote = hasLocalEvaluation
+      ? localNoteMap?.[node.criteriaId]
+      : (manualTx?.note ?? node.selfEvaluationNote)
 
     return {
-      criteriaId: std.criteriaId,
-      name: std.name,
-      note: std.note ?? null,
-      scope: 'UNIVERSITY',
-      level: 1,
-      childrenOrder: stdIdx + 1,
-      requiredChildren: std.requiredChildren,
-      isCompleted: isStandardCompleted,
-      completedChildren: completedDirect,
-      totalChildren: directChildrenNodes.length,
-      completionSource: isStandardCompleted ? 'MANUAL' : null,
-      completedAt: isStandardCompleted ? '2026-08-15T14:00:00Z' : null,
-      children: directChildrenNodes,
+      ...node,
+      children,
+      isCompleted,
+      completedChildren,
+      totalChildren: children.length,
+      completionSource: isSystemCompleted
+        ? systemTx?.completionSource === 'SYSTEM' || node.completionSource === 'SYSTEM'
+          ? 'SYSTEM'
+          : 'EVENT_CHECKOUT'
+        : isSelfEvaluated
+          ? 'MANUAL'
+          : null,
+      recordedOccurrences,
+      isSystemRecorded,
+      isSelfEvaluated,
+      systemEventName: systemTx?.eventName ?? node.systemEventName ?? null,
+      selfEvaluationNote: isSelfEvaluated && !isGenericText(manualNote) ? manualNote : null,
     }
-  })
+  }
+
+  return sourceNodes.map(applyProgress)
 }

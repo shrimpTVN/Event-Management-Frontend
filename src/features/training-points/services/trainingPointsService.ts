@@ -19,14 +19,10 @@ export const trainingPointsService = {
   async getSemesterPointGroupedTree(
     semesterId: number
   ): Promise<StudentSemesterPointGroupedTree[]> {
-    try {
-      const res = await apiClient.get<unknown, StudentSemesterPointGroupedTree[]>(
-        `/student-semester-points/grouped-tree/${semesterId}`
-      )
-      return Array.isArray(res) ? res : []
-    } catch {
-      return []
-    }
+    const res = await apiClient.get<unknown, StudentSemesterPointGroupedTree[]>(
+      `/student-semester-points/grouped-tree/${semesterId}`
+    )
+    return Array.isArray(res) ? res : []
   },
 
   /**
@@ -84,20 +80,19 @@ export const trainingPointsService = {
     semesterId: number,
     pointCategoryId: number
   ): Promise<PointTransaction[]> {
-    try {
-      const res = await apiClient.get<unknown, PointTransaction[]>(
-        `/point-transactions/me/semesters/${semesterId}/point-categories/${pointCategoryId}`
-      )
-      return Array.isArray(res) ? res : []
-    } catch {
-      return []
-    }
+    const res = await apiClient.get<unknown, PointTransaction[]>(
+      `/point-transactions/me/semesters/${semesterId}/point-categories/${pointCategoryId}`
+    )
+    return Array.isArray(res) ? res : []
   },
 
   /**
    * Lấy danh sách các giao dịch / điểm ghi nhận của sinh viên trong học kỳ
    */
-  async getPointTransactions(semesterId: number, categoryIds?: number[]): Promise<PointTransaction[]> {
+  async getPointTransactions(
+    semesterId: number,
+    categoryIds?: number[]
+  ): Promise<PointTransaction[]> {
     try {
       let targetIds = categoryIds
       if (!targetIds || targetIds.length === 0) {

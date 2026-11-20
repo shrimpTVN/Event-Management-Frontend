@@ -9,7 +9,7 @@ export function RegisteredEventBenefits({ event }: { event: RegisteredEventItem 
     event.benefits?.length ? event.benefits : [event.pointsCategory, event.criteriaSv5t]
   )
     .filter((benefit): benefit is string => typeof benefit === 'string' && Boolean(benefit.trim()))
-    .map((text) => {
+    .map((text, index) => {
       const isSv5t = /SV\s*5\s*T|sinh viên 5 tốt/i.test(text) || text === event.criteriaSv5t
       const isPoint =
         !isSv5t &&
@@ -17,6 +17,7 @@ export function RegisteredEventBenefits({ event }: { event: RegisteredEventItem 
           text === event.pointsCategory)
       return {
         type: isSv5t ? 'sv5t' : isPoint ? 'point' : 'other',
+        detail: event.benefitDetails?.[index]?.replace(/ĐRL|DRL/gi, 'điểm'),
         text: text
           .replace(/ĐRL|DRL/gi, 'điểm')
           .replace(/^(?:Tiêu chuẩn|Tiêu chí)?\s*(?:SV\s*5\s*T|sinh viên 5 tốt)\s*:\s*/i, '')
@@ -114,7 +115,9 @@ export function RegisteredEventBenefits({ event }: { event: RegisteredEventItem 
                           key={itemIndex}
                           className="whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground"
                         >
-                          {benefit.text}
+                          {benefit.type === 'sv5t' && benefit.text === event.criteriaSv5t
+                            ? event.criteriaSv5tDetail || benefit.text
+                            : benefit.detail || benefit.text}
                         </li>
                       ))}
                     </ul>

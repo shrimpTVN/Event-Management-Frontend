@@ -303,10 +303,25 @@ export const SuperAdminPage: React.FC = () => {
     }
   }
 
-  const handleRejectFanpage = async (_fanpageId: string, _reason: string) => {
-    setLoadError(
-      'Chưa thể gửi lý do từ chối đăng ký từ trang này. Vui lòng dùng thao tác tạm khóa nếu cần.'
+  const handleRejectFanpage = async (fanpageId: string, reason: string) => {
+    try {
+      await superAdminService.rejectFanpage(fanpageId, reason)
+    } catch (err) {
+      console.warn('API error rejecting fanpage:', err)
+      setLoadError('Không thể gửi lý do từ chối đăng ký. Vui lòng thử lại.')
+      return
+    }
+
+    setFanpages((prev) =>
+      prev.map((f) =>
+        f.id === fanpageId ? { ...f, status: 'REJECTED' as any, rejectionReason: reason } : f
+      )
     )
+    if (selectedFanpage?.id === fanpageId) {
+      setSelectedFanpage((prev) =>
+        prev ? { ...prev, status: 'REJECTED' as any, rejectionReason: reason } : null
+      )
+    }
   }
 
   const handleToggleLockFanpage = async (fanpageId: string) => {

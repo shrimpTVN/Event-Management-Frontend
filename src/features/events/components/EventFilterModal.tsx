@@ -1,3 +1,5 @@
+import { matchesEventFilters, eventFilterChips } from '../utils/eventFilters'
+import { Input } from '@/components/ui/input'
 import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
@@ -16,11 +18,7 @@ import {
   eventFilterOptionsService,
   type EventFilterOptions,
 } from '../services/eventFilterOptionsService'
-import {
-  eventService,
-  isEventMatchingRegistrationStatus,
-  resolveAllowedPointCategoryIds,
-} from '../services/eventService'
+import { eventService, resolveAllowedPointCategoryIds } from '../services/eventService'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -61,13 +59,17 @@ interface EventFilterModalProps {
 const STATUS_CHIPS = [
   { key: 'OPEN_REGISTRATION', label: 'Đang mở đăng ký' },
   { key: 'PUBLISHED', label: 'Sắp diễn ra' },
+  { key: 'CLOSED_REGISTRATION', label: 'Đã đóng đăng ký' },
+  { key: 'ONGOING', label: 'Đang diễn ra' },
   { key: 'COMPLETED', label: 'Đã kết thúc' },
 ]
+
+const EMPTY_FILTER_VALUES: EventFilterFormValues = {}
 
 export const EventFilterModal: React.FC<EventFilterModalProps> = ({
   isOpen,
   onClose,
-  initialValues = {},
+  initialValues = EMPTY_FILTER_VALUES,
   onApply,
   events,
   hideFanpageFilter = false,
@@ -124,12 +126,12 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
   // Dữ liệu sự kiện dùng để tính toán đếm số lượng kết quả xem trước
   const { data: fallbackEvents = [] } = useQuery<any[]>({
     queryKey: ['events', 'filter-modal-preview'],
-    queryFn: () => eventService.getEvents({ size: 100 }),
+    queryFn: () => eventService.getEvents(),
     staleTime: 60 * 1000,
-    enabled: isOpen && (!events || events.length === 0),
+    enabled: isOpen && events === undefined,
   })
 
-  const previewSourceEvents = events && events.length > 0 ? events : fallbackEvents
+  const previewSourceEvents = events ?? fallbackEvents
 
   // Đồng bộ khi mở modal
   useEffect(() => {
@@ -195,6 +197,20 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           setTimePreset('CUSTOM')
         }
       }
+    }
+  }, [isOpen, initialValues])
+
+  useEffect(() => {
+    if (
+      isOpen &&
+      !initialValues.academicYear &&
+      initialValues.semesterId &&
+      selectedAcademicYear === 'ALL'
+    ) {
+      const semester = options?.semesters.find(
+        (item) => String(item.id) === initialValues.semesterId
+      )
+      if (semester?.academicYear) setSelectedAcademicYear(semester.academicYear)
     }
   }, [isOpen, initialValues, options?.semesters])
 
@@ -434,7 +450,14 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
   }
 
   // Áp dụng bộ lọc
+  const invalidDateRange = Boolean(
+    formValues.dateHappenFrom &&
+    formValues.dateHappenTo &&
+    formValues.dateHappenFrom > formValues.dateHappenTo
+  )
+
   const handleApply = () => {
+    if (invalidDateRange) return
     const allChildCriteriaIds = new Set<string>()
     selectedCriteriaIds.forEach((cid) => {
       allChildCriteriaIds.add(cid)
@@ -444,199 +467,36 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
       }
     })
 
-    const selectedPointCategory = options?.pointCategories.find(
-      (pc) => String(pc.id) === String(formValues.pointCategoryId)
+    const allowedPointIds = resolveAllowedPointCategoryIds(
+      selectedPointCategoryIds,
+      options?.pointCategories
     )
 
     const finalValues: EventFilterFormValues = {
       ...formValues,
       criteriaId: selectedCriteriaIds.join(',') || undefined,
-      fanpageId: selectedFanpageIds[0] || undefined,
-      fanpageIds: selectedFanpageIds.length > 0 ? selectedFanpageIds : undefined,
+      fanpageId: hideFanpageFilter ? undefined : selectedFanpageIds[0] || undefined,
+      fanpageIds:
+        !hideFanpageFilter && selectedFanpageIds.length > 0 ? selectedFanpageIds : undefined,
       academicYear: selectedAcademicYear !== 'ALL' ? selectedAcademicYear : undefined,
-      childCriteriaIds: allChildCriteriaIds.size > 0
-        ? Array.from(allChildCriteriaIds)
-        : undefined,
-      childCategoryIds: selectedPointCategory?.childIds
-        ? selectedPointCategory.childIds.map(String)
-        : undefined,
+      childCriteriaIds: allChildCriteriaIds.size > 0 ? Array.from(allChildCriteriaIds) : undefined,
+      childCategoryIds: allowedPointIds.size ? [...allowedPointIds].map(String) : undefined,
     }
 
     onApply(finalValues)
     onClose()
   }
 
-  // Tính số lượng sự kiện khớp theo thời gian thực (Live Preview Count)
-  const previewMatchingCount = useMemo(() => {
-    if (!previewSourceEvents || previewSourceEvents.length === 0) return 0
-    const now = new Date()
-
-    // 1. Resolve allowed point category IDs respecting parent/child hierarchy
-    const allowedPointCatIds = resolveAllowedPointCategoryIds(
-      selectedPointCategoryIds,
-      options?.pointCategories
-    )
-
-    // 2. Resolve academic year matching semester IDs
-    const matchingYearSemesterIds = new Set<string>()
-    if (selectedAcademicYear && selectedAcademicYear !== 'ALL' && options?.semesters) {
-      options.semesters.forEach((s) => {
-        const cleanSemYear = (s.academicYear || '').replace(/\s+/g, '')
-        const cleanTargetYear = selectedAcademicYear.replace(/\s+/g, '')
-        if (cleanSemYear && cleanSemYear === cleanTargetYear) {
-          matchingYearSemesterIds.add(String(s.id))
-        }
-      })
-    }
-
-    return previewSourceEvents.filter((evt: any) => {
-      // 1. Trạng thái sự kiện (Đang mở đăng ký, Sắp diễn ra, Đã kết thúc)
-      if (selectedStatuses.length > 0) {
-        const matches = selectedStatuses.some((st) =>
-          isEventMatchingRegistrationStatus(evt, st, now)
-        )
-        if (!matches) return false
-      }
-
-      // 2. Loại hình sự kiện (Combobox multi-select)
-      if (selectedTypeIds.length > 0) {
-        const evtTypeId = String(evt.eventTypeId ?? evt.categoryId ?? '')
-        const evtTypeName = (
-          evt.eventTypeName ||
-          evt.category ||
-          evt.name ||
-          evt.title ||
-          ''
-        ).toLowerCase()
-        const selectedLabels =
-          options?.eventTypes
-            ?.filter((et) => selectedTypeIds.includes(String(et.id)))
-            .map((et) => et.label.toLowerCase()) || []
-
-        const matchesId = evtTypeId && selectedTypeIds.includes(evtTypeId)
-        const matchesName = selectedLabels.some((lbl) => lbl && evtTypeName.includes(lbl))
-        const matchesFallback = selectedTypeIds.some((tid) =>
-          evtTypeName.includes(tid.toLowerCase())
-        )
-
-        if (!matchesId && !matchesName && !matchesFallback) return false
-      }
-
-      // 3. Quyền lợi ĐRL
-      if (selectedPointCategoryIds.length > 0) {
-        if (allowedPointCatIds.size > 0) {
-          let hasMatch = false
-          if (Array.isArray(evt.eventPoints) && evt.eventPoints.length > 0) {
-            hasMatch = evt.eventPoints.some((ep: any) =>
-              allowedPointCatIds.has(Number(ep.pointCategoryId || ep.id))
-            )
-          } else if (evt.pointCategoryId) {
-            hasMatch = allowedPointCatIds.has(Number(evt.pointCategoryId))
-          }
-          if (!hasMatch) return false
-        } else {
-          return false
-        }
-      }
-
-      // 4. Tiêu chuẩn SV5T (Hỗ trợ multi-select)
-      if (selectedCriteriaIds.length > 0) {
-        const allowedCritIds = new Set<string>()
-        const critNames: string[] = []
-        const keywords: string[] = []
-
-        selectedCriteriaIds.forEach((cid) => {
-          allowedCritIds.add(cid)
-          const crit = options?.criterias?.find((c) => String(c.id) === cid)
-          if (crit?.childIds) {
-            crit.childIds.forEach((id) => allowedCritIds.add(String(id)))
-          }
-          if (crit?.childNames) {
-            crit.childNames.forEach((cn) => critNames.push(cn.toLowerCase()))
-          }
-          if (crit?.keywords) {
-            crit.keywords.forEach((kw) => keywords.push(kw.toLowerCase()))
-          }
-          if (crit?.label) {
-            const clean = crit.label.toLowerCase().replace('tiêu chuẩn', '').trim()
-            critNames.push(clean)
-            if (clean.includes('tình nguyện')) keywords.push('tình nguyện', 'hiến máu')
-            else if (clean.includes('đạo đức')) keywords.push('đạo đức', 'lối sống')
-            else if (clean.includes('thể lực')) keywords.push('thể lực', 'thể thao')
-            else if (clean.includes('học tập')) keywords.push('học tập')
-            else if (clean.includes('hội nhập')) keywords.push('hội nhập', 'ngoại ngữ', 'tin học')
-          }
-        })
-
-        const evtCritId = evt.criteriaId != null ? String(evt.criteriaId) : ''
-        const evtCritName = (evt.criteriaName || evt.sv5tCriteriaName || '').toLowerCase()
-
-        const hasIdMatch = evtCritId && allowedCritIds.has(evtCritId)
-        const hasNameMatch =
-          evtCritName &&
-          (critNames.some((cn) => cn && (evtCritName.includes(cn) || cn.includes(evtCritName))) ||
-           keywords.some((kw) => kw && evtCritName.includes(kw)))
-
-        if (!hasIdMatch && !hasNameMatch) return false
-      }
-
-      // 5. Đơn vị tổ chức (Hỗ trợ multi-select)
-      if (!hideFanpageFilter) {
-        if (selectedFanpageIds.length > 0) {
-          const evtOrgId = String(evt.organizerId || evt.fanpageId || '')
-          if (!selectedFanpageIds.includes(evtOrgId)) return false
-        } else if (formValues.fanpageId) {
-          if (String(evt.organizerId || evt.fanpageId || '') !== String(formValues.fanpageId))
-            return false
-        }
-      }
-
-      // 6. Năm học (Nâng cao)
-      if (selectedAcademicYear && selectedAcademicYear !== 'ALL') {
-        const evtSemId = String(evt.semesterId || evt.semester?.id || '')
-        if (evtSemId && matchingYearSemesterIds.size > 0) {
-          if (!matchingYearSemesterIds.has(evtSemId)) return false
-        }
-      }
-
-      // 7. Học kỳ (Nâng cao)
-      if (formValues.semesterId && formValues.semesterId !== 'ALL') {
-        const evtSemId = String(evt.semesterId || evt.semester?.id || '')
-        if (evtSemId !== String(formValues.semesterId)) return false
-      }
-
-      // 8. Khoảng thời gian
-      if (formValues.dateHappenFrom) {
-        const evtDate = evt.startTime || evt.dateHappen || evt.createdAt
-        if (evtDate && evtDate.slice(0, 10) < formValues.dateHappenFrom) return false
-      }
-      if (formValues.dateHappenTo) {
-        const evtDate = evt.endTime || evt.startTime || evt.dateHappen || evt.createdAt
-        if (evtDate && evtDate.slice(0, 10) > formValues.dateHappenTo) return false
-      }
-
-      return true
-    }).length
-  }, [
-    previewSourceEvents,
-    selectedStatuses,
-    selectedTypeIds,
-    selectedPointCategoryIds,
-    selectedCriteriaIds,
-    selectedFanpageIds,
-    selectedAcademicYear,
-    formValues,
-    options?.pointCategories,
-    options?.criterias,
-    options?.semesters,
-  ])
-
-  const activeCount =
-    Object.values({
-      ...formValues,
-      academicYear: selectedAcademicYear !== 'ALL' ? selectedAcademicYear : undefined,
-      fanpageId: undefined,
-    }).filter(Boolean).length + (selectedFanpageIds.length > 0 ? 1 : 0)
+  const draftValues = {
+    ...formValues,
+    academicYear: selectedAcademicYear === 'ALL' ? undefined : selectedAcademicYear,
+    fanpageId: hideFanpageFilter ? undefined : selectedFanpageIds[0],
+    fanpageIds: hideFanpageFilter ? undefined : selectedFanpageIds,
+  }
+  const previewMatchingCount = previewSourceEvents.filter((event) =>
+    matchesEventFilters(event, draftValues, options)
+  ).length
+  const activeCount = eventFilterChips(draftValues, options).length
 
   // Đếm số lượng bộ lọc đang bật bên trong phần Nâng cao
   const advancedActiveCount = [
@@ -687,8 +547,8 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
   // Style chips chuẩn: Nổi bật rõ nét khi chọn (Nền xanh đặc chữ trắng), êm dịu khi chưa chọn
   const getChipClass = (isSelected: boolean) =>
     isSelected
-      ? 'px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary text-primary-foreground shadow-xs border border-primary transition-all cursor-pointer ring-2 ring-primary/20'
-      : 'px-3 py-1.5 rounded-xl text-xs font-medium bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/70 transition-all cursor-pointer'
+      ? 'px-3 py-1.5 h-8 rounded-lg text-xs font-medium bg-primary/10 text-primary border border-primary/25 transition-colors cursor-pointer'
+      : 'px-3 py-1.5 h-8 rounded-lg text-xs font-medium bg-background hover:bg-muted text-muted-foreground hover:text-foreground border border-border/70 transition-all cursor-pointer'
 
   if (!isOpen) return null
 
@@ -706,8 +566,11 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
       {/* Filter Drawer: Right Slide-over on Desktop, Bottom Sheet on Mobile */}
       <div
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Bộ lọc sự kiện"
         onClick={(e) => e.stopPropagation()}
-        className="relative pointer-events-auto w-full sm:w-[480px] sm:max-w-[480px] h-auto max-h-[90vh] sm:max-h-full sm:h-full overflow-hidden bg-white dark:bg-card border-t sm:border-t-0 sm:border-l border-border/80 rounded-t-3xl sm:rounded-none shadow-2xl text-left animate-in slide-in-from-bottom-6 sm:slide-in-from-right duration-300 select-none flex flex-col"
+        className="relative pointer-events-auto w-full sm:w-[440px] sm:max-w-[440px] h-auto max-h-[90vh] sm:max-h-full sm:h-full overflow-hidden bg-white dark:bg-card border-t sm:border-t-0 sm:border-l border-border/80 rounded-t-xl sm:rounded-none shadow-2xl text-left animate-in slide-in-from-bottom-6 sm:slide-in-from-right duration-300 select-none flex flex-col"
       >
         {/* Mobile Swipe Handle Indicator */}
         <div className="pt-2.5 pb-1 sm:hidden flex justify-center">
@@ -715,7 +578,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-border/50 shrink-0 bg-muted/20">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-border/50 shrink-0 bg-muted/20">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="font-k2d font-bold text-base sm:text-lg text-foreground tracking-tight">
@@ -727,26 +590,25 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Tùy chỉnh tiêu chí tìm kiếm sự kiện phù hợp
-            </p>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
             aria-label="Đóng bộ lọc"
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
         {/* Filter Content - Cuộn mượt mà */}
-        <div className="px-5 sm:px-6 py-4 space-y-4 overflow-y-auto custom-scrollbar flex-1 divide-y divide-border/40">
+        <div className="flex flex-col px-4 sm:px-5 py-4 gap-3 overflow-y-auto custom-scrollbar flex-1 min-h-0 divide-y divide-border/40">
           {/* ============================================================ */}
           {/* 1. Trạng thái (hay dùng nhất - Không cần chip Tất cả)        */}
           {/* ============================================================ */}
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <span className="text-xs font-semibold text-foreground/80 block">
               Trạng thái sự kiện
             </span>
@@ -754,14 +616,17 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
               {STATUS_CHIPS.map((chip) => {
                 const isSelected = selectedStatuses.includes(chip.key)
                 return (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     key={chip.key}
                     type="button"
                     onClick={() => handleToggleStatus(chip.key)}
+                    aria-pressed={isSelected}
                     className={getChipClass(isSelected)}
                   >
                     {chip.label}
-                  </button>
+                  </Button>
                 )
               })}
             </div>
@@ -770,7 +635,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           {/* ============================================================ */}
           {/* 2. Thời gian tổ chức (Chip nhanh + Xổ Date Range ngay bên dưới) */}
           {/* ============================================================ */}
-          <div className="pt-3.5 space-y-2">
+          <div className="flex flex-col pt-3.5 gap-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-foreground/80 block">Thời gian</span>
               {(formValues.dateHappenFrom || formValues.dateHappenTo) && (
@@ -783,34 +648,42 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={() => handleSelectTimePreset('TODAY')}
                 className={getChipClass(timePreset === 'TODAY')}
               >
                 Hôm nay
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={() => handleSelectTimePreset('THIS_WEEK')}
                 className={getChipClass(timePreset === 'THIS_WEEK')}
               >
                 Tuần này
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={() => handleSelectTimePreset('THIS_MONTH')}
                 className={getChipClass(timePreset === 'THIS_MONTH')}
               >
                 Tháng này
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={() => handleSelectTimePreset('CUSTOM')}
                 className={getChipClass(timePreset === 'CUSTOM')}
               >
                 Tùy chọn...
-              </button>
+              </Button>
             </div>
 
             {/* Xổ Date Range Picker thanh mảnh ngay bên dưới khi chọn Tùy chọn */}
@@ -821,7 +694,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                     value={formValues.dateHappenFrom || ''}
                     onChange={(val) => setFormValues((prev) => ({ ...prev, dateHappenFrom: val }))}
                     placeholder="Từ ngày: dd/mm/yyyy"
-                    className="w-full h-9 text-xs rounded-xl"
+                    className="w-full h-9 text-xs rounded-lg"
                   />
                 </div>
                 <span className="text-muted-foreground text-xs font-medium shrink-0">→</span>
@@ -830,7 +703,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                     value={formValues.dateHappenTo || ''}
                     onChange={(val) => setFormValues((prev) => ({ ...prev, dateHappenTo: val }))}
                     placeholder="Đến ngày: dd/mm/yyyy"
-                    className="w-full h-9 text-xs rounded-xl"
+                    className="w-full h-9 text-xs rounded-lg"
                   />
                 </div>
               </div>
@@ -840,26 +713,30 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           {/* ============================================================ */}
           {/* 3. Loại hình sự kiện (Combobox multi-select)                 */}
           {/* ============================================================ */}
-          <div className="pt-3.5 space-y-1 relative">
+          <div className="flex flex-col pt-3.5 gap-1 relative">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-foreground/80 block">
                 Loại hình sự kiện
               </span>
               {selectedTypeIds.length > 0 && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   type="button"
                   onClick={handleClearTypes}
                   className="text-[11px] text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
                 >
                   Xóa chọn ({selectedTypeIds.length})
-                </button>
+                </Button>
               )}
             </div>
 
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               onClick={() => setOpenCombobox(openCombobox === 'eventType' ? null : 'eventType')}
-              className={`w-full h-9 px-3 rounded-xl border bg-background text-xs text-foreground flex items-center justify-between gap-2 hover:bg-accent/40 focus:outline-none transition-all cursor-pointer text-left ${
+              className={`w-full h-9 px-3 rounded-lg border bg-background text-xs text-foreground flex items-center justify-between gap-2 hover:bg-accent/40 focus:outline-none transition-all cursor-pointer text-left ${
                 selectedTypeIds.length > 0
                   ? 'border-primary/60 text-primary font-semibold ring-1 ring-primary/20'
                   : 'border-input text-muted-foreground'
@@ -892,23 +769,25 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                 )}
               </div>
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            </button>
+            </Button>
 
             {openCombobox === 'eventType' && (
               <div className="absolute top-full mt-1.5 left-0 right-0 bg-popover border border-border rounded-xl shadow-xl z-50 max-h-56 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
                 <div className="p-2 border-b border-border bg-muted/30 flex items-center gap-2 shrink-0">
                   <SearchIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <input
+                  <Input
                     type="text"
                     value={eventTypeSearch}
                     onChange={(e) => setEventTypeSearch(e.target.value)}
                     placeholder="Tìm loại hình sự kiện..."
-                    className="w-full text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
+                    className="h-8 w-full border-0 px-0 text-xs shadow-none focus-visible:ring-0 bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
                     autoFocus
                   />
                 </div>
-                <div className="overflow-y-auto custom-scrollbar p-1 flex-1 space-y-0.5">
-                  <button
+                <div className="flex flex-col overflow-y-auto custom-scrollbar p-1 flex-1 gap-0.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     type="button"
                     onClick={handleClearTypes}
                     className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${
@@ -921,7 +800,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                     {selectedTypeIds.length === 0 && (
                       <Check className="h-3.5 w-3.5 text-primary shrink-0" />
                     )}
-                  </button>
+                  </Button>
 
                   {filteredEventTypes.length === 0 ? (
                     <div className="py-6 px-3 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-1.5">
@@ -932,7 +811,9 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                     filteredEventTypes.map((et) => {
                       const isSelected = selectedTypeIds.includes(String(et.id))
                       return (
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           key={et.id}
                           type="button"
                           onClick={() => handleToggleType(String(et.id))}
@@ -952,7 +833,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                           >
                             {isSelected && <Check className="h-2.5 w-2.5 stroke-[2.5]" />}
                           </div>
-                        </button>
+                        </Button>
                       )
                     })
                   )}
@@ -964,9 +845,9 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           {/* ============================================================ */}
           {/* 4. Quyền lợi sinh viên (Mục ĐRL I-V và Tiêu chuẩn SV5T)       */}
           {/* ============================================================ */}
-          <div className="pt-3.5 space-y-3">
+          <div className="flex flex-col pt-3.5 gap-3">
             {/* 4.1 Mục Điểm rèn luyện (ĐRL) */}
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <span className="text-xs font-semibold text-foreground/80 block">
                 Mục Điểm rèn luyện (ĐRL)
               </span>
@@ -982,13 +863,16 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
 
                   return (
                     <Tooltip content={pc.note || pc.label} key={pc.id}>
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         type="button"
                         onClick={() => handleTogglePointCategory(String(pc.id))}
+                        aria-pressed={isSelected}
                         className={getChipClass(isSelected)}
                       >
                         {pc.label}
-                      </button>
+                      </Button>
                     </Tooltip>
                   )
                 })}
@@ -1020,7 +904,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                   if (relevantChildren.length === 0) return null
 
                   return (
-                    <div className="pt-1.5 pl-1 border-l-2 border-primary/30 space-y-1 animate-in fade-in duration-150">
+                    <div className="flex flex-col pt-1.5 pl-1 border-l-2 border-primary/30 gap-1 animate-in fade-in duration-150">
                       <span className="text-[11px] font-medium text-muted-foreground block">
                         Chi tiết theo mục con:
                       </span>
@@ -1029,7 +913,9 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                           const isSubSelected = selectedPointCategoryIds.includes(String(cpc.id))
                           return (
                             <Tooltip content={cpc.note || cpc.label} key={cpc.id}>
-                              <button
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 type="button"
                                 onClick={() => handleTogglePointCategory(String(cpc.id))}
                                 className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${
@@ -1039,7 +925,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                                 }`}
                               >
                                 {cpc.label}
-                              </button>
+                              </Button>
                             </Tooltip>
                           )
                         })}
@@ -1050,7 +936,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
             </div>
 
             {/* 4.2 Tiêu chuẩn SV5T - Dạng chip multi-select */}
-            <div className="pt-3 pb-3 border-t border-border/40 space-y-2">
+            <div className="flex flex-col pt-3 pb-3 border-t border-border/40 gap-2">
               <span className="text-xs font-semibold text-foreground/80 block">
                 Tiêu chuẩn Sinh viên 5 tốt (SV5T)
               </span>
@@ -1059,13 +945,16 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                   const isSelected = selectedCriteriaIds.includes(String(c.id))
                   return (
                     <Tooltip content={c.note || c.label} key={c.id}>
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         type="button"
                         onClick={() => handleToggleCriteria(String(c.id))}
+                        aria-pressed={isSelected}
                         className={getChipClass(isSelected)}
                       >
                         {c.label}
-                      </button>
+                      </Button>
                     </Tooltip>
                   )
                 })}
@@ -1076,8 +965,10 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           {/* ============================================================ */}
           {/* 5. Nâng cao (Thu gọn / Accordion với Badge đếm số bộ lọc ẩn)   */}
           {/* ============================================================ */}
-          <div ref={advancedRef} className="pt-4 border-t border-border/60 space-y-3">
-            <button
+          <div ref={advancedRef} className="flex flex-col pt-4 border-t border-border/60 gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               onClick={handleToggleAdvanced}
               className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground py-1.5 transition-colors cursor-pointer"
@@ -1100,18 +991,18 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
               ) : (
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               )}
-            </button>
+            </Button>
 
             <div
-              className={`pt-2 space-y-3 transition-all ${
+              className={`pt-2 gap-3 transition-all ${
                 isAdvancedOpen
-                  ? 'block animate-in fade-in slide-in-from-top-1 duration-150'
+                  ? 'flex flex-col animate-in fade-in slide-in-from-top-1 duration-150'
                   : 'hidden'
               }`}
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Năm học */}
-                <div className="space-y-1">
+                <div className="flex flex-col gap-1">
                   <label className="text-[11px] font-medium text-muted-foreground block">
                     Năm học
                   </label>
@@ -1122,10 +1013,11 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                       setFormValues((prev) => ({
                         ...prev,
                         academicYear: val === 'ALL' ? undefined : val,
+                        semesterId: undefined,
                       }))
                     }}
                   >
-                    <SelectTrigger className="w-full h-9 text-xs rounded-xl">
+                    <SelectTrigger className="w-full h-9 text-xs rounded-lg">
                       <SelectValue placeholder="Tất cả năm học" />
                     </SelectTrigger>
                     <SelectContent className="z-[70] bg-white dark:bg-card border border-border shadow-xl max-h-56">
@@ -1140,7 +1032,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                 </div>
 
                 {/* Học kỳ */}
-                <div className="space-y-1">
+                <div className="flex flex-col gap-1">
                   <label className="text-[11px] font-medium text-muted-foreground block">
                     Học kỳ
                   </label>
@@ -1153,7 +1045,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                       }))
                     }
                   >
-                    <SelectTrigger className="w-full h-9 text-xs rounded-xl">
+                    <SelectTrigger className="w-full h-9 text-xs rounded-lg">
                       <SelectValue placeholder="Tất cả học kỳ" />
                     </SelectTrigger>
                     <SelectContent className="z-[70] bg-white dark:bg-card border border-border shadow-xl max-h-56">
@@ -1170,11 +1062,13 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
 
               {/* Đơn vị tổ chức (Fanpage Combobox - Hỗ trợ multi-select, Nhóm Đang theo dõi, Mở lên trên tránh bị cắt) */}
               {!hideFanpageFilter && (
-                <div className="space-y-1 relative">
+                <div className="flex flex-col gap-1 relative">
                   <label className="text-[11px] font-medium text-muted-foreground block">
                     Đơn vị tổ chức (Fanpage)
                   </label>
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     type="button"
                     onClick={() => setOpenCombobox(openCombobox === 'fanpage' ? null : 'fanpage')}
                     className={`w-full h-9 px-3 rounded-xl border bg-background text-xs text-foreground flex items-center justify-between gap-2 hover:bg-accent/40 focus:outline-none transition-all cursor-pointer text-left ${
@@ -1232,27 +1126,29 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                       )}
                     </div>
                     <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  </button>
+                  </Button>
 
                   {openCombobox === 'fanpage' && (
                     <div className="absolute bottom-full mb-1.5 left-0 right-0 bg-popover border border-border rounded-xl shadow-xl z-50 max-h-52 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
                       {/* Header ô tìm kiếm cố định */}
                       <div className="p-2 border-b border-border bg-muted/30 flex items-center gap-2 shrink-0">
                         <SearchIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <input
+                        <Input
                           type="text"
                           value={fanpageSearch}
                           onChange={(e) => setFanpageSearch(e.target.value)}
                           placeholder="Tìm đơn vị tổ chức..."
-                          className="w-full text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
+                          className="h-8 w-full border-0 px-0 text-xs shadow-none focus-visible:ring-0 bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
                           autoFocus
                         />
                       </div>
 
                       {/* Danh sách cuộn mượt mà có giới hạn chiều cao */}
-                      <div className="overflow-y-auto custom-scrollbar p-1 flex-1 space-y-0.5">
+                      <div className="flex flex-col overflow-y-auto custom-scrollbar p-1 flex-1 gap-0.5">
                         {/* Tùy chọn: Tất cả đơn vị */}
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           type="button"
                           onClick={handleClearFanpages}
                           className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${
@@ -1265,7 +1161,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                           {selectedFanpageIds.length === 0 && (
                             <Check className="h-3.5 w-3.5 text-primary shrink-0" />
                           )}
-                        </button>
+                        </Button>
 
                         {totalFilteredCount === 0 ? (
                           <div className="py-6 px-3 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-1.5">
@@ -1286,7 +1182,9 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                                 {filteredFollowed.map((fp) => {
                                   const isSelected = selectedFanpageIds.includes(String(fp.id))
                                   return (
-                                    <button
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
                                       key={fp.id}
                                       type="button"
                                       onClick={() => handleToggleFanpage(String(fp.id))}
@@ -1315,7 +1213,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                                           <Check className="h-2.5 w-2.5 stroke-[2.5]" />
                                         )}
                                       </div>
-                                    </button>
+                                    </Button>
                                   )
                                 })}
                               </>
@@ -1332,7 +1230,9 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                                 {filteredOthers.map((fp) => {
                                   const isSelected = selectedFanpageIds.includes(String(fp.id))
                                   return (
-                                    <button
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
                                       key={fp.id}
                                       type="button"
                                       onClick={() => handleToggleFanpage(String(fp.id))}
@@ -1361,7 +1261,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
                                           <Check className="h-2.5 w-2.5 stroke-[2.5]" />
                                         )}
                                       </div>
-                                    </button>
+                                    </Button>
                                   )
                                 })}
                               </>
@@ -1377,9 +1277,16 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           </div>
         </div>
 
+        {invalidDateRange && (
+          <p role="alert" className="px-4 pb-2 text-xs text-destructive">
+            Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.
+          </p>
+        )}
         {/* Sticky Footer */}
-        <div className="sticky bottom-0 bg-white/95 dark:bg-card/95 backdrop-blur border-t border-border/60 px-5 sm:px-6 py-3.5 flex items-center justify-between gap-3 shrink-0">
-          <button
+        <div className="sticky bottom-0 bg-white/95 dark:bg-card/95 backdrop-blur border-t border-border/60 px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             onClick={handleReset}
             disabled={!hasActiveFilters}
@@ -1391,17 +1298,16 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
           >
             <RotateCcw className="h-3.5 w-3.5" />
             <span>Thiết lập lại {activeCount > 0 ? `(${activeCount})` : ''}</span>
-          </button>
+          </Button>
 
           <Button
             type="button"
             onClick={handleApply}
-            className="h-10 px-6 rounded-xl text-xs font-semibold shadow-md flex items-center justify-center gap-2 transition-all bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer active:scale-[0.98]"
+            disabled={invalidDateRange}
+            className="h-9 px-4 rounded-lg text-xs font-semibold shadow-md flex items-center justify-center gap-2 transition-all bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer active:scale-[0.98]"
           >
             <Check className="h-4 w-4" />
-            <span>
-              {previewMatchingCount > 0 ? `Xem ${previewMatchingCount} sự kiện` : 'Xem kết quả'}
-            </span>
+            <span>{`Xem ${previewMatchingCount} sự kiện`}</span>
           </Button>
         </div>
       </div>

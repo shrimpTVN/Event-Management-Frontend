@@ -1,3 +1,4 @@
+import { canStudentSelfCheck } from '@/shared/utils/attendanceConfig'
 import { Tooltip } from '@/components/ui/tooltip'
 import { RegisteredEventBenefits } from './RegisteredEventBenefits'
 import {
@@ -46,9 +47,14 @@ export const RegisteredEventTable: React.FC<RegisteredEventTableProps> = ({
         )
       case 'COMPLETED':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#E3F5E9] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300 whitespace-nowrap">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#15803D] dark:bg-emerald-400 shrink-0" />
-            <span>Hoàn thành</span>
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap',
+              studentAttendanceBadgeClass(status)
+            )}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+            <span>{studentAttendanceLabel(status)}</span>
           </span>
         )
       case 'ABSENT':
@@ -90,7 +96,7 @@ export const RegisteredEventTable: React.FC<RegisteredEventTableProps> = ({
             const organizerName = event.organizer?.name || 'Ban Tổ Chức'
             const organizerAvatar = event.organizer?.avatarUrl
             const normalizedStatus = normalizeHistoryStatus(event.status)
-            const isSelfAttendance = studentAttendanceStep(event.status) != null
+            const isSelfAttendance = canStudentSelfCheck(event) && studentAttendanceStep(event.status) != null
             const canCancel =
               (event.canCancel ?? normalizedStatus === 'UPCOMING') &&
               ['REGISTERED', 'UPCOMING', 'APPROVED'].includes(event.status)
@@ -181,7 +187,7 @@ export const RegisteredEventTable: React.FC<RegisteredEventTableProps> = ({
                           className="h-7 px-2.5 text-xs font-semibold text-white bg-[#1B4B8A] hover:bg-[#153a6b] rounded-lg transition-colors shadow-2xs cursor-pointer whitespace-nowrap"
                         >
                           {studentAttendanceStep(event.status) === 'check-out'
-                            ? 'Gửi ảnh cuối buổi'
+                            ? 'Điểm danh cuối buổi'
                             : 'Điểm danh'}
                         </button>
                       )}

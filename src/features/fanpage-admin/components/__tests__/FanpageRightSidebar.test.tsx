@@ -1,71 +1,68 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { FanpageRightSidebar } from '../FanpageRightSidebar'
-import type { FanpageSummary, FanpageActivityStats } from '../../types/fanpageAdmin.types'
+import { fanpageAdminService, EMPTY_ACTIVITY_STATS } from '../../services/fanpageAdminService'
+import type { FanpageSummary, FanpageMember } from '../../types/fanpageAdmin.types'
 
-const mockFanpage: FanpageSummary = {
-  id: '1',
-  code: 'CNTT',
-  name: 'Đoàn Trường CNTT & TT',
-  fullName: 'Đoàn Trường CNTT & TT',
-  avatarText: 'CNTT',
-  role: 'Admin',
-  isVerified: true,
-  email: 'doan@ctu.edu.vn',
-  phone: '0123456789',
-  address: 'Đại học Cần Thơ',
-  description: 'Đoàn Khoa CNTT&TT',
-  avatarUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=120',
-  followersCount: 1,
-  eventsCount: 5,
+vi.mock('../../services/fanpageAdminService', () => ({
+  fanpageAdminService: { getFanpageMembers: vi.fn() },
+  EMPTY_ACTIVITY_STATS: { available: false },
+}))
+vi.mock('@/features/auth', () => ({
+  useAuthStore: () => ({ user: { id: '42', email: 'me@ctu.edu.vn' } }),
+}))
+const getMembers = vi.mocked(fanpageAdminService.getFanpageMembers)
+const member = {
+  id: 'membership-1',
+  userId: '42',
+  fullName: 'Nguyễn Văn An',
+  email: 'me@ctu.edu.vn',
+  role: 'ADMIN',
+  avatarText: 'VA',
+} as FanpageMember
+function show() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const manage = vi.fn()
+  render(
+    <QueryClientProvider client={client}>
+      <FanpageRightSidebar
+        currentFanpage={{ id: '7' } as FanpageSummary}
+        stats={EMPTY_ACTIVITY_STATS}
+        onManageMembersClick={manage}
+      />
+    </QueryClientProvider>
+  )
+  return manage
 }
-
-const mockStats: FanpageActivityStats = {
-  periodLabel: 'Tuần này',
-  eventsCount: 0,
-  interactionsCount: 0,
-  newFollowersCount: 0,
-  responseRatePercent: 100,
-  pendingCommentsCount: 0,
-}
-
+beforeEach(() => vi.clearAllMocks())
 describe('FanpageRightSidebar', () => {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  })
-
-  it('renders members with full names, inline Admin badge, Bạn indicator, and refined manage button', async () => {
-    render(
-      <QueryClientProvider client={queryClient}>
-        <FanpageRightSidebar
-          currentFanpage={mockFanpage}
-          stats={mockStats}
-          onManageMembersClick={vi.fn()}
-        />
-      </QueryClientProvider>
-    )
-
-    // Should display admin full name without truncation
-    await waitFor(() => {
-      expect(screen.getByText('Nguyễn Minh Anh')).toBeInTheDocument()
-    })
-
-    // Other non-admin members should NOT be in the list
-    expect(screen.queryByText('Lê Hoàng Anh')).toBeNull()
-
-    // Email strings should NOT be visible in member names
-    expect(screen.queryByText('organizer@ctu.edu.vn')).toBeNull()
-    expect(screen.queryByText('anhlhb2100123@student.ctu.edu.vn')).toBeNull()
-
-    // Role label: only Admin badge exists, no CTV badge
-    expect(screen.getByText('Admin')).toBeInTheDocument()
-    expect(screen.queryByText('CTV')).toBeNull()
-
-    // Current user identifier "Bạn" badge on the right
+  it('shows real members and identifies the current user by user ID', async () => {
+    getMembers.mockResolvedValue([member])
+    const manage = show()
+    expect(await screen.findByText('Nguyễn Văn An')).toBeInTheDocument()
+    expect(screen.getByText('Quản trị viên')).toBeInTheDocument()
     expect(screen.getByText('Bạn')).toBeInTheDocument()
-
-    // Manage members button
-    expect(screen.getByText('Quản lý tất cả thành viên')).toBeInTheDocument()
+    expect(getMembers).toHaveBeenCalledWith('7')
+    fireEvent.click(screen.getByRole('button', { name: 'Xem tất cả thành viên' }))
+    expect(manage).toHaveBeenCalledOnce()
+  })
+  it('does not replace an empty response with sample members', async () => {
+    getMembers.mockResolvedValue([])
+    show()
+    expect(await screen.findByText('Chưa có thành viên.')).toBeInTheDocument()
+    expect(screen.queryByText('Nguyễn Minh Anh')).not.toBeInTheDocument()
+  })
+  it('distinguishes loading failure from an empty member list', async () => {
+    getMembers.mockRejectedValue(new Error('Unavailable'))
+    show()
+    expect(await screen.findByText('Chưa tải được thành viên.')).toBeInTheDocument()
+    expect(screen.queryByText('Chưa có thành viên.')).not.toBeInTheDocument()
+  })
+  it('does not identify someone by an unrelated membership ID', async () => {
+    getMembers.mockResolvedValue([{ ...member, id: '42', userId: '70', email: 'other@ctu.edu.vn' }])
+    show()
+    await screen.findByText('Nguyễn Văn An')
+    expect(screen.queryByText('Bạn')).not.toBeInTheDocument()
   })
 })

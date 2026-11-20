@@ -9,7 +9,10 @@ import {
   Trash2,
   Camera,
   Upload,
+  AlertCircle,
+  Building,
 } from 'lucide-react'
+import { apiClient } from '@/shared'
 import { useAuthStore } from '../store/authStore'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -51,6 +54,7 @@ export const FanpageRegistrationForm: React.FC = () => {
   // Form states mapping directly to schema.sql & API DTO
   const [fanpageName, setFanpageName] = useState('')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  void avatarFile
   const [avatarPreview, setAvatarPreview] = useState<string>('')
   const [unitType, setUnitType] = useState('Câu lạc bộ / Đội / Nhóm')
   const [parentOrg, setParentOrg] = useState('Trường Công nghệ Thông tin và Truyền thông')
@@ -61,6 +65,8 @@ export const FanpageRegistrationForm: React.FC = () => {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [showStaffProfilePrompt, setShowStaffProfilePrompt] = useState(false)
 
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -87,16 +93,47 @@ export const FanpageRegistrationForm: React.FC = () => {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    if (avatarFile) {
-      void avatarFile.name
-    }
-    setTimeout(() => {
-      setIsSubmitting(false)
+    setSubmitError(null)
+
+    try {
+      let avatarUrl = avatarPreview
+      if (!avatarUrl || avatarUrl.startsWith('blob:')) {
+        avatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(fanpageName || 'CTU')}`
+      }
+
+      await apiClient.post('/fanpages/fanpage-admin/register', {
+        name: fanpageName,
+        description: description || 'Fanpage ' + fanpageName,
+        avatarUrl,
+        orgType: unitType,
+        orgName: orgName || fanpageName,
+        parentOrg,
+        helpContact: helpEmail || user?.email || '',
+        helpPhone: helpPhone || '02923872254',
+      })
+
       setIsSuccess(true)
-    }, 1000)
+    } catch (err: any) {
+      console.error('Fanpage registration error:', err)
+      const errCode = err?.response?.data?.code
+      const errMsg = (err?.response?.data?.message || err?.message || '').toString()
+
+      if (
+        errCode === 'USER.002' ||
+        errMsg.toLowerCase().includes('fanpage admin profile') ||
+        errMsg.toLowerCase().includes('profile') ||
+        errMsg.toLowerCase().includes('hồ sơ')
+      ) {
+        setShowStaffProfilePrompt(true)
+      } else {
+        setSubmitError(errMsg || 'Đã có lỗi xảy ra khi gửi hồ sơ đăng ký. Vui lòng thử lại.')
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (isSuccess) {
@@ -158,6 +195,13 @@ export const FanpageRegistrationForm: React.FC = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+            {submitError && (
+              <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{submitError}</span>
+              </div>
+            )}
+
             {/* THÔNG TIN NGƯỜI ĐĂNG KÝ HỒ SƠ */}
             <div className="flex items-center gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-muted/40 border border-[#E5E7EB] dark:border-border text-xs">
               {user?.avatarUrl ? (
@@ -460,6 +504,52 @@ export const FanpageRegistrationForm: React.FC = () => {
           <span className="text-primary font-medium">social-admin@ctu.edu.vn</span>
         </p>
       </div>
+
+      {/* Modal yêu cầu hoàn thiện thông tin Cán bộ / Ban tổ chức (USER.002) */}
+      {showStaffProfilePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="bg-card text-card-foreground border border-border w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col gap-5 animate-in zoom-in-95 duration-150"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <Building className="h-6 w-6" />
+              </div>
+              <div className="space-y-1.5 text-left flex-1">
+                <h3 className="font-bold text-lg text-foreground font-heading">
+                  Yêu cầu thông tin Cán bộ / Ban tổ chức
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Để thành lập và quản lý Fanpage tổ chức trên hệ thống, bạn cần cập nhật thông tin
+                  hồ sơ Cán bộ / Đơn vị (Mã cán bộ, Đơn vị trực thuộc).
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setShowStaffProfilePrompt(false)}
+                className="px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors cursor-pointer"
+              >
+                Để sau
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowStaffProfilePrompt(false)
+                  navigate('/onboarding/staff?redirect=/register/fanpage')
+                }}
+                className="px-5 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
+              >
+                Cập nhật thông tin ngay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -267,10 +267,10 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
   const displayName = getDisplayName()
 
   const displaySubtitle = isStaff
-    ? user.email || 'Ban quản trị Fanpage'
+    ? 'Ban quản trị Fanpage'
     : studentMssv
       ? `MSSV: ${studentMssv}`
-      : user.email || ''
+      : ''
 
   // Avatar cá nhân thật (ảnh đại diện nếu có, hoặc chữ cái viết tắt trên nền xanh thương hiệu #1B4B8A)
   const userAvatarUrl = profile?.avatarUrl || user.avatarUrl
@@ -405,17 +405,32 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
               </div>
 
               <div className="min-w-0 flex-1">
-                <span className="font-bold text-sm text-foreground block truncate">
-                  {displayName}
-                </span>
-                <Tooltip content={currentFanpage?.name}>
-                  <span className="font-medium text-xs text-foreground/90 block truncate">
-                    {currentFanpage?.name || 'Không gian Fanpage'}
-                  </span>
-                </Tooltip>
-                <span className="text-[11px] text-muted-foreground block truncate">
-                  {currentFanpage?.role || currentFanpageRole || 'Quản trị viên'}
-                </span>
+                {isStudent ? (
+                  <>
+                    <Tooltip content={currentFanpage?.name}>
+                      <span className="font-bold text-sm text-foreground block truncate">
+                        {currentFanpage?.name || 'Không gian Fanpage'}
+                      </span>
+                    </Tooltip>
+                    <span className="text-[11px] text-muted-foreground block truncate">
+                      {currentFanpage?.role || currentFanpageRole || 'Quản trị viên'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-bold text-sm text-foreground block truncate">
+                      {displayName}
+                    </span>
+                    <Tooltip content={currentFanpage?.name}>
+                      <span className="font-medium text-xs text-foreground/90 block truncate">
+                        {currentFanpage?.name || 'Không gian Fanpage'}
+                      </span>
+                    </Tooltip>
+                    <span className="text-[11px] text-muted-foreground block truncate">
+                      {currentFanpage?.role || currentFanpageRole || 'Quản trị viên'}
+                    </span>
+                  </>
+                )}
               </div>
             </button>
           </Tooltip>
@@ -479,7 +494,7 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
                           {displayName}
                         </span>
                         <span className="text-[10px] text-muted-foreground block truncate">
-                          {studentMssv ? `MSSV: ${studentMssv} · Sinh viên` : 'Tài khoản sinh viên'}
+                          {studentMssv ? `MSSV: ${studentMssv} • Sinh viên` : 'Tài khoản sinh viên'}
                         </span>
                       </div>
                     </button>

@@ -72,3 +72,12 @@ describe('trainingPointsService', () => {
     expect(result).toEqual(mockCategories)
   })
 })
+
+describe('evidence API errors', () => {
+  it('propagates a failed request so the modal can offer retry', async () => {
+    vi.mocked(apiClient.get).mockRejectedValueOnce(new Error('offline'))
+    await expect(trainingPointsService.getPointTransactionsByCategory(2, 10)).rejects.toThrow(
+      'offline'
+    )
+  })
+})

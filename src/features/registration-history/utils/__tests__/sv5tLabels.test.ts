@@ -9,6 +9,23 @@ const criterias = [
 ]
 
 describe('history SV5T labels', () => {
+  it('displays the short standard name and child code in participation history', async () => {
+    vi.mocked(apiClient.get).mockImplementation(async (url) =>
+      url === '/criterias'
+        ? [{
+            id: 1, name: 'Danh hiệu SV5T', children: [{
+              id: 17, name: 'Tiêu chuẩn Tình nguyện tốt', childrenOrder: 4,
+              children: [{ id: 403, name: 'Tham gia ít nhất 02 lần hiến máu', childrenOrder: 3 }],
+            }],
+          }]
+        : ([{ eventInfo: { id: 23, criteriaId: 403, criteriaName: 'Tham gia ít nhất 02 lần hiến máu' } }] as any)
+    )
+    const event = (await historyService.getMyHistory())[0]
+    expect(event.criteriaSv5t).toBe('Tình nguyện tốt (4.3)')
+    expect(event.criteriaSv5tDetail).toBe('Tình nguyện tốt (4.3. Tham gia ít nhất 02 lần hiến máu)')
+    expect(event.benefits).toEqual(['Tiêu chuẩn SV5T: Tình nguyện tốt (4.3)'])
+  })
+
   it('keeps only the root and selected child, omitting intermediate requirements', () => {
     const format = createSv5tLabelFormatter([
       { id: 1, name: 'Tiêu chuẩn Đạo đức tốt' },

@@ -19,6 +19,8 @@ vi.mock('../../services/authService', () => ({
   authService: {
     verifyOtp: vi.fn(),
     resendOtp: vi.fn(),
+    register: vi.fn(),
+    login: vi.fn(),
   },
 }))
 
@@ -98,6 +100,65 @@ describe('OtpVerificationForm navigation', () => {
         otp: '123456',
       })
       expect(mockNavigate).toHaveBeenCalledWith('/onboarding/staff', { replace: true })
+    })
+  })
+
+  it('completes student registration and auto-logins when pending registration exists in sessionStorage', async () => {
+    sessionStorage.setItem(
+      'pending_registration',
+      JSON.stringify({
+        email: 'student@student.ctu.edu.vn',
+        password: 'Password123',
+        fullName: 'Nguyễn Văn An',
+        firstName: 'Văn An',
+        lastName: 'Nguyễn',
+      })
+    )
+
+    vi.mocked(authService.register).mockResolvedValueOnce({
+      success: true,
+      email: 'student@student.ctu.edu.vn',
+    })
+
+    vi.mocked(authService.login).mockResolvedValueOnce({
+      user: {
+        id: '10',
+        email: 'student@student.ctu.edu.vn',
+        name: 'Nguyễn Văn An',
+        role: 'STUDENT',
+        isProfileComplete: false,
+      } as any,
+      tokens: { accessToken: 'jwt-test-token' },
+    } as any)
+
+    render(
+      <MemoryRouter initialEntries={['/verify-otp?email=student@student.ctu.edu.vn']}>
+        <OtpVerificationForm />
+      </MemoryRouter>
+    )
+
+    const inputs = screen.getAllByRole('textbox')
+    inputs.forEach((input, index) => {
+      fireEvent.change(input, { target: { value: String(index + 1) } })
+    })
+
+    const submitBtn = screen.getByRole('button', { name: /Xác thực/i })
+    fireEvent.click(submitBtn)
+
+    await waitFor(() => {
+      expect(authService.register).toHaveBeenCalledWith({
+        email: 'student@student.ctu.edu.vn',
+        password: 'Password123',
+        otpCode: '123456',
+        firstName: 'Văn An',
+        lastName: 'Nguyễn',
+      })
+      expect(authService.login).toHaveBeenCalledWith({
+        email: 'student@student.ctu.edu.vn',
+        password: 'Password123',
+      })
+      expect(mockNavigate).toHaveBeenCalledWith('/onboarding/student', { replace: true })
+      expect(sessionStorage.getItem('pending_registration')).toBeNull()
     })
   })
 })

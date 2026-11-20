@@ -1,6 +1,25 @@
 import { apiClient } from '@/shared'
+import { normalizeAttendanceConfig } from '@/shared/utils/attendanceConfig'
+import { studentAttendanceStep } from '@/shared/utils/attendanceState'
 import { mediaService } from '@/shared/services/mediaService'
 import type { AttendanceEventItem, AttendanceSessionType } from '../types/checkIn.types'
+
+function normalizeAttendanceEvent(raw: any): AttendanceEventItem {
+  const info = raw.eventInfo ?? raw
+  return {
+    eventId: raw.eventId ?? info.id,
+    eventName: info.name ?? raw.eventName ?? '',
+    location: info.location ?? raw.location,
+    dateHappen: info.dateHappen ?? raw.dateHappen,
+    status: raw.status,
+    checkInAt: raw.checkInAt,
+    checkOutAt: raw.checkOutAt,
+    ...normalizeAttendanceConfig({
+      allowSelfCheck: info.allowSelfCheck ?? raw.allowSelfCheck,
+      attendanceMethod: info.attendanceMethod ?? raw.attendanceMethod,
+    }),
+  }
+}
 
 export const checkInService = {
   /**
@@ -75,6 +94,9 @@ export const checkInService = {
             : (upcomingRes.value as any)?.data || []
           : []
 
+      if (upcomingRes.status === 'rejected' || historyRes.status === 'rejected') {
+        throw new Error('Không tải đủ danh sách sự kiện điểm danh.')
+      }
       const historyData: any = historyRes.status === 'fulfilled' ? historyRes.value : null
       const historyList: AttendanceEventItem[] = Array.isArray(historyData)
         ? historyData
@@ -83,22 +105,24 @@ export const checkInService = {
       // Combine both, deduplicate by eventId, keeping most updated status
       const eventMap = new Map<string, AttendanceEventItem>()
 
-      for (const item of historyList) {
-        if (item.eventId && ['REGISTERED', 'CHECKED_IN'].includes(item.status)) {
+      for (const raw of historyList) {
+        const item = normalizeAttendanceEvent(raw)
+        if (item.eventId) {
           eventMap.set(String(item.eventId), item)
         }
       }
 
-      for (const item of upcomingList) {
+      for (const raw of upcomingList) {
+        const item = normalizeAttendanceEvent(raw)
         if (item.eventId && !eventMap.has(String(item.eventId))) {
           eventMap.set(String(item.eventId), item)
         }
       }
 
-      return Array.from(eventMap.values())
+      return Array.from(eventMap.values()).filter((item) => studentAttendanceStep(item.status) != null)
     } catch (err) {
       console.error('Failed to fetch active events for check-in:', err)
-      return []
+      throw err
     }
   },
 }

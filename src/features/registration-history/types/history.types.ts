@@ -38,7 +38,9 @@ export interface RegisteredEventItem {
   status: EventStatus
   pointsCategory?: string // e.g. "ĐRL: +3đ Mục V.b"
   criteriaSv5t?: string // e.g. "Tiêu chí SV5T cấp Khoa"
+  criteriaSv5tDetail?: string
   benefits?: string[] // e.g. ['5đ Mục II.b', '3đ Mục V.b', 'Thể lực tốt']
+  benefitDetails?: string[]
   extraBenefitsCount?: number // e.g. 2 for "+2"
   capacity?: number
   registeredCount?: number
@@ -50,12 +52,15 @@ export interface RegisteredEventItem {
   hasProof?: boolean
   evidenceUrl?: string | null
   reason?: string | null
+  allowSelfCheck?: boolean
   attendanceMethod?: 'MANUAL' | 'STUDENT_PROOF'
   attendanceSessionType?: 'START' | 'END' | 'CHECK_IN' | 'CHECK_OUT' | 'BOTH'
   checkInAt?: string | null
   checkOutAt?: string | null
   checkInBy?: string | number | null
   checkOutBy?: string | number | null
+  checkInByName?: string | null
+  checkOutByName?: string | null
   checkInEvidenceUrl?: string | null
   checkOutEvidenceUrl?: string | null
   studentInfo?: {

@@ -22,66 +22,50 @@ export const DEFAULT_FANPAGES_MAP: Record<string, CachedFanpageInfo> = {
   '1': {
     name: 'Đoàn Trường CNTT & TT',
     fullName: 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông',
-    avatarUrl: 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg',
+    avatarUrl:
+      'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg',
   },
   '2': {
     name: 'Trường Đại học Cần Thơ',
     fullName: 'Trường Đại học Cần Thơ',
-    avatarUrl: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=120&auto=format&fit=crop&q=60',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=120&auto=format&fit=crop&q=60',
   },
   '3': {
     name: 'CLB Công nghệ phần mềm CTU',
     fullName: 'CLB Công nghệ phần mềm',
-    avatarUrl: 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=120&auto=format&fit=crop&q=60',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=120&auto=format&fit=crop&q=60',
   },
   '4': {
     name: 'Đoàn Trường Nông nghiệp',
     fullName: 'Đoàn Trường Nông nghiệp',
-    avatarUrl: 'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=120&auto=format&fit=crop&q=60',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=120&auto=format&fit=crop&q=60',
   },
   '5': {
     name: 'CLB Tiếng Anh CTU',
     fullName: 'CLB Tiếng Anh',
-    avatarUrl: 'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=120&auto=format&fit=crop&q=60',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=120&auto=format&fit=crop&q=60',
   },
   '6': {
     name: 'CLB Thể thao CTU',
     fullName: 'CLB Thể thao',
-    avatarUrl: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=120&auto=format&fit=crop&q=60',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=120&auto=format&fit=crop&q=60',
   },
   '7': {
     name: 'Đoàn TN - Hội SV Đại học Cần Thơ',
     fullName: 'Đoàn Thanh niên - Hội Sinh viên Trường Đại học Cần Thơ',
-    avatarUrl: 'https://res.cloudinary.com/depaiphq0/image/upload/v1793963013/ctu-event/fanpages/u_2_606320c599474b7d.jpg',
+    avatarUrl:
+      'https://res.cloudinary.com/depaiphq0/image/upload/v1793963013/ctu-event/fanpages/u_2_606320c599474b7d.jpg',
   },
-}
-
-const KNOWN_EVENT_TYPE_MAP: Record<string, number> = {
-  'workshop': 1,
-  'giao lưu': 2,
-  'thể thao': 3,
-  'tình nguyện': 4,
-  'học thuật': 5,
-  'tọa đàm': 6,
-  'cuộc thi': 7,
-  'hướng nghiệp': 8,
-  'văn nghệ': 9,
-  'tuyên dương': 10,
-  'chào tân': 11,
-  'đoàn - hội': 12,
-  'kỹ năng': 13,
-  'hội nhập': 14,
-  'hiến máu': 15,
-  'môi trường': 16,
-  'triển lãm': 17,
-  'đối thoại': 18,
 }
 
 export function resolveEventTypeId(raw: any): number | undefined {
   if (raw.eventTypeId !== undefined && raw.eventTypeId !== null) return Number(raw.eventTypeId)
   if (raw.eventType?.id !== undefined && raw.eventType?.id !== null) return Number(raw.eventType.id)
-  const name = (raw.eventTypeName || raw.eventType?.name || '').trim().toLowerCase()
-  if (name && KNOWN_EVENT_TYPE_MAP[name]) return KNOWN_EVENT_TYPE_MAP[name]
   return undefined
 }
 
@@ -136,19 +120,21 @@ export const ROOT_CRITERIA_CHILDREN: Record<number, number[]> = {
   20: [20, 201, 202],
   30: [30, 301, 302],
   40: [40, 401, 402, 403],
-  50: [50, 501, 502, 503, 5011, 5012, 5013, 5014, 5015, 5021, 5022, 5023, 5024, 5025, 5026, 5031, 5032, 5033, 5034, 5035],
+  50: [
+    50, 501, 502, 503, 5011, 5012, 5013, 5014, 5015, 5021, 5022, 5023, 5024, 5025, 5026, 5031, 5032,
+    5033, 5034, 5035,
+  ],
 }
 
 export function resolveCriteriaId(raw: any): number | undefined {
   if (raw.criteriaId !== undefined && raw.criteriaId !== null) return Number(raw.criteriaId)
   if (raw.criteria?.id !== undefined && raw.criteria?.id !== null) return Number(raw.criteria.id)
-  if (raw.sv5tCriteriaId !== undefined && raw.sv5tCriteriaId !== null) return Number(raw.sv5tCriteriaId)
-  const name = (raw.criteriaName || raw.sv5tCriteriaName || raw.criteria?.name || '').trim().toLowerCase()
-  if (!name) return undefined
-  if (KNOWN_CRITERIA_MAP[name]) return KNOWN_CRITERIA_MAP[name]
-  for (const [key, id] of Object.entries(KNOWN_CRITERIA_MAP)) {
-    if (name.includes(key) || key.includes(name)) return id
-  }
+  if (raw.sv5tCriteriaId !== undefined && raw.sv5tCriteriaId !== null)
+    return Number(raw.sv5tCriteriaId)
+  const name = String(raw.criteriaName || raw.sv5tCriteriaName || raw.criteria?.name || '')
+    .toLowerCase()
+    .trim()
+  if (name && KNOWN_CRITERIA_MAP[name]) return KNOWN_CRITERIA_MAP[name]
   return undefined
 }
 
@@ -156,11 +142,12 @@ const fanpageCache = new Map<string, CachedFanpageInfo>(Object.entries(DEFAULT_F
 
 export function updateFanpageCache(id: string | number, data: Partial<CachedFanpageInfo>) {
   const key = String(id)
-  const existing = fanpageCache.get(key) || DEFAULT_FANPAGES_MAP[key] || {
-    name: '',
-    fullName: '',
-    avatarUrl: '',
-  }
+  const existing = fanpageCache.get(key) ||
+    DEFAULT_FANPAGES_MAP[key] || {
+      name: '',
+      fullName: '',
+      avatarUrl: '',
+    }
   fanpageCache.set(key, {
     name: data.name || existing.name,
     fullName: data.fullName || existing.fullName,
@@ -209,31 +196,44 @@ const CTU_CRITERIA_CODE_MAP: Record<number, string> = {
 }
 
 export function formatEventPointsReward(ev: any): string {
+  const rewards: string[] = []
+
   if (Array.isArray(ev.eventPoints) && ev.eventPoints.length > 0) {
-    const rewards: string[] = []
-    const totalPoints = ev.eventPoints.reduce((sum: number, p: any) => sum + (Number(p.point) || 0), 0)
-    const firstCatId = ev.eventPoints[0]?.pointCategoryId
-    const code = CTU_CRITERIA_CODE_MAP[firstCatId] || ev.eventPoints[0]?.pointCategoryCode || ''
-    const pointsFormatted = totalPoints < 10 ? `0${totalPoints}` : `${totalPoints}`
-    rewards.push(`Cộng ${pointsFormatted} điểm rèn luyện ${code}`.trim())
-
-    if (ev.criteriaName || ev.sv5tCriteriaName) {
-      rewards.push(`Tiêu chuẩn SV5T: ${ev.criteriaName || ev.sv5tCriteriaName}`)
+    const totalPoints = ev.eventPoints.reduce(
+      (sum: number, p: any) => sum + (Number(p.point) || 0),
+      0
+    )
+    if (totalPoints > 0) {
+      const firstCatId = ev.eventPoints[0]?.pointCategoryId
+      const code = CTU_CRITERIA_CODE_MAP[firstCatId] || ev.eventPoints[0]?.pointCategoryCode || ''
+      const pointsFormatted = totalPoints < 10 ? `0${totalPoints}` : `${totalPoints}`
+      rewards.push(`Cộng ${pointsFormatted} điểm rèn luyện ${code}`.trim())
     }
-    if (ev.hasCertificate) {
-      rewards.push('Cấp chứng nhận điện tử')
-    }
-    return rewards.join(' · ')
-  }
-
-  if (ev.trainingPoints && Number(ev.trainingPoints) > 0) {
+  } else if (ev.trainingPoints && Number(ev.trainingPoints) > 0) {
     const tp = Number(ev.trainingPoints)
     const pointsFormatted = tp < 10 ? `0${tp}` : `${tp}`
     const code = ev.trainingPointCategoryCode ? `mục ${ev.trainingPointCategoryCode}` : ''
-    return `Cộng ${pointsFormatted} điểm rèn luyện ${code}`.trim()
+    rewards.push(`Cộng ${pointsFormatted} điểm rèn luyện ${code}`.trim())
+  } else if (ev.pointsReward && /điểm rèn luyện|đrl|\+\d+/i.test(ev.pointsReward)) {
+    rewards.push(ev.pointsReward)
   }
 
-  return ev.pointsReward || ev.benefits || 'Cộng điểm rèn luyện'
+  if (ev.criteriaName || ev.sv5tCriteriaName) {
+    rewards.push(`Tiêu chuẩn SV5T: ${ev.criteriaName || ev.sv5tCriteriaName}`)
+  }
+  if (ev.hasCertificate) {
+    rewards.push('Cấp chứng nhận điện tử')
+  }
+
+  if (rewards.length > 0) {
+    return rewards.join(' · ')
+  }
+
+  if (ev.benefits && ev.benefits !== 'Cộng điểm rèn luyện') {
+    return ev.benefits
+  }
+
+  return ''
 }
 
 function formatEventTimeAgo(dateInput?: string): string {
@@ -298,7 +298,7 @@ export function normalizeEvent(raw: Partial<EventResponseDto> & Record<string, a
   let pointsReward = raw.pointsReward
   if (Array.isArray(raw.eventPoints) && raw.eventPoints.length > 0) {
     pointsReward = formatEventPointsReward(raw)
-  } else if (!pointsReward && (raw.trainingPoints || raw.benefits)) {
+  } else if (!pointsReward && (raw.trainingPoints || raw.benefits || raw.criteriaName || raw.sv5tCriteriaName)) {
     pointsReward = formatEventPointsReward(raw)
   }
 
@@ -312,22 +312,21 @@ export function normalizeEvent(raw: Partial<EventResponseDto> & Record<string, a
     raw.fanpageFullName ||
     raw.orgName ||
     cachedFp?.fullName ||
-    (raw.fanpageName && (raw.fanpageName.includes('CNTT') || raw.fanpageName.includes('Công Nghệ Thông Tin'))
+    (raw.fanpageName &&
+    (raw.fanpageName.includes('CNTT') || raw.fanpageName.includes('Công Nghệ Thông Tin'))
       ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông'
       : undefined)
 
   const organizerName =
-    organizerFullName ||
-    raw.organizerName ||
-    raw.fanpageName ||
-    cachedFp?.name ||
-    ''
+    organizerFullName || raw.organizerName || raw.fanpageName || cachedFp?.name || ''
 
   const organizerAvatarUrl =
     raw.organizerAvatarUrl ||
     raw.fanpageAvatarUrl ||
     cachedFp?.avatarUrl ||
-    (organizerId === '7' || raw.fanpageId === 7 || (organizerName && organizerName.includes('Hội SV'))
+    (organizerId === '7' ||
+    raw.fanpageId === 7 ||
+    (organizerName && organizerName.includes('Hội SV'))
       ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793963013/ctu-event/fanpages/u_2_606320c599474b7d.jpg'
       : organizerName.includes('CNTT') || organizerId === '1'
         ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
@@ -364,17 +363,25 @@ export function normalizeEvent(raw: Partial<EventResponseDto> & Record<string, a
     isSaved: Boolean(raw.isSaved),
     isRegistered: Boolean(raw.isRegistered || (raw.status as string) === 'REGISTERED'),
     timeAgo: raw.timeAgo || formatEventTimeAgo(raw.createdAt || raw.updatedAt || raw.dateOpen),
-    tags: Array.isArray(raw.tags) ? raw.tags : (raw.eventTypeName ? [raw.eventTypeName] : []),
+    tags: Array.isArray(raw.tags) ? raw.tags : raw.eventTypeName ? [raw.eventTypeName] : [],
     isModerationRequired: Boolean(raw.isModerationRequired),
     dateOpen: raw.dateOpen,
     dateClose: raw.dateClose,
     dateHappen: raw.dateHappen,
     eventTypeId: resolveEventTypeId(raw),
     eventTypeName: raw.eventTypeName || raw.eventType?.name,
-    semesterId: raw.semester?.id ? Number(raw.semester.id) : (raw.semesterId ? Number(raw.semesterId) : undefined),
+    semesterId: raw.semester?.id
+      ? Number(raw.semester.id)
+      : raw.semesterId
+        ? Number(raw.semesterId)
+        : undefined,
     semester: raw.semester || undefined,
     criteriaId: resolveCriteriaId(raw),
-    fanpageId: raw.fanpageId ? Number(raw.fanpageId) : (raw.organizerId ? Number(raw.organizerId) : undefined),
+    fanpageId: raw.fanpageId
+      ? Number(raw.fanpageId)
+      : raw.organizerId
+        ? Number(raw.organizerId)
+        : undefined,
     createdAt: raw.createdAt || raw.updatedAt || '',
     updatedAt: raw.updatedAt || raw.createdAt || '',
   }
@@ -395,93 +402,74 @@ export function isEventMatchingRegistrationStatus(
   if (!statusKey) return true
 
   const nowMs = now.getTime()
-  const dateOpenMs = evt.dateOpen ? new Date(evt.dateOpen).getTime() : (evt.startTime ? new Date(evt.startTime).getTime() : 0)
-  const dateCloseMs = evt.dateClose ? new Date(evt.dateClose).getTime() : (evt.endTime ? new Date(evt.endTime).getTime() : 0)
-  const dateHappenMs = evt.dateHappen ? new Date(evt.dateHappen).getTime() : (evt.startTime ? new Date(evt.startTime).getTime() : 0)
-
-  if (statusKey === 'OPEN_REGISTRATION') {
-    if (evt.status !== 'PUBLISHED' && evt.status !== 'OPEN_REGISTRATION') return false
-    const hasStarted = dateOpenMs ? nowMs >= dateOpenMs : true
-    const hasNotEnded = dateCloseMs ? nowMs <= dateCloseMs : true
-    return hasStarted && hasNotEnded
+  const time = (value?: string) => {
+    const parsed = value ? new Date(value).getTime() : NaN
+    return Number.isFinite(parsed) ? parsed : null
   }
-
-  if (statusKey === 'PUBLISHED') {
-    if (evt.status !== 'PUBLISHED' && evt.status !== 'UPCOMING') return false
-    return dateHappenMs ? dateHappenMs >= nowMs : true
-  }
-
-  if (statusKey === 'COMPLETED') {
-    if (evt.status === 'CLOSED' || evt.status === 'COMPLETED' || evt.status === 'FINISHED') return true
-    // Nếu sự kiện vẫn đang trong thời gian mở đăng ký thì chưa thể coi là đã kết thúc
-    if (dateCloseMs && nowMs <= dateCloseMs) return false
-    if (dateHappenMs && dateHappenMs < nowMs) return true
-    if (dateCloseMs && dateCloseMs < nowMs && (!dateHappenMs || dateHappenMs < nowMs)) return true
-    return false
-  }
-
-  return evt.status === statusKey
+  const status = String(evt.status || '').toUpperCase()
+  const open = time(evt.dateOpen)
+  const close = time(evt.dateClose)
+  const start = time(evt.startTime || evt.dateHappen)
+  const end = time(evt.endTime)
+  const cancelled = ['CANCELLED', 'DRAFT', 'REJECTED', 'PENDING_APPROVAL'].includes(status)
+  const effectiveEnd =
+    end !== null
+      ? end
+      : start !== null
+        ? start + 4 * 60 * 60 * 1000
+        : null
+  const completed =
+    ['COMPLETED', 'FINISHED'].includes(status) ||
+    (!cancelled && effectiveEnd !== null && effectiveEnd <= nowMs)
+  const running =
+    !cancelled &&
+    !completed &&
+    (['ONGOING', 'IN_PROGRESS'].includes(status) ||
+      (start !== null && start <= nowMs && effectiveEnd !== null && effectiveEnd > nowMs))
+  const published = [
+    'PUBLISHED',
+    'APPROVED',
+    'OPEN_REGISTRATION',
+    'CLOSED_REGISTRATION',
+    'CLOSED',
+    'UPCOMING',
+  ].includes(status)
+  const closed =
+    ['CLOSED', 'CLOSED_REGISTRATION'].includes(status) || (close !== null && close <= nowMs)
+  if (statusKey === 'OPEN_REGISTRATION')
+    return published && !cancelled && !closed && (open === null || open <= nowMs)
+  if (statusKey === 'CLOSED_REGISTRATION') return published && closed
+  if (statusKey === 'PUBLISHED')
+    return published && !completed && !running && (start === null || start > nowMs)
+  if (statusKey === 'ONGOING') return running
+  if (statusKey === 'COMPLETED') return completed
+  return status === statusKey
 }
 
-/**
- * Resolves allowed Training Point Category IDs respecting parent/child hierarchy.
- * When a child (e.g. IV.a) is selected, its unselected siblings (e.g. IV.b) will NOT match.
- * When only a root category (e.g. Mục IV) is selected, all its descendants match.
- */
 export function resolveAllowedPointCategoryIds(
   selectedIds: string[],
   pointCategories?: any[]
 ): Set<number> {
   const allowed = new Set<number>()
-  if (!selectedIds.length || !pointCategories?.length) return allowed
-
-  const roots = pointCategories.filter((pc: any) => pc.level === 0 || !pc.parentCategoryId)
-
-  roots.forEach((root: any) => {
-    const rootIdStr = String(root.id)
-    const isRootSelected = selectedIds.includes(rootIdStr)
-
-    // Find all level-1 children of this root that are selected
-    const selectedChildIds = pointCategories
-      .filter((pc: any) => String(pc.parentCategoryId) === rootIdStr && selectedIds.includes(String(pc.id)))
-      .map((pc: any) => pc.id)
-
-    if (selectedChildIds.length > 0) {
-      // User specifically selected sub-categories (e.g. IV.a)
-      // Only include descendants of the selected sub-categories, NOT unselected siblings!
-      selectedChildIds.forEach((cid: any) => {
-        const cat = pointCategories.find((pc: any) => String(pc.id) === String(cid))
-        if (cat?.childIds && Array.isArray(cat.childIds)) {
-          cat.childIds.forEach((id: any) => allowed.add(Number(id)))
-        } else {
-          allowed.add(Number(cid))
-        }
-      })
-    } else if (isRootSelected) {
-      // User selected the entire root category (e.g. Mục IV) with NO sub-categories
-      // Include all descendants of the root
-      if (root.childIds && Array.isArray(root.childIds)) {
-        root.childIds.forEach((id: any) => allowed.add(Number(id)))
-      } else {
-        allowed.add(Number(root.id))
-      }
+  const selected = new Set(selectedIds.map(String))
+  const byId = new Map((pointCategories || []).map((item) => [String(item.id), item]))
+  const descendants = (id: string, visited = new Set<string>()): Set<string> => {
+    if (visited.has(id)) return visited
+    visited.add(id)
+    const item = byId.get(id)
+    for (const childId of item?.childIds || []) {
+      if (String(childId) !== id) descendants(String(childId), visited)
     }
-  })
-
-  // Also handle any selected category that is not under recognized roots
-  selectedIds.forEach((cid: string) => {
-    const cat = pointCategories.find((pc: any) => String(pc.id) === cid)
-    if (cat && !allowed.has(Number(cid))) {
-      if (!cat.parentCategoryId && !roots.some((r: any) => String(r.id) === cid)) {
-        if (cat.childIds && Array.isArray(cat.childIds)) {
-          cat.childIds.forEach((id: any) => allowed.add(Number(id)))
-        } else {
-          allowed.add(Number(cid))
-        }
-      }
+    for (const child of pointCategories || []) {
+      if (String(child.parentCategoryId) === id) descendants(String(child.id), visited)
     }
-  })
-
+    return visited
+  }
+  for (const id of selected) {
+    const all = descendants(id)
+    if ([...all].some((child) => child !== id && selected.has(child))) continue
+    for (const child of all) if (Number.isFinite(Number(child))) allowed.add(Number(child))
+  }
   return allowed
 }
 
@@ -515,17 +503,24 @@ function buildEventFilterParams(filters?: EventFilters): Record<string, any> {
 
   // Backend Spring Boot EventFilterRequestDto uses List<Long> criteriaIds, eventTypeIds, pointCategoryIds
   if (filters.eventTypeIds) {
-    params.eventTypeIds = Array.isArray(filters.eventTypeIds) ? filters.eventTypeIds.join(',') : filters.eventTypeIds
+    params.eventTypeIds = Array.isArray(filters.eventTypeIds)
+      ? filters.eventTypeIds.join(',')
+      : filters.eventTypeIds
   } else if (filters.eventTypeId !== undefined) {
     params.eventTypeIds = filters.eventTypeId
   }
 
   if (filters.criteriaIds) {
-    params.criteriaIds = Array.isArray(filters.criteriaIds) ? filters.criteriaIds.join(',') : filters.criteriaIds
+    params.criteriaIds = Array.isArray(filters.criteriaIds)
+      ? filters.criteriaIds.join(',')
+      : filters.criteriaIds
   } else if (filters.childCriteriaIds && filters.childCriteriaIds.length > 0) {
     params.criteriaIds = filters.childCriteriaIds.join(',')
   } else if (filters.criteriaId !== undefined) {
-    const rawIds = String(filters.criteriaId).split(',').map((s) => s.trim()).filter(Boolean)
+    const rawIds = String(filters.criteriaId)
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
     const expandedIds = new Set<string>()
     rawIds.forEach((idStr) => {
       expandedIds.add(idStr)
@@ -538,14 +533,17 @@ function buildEventFilterParams(filters?: EventFilters): Record<string, any> {
   }
 
   if (filters.pointCategoryIds) {
-    params.pointCategoryIds = Array.isArray(filters.pointCategoryIds) ? filters.pointCategoryIds.join(',') : filters.pointCategoryIds
+    params.pointCategoryIds = Array.isArray(filters.pointCategoryIds)
+      ? filters.pointCategoryIds.join(',')
+      : filters.pointCategoryIds
   } else if (filters.childCategoryIds && filters.childCategoryIds.length > 0) {
     params.pointCategoryIds = filters.childCategoryIds.join(',')
   } else if (filters.pointCategoryId !== undefined) {
     params.pointCategoryIds = filters.pointCategoryId
   }
   // Backend Spring Boot expects java.time.Instant for dateHappenFrom / dateHappenTo
-  if (filters.dateHappenFrom) params.dateHappenFrom = toInstantIsoString(filters.dateHappenFrom, false)
+  if (filters.dateHappenFrom)
+    params.dateHappenFrom = toInstantIsoString(filters.dateHappenFrom, false)
   if (filters.dateHappenTo) params.dateHappenTo = toInstantIsoString(filters.dateHappenTo, true)
   if (filters.page !== undefined) params.page = filters.page
   const size = filters.size ?? filters.limit
@@ -583,37 +581,45 @@ export const eventService = {
       return rawList.map(normalizeEvent)
     }
 
-    // When no specific status is requested, Backend by default only returns PUBLISHED events.
-    // Fetch both PUBLISHED and COMPLETED so full event lifecycle is available for client filtering & preview.
+    // Public feeds need the full dataset before applying hierarchical local filters.
     const baseFilters = { ...filters }
     delete baseFilters.status
-    const [pubRes, compRes] = await Promise.allSettled([
-      apiClient.get('/events', { params: { ...buildEventFilterParams(baseFilters), status: 'PUBLISHED' } }),
-      apiClient.get('/events', { params: { ...buildEventFilterParams(baseFilters), status: 'COMPLETED' } }),
-    ])
-
-    const pubVal: any = pubRes.status === 'fulfilled' ? pubRes.value : null
-    const compVal: any = compRes.status === 'fulfilled' ? compRes.value : null
-
-    const pubList: any[] =
-      pubVal?.content ||
-      pubVal?.data?.content ||
-      pubVal?.data ||
-      (Array.isArray(pubVal) ? pubVal : [])
-    const compList: any[] =
-      compVal?.content ||
-      compVal?.data?.content ||
-      compVal?.data ||
-      (Array.isArray(compVal) ? compVal : [])
-
-    const eventMap = new Map<string, any>()
-    ;[...pubList, ...compList].forEach((item: any) => {
-      if (item && item.id != null) {
-        eventMap.set(String(item.id), item)
+    const params = buildEventFilterParams(baseFilters)
+    const explicitPage =
+      filters?.page !== undefined || filters?.size !== undefined || filters?.limit !== undefined
+    const readList = (res: any): any[] => {
+      const data = res?.data ?? res
+      return Array.isArray(data) ? data : data?.content || data?.items || []
+    }
+    const fetchStatus = async (status: string) => {
+      const first: any = await apiClient.get('/events', {
+        params: { ...params, status, size: params.size ?? 100, page: params.page ?? 0 },
+      })
+      const list = [...readList(first)]
+      if (!explicitPage) {
+        const totalPages = Number(first?.totalPages ?? first?.data?.totalPages) || 1
+        for (let page = 1; page < totalPages; page++) {
+          const next = await apiClient.get('/events', {
+            params: { ...params, status, size: 100, page },
+          })
+          list.push(...readList(next))
+        }
       }
+      return list
+    }
+    const responses = await Promise.allSettled(
+      ['PUBLISHED', 'COMPLETED', 'CLOSED'].map(fetchStatus)
+    )
+    const eventMap = new Map<string, any>()
+    responses.forEach((response) => {
+      if (response.status === 'fulfilled')
+        response.value.forEach((item) => {
+          if (item?.id != null) eventMap.set(String(item.id), item)
+        })
     })
-
-    return Array.from(eventMap.values()).map(normalizeEvent)
+    const result = [...eventMap.values()].map(normalizeEvent)
+    const limit = filters?.size ?? filters?.limit
+    return limit !== undefined ? result.slice(0, limit) : result
   },
 
   /**

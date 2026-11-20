@@ -132,7 +132,7 @@ describe('AccountNavigationPopup', () => {
     expect(screen.getByText(/MSSV: B2300000 • Sinh viên/i)).toBeInTheDocument()
   })
 
-  it('renders staff profile with email and without "Về trang chủ sinh viên" button', () => {
+  it('renders staff profile without email and without "Về trang chủ sinh viên" button', () => {
     const mockStaff: User = {
       id: '99',
       email: 'organizer@ctu.edu.vn',
@@ -155,7 +155,7 @@ describe('AccountNavigationPopup', () => {
     )
 
     expect(screen.getByText('Nguyễn Minh Anh')).toBeInTheDocument()
-    expect(screen.getByText('organizer@ctu.edu.vn')).toBeInTheDocument()
+    expect(screen.queryByText('organizer@ctu.edu.vn')).not.toBeInTheDocument()
     expect(screen.queryByText('Về trang chủ sinh viên')).not.toBeInTheDocument()
   })
 
@@ -184,7 +184,7 @@ describe('AccountNavigationPopup', () => {
     )
 
     expect(screen.getByText('Nguyễn Minh Anh')).toBeInTheDocument()
-    expect(screen.getByText('organizer@ctu.edu.vn')).toBeInTheDocument()
+    expect(screen.queryByText('organizer@ctu.edu.vn')).not.toBeInTheDocument()
   })
 
   it('renders student identity at top when student is viewing a public fanpage (/fanpage/1)', () => {

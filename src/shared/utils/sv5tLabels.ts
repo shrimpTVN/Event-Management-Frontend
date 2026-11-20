@@ -8,7 +8,7 @@ interface CriteriaNode {
 
 export function createSv5tLabelFormatter(
   criterias: CriteriaNode[],
-  options?: { compact?: boolean; childOnly?: boolean }
+  options?: { compact?: boolean; childOnly?: boolean; codeWithChild?: boolean; shortMajor?: boolean }
 ) {
   const nodes = new Map<string, { name: string; parentId: string | null; order?: number | null }>()
   const collect = (items: CriteriaNode[], parentId: string | null = null) => {
@@ -52,18 +52,22 @@ export function createSv5tLabelFormatter(
     const majorIndex = path.findIndex((name) =>
       majorNames.includes(normalizeName(name).replace(/^tiêu chuẩn\s+/, ''))
     )
-    const major = path[majorIndex >= 0 ? majorIndex : 0]
+    const majorName = path[majorIndex >= 0 ? majorIndex : 0]
+    const major = options?.shortMajor
+      ? majorName.replace(/^tiêu chuẩn\s+(?:\d+\s*[:.]\s*)?/i, '')
+      : majorName
     const child = path[path.length - 1]
-    if (options?.childOnly) return child
     const codeParts = orders.slice(majorIndex >= 0 ? majorIndex : 0)
-    if (
-      options?.compact &&
-      major !== child &&
-      codeParts.every((order) => Number.isInteger(order) && Number(order) > 0)
-    ) {
+    const hasCode = codeParts.every((order) => Number.isInteger(order) && Number(order) > 0)
+    if (options?.codeWithChild && hasCode) {
+      const codedChild = `${codeParts.join('.')}. ${child}`
+      return options.childOnly || majorName === child ? codedChild : `${major} (${codedChild})`
+    }
+    if (options?.childOnly) return child
+    if (options?.compact && majorName !== child && hasCode) {
       return `${major} (${codeParts.join('.')})`
     }
-    return major !== child ? `${major} (${child})` : major
+    return majorName !== child ? `${major} (${child})` : major
   }
 
   return (name: string, criteriaId?: number | string): string => {

@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Check, X } from 'lucide-react'
 import { StudentLeftSidebar } from '@/features/events'
@@ -13,6 +14,7 @@ import {
 } from '@/features/profile'
 
 export const ProfilePage: React.FC = () => {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState<StudentProfile | null>(null)
@@ -154,13 +156,20 @@ export const ProfilePage: React.FC = () => {
                 )}
               </>
             ) : (
-              <div className="w-full rounded-2xl border border-dashed border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-2">
+              <div className="w-full rounded-2xl border border-dashed border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-3">
                 <h3 className="font-semibold text-foreground text-base">
                   Chưa có thông tin hồ sơ
                 </h3>
-                <p className="text-xs text-muted-foreground max-w-sm">
-                  Vui lòng cập nhật hồ sơ để tiếp tục tham gia các hoạt động sinh viên.
+                <p className="text-xs sm:text-sm text-muted-foreground max-w-sm">
+                  Vui lòng cập nhật thông tin sinh viên để đăng ký tham gia sự kiện và tích lũy điểm rèn luyện.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/onboarding/student?redirect=/profile')}
+                  className="mt-2 px-5 py-2.5 bg-[#1B4B8A] hover:bg-[#1E40AF] text-white text-sm font-semibold rounded-xl shadow-sm transition-colors cursor-pointer"
+                >
+                  Cập nhật thông tin sinh viên ngay
+                </button>
               </div>
             )}
           </div>

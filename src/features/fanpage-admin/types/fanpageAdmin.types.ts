@@ -18,6 +18,9 @@ export interface FanpageSummary {
 }
 
 export interface FanpageActivityStats {
+  available?: boolean
+  totalRegistrations?: number
+  totalAttendees?: number
   periodLabel: string
   eventsCount: number
   interactionsCount: number
@@ -52,6 +55,7 @@ export interface FanpageFeedPost {
   location?: string
   pointsReward?: string
   capacity?: number
+  registeredCount?: number
   quotaText?: string
   likesCount: number
   commentsCount: number
@@ -97,6 +101,7 @@ export interface AdminEvent {
   status: EventStatus
   bannerUrl: string
   requiresApproval: boolean
+  allowSelfCheck?: boolean
   attendanceMethod?: 'MANUAL' | 'STUDENT_PROOF'
   attendanceSessionType?: 'START' | 'END' | 'BOTH'
   autoEmail: boolean
@@ -111,6 +116,7 @@ export interface AdminEvent {
   trainingPointCategoryName?: string
   trainingPointCategoryCode?: string
   trainingPoints?: number
+  sv5tCriteriaIds?: number[]
   sv5tCriteriaId?: number
   sv5tCriteriaName?: string
   eventPoints?: Array<{
@@ -274,6 +280,7 @@ export interface Sv5tCriteriaItem {
   name: string
   note?: string | null
   scope?: string
+  requiredOccurrences?: number
   level: number
   childrenOrder: number
   parentId: number | null

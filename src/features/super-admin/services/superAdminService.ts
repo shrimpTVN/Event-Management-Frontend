@@ -533,6 +533,18 @@ export const superAdminService = {
     }
   },
 
+  rejectFanpage: async (id: string | number, reason?: string): Promise<boolean> => {
+    try {
+      await apiClient.post(`/fanpages/admin/reject-fanpage/${id}`, {
+        reason: reason?.trim() || 'Hồ sơ chưa đạt yêu cầu theo quy định.',
+      })
+      return true
+    } catch (err) {
+      console.error('Failed to reject fanpage:', err)
+      throw err
+    }
+  },
+
   banFanpage: async (id: string | number): Promise<boolean> => {
     try {
       await apiClient.post(`/fanpages/admin/ban-fanpage/${id}`)

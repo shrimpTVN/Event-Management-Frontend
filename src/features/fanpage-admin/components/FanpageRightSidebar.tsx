@@ -1,163 +1,125 @@
 import { Tooltip } from '@/components/ui/tooltip'
-import React from 'react'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useQuery } from '@tanstack/react-query'
-import { Users, ShieldCheck, ChevronRight, UserPlus } from 'lucide-react'
+import { ChevronRight, Crown } from 'lucide-react'
 import { useAuthStore } from '@/features/auth'
-import type {
-  FanpageSummary,
-  FanpageActivityStats,
-  FanpageMember,
-} from '../types/fanpageAdmin.types'
-import { fanpageAdminService, MOCK_FANPAGE_MEMBERS } from '../services/fanpageAdminService'
+import type { FanpageSummary, FanpageActivityStats } from '../types/fanpageAdmin.types'
+import { fanpageAdminService } from '../services/fanpageAdminService'
 import { FanpageActivityStatsCard } from './FanpageActivityStatsCard'
 
-interface FanpageRightSidebarProps {
+interface Props {
   currentFanpage: FanpageSummary
   stats: FanpageActivityStats
+  statsLoading?: boolean
+  onRetryStats?: () => void
   onManageMembersClick?: () => void
 }
-
-export const FanpageRightSidebar: React.FC<FanpageRightSidebarProps> = ({
+export const FanpageRightSidebar = ({
   currentFanpage,
   stats,
+  statsLoading,
+  onRetryStats,
   onManageMembersClick,
-}) => {
-  const targetFpId = currentFanpage.id || '1'
+}: Props) => {
   const { user } = useAuthStore()
-
-  // Fetch real members of this fanpage
-  const { data: serverMembers = [] } = useQuery<FanpageMember[]>({
-    queryKey: ['fanpage-members', targetFpId],
-    queryFn: () => fanpageAdminService.getFanpageMembers(targetFpId),
-    enabled: Boolean(targetFpId),
+  const {
+    data: members = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ['fanpage-members', currentFanpage.id],
+    queryFn: () => fanpageAdminService.getFanpageMembers(currentFanpage.id),
+    enabled: Boolean(currentFanpage.id),
   })
-
-  const members: FanpageMember[] = serverMembers.length > 0 ? serverMembers : MOCK_FANPAGE_MEMBERS
-
   return (
-    <div className="w-full flex flex-col gap-3.5 select-none text-left">
-      {/* 1. Card Thành viên Ban Quản trị Fanpage */}
-      <div className="w-full bg-white dark:bg-card border border-border/60 rounded-xl p-4 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] flex flex-col gap-3">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-2.5 border-b border-border/50">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-[#1B4B8A] dark:text-blue-400 flex items-center justify-center">
-              <Users className="h-4 w-4" />
-            </div>
-            <div>
-              <h3 className="font-k2d font-bold text-sm text-foreground tracking-tight">
-                Thành viên fanpage
-              </h3>
-              <p className="text-[11px] text-muted-foreground">
-                {members.length} thành viên tham gia
-              </p>
-            </div>
-          </div>
-
-          {onManageMembersClick && (
-            <Tooltip content="Quản lý thành viên">
-              <button
-                type="button"
-                onClick={onManageMembersClick}
-                aria-label="Quản lý thành viên"
-                className="p-1 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted/60 transition-colors cursor-pointer"
-              >
-                <UserPlus className="h-4 w-4" />
-              </button>
-            </Tooltip>
+    <div className="flex w-full flex-col gap-3 text-left">
+      <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-k2d text-sm font-semibold text-foreground">Thành viên fanpage</h3>
+          {!isLoading && !isError && (
+            <span className="text-xs tabular-nums text-muted-foreground">{members.length}</span>
           )}
         </div>
-
-        {/* Members List (Compact cards) */}
-        <div className="flex flex-col gap-2">
-          {members.slice(0, 5).map((member) => {
-            const isAdmin = member.role === 'ADMIN'
-
-            // Hiển thị tên thay vì email theo yêu cầu người dùng
-            const displayName =
-              member.fullName ||
-              [(member as any).lastName, (member as any).firstName].filter(Boolean).join(' ') ||
-              (member.email ? member.email.split('@')[0] : 'Thành viên')
-
-            // Xác định tài khoản của người dùng hiện tại
-            const isCurrentUser = Boolean(
-              (user?.id &&
-                (String(member.userId) === String(user.id) ||
-                  String(member.id) === String(user.id))) ||
-              (user?.email &&
-                member.email &&
-                user.email.toLowerCase() === member.email.toLowerCase()) ||
-              (!user?.email && member.email === 'organizer@ctu.edu.vn')
-            )
-
-            return (
-              <div
-                key={member.id}
-                className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                {/* Left: Avatar + Tên thành viên + Badge vai trò Admin cùng ở trên tên */}
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        {isLoading ? (
+          <Skeleton className="h-28 w-full" />
+        ) : isError ? (
+          <div className="flex flex-col items-start gap-1" role="status">
+            <p className="text-xs text-muted-foreground">Chưa tải được thành viên.</p>
+            <Button variant="ghost" size="sm" onClick={() => void refetch()}>
+              Thử lại
+            </Button>
+          </div>
+        ) : members.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Chưa có thành viên.</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {members.slice(0, 5).map((member) => {
+              const name = member.fullName || member.email.split('@')[0] || 'Thành viên'
+              const isCurrentUser = Boolean(
+                (user?.id && member.userId && String(member.userId) === String(user.id)) ||
+                (user?.email &&
+                  member.email &&
+                  user.email.toLowerCase() === member.email.toLowerCase())
+              )
+              return (
+                <li key={member.id} className="flex min-w-0 items-center gap-2.5">
                   {member.avatarUrl ? (
                     <img
                       src={member.avatarUrl}
-                      alt={displayName}
-                      className="h-8 w-8 rounded-full object-cover border border-border shrink-0"
+                      alt=""
+                      className="h-8 w-8 shrink-0 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-semibold text-xs flex items-center justify-center shrink-0 shadow-2xs">
-                      {member.avatarText || displayName.slice(0, 2).toUpperCase()}
-                    </div>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                      {member.avatarText || name.slice(0, 2)}
+                    </span>
                   )}
-
-                  <div className="min-w-0 flex flex-col justify-center flex-1">
-                    <Tooltip content={displayName}>
-                      <span className="text-xs font-semibold text-foreground truncate">
-                        {displayName}
-                      </span>
-                    </Tooltip>
-
-                    {/* Dòng 2 dưới tên: Chữ Admin nằm riêng bên dưới để không che tên thành viên */}
-                    <div className="flex items-center gap-1 mt-0.5">
-                      {isAdmin ? (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-[#1B4B8A] dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/50 w-fit">
-                          <ShieldCheck className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400 shrink-0" />
-                          <span>Admin</span>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Tooltip content={name}>
+                        <span className="min-w-0 truncate text-xs font-medium text-foreground">
+                          {name}
                         </span>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground">
-                          {member.role === 'COLLABORATOR' ? 'Cộng tác viên' : 'Thành viên'}
+                      </Tooltip>
+                      {isCurrentUser && (
+                        <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                          Bạn
                         </span>
                       )}
                     </div>
+                    <p
+                      className={
+                        member.role === 'ADMIN'
+                          ? 'flex items-center gap-1 text-xs font-semibold text-primary'
+                          : 'text-xs text-muted-foreground'
+                      }
+                    >
+                      {member.role === 'ADMIN' && (
+                        <Crown aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                      )}
+                      {member.role === 'ADMIN' ? 'Quản trị viên' : 'Cộng tác viên'}
+                    </p>
                   </div>
-                </div>
-
-                {/* Right: Xác định bạn là tài khoản nào */}
-                {isCurrentUser && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#EFF5FC] text-[#1B4B8A] dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 shrink-0 shadow-2xs">
-                    Bạn
-                  </span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* View all button - chỉnh lại màu sắc dịu nhẹ, êm mắt */}
-        {onManageMembersClick && (
-          <button
-            type="button"
-            onClick={onManageMembersClick}
-            className="w-full mt-1 py-1.5 px-3 rounded-lg bg-slate-50/80 hover:bg-slate-100 dark:bg-muted/30 dark:hover:bg-muted/60 border border-border/50 hover:border-border/80 text-xs font-medium text-muted-foreground hover:text-foreground flex items-center justify-center gap-1.5 transition-all cursor-pointer group"
-          >
-            <span>Quản lý tất cả thành viên</span>
-            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/70 group-hover:translate-x-0.5 transition-transform" />
-          </button>
+                </li>
+              )
+            })}
+          </ul>
         )}
-      </div>
-
-      {/* 2. Card Trạng thái hoạt động 7 ngày gần nhất */}
-      <FanpageActivityStatsCard stats={stats} />
+        {onManageMembersClick && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onManageMembersClick}
+            className="h-10 w-full justify-between border-t border-border py-2 text-muted-foreground font-medium"
+          >
+            Xem tất cả thành viên
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </section>
+      <FanpageActivityStatsCard stats={stats} isLoading={statsLoading} onRetry={onRetryStats} />
     </div>
   )
 }

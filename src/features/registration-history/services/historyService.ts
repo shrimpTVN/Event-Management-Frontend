@@ -3,6 +3,12 @@ import { normalizeAttendanceConfig } from '@/shared/utils/attendanceConfig'
 import { createSv5tLabelFormatter } from '@/shared/utils/sv5tLabels'
 import type { RegisteredEventItem, AttendanceSession, EventStatus } from '../types/history.types'
 
+interface HistoryPointCategory {
+  id: number
+  name: string
+  children?: HistoryPointCategory[]
+}
+
 export const CTU_CRITERIA_CODE_MAP: Record<number, string> = {
   10: 'mục I.a',
   11: 'mục I.b',
@@ -103,12 +109,34 @@ export function formatHappenTime(rawDate?: string): string {
   }
 }
 
+function getOrganizerAvatar(raw: any): string | undefined {
+  const info = raw.eventInfo || {}
+  return (
+    info.fanpageAvatarUrl ||
+    info.fanpage?.avatarUrl ||
+    raw.organizerAvatar ||
+    raw.fanpageAvatarUrl ||
+    raw.fanpageAvatar ||
+    raw.fanpage?.avatarUrl ||
+    raw.organizer?.avatarUrl ||
+    undefined
+  )
+}
+
+function getFanpageId(raw: any): string {
+  const id =
+    raw.eventInfo?.fanpageId ?? raw.eventInfo?.fanpage?.id ?? raw.fanpageId ?? raw.fanpage?.id
+  return id != null && /^[1-9]\d*$/.test(String(id)) ? String(id) : ''
+}
+
 /**
  * Maps raw backend registration entity to UI model RegisteredEventItem
  */
 export function normalizeRegisteredEvent(
   raw: any,
-  formatCriteria: (name: string, criteriaId?: number | string) => string = (name) => name
+  formatCriteria: (name: string, criteriaId?: number | string) => string = (name) => name,
+  formatCriteriaDetail: (name: string, criteriaId?: number | string) => string = (name) => name,
+  pointCategories: HistoryPointCategory[] = []
 ): RegisteredEventItem {
   const info = raw.eventInfo || {}
   const criteriaName = formatCriteria(
@@ -126,18 +154,9 @@ export function normalizeRegisteredEvent(
     raw.organizerName ||
     raw.fanpageName ||
     (raw.organizer && raw.organizer.name) ||
-    'Đoàn Trường CNTT & TT'
+    'Ban tổ chức'
 
-  const defaultAvatar = organizerName.includes('CNTT')
-    ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
-    : 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150'
-
-  const organizerAvatar =
-    info.fanpageAvatarUrl ||
-    raw.organizerAvatar ||
-    raw.fanpageAvatar ||
-    (raw.organizer && raw.organizer.avatarUrl) ||
-    defaultAvatar
+  const organizerAvatar = getOrganizerAvatar(raw)
 
   const organizer = {
     name: organizerName,
@@ -184,12 +203,24 @@ export function normalizeRegisteredEvent(
 
   // Format detailed benefits: e.g. "+3 ĐRL mục V.b", "Tiêu chuẩn SV5T: ..."
   const formattedBenefits: string[] = []
+  const benefitDetails: string[] = []
+  const categoryNames = new Map<number, string>()
+  const collectCategoryNames = (categories: HistoryPointCategory[]) => {
+    categories.forEach((category) => {
+      categoryNames.set(Number(category.id), category.name)
+      if (Array.isArray(category.children)) collectCategoryNames(category.children)
+    })
+  }
+  collectCategoryNames(pointCategories)
   if (Array.isArray(info.eventPoints) && info.eventPoints.length > 0) {
     info.eventPoints.forEach((ep: any) => {
       const pts = ep.point ?? 0
       const code = formatCtuCategoryCode(ep.pointCategoryId)
       if (pts > 0) {
-        formattedBenefits.push(`+${pts} ĐRL ${code}`.trim())
+        const label = `+${pts} ĐRL ${code}`.trim()
+        formattedBenefits.push(label)
+        const name = categoryNames.get(Number(ep.pointCategoryId)) || ep.pointCategoryName
+        benefitDetails.push(name ? `${label} (${name})` : label)
       }
     })
   }
@@ -238,7 +269,12 @@ export function normalizeRegisteredEvent(
       formattedBenefits[0] ||
       (totalEventPoints > 0 ? `ĐRL: +${totalEventPoints}` : 'ĐRL theo quy định'),
     criteriaSv5t: criteriaName,
+    criteriaSv5tDetail: formatCriteriaDetail(
+      info.criteriaName || raw.criteriaSv5tDetail || raw.criteriaSv5t || '',
+      info.criteriaId ?? raw.criteriaId
+    ),
     benefits,
+    benefitDetails,
     extraBenefitsCount:
       typeof raw.extraBenefitsCount === 'number'
         ? raw.extraBenefitsCount
@@ -260,6 +296,7 @@ export function normalizeRegisteredEvent(
     evidenceUrl: raw.evidenceUrl || raw.checkInEvidenceUrl || null,
     reason: raw.reason || null,
     ...normalizeAttendanceConfig({
+      allowSelfCheck: info.allowSelfCheck ?? raw.allowSelfCheck,
       attendanceMethod: info.attendanceMethod ?? raw.attendanceMethod,
       attendanceSessionType: info.attendanceSessionType ?? raw.attendanceSessionType,
     }),
@@ -267,6 +304,8 @@ export function normalizeRegisteredEvent(
     checkOutAt: raw.checkOutAt || null,
     checkInBy: raw.checkInBy ?? null,
     checkOutBy: raw.checkOutBy ?? null,
+    checkInByName: raw.checkInByName || null,
+    checkOutByName: raw.checkOutByName || null,
     checkInEvidenceUrl: raw.checkInEvidenceUrl || null,
     checkOutEvidenceUrl: raw.checkOutEvidenceUrl || null,
     studentInfo:
@@ -286,9 +325,10 @@ export const historyService = {
    */
   async getMyHistory(): Promise<RegisteredEventItem[]> {
     try {
-      const [res, criterias]: any[] = await Promise.all([
+      const [res, criterias, pointCategories]: any[] = await Promise.all([
         apiClient.get('/registrations/me/history', { params: { page: 0, size: 100 } }),
         apiClient.get('/criterias').catch(() => []),
+        apiClient.get('/point-categories').catch(() => []),
       ])
       let rawList: any[] = []
       if (Array.isArray(res)) {
@@ -303,9 +343,48 @@ export const historyService = {
         rawList = res.data
       }
       const formatCriteria = createSv5tLabelFormatter(
-        Array.isArray(criterias) ? criterias : Array.isArray(criterias?.data) ? criterias.data : []
+        Array.isArray(criterias) ? criterias : Array.isArray(criterias?.data) ? criterias.data : [],
+        { compact: true, shortMajor: true }
       )
-      return rawList.map((raw) => normalizeRegisteredEvent(raw, formatCriteria))
+      const formatCriteriaDetail = createSv5tLabelFormatter(
+        Array.isArray(criterias) ? criterias : Array.isArray(criterias?.data) ? criterias.data : [],
+        { shortMajor: true, codeWithChild: true }
+      )
+      // Registration eventInfo may omit the fanpage avatar. Fetch each missing fanpage once.
+      const missingFanpageIds = [
+        ...new Set(rawList.filter((raw) => !getOrganizerAvatar(raw)).map(getFanpageId)),
+      ].filter(Boolean)
+      const fanpages = new Map(
+        await Promise.all(
+          missingFanpageIds.map(async (id) => {
+            try {
+              const response: any = await apiClient.get(`/fanpages/${id}`)
+              const fanpage = response?.data ?? response
+              return [id, String(fanpage?.id) === id ? fanpage : null] as const
+            } catch {
+              return [id, null] as const
+            }
+          })
+        )
+      )
+      return rawList.map((raw) => {
+        const fanpage = fanpages.get(getFanpageId(raw))
+        return normalizeRegisteredEvent(
+          {
+            ...raw,
+            eventInfo: {
+              ...raw.eventInfo,
+              fanpageName: raw.eventInfo?.fanpageName || fanpage?.name,
+              fanpageAvatarUrl: getOrganizerAvatar(raw) || fanpage?.avatarUrl,
+            },
+          },
+          formatCriteria,
+          formatCriteriaDetail,
+          Array.isArray(pointCategories)
+            ? pointCategories
+            : Array.isArray(pointCategories?.data) ? pointCategories.data : []
+        )
+      })
     } catch (err) {
       console.error('Failed to fetch registration history:', err)
       return []

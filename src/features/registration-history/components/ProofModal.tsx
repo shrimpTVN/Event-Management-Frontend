@@ -37,21 +37,24 @@ export function ProofModal({ isOpen, onClose, event, onComplaint }: ProofModalPr
   const isCurrentStudent = user && (event.userId == null || String(event.userId) === user.id)
   const studentName = event.studentInfo?.fullName || (isCurrentStudent ? user.name : '')
   const studentId = event.studentInfo?.mssv || (isCurrentStudent ? user.studentId : '')
-  const actorLabel = (id?: string | number | null) => {
-    if (id == null || String(id).trim() === '') return 'Chưa có thông tin'
-    return user && String(id) === user.id ? 'Bạn' : `Tài khoản #${id}`
+  const actorLabel = (actor?: string | number | null) => {
+    if (actor == null || String(actor).trim() === '') return 'Chưa có thông tin'
+    const str = String(actor).trim()
+    if (user && (str === user.id || str === user.name)) return 'Bạn'
+    if (/^\d+$/.test(str)) return `Tài khoản #${str}`
+    return str
   }
   const entries = [
     {
       label: 'Check-in',
       time: event.checkInAt,
-      actor: event.checkInBy,
+      actor: event.checkInByName || event.checkInBy,
       image: event.checkInEvidenceUrl || event.evidenceUrl,
     },
     {
       label: 'Check-out',
       time: event.checkOutAt,
-      actor: event.checkOutBy,
+      actor: event.checkOutByName || event.checkOutBy,
       image: event.checkOutEvidenceUrl,
     },
   ]

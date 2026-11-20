@@ -1,15 +1,18 @@
+import { Button } from '@/components/ui/button'
+import { EventAnalyticsModal } from './EventAnalyticsModal'
+import {
+  EventFilterButton,
+  EventFilterChips,
+} from '@/features/events/components/EventFilterControls'
+import { matchesEventFilters, eventFilterChips } from '@/features/events/utils/eventFilters'
 import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Pencil, X, Users, SlidersHorizontal, CalendarPlus, Plus, RotateCcw } from 'lucide-react'
+import { Pencil, CalendarPlus, Plus, RotateCcw } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { cn } from '@/lib/utils'
 import { useAuthStore, isStaffUser } from '@/features/auth'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  EventFilterModal,
   type EventFilterFormValues,
-  isEventMatchingRegistrationStatus,
-  resolveAllowedPointCategoryIds,
   eventFilterOptionsService,
   type EventFilterOptions,
 } from '@/features/events'
@@ -31,7 +34,9 @@ interface FanpageHomeViewProps {
   reminder?: UpcomingEventReminder | null
   posts: FanpageFeedPost[]
   isLoadingPosts?: boolean
-  onOpenEventsTab?: () => void
+  onOpenEventRegistrations?: (eventId: string) => void
+  statsLoading?: boolean
+  onRetryStats?: () => void
   onCreateEventClick?: () => void
   onEditProfileClick?: () => void
   onEditEvent?: (post: FanpageFeedPost) => void
@@ -45,7 +50,9 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
   reminder,
   posts,
   isLoadingPosts = false,
-  onOpenEventsTab,
+  onOpenEventRegistrations,
+  statsLoading,
+  onRetryStats,
   onCreateEventClick,
   onEditProfileClick,
   onEditEvent,
@@ -53,8 +60,9 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
   onHideEvent,
 }) => {
   const navigate = useNavigate()
-  const [selectedPostForAnalytics, setSelectedPostForAnalytics] = useState<FanpageFeedPost | null>(null)
-  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false)
+  const [selectedPostForAnalytics, setSelectedPostForAnalytics] = useState<FanpageFeedPost | null>(
+    null
+  )
   const [filterValues, setFilterValues] = useState<EventFilterFormValues>({})
 
   const { data: filterOptions } = useQuery<EventFilterOptions>({
@@ -63,167 +71,11 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
     staleTime: 5 * 60 * 1000,
   })
 
-  const activeDrawerFiltersCount = useMemo(() => {
-    return [
-      filterValues.status,
-      filterValues.eventTypeId,
-      filterValues.pointCategoryId,
-      filterValues.criteriaId,
-      filterValues.semesterId && filterValues.semesterId !== 'ALL' ? filterValues.semesterId : null,
-      filterValues.academicYear && filterValues.academicYear !== 'ALL' ? filterValues.academicYear : null,
-      filterValues.dateHappenFrom,
-      filterValues.dateHappenTo,
-    ].filter(Boolean).length
-  }, [filterValues])
-
-  const filteredPosts = useMemo(() => {
-    const rawTypeIds = filterValues.eventTypeId ? filterValues.eventTypeId.split(',').filter(Boolean) : []
-    const rawStatus = filterValues.status ? filterValues.status.split(',').filter(Boolean) : []
-    const rawPointCatIds = filterValues.pointCategoryId ? filterValues.pointCategoryId.split(',').filter(Boolean) : []
-    const rawCritIds = filterValues.criteriaId ? filterValues.criteriaId.split(',').filter(Boolean) : []
-
-    const selectedTypeLabels = rawTypeIds.map((tid) => {
-      const found = filterOptions?.eventTypes?.find((et) => String(et.id) === String(tid))
-      return (found?.label || tid).toLowerCase()
-    })
-
-    const selectedCritLabels = rawCritIds.map((cid) => {
-      const found = filterOptions?.criterias?.find((c) => String(c.id) === String(cid))
-      return (found?.label || cid).toLowerCase().replace('tiêu chuẩn', '').trim()
-    })
-
-    // Resolve allowed point categories respecting parent/child hierarchy
-    const allowedPointCatIds = resolveAllowedPointCategoryIds(
-      rawPointCatIds,
-      filterOptions?.pointCategories
-    )
-
-    // Resolve allowed SV5T criteria respecting parent/child hierarchy
-    const allowedCritIds = new Set<string>()
-    const critNames: string[] = []
-    const keywords: string[] = []
-    rawCritIds.forEach((cid) => {
-      allowedCritIds.add(cid)
-      const crit = filterOptions?.criterias?.find((c) => String(c.id) === cid)
-      if (crit?.childIds) {
-        crit.childIds.forEach((id) => allowedCritIds.add(String(id)))
-      }
-      if (crit?.childNames) {
-        crit.childNames.forEach((cn) => critNames.push(cn.toLowerCase()))
-      }
-      if (crit?.keywords) {
-        crit.keywords.forEach((kw) => keywords.push(kw.toLowerCase()))
-      }
-      if (crit?.label) {
-        const clean = crit.label.toLowerCase().replace('tiêu chuẩn', '').trim()
-        critNames.push(clean)
-        if (clean.includes('tình nguyện')) keywords.push('tình nguyện', 'hiến máu')
-        else if (clean.includes('đạo đức')) keywords.push('đạo đức', 'lối sống')
-        else if (clean.includes('thể lực')) keywords.push('thể lực', 'thể thao')
-        else if (clean.includes('học tập')) keywords.push('học tập')
-        else if (clean.includes('hội nhập')) keywords.push('hội nhập', 'ngoại ngữ', 'tin học')
-      }
-    })
-
-    // Resolve academic year matching semester IDs
-    const matchingYearSemesterIds = new Set<string>()
-    if (filterValues.academicYear && filterValues.academicYear !== 'ALL' && filterOptions?.semesters) {
-      filterOptions.semesters.forEach((s) => {
-        if (s.academicYear === filterValues.academicYear) {
-          matchingYearSemesterIds.add(String(s.id))
-        }
-      })
-    }
-
-    return posts.filter((post) => {
-      // 1. Status Filter
-      if (rawStatus.length > 0) {
-        const matchesStatus = rawStatus.some((sKey) =>
-          isEventMatchingRegistrationStatus(
-            {
-              status: post.status || 'PUBLISHED',
-              dateOpen: post.dateOpen,
-              dateClose: post.dateClose,
-              dateHappen: post.startTime,
-              startTime: post.startTime,
-              endTime: post.endTime,
-            } as any,
-            sKey
-          )
-        )
-        if (!matchesStatus) return false
-      }
-
-      // 2. Event Types
-      if (rawTypeIds.length > 0) {
-        const pTypeId = String((post as any).eventTypeId || '')
-        const pTypeName = (post.eventTypeName || (post as any).category || '').toLowerCase()
-        const pTitle = (post.title || '').toLowerCase()
-
-        const matchesType =
-          (pTypeId && rawTypeIds.includes(pTypeId)) ||
-          selectedTypeLabels.some(
-            (lbl) => lbl && (pTypeName.includes(lbl) || lbl.includes(pTypeName) || pTitle.includes(lbl))
-          ) ||
-          rawTypeIds.some((tid) => pTypeName.includes(tid.toLowerCase()) || pTitle.includes(tid.toLowerCase()))
-
-        if (!matchesType) return false
-      }
-
-      // 3. Point Category (ĐRL)
-      if (rawPointCatIds.length > 0) {
-        const pPoints = (post as any).eventPoints || []
-        const hasPointMatch =
-          (allowedPointCatIds.size > 0 &&
-            (pPoints.some((ep: any) => allowedPointCatIds.has(Number(ep.pointCategoryId || ep.id))) ||
-              ((post as any).pointCategoryId && allowedPointCatIds.has(Number((post as any).pointCategoryId))))) ||
-          pPoints.some((ep: any) => rawPointCatIds.includes(String(ep.pointCategoryId || ep.id)))
-
-        if (!hasPointMatch) return false
-      }
-
-      // 4. SV5T Criteria
-      if (rawCritIds.length > 0) {
-        const pCritId = String((post as any).criteriaId || '')
-        const pCritName = ((post as any).criteriaName || '').toLowerCase()
-        const matchesCrit =
-          (pCritId && allowedCritIds.has(pCritId)) ||
-          (pCritName && critNames.some((cn) => cn && (pCritName.includes(cn) || cn.includes(pCritName)))) ||
-          (pCritName && keywords.some((kw) => kw && pCritName.includes(kw))) ||
-          selectedCritLabels.some((lbl) => lbl && pCritName && (pCritName.includes(lbl) || lbl.includes(pCritName)))
-
-        if (!matchesCrit) return false
-      }
-
-      // 5. Academic Year & Semester
-      if (filterValues.academicYear && filterValues.academicYear !== 'ALL') {
-        const pSemId = String((post as any).semesterId || '')
-        const pYear = String((post as any).academicYear || '')
-        if (pYear && pYear === filterValues.academicYear) {
-          // matches directly
-        } else if (pSemId && matchingYearSemesterIds.size > 0) {
-          if (!matchingYearSemesterIds.has(pSemId)) return false
-        }
-      }
-
-      if (filterValues.semesterId && filterValues.semesterId !== 'ALL') {
-        const pSemId = String((post as any).semesterId || '')
-        if (pSemId && pSemId !== String(filterValues.semesterId)) return false
-      }
-
-      // 6. Date Happen Range
-      if (filterValues.dateHappenFrom) {
-        const d = post.startTime
-        if (d && d.slice(0, 10) < filterValues.dateHappenFrom) return false
-      }
-      if (filterValues.dateHappenTo) {
-        const d = post.endTime || post.startTime
-        if (d && d.slice(0, 10) > filterValues.dateHappenTo) return false
-      }
-
-      return true
-    })
-  }, [posts, filterValues, filterOptions])
+  const activeDrawerFiltersCount = eventFilterChips(filterValues, filterOptions).length
+  const filteredPosts = useMemo(
+    () => posts.filter((post) => matchesEventFilters(post, filterValues, filterOptions)),
+    [posts, filterValues, filterOptions]
+  )
 
   const { user } = useAuthStore()
   const isCurrentUserAdmin =
@@ -243,20 +95,17 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
         fanpage={currentFanpage}
         actions={
           isCurrentUserAdmin ? (
-            <button
+            <Button
               type="button"
-              onClick={onEditProfileClick ? onEditProfileClick : () => navigate(`${basePath}?tab=profile`)}
+              onClick={
+                onEditProfileClick ? onEditProfileClick : () => navigate(`${basePath}?tab=profile`)
+              }
               className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold bg-[#1B4B8A] hover:bg-[#153a6b] text-white rounded-lg transition-all shadow-2xs cursor-pointer"
             >
               <Pencil className="h-4 w-4" />
               <span>Chỉnh sửa</span>
-            </button>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-white dark:bg-card rounded-lg border border-border/70 shadow-2xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-              <span>Chế độ xem</span>
-            </span>
-          )
+            </Button>
+          ) : null
         }
       />
 
@@ -268,7 +117,9 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
             fanpage={currentFanpage}
             onEditClick={
               isCurrentUserAdmin
-                ? (onEditProfileClick ? onEditProfileClick : () => navigate(`${basePath}?tab=profile`))
+                ? onEditProfileClick
+                  ? onEditProfileClick
+                  : () => navigate(`${basePath}?tab=profile`)
                 : undefined
             }
           />
@@ -278,7 +129,11 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
           />
           {/* On smaller screens (below xl where right sidebar is hidden), show activity stats card here */}
           <div className="block xl:hidden">
-            <FanpageActivityStatsCard stats={stats} />
+            <FanpageActivityStatsCard
+              stats={stats}
+              isLoading={statsLoading}
+              onRetry={onRetryStats}
+            />
           </div>
         </div>
 
@@ -298,43 +153,21 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsFilterDrawerOpen(true)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg border transition-colors shadow-2xs cursor-pointer',
-                  activeDrawerFiltersCount > 0
-                    ? 'border-primary text-primary bg-primary/5'
-                    : 'text-[#374151] dark:text-foreground bg-white dark:bg-card border border-border/80 hover:bg-muted/60'
-                )}
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                <span>Bộ lọc</span>
-                {activeDrawerFiltersCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full bg-primary text-white text-[10px] font-bold">
-                    {activeDrawerFiltersCount}
-                  </span>
-                )}
-              </button>
+              <EventFilterButton
+                values={filterValues}
+                onChange={setFilterValues}
+                options={filterOptions}
+                events={posts}
+                hideFanpageFilter
+              />
             </div>
           </div>
 
-          {/* Active filter summary bar */}
-          {activeDrawerFiltersCount > 0 && (
-            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-primary/5 border border-primary/20 text-xs">
-              <span className="text-primary font-medium">
-                Đang áp dụng {activeDrawerFiltersCount} tiêu chí lọc ({filteredPosts.length} kết quả)
-              </span>
-              <button
-                type="button"
-                onClick={() => setFilterValues({})}
-                className="text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
-              >
-                <RotateCcw className="h-3 w-3" />
-                <span>Đặt lại</span>
-              </button>
-            </div>
-          )}
+          <EventFilterChips
+            values={filterValues}
+            onChange={setFilterValues}
+            options={filterOptions}
+          />
 
           {/* Event Feed Posts or Empty State */}
           {isLoadingPosts ? (
@@ -375,8 +208,12 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
             </div>
           ) : posts.length > 0 ? (
             <div className="w-full rounded-2xl border border-dashed border-border/90 bg-white dark:bg-card p-8 sm:p-10 flex flex-col items-center justify-center text-center gap-3 shadow-2xs">
-              <p className="text-sm font-semibold text-foreground">Không tìm thấy sự kiện phù hợp</p>
-              <p className="text-xs text-muted-foreground">Hãy thử điều chỉnh lại các tiêu chí bộ lọc của bạn.</p>
+              <p className="text-sm font-semibold text-foreground">
+                Không tìm thấy sự kiện phù hợp
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Hãy thử điều chỉnh lại các tiêu chí bộ lọc của bạn.
+              </p>
               <button
                 type="button"
                 onClick={() => setFilterValues({})}
@@ -396,7 +233,8 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
                   Chưa có sự kiện nào
                 </h3>
                 <p className="text-xs sm:text-sm text-muted-foreground max-w-md">
-                  Fanpage hiện tại chưa đăng tải sự kiện nào. Hãy tạo sự kiện mới để kết nối và thu hút sinh viên tham gia!
+                  Fanpage hiện tại chưa đăng tải sự kiện nào. Hãy tạo sự kiện mới để kết nối và thu
+                  hút sinh viên tham gia!
                 </p>
               </div>
               <button
@@ -412,90 +250,19 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
         </div>
       </div>
 
-      {/* Analytics Modal Drawer (when clicking 'Xem số liệu') */}
       {selectedPostForAnalytics && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-card border border-border rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-5 text-left animate-in fade-in zoom-in-95">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[11px] font-bold text-primary uppercase tracking-wider">
-                  Thống kê hiệu quả sự kiện
-                </span>
-                <h3 className="font-k2d font-bold text-lg text-foreground mt-0.5">
-                  {selectedPostForAnalytics.title}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedPostForAnalytics(null)}
-                className="p-1 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3.5 rounded-xl bg-muted/40 border border-border/80">
-                <span className="text-muted-foreground">Lượt tiếp cận</span>
-                <p className="font-k2d font-bold text-xl text-foreground mt-1">2.418</p>
-                <span className="text-[10px] text-emerald-600 font-medium">↑ 18% so với tuần trước</span>
-              </div>
-              <div className="p-3.5 rounded-xl bg-muted/40 border border-border/80">
-                <span className="text-muted-foreground">Lượt đăng ký tham gia</span>
-                <p className="font-k2d font-bold text-xl text-primary mt-1">186</p>
-                <span className="text-[10px] text-muted-foreground">Chỉ tiêu: 200 sinh viên</span>
-              </div>
-              <div className="p-3.5 rounded-xl bg-muted/40 border border-border/80">
-                <span className="text-muted-foreground">Tương tác bài đăng</span>
-                <p className="font-k2d font-bold text-xl text-foreground mt-1">
-                  {selectedPostForAnalytics.likesCount + selectedPostForAnalytics.commentsCount}
-                </p>
-                <span className="text-[10px] text-muted-foreground">Thích, bình luận, chia sẻ</span>
-              </div>
-              <div className="p-3.5 rounded-xl bg-muted/40 border border-border/80">
-                <span className="text-muted-foreground">Tỷ lệ điểm danh dự kiến</span>
-                <p className="font-k2d font-bold text-xl text-emerald-600 mt-1">94%</p>
-                <span className="text-[10px] text-muted-foreground">Dựa trên xác nhận OTP</span>
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setSelectedPostForAnalytics(null)}
-                className="px-4 h-9 rounded-lg border border-border text-xs font-medium hover:bg-muted cursor-pointer"
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedPostForAnalytics(null)
-                  if (onOpenEventsTab) {
-                    onOpenEventsTab()
-                  } else {
-                    navigate('/dashboard')
-                  }
-                }}
-                className="px-4 h-9 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold cursor-pointer flex items-center gap-1.5"
-              >
-                <Users className="h-3.5 w-3.5" />
-                <span>Quản lý danh sách sinh viên</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        <EventAnalyticsModal
+          fanpageId={currentFanpage.id}
+          post={selectedPostForAnalytics}
+          onClose={() => setSelectedPostForAnalytics(null)}
+          onOpenRegistrations={(eventId) => {
+            if (onOpenEventRegistrations) onOpenEventRegistrations(eventId)
+            else navigate(`${basePath}?tab=event-detail&eventId=${encodeURIComponent(eventId)}`)
+          }}
+        />
       )}
 
       {/* Bộ lọc Drawer */}
-      <EventFilterModal
-        isOpen={isFilterDrawerOpen}
-        onClose={() => setIsFilterDrawerOpen(false)}
-        initialValues={filterValues}
-        onApply={(values) => setFilterValues(values)}
-        events={posts}
-        hideFanpageFilter={true}
-      />
     </div>
   )
 }

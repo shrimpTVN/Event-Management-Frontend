@@ -14,6 +14,7 @@ const event: RegisteredEventItem = {
   eventId: 10,
   status: 'CHECKED_IN',
   title: 'Ngày hội nộp ảnh',
+  allowSelfCheck: true,
   attendanceMethod: 'STUDENT_PROOF',
   attendanceSessionType: 'BOTH',
 }
@@ -123,7 +124,7 @@ describe('student attendance photo form', () => {
       />
     )
     expect(screen.queryByAltText('Ảnh minh chứng điểm danh')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Gửi ảnh' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Xác nhận điểm danh' })).toBeEnabled()
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test-proof')
   })
 
@@ -134,7 +135,41 @@ describe('student attendance photo form', () => {
       target: { files: [new File(['x'], 'notes.txt', { type: 'text/plain' })] },
     })
     expect(screen.getByRole('alert')).toHaveTextContent('Vui lòng chỉ tải lên tệp hình ảnh')
-    expect(screen.getByRole('button', { name: 'Gửi ảnh' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Xác nhận điểm danh' })).toBeDisabled()
     expect(mediaService.uploadImage).not.toHaveBeenCalled()
+  })
+})
+
+describe('self attendance permission', () => {
+  it('blocks the modal when the backend disables self attendance, overriding legacy photo mode', () => {
+    open({ allowSelfCheck: false })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(mediaService.uploadImage).not.toHaveBeenCalled()
+    expect(historyService.submitAttendance).not.toHaveBeenCalled()
+  })
+  it.each([
+    ['REGISTERED', 'check-in'],
+    ['SELF_CHECKED_IN', 'check-out'],
+  ])('allows %s without an optional photo', async (status, step) => {
+    open({ status })
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận điểm danh' }))
+    await waitFor(() =>
+      expect(historyService.submitAttendance).toHaveBeenCalledWith('10', step, undefined)
+    )
+    expect(mediaService.uploadImage).not.toHaveBeenCalled()
+  })
+  it('unmounts the upload form if permission is revoked while it is open', () => {
+    const view = open()
+    chooseFile()
+    view.rerender(
+      <StudentAttendanceModal
+        isOpen
+        event={{ ...event, allowSelfCheck: false }}
+        onClose={onClose}
+        onSuccess={onSuccess}
+      />
+    )
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(historyService.submitAttendance).not.toHaveBeenCalled()
   })
 })

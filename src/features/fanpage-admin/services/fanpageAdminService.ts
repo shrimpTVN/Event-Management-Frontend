@@ -1,4 +1,5 @@
 import { apiClient } from '@/shared'
+import { fanpageStatisticsService } from './fanpageStatisticsService'
 import { normalizeAttendanceConfig } from '@/shared/utils/attendanceConfig'
 import { resolveEventTypeId } from '@/features/events'
 import type {
@@ -17,11 +18,12 @@ import type {
 } from '../types/fanpageAdmin.types'
 
 export const EMPTY_ACTIVITY_STATS: FanpageActivityStats = {
-  periodLabel: '7 ngày gần nhất',
+  available: false,
+  periodLabel: 'Toàn thời gian',
   eventsCount: 0,
   interactionsCount: 0,
   newFollowersCount: 0,
-  responseRatePercent: 100,
+  responseRatePercent: 0,
   pendingCommentsCount: 0,
 }
 
@@ -47,31 +49,41 @@ const CTU_CRITERIA_CODE_MAP: Record<number, string> = {
 }
 
 function formatEventPointsReward(ev: any): string {
-  if (Array.isArray(ev.eventPoints) && ev.eventPoints.length > 0) {
-    const rewards: string[] = []
-    const totalPoints = ev.eventPoints.reduce((sum: number, p: any) => sum + (p.point || 0), 0)
-    const firstCatId = ev.eventPoints[0]?.pointCategoryId
-    const code = CTU_CRITERIA_CODE_MAP[firstCatId] || ev.eventPoints[0]?.pointCategoryCode || ''
-    const pointsFormatted = totalPoints < 10 ? `0${totalPoints}` : `${totalPoints}`
-    rewards.push(`Cộng ${pointsFormatted} điểm rèn luyện ${code}`.trim())
+  const rewards: string[] = []
 
-    if (ev.criteriaName || ev.sv5tCriteriaName) {
-      rewards.push(`Tiêu chuẩn SV5T: ${ev.criteriaName || ev.sv5tCriteriaName}`)
+  if (Array.isArray(ev.eventPoints) && ev.eventPoints.length > 0) {
+    const totalPoints = ev.eventPoints.reduce((sum: number, p: any) => sum + (Number(p.point) || 0), 0)
+    if (totalPoints > 0) {
+      const firstCatId = ev.eventPoints[0]?.pointCategoryId
+      const code = CTU_CRITERIA_CODE_MAP[firstCatId] || ev.eventPoints[0]?.pointCategoryCode || ''
+      const pointsFormatted = totalPoints < 10 ? `0${totalPoints}` : `${totalPoints}`
+      rewards.push(`Cộng ${pointsFormatted} điểm rèn luyện ${code}`.trim())
     }
-    if (ev.hasCertificate) {
-      rewards.push('Cấp chứng nhận điện tử')
-    }
+  } else if (ev.trainingPoints && Number(ev.trainingPoints) > 0) {
+    const tp = Number(ev.trainingPoints)
+    const pointsFormatted = tp < 10 ? `0${tp}` : `${tp}`
+    const code = ev.trainingPointCategoryCode ? `mục ${ev.trainingPointCategoryCode}` : ''
+    rewards.push(`Cộng ${pointsFormatted} điểm rèn luyện ${code}`.trim())
+  } else if (ev.pointsReward && /điểm rèn luyện|đrl|\+\d+/i.test(ev.pointsReward)) {
+    rewards.push(ev.pointsReward)
+  }
+
+  if (ev.criteriaName || ev.sv5tCriteriaName) {
+    rewards.push(`Tiêu chuẩn SV5T: ${ev.criteriaName || ev.sv5tCriteriaName}`)
+  }
+  if (ev.hasCertificate) {
+    rewards.push('Cấp chứng nhận điện tử')
+  }
+
+  if (rewards.length > 0) {
     return rewards.join(' · ')
   }
 
-  if (ev.trainingPoints && ev.trainingPoints > 0) {
-    const pointsFormatted =
-      ev.trainingPoints < 10 ? `0${ev.trainingPoints}` : `${ev.trainingPoints}`
-    const code = ev.trainingPointCategoryCode ? `mục ${ev.trainingPointCategoryCode}` : ''
-    return `Cộng ${pointsFormatted} điểm rèn luyện ${code}`.trim()
+  if (ev.benefits && ev.benefits !== 'Cộng điểm rèn luyện') {
+    return ev.benefits
   }
 
-  return ev.pointsReward || ev.benefits || 'Cộng điểm rèn luyện'
+  return ''
 }
 
 function formatPostTimeAgo(dateInput?: string): string {
@@ -198,10 +210,17 @@ export const fanpageAdminService = {
    * Fetches real-time activity statistics for a specific fanpage
    */
   getActivityStats: async (fanpageId?: string | number): Promise<FanpageActivityStats> => {
-    const targetId = fanpageId || '1'
+    if (!fanpageId) return EMPTY_ACTIVITY_STATS
+    const targetId = fanpageId
     try {
-      const res: any = await apiClient.get(`/fanpages/${targetId}/activity-stats`)
-      return res || EMPTY_ACTIVITY_STATS
+      const res = await fanpageStatisticsService.getFanpageOverview(targetId)
+      return {
+        ...EMPTY_ACTIVITY_STATS,
+        available: true,
+        eventsCount: res.totalEvents,
+        totalRegistrations: res.totalRegistrations,
+        totalAttendees: res.totalAttendees,
+      }
     } catch {
       return EMPTY_ACTIVITY_STATS
     }
@@ -313,7 +332,7 @@ export const fanpageAdminService = {
         res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
       return list.map((ev: any, idx: number) => {
         const start = ev.startTime || ev.dateHappen || '2026-10-15T08:00:00Z'
-        const end = ev.endTime || ev.dateHappen || '2026-10-15T11:30:00Z'
+        const end = ev.dateEnd || ev.endTime || ev.dateHappen || '2026-10-15T11:30:00Z'
         const startDate = new Date(start)
         const endDate = new Date(end)
         const pad = (n: number) => n.toString().padStart(2, '0')
@@ -354,7 +373,7 @@ export const fanpageAdminService = {
           dateClose: dateCloseStr,
           timeStart,
           timeEnd,
-          format: (ev.location?.type as any) || 'OFFLINE',
+          format: ev.format || (ev.location?.type as any) || 'OFFLINE',
           location:
             typeof ev.location === 'string'
               ? ev.location
@@ -363,7 +382,7 @@ export const fanpageAdminService = {
           maleQuantity: ev.maleQuantity !== undefined ? ev.maleQuantity : 0,
           femaleQuantity: ev.femaleQuantity !== undefined ? ev.femaleQuantity : 0,
           registeredCount: ev.registeredCount || 0,
-          checkedInCount: ev.checkedInCount || Math.floor((ev.registeredCount || 0) * 0.8),
+          checkedInCount: ev.checkedInCount ?? 0,
           status: (ev.status as any) || 'PUBLISHED',
           bannerUrl: ev.bannerUrl || '',
           requiresApproval: Boolean(ev.requiresApproval),
@@ -380,6 +399,11 @@ export const fanpageAdminService = {
             ev.eventPoints?.[0]?.pointCategoryName || ev.trainingPointCategoryName || '',
           trainingPointCategoryCode:
             ev.eventPoints?.[0]?.pointCategoryCode || ev.trainingPointCategoryCode || '',
+          sv5tCriteriaIds: ev.criteriaIds?.length
+            ? ev.criteriaIds
+            : ev.criteriaId
+              ? [Number(ev.criteriaId)]
+              : [],
           sv5tCriteriaId: ev.criteriaId ? Number(ev.criteriaId) : undefined,
           sv5tCriteriaName: ev.criteriaName || ev.sv5tCriteriaName || null,
           semesterId: ev.semester?.id
@@ -621,27 +645,6 @@ export const fanpageAdminService = {
    */
   createAdminEvent: async (payload: any): Promise<any> => {
     try {
-      const nowMs = Date.now()
-      if (payload?.dateOpen) {
-        const openMs = new Date(payload.dateOpen).getTime()
-        if (openMs <= nowMs + 10 * 1000) {
-          payload.dateOpen = new Date(nowMs + 30 * 1000).toISOString()
-        }
-      }
-      if (payload?.dateOpen && payload?.dateClose) {
-        const openMs = new Date(payload.dateOpen).getTime()
-        let closeMs = new Date(payload.dateClose).getTime()
-        if (closeMs < openMs) {
-          payload.dateClose = new Date(openMs + 60 * 1000).toISOString()
-          closeMs = new Date(payload.dateClose).getTime()
-        }
-        if (payload?.dateHappen) {
-          const happenMs = new Date(payload.dateHappen).getTime()
-          if (happenMs < closeMs) {
-            payload.dateHappen = new Date(closeMs + 60 * 1000).toISOString()
-          }
-        }
-      }
       const res: any = await apiClient.post('/events/fanpage-member', payload)
       return res?.data || res
     } catch (err) {
@@ -655,27 +658,6 @@ export const fanpageAdminService = {
    */
   updateAdminEvent: async (id: string | number, payload: any): Promise<any> => {
     try {
-      const nowMs = Date.now()
-      if (payload?.dateOpen) {
-        const openMs = new Date(payload.dateOpen).getTime()
-        if (openMs <= nowMs + 10 * 1000) {
-          payload.dateOpen = new Date(nowMs + 30 * 1000).toISOString()
-        }
-      }
-      if (payload?.dateOpen && payload?.dateClose) {
-        const openMs = new Date(payload.dateOpen).getTime()
-        let closeMs = new Date(payload.dateClose).getTime()
-        if (closeMs < openMs) {
-          payload.dateClose = new Date(openMs + 60 * 1000).toISOString()
-          closeMs = new Date(payload.dateClose).getTime()
-        }
-        if (payload?.dateHappen) {
-          const happenMs = new Date(payload.dateHappen).getTime()
-          if (happenMs < closeMs) {
-            payload.dateHappen = new Date(closeMs + 60 * 1000).toISOString()
-          }
-        }
-      }
       const res: any = await apiClient.put(`/events/fanpage-member/${id}`, payload)
       return res?.data || res
     } catch (err) {
@@ -807,45 +789,43 @@ export const fanpageAdminService = {
    * Retrieves active members of the fanpage
    */
   getFanpageMembers: async (fanpageId?: string | number): Promise<FanpageMember[]> => {
-    const targetId = fanpageId || '1'
-    try {
-      const res: any = await apiClient.get(`/fanpages/${targetId}/members`)
-      const list = Array.isArray(res) ? res : res?.data || []
-      return list.map((item: any, idx: number) => {
-        const fullName =
-          item.fullName ||
-          [item.lastName, item.firstName].filter(Boolean).join(' ') ||
-          item.name ||
-          (item.email ? item.email.split('@')[0] : `Thành viên ${idx + 1}`)
-        const avatarText =
-          fullName
-            .split(' ')
-            .filter(Boolean)
-            .slice(-2)
-            .map((w: string) => w[0])
-            .join('')
-            .toUpperCase() || 'TV'
+    if (!fanpageId) throw new Error('Thiếu fanpage cần tải thành viên')
+    const targetId = fanpageId
+    const res: any = await apiClient.get(`/fanpages/${targetId}/members`)
+    const data = res?.data ?? res
+    const list = Array.isArray(data) ? data : data?.content
+    if (!Array.isArray(list)) throw new Error('Dữ liệu thành viên không hợp lệ')
+    return list.map((item: any, idx: number) => {
+      const fullName =
+        item.fullName ||
+        [item.lastName, item.firstName].filter(Boolean).join(' ') ||
+        item.name ||
+        (item.email ? item.email.split('@')[0] : `Thành viên ${idx + 1}`)
+      const avatarText =
+        fullName
+          .split(' ')
+          .filter(Boolean)
+          .slice(-2)
+          .map((w: string) => w[0])
+          .join('')
+          .toUpperCase() || 'TV'
 
-        const rawRole = (item.role || 'MEMBER').toUpperCase()
-        const role = rawRole === 'ADMIN' ? 'ADMIN' : 'COLLABORATOR'
+      const rawRole = (item.role || 'MEMBER').toUpperCase()
+      const role = rawRole === 'ADMIN' ? 'ADMIN' : 'COLLABORATOR'
 
-        return {
-          id: String(item.id || item.userId || `mem-${idx + 1}`),
-          userId: String(item.userId || item.id || `user-${idx + 1}`),
-          fullName,
-          email: item.email || '',
-          avatarUrl: item.avatarUrl || '',
-          avatarText,
-          role,
-          title: item.title || (role === 'ADMIN' ? 'Quản trị viên' : 'Cộng tác viên'),
-          joinedAt: item.joinedAt || item.createdAt || '',
-          isActive: item.isActive !== false,
-        }
-      })
-    } catch (err) {
-      console.error('Failed to get fanpage members', err)
-      return []
-    }
+      return {
+        id: String(item.id || item.userId || `mem-${idx + 1}`),
+        userId: item.userId != null ? String(item.userId) : '',
+        fullName,
+        email: item.email || '',
+        avatarUrl: item.avatarUrl || '',
+        avatarText,
+        role,
+        title: item.title || (role === 'ADMIN' ? 'Quản trị viên' : 'Cộng tác viên'),
+        joinedAt: item.joinedAt || item.createdAt || '',
+        isActive: item.isActive !== false,
+      }
+    })
   },
 
   /**

@@ -47,6 +47,7 @@ export interface EventSemester {
 }
 
 export interface Event {
+  allowSelfCheck?: boolean
   attendanceMethod?: 'MANUAL' | 'STUDENT_PROOF'
   attendanceSessionType?: 'START' | 'END' | 'CHECK_IN' | 'CHECK_OUT' | 'BOTH'
   id: string
@@ -128,6 +129,7 @@ export interface PageResponse<T> {
 }
 
 export interface EventResponseDto {
+  allowSelfCheck?: boolean
   attendanceMethod?: 'MANUAL' | 'STUDENT_PROOF'
   attendanceSessionType?: 'START' | 'END' | 'CHECK_IN' | 'CHECK_OUT' | 'BOTH'
   id: number | string
@@ -170,6 +172,7 @@ export interface EventResponseDto {
 }
 
 export interface EventCreateRequestDto {
+  allowSelfCheck?: boolean
   attendanceMethod?: 'MANUAL' | 'STUDENT_PROOF'
   attendanceSessionType?: 'START' | 'END' | 'BOTH'
   name: string

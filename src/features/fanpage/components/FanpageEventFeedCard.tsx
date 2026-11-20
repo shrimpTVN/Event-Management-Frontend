@@ -125,7 +125,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             <span>{post.eventTypeName}</span>
           </div>
         )}
-        <h3 className="font-k2d font-semibold text-base leading-snug text-foreground hover:text-primary transition-colors">
+        <h3 className="font-k2d font-semibold text-base leading-snug text-foreground hover:text-primary transition-colors line-clamp-3">
           <Link to={`/events/${post.eventId}`}>{post.title}</Link>
         </h3>
 

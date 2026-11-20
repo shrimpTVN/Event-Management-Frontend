@@ -1,0 +1,152 @@
+.achievement-accordion {
+  --achievement-accent: #1b4b8a;
+  --achievement-success: #0f766e;
+  --achievement-success-rgb: 15 118 110;
+  transition: border-color 240ms ease;
+}
+
+.dark .achievement-accordion {
+  --achievement-accent: #93c5fd;
+  --achievement-success: #5eead4;
+  --achievement-success-rgb: 94 234 212;
+}
+
+.achievement-accordion:hover {
+  border-color: hsl(var(--primary) / 0.3);
+}
+
+.achievement-accordion[data-completed='true'] {
+  border-color: rgb(var(--achievement-success-rgb) / 0.2);
+}
+
+.achievement-accordion .achievement-accordion__trigger {
+  color: var(--achievement-accent);
+  background: hsl(var(--background));
+  transition:
+    color 240ms ease,
+    background-color 240ms ease;
+}
+
+.achievement-accordion .achievement-accordion__trigger:hover {
+  background: hsl(var(--card));
+}
+
+.achievement-accordion__description {
+  color: hsl(var(--muted-foreground));
+  transition: color 240ms ease;
+}
+
+.achievement-accordion[data-completed='true'] .achievement-accordion__trigger {
+  color: var(--achievement-accent);
+  background: hsl(var(--background));
+}
+
+/* Distorted translucent washes create an uneven ink edge, confined to the right. */
+.achievement-accordion[data-completed='true'] .achievement-accordion__trigger::before,
+.achievement-accordion[data-completed='true'] .achievement-accordion__trigger::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: min(48%, 640px);
+  pointer-events: none;
+  animation: achievement-ink-spread 1100ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.achievement-accordion[data-completed='true'] .achievement-accordion__trigger::before {
+  background: url('./achievement-ink.svg') right center / 100% 100% no-repeat;
+}
+
+.achievement-accordion[data-completed='true'] .achievement-accordion__trigger::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E");
+  mask: url('./achievement-ink.svg') right center / 100% 100% no-repeat;
+  opacity: 0.08;
+}
+
+/* A white backing also protects longer titles on narrow screens. */
+.achievement-accordion[data-completed='true'] .achievement-accordion__heading {
+  background: hsl(var(--background));
+  box-shadow: 12px 0 16px 8px hsl(var(--background));
+}
+
+.achievement-accordion__chevron {
+  transition: transform 240ms ease;
+}
+
+.achievement-accordion[data-expanded='true'] .achievement-accordion__chevron {
+  transform: rotate(90deg);
+}
+
+.achievement-accordion__completed {
+  color: #1b4b8a;
+  transition: color 240ms ease;
+  animation: achievement-badge-in 320ms ease-out;
+}
+
+.achievement-accordion__track {
+  background: hsl(var(--primary) / 0.06);
+}
+
+.achievement-accordion__progress {
+  background: var(--achievement-accent);
+  transition: transform 400ms ease;
+}
+
+.achievement-accordion[data-completed='true'] .achievement-accordion__progress {
+  background: var(--achievement-success);
+}
+
+.achievement-accordion[data-completed='true'] .achievement-accordion__track {
+  background: rgb(var(--achievement-success-rgb) / 0.06);
+}
+
+.achievement-accordion__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 280ms ease,
+    opacity 200ms ease,
+    visibility 280ms;
+}
+
+.achievement-accordion[data-expanded='true'] .achievement-accordion__body {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+}
+
+@keyframes achievement-ink-spread {
+  from {
+    transform: scaleX(0.35);
+    transform-origin: right;
+    clip-path: inset(0 0 0 40%);
+  }
+  to {
+    transform: scaleX(1);
+    transform-origin: right;
+    clip-path: inset(0);
+  }
+}
+
+@keyframes achievement-badge-in {
+  0% {
+    transform: scale(0.75);
+  }
+  65% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .achievement-accordion,
+  .achievement-accordion *,
+  .achievement-accordion *::before,
+  .achievement-accordion *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

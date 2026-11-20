@@ -158,14 +158,20 @@ export const LoginForm: React.FC = () => {
     try {
       setIsSubmitting(true)
       setApiError(null)
-      const email = credentialResponse?.profile?.email || 'student.google@ctu.edu.vn'
-      const res = await authService.login({
-        email,
-        password: 'GoogleLoginPass123',
-      })
+      const idToken = credentialResponse?.credential
+      let res: any
+      if (idToken && !idToken.startsWith('mock-google-token')) {
+        res = await authService.exchangeGoogleToken({ idToken })
+      } else {
+        const email = credentialResponse?.profile?.email || 'student1@example.com'
+        res = await authService.login({
+          email,
+          password: 'password123',
+        })
+      }
       
       queryClient.clear()
-      setAuth(res.user, credentialResponse?.credential || res.tokens?.accessToken || null)
+      setAuth(res.user, res.tokens?.accessToken || null)
 
       // Phân quyền điều hướng:
       if (isSuperAdminUser(res.user)) {
@@ -178,8 +184,13 @@ export const LoginForm: React.FC = () => {
         const target = redirectUrl === '/staff/fanpages' || redirectUrl === '/admin' ? '/' : redirectUrl
         navigate(target, { replace: true })
       }
-    } catch {
-      setApiError('Đăng nhập Google thất bại. Vui lòng thử lại.')
+    } catch (err: any) {
+      console.error('Google login exchange error:', err)
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Đăng nhập Google thất bại. Vui lòng thử lại.'
+      setApiError(msg)
     } finally {
       setIsSubmitting(false)
     }
@@ -296,7 +307,14 @@ export const LoginForm: React.FC = () => {
         <GoogleAuthButton
           text="Tiếp tục với Google"
           onSuccess={handleGoogleSuccess}
-          onError={() => setApiError('Đăng nhập Google không thành công.')}
+          onError={() => {
+            console.error(
+              'Google Auth SDK onError: Popup was closed or origin http://localhost:5173 is not configured in Authorized JavaScript origins.'
+            )
+            setApiError(
+              'Đăng nhập Google thất bại. Vui lòng kiểm tra cấu hình Authorized JavaScript origins trong Google Cloud Console.'
+            )
+          }}
           disabled={isSubmitting}
         />
 

@@ -15,6 +15,35 @@ describe('sv5tService', () => {
     vi.clearAllMocks()
   })
 
+  it('preserves root level and accumulated counts from the progress API', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      academicYearId: 7,
+      criterias: [
+        {
+          id: 1,
+          level: 0,
+          children: [
+            {
+              id: 20,
+              level: 2,
+              isCompleted: false,
+              requiredOccurrences: 2,
+              recordedOccurrences: 1,
+            },
+          ],
+        },
+      ],
+    })
+    const result = await sv5tService.getStudentCriteriaProgress(7)
+    expect(result.criteria[0].level).toBe(0)
+    expect(result.criteria[0].children[0]).toMatchObject({
+      criteriaId: 20,
+      requiredOccurrences: 2,
+      recordedOccurrences: 1,
+      isCompleted: false,
+    })
+  })
+
   it('deletes criteria transaction via DELETE /criteria-transactions/me/:id', async () => {
     vi.mocked(apiClient.delete).mockResolvedValue({})
 
@@ -51,9 +80,21 @@ describe('sv5tService', () => {
       completed: false,
     })
 
-    expect(apiClient.get).toHaveBeenCalledWith('/criteria-transactions/me/criterias/12/academic-years/2')
+    expect(apiClient.get).toHaveBeenCalledWith(
+      '/criteria-transactions/me/criterias/12/academic-years/2'
+    )
     expect(apiClient.delete).toHaveBeenCalledWith('/criteria-transactions/me/101')
     expect(apiClient.delete).not.toHaveBeenCalledWith('/criteria-transactions/me/102')
   })
 })
 
+it('loads all records for the selected academic year and preserves both distinct events', async () => {
+  vi.mocked(apiClient.get).mockResolvedValue([{ id: 1, criteriaId: 20, eventId: 51 }, { id: 2, criteriaId: 20, eventId: 52 }])
+  expect(await sv5tService.getAllCriteriaTransactions(7)).toHaveLength(2)
+  expect(apiClient.get).toHaveBeenLastCalledWith('/criteria-transactions/me/academic-years/7')
+})
+it('propagates transaction request failures instead of silently returning empty records', async () => {
+  vi.mocked(apiClient.get).mockRejectedValue(new Error('Unavailable'))
+  await expect(sv5tService.getAllCriteriaTransactions(7)).rejects.toThrow('Unavailable')
+  await expect(sv5tService.getCriteriaTransactions(20, 7)).rejects.toThrow('Unavailable')
+})

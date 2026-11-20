@@ -18,6 +18,7 @@ const event: Event = {
   title: 'Workshop kỹ năng',
   description: 'Nội dung bài viết workshop',
   category: 'WORKSHOP',
+  eventTypeId: 2,
   status: 'PUBLISHED',
   startTime: '2027-01-15T08:00:00',
   endTime: '2027-01-15T10:00:00',
@@ -35,11 +36,29 @@ const event: Event = {
 
 function renderHome() {
   const client = new QueryClient({ defaultOptions: { queries: { enabled: false, retry: false } } })
+  client.setQueryData(['event-filter-options'], {
+    academicYears: [],
+    semesters: [],
+    eventTypes: [
+      { id: 2, label: 'Workshop' },
+      { id: 3, label: 'Hội thảo' },
+    ],
+    fanpages: [],
+    criterias: [],
+    pointCategories: [],
+  })
   client.setQueryData(
     ['events', 'feed'],
     [
       event,
-      { ...event, id: '2', title: 'Sự kiện khác', description: 'Bài viết khác', isFollowed: false },
+      {
+        ...event,
+        id: '2',
+        title: 'Sự kiện khác',
+        description: 'Bài viết khác',
+        isFollowed: false,
+        eventTypeId: 3,
+      },
     ]
   )
   return render(
@@ -57,6 +76,20 @@ describe('student home event views', () => {
     useAuthStore.setState({ isAuthenticated: false, user: null })
   })
   afterEach(() => localStorage.removeItem('student-home-view'))
+
+  it('applies the local filter with matching preview, keeps it across views, and clears its chip', () => {
+    renderHome()
+    fireEvent.click(screen.getByRole('button', { name: 'Bộ lọc sự kiện' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Tất cả loại hình' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Hội thảo' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Xem 1 sự kiện' }))
+    expect(screen.queryByText(event.title)).not.toBeInTheDocument()
+    expect(screen.getByText('Sự kiện khác')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Danh sách' }))
+    expect(screen.queryByText(event.title)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Bỏ lọc: Hội thảo' }))
+    expect(screen.getByText(event.title)).toBeInTheDocument()
+  })
 
   it('keeps the selected feed filter and event data when switching views', () => {
     renderHome()

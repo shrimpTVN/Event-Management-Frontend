@@ -7,13 +7,18 @@ import { cn } from '@/shared/utils/cn'
 export const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
 export const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'))
 
-export interface TimeSelectProps {
+export interface TimeSelectProps extends Pick<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'aria-invalid' | 'aria-describedby'
+> {
   value?: string
   onChange?: (val: string) => void
   placeholder?: string
   className?: string
   disabled?: boolean
   id?: string
+  minTime?: string
+  maxTime?: string
 }
 
 // Auto-masking helper: formats raw input into HH:mm with automatic colon (e.g. 02 -> 02:)
@@ -63,6 +68,9 @@ export const TimeSelect: React.FC<TimeSelectProps> = ({
   className,
   disabled = false,
   id,
+  minTime,
+  maxTime,
+  ...inputProps
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [inputText, setInputText] = useState(value)
@@ -158,9 +166,13 @@ export const TimeSelect: React.FC<TimeSelectProps> = ({
   }
 
   // Handle Hour Click
+  const isTimeDisabled = (time: string) =>
+    Boolean((minTime && time < minTime) || (maxTime && time > maxTime))
   const handleSelectHour = (newHour: string) => {
     const minute = currentMinute || '00'
-    const formatted = `${newHour}:${minute}`
+    let formatted = `${newHour}:${minute}`
+    if (minTime && formatted < minTime) formatted = minTime
+    if (maxTime && formatted > maxTime) formatted = maxTime
     setInputText(formatted)
     onChange?.(formatted)
   }
@@ -169,6 +181,7 @@ export const TimeSelect: React.FC<TimeSelectProps> = ({
   const handleSelectMinute = (newMinute: string) => {
     const hour = currentHour || '08'
     const formatted = `${hour}:${newMinute}`
+    if (isTimeDisabled(formatted)) return
     setInputText(formatted)
     onChange?.(formatted)
   }
@@ -177,6 +190,7 @@ export const TimeSelect: React.FC<TimeSelectProps> = ({
     <div ref={containerRef} className="relative w-full">
       <div className="relative">
         <Input
+          {...inputProps}
           id={id}
           type="text"
           disabled={disabled}
@@ -228,9 +242,12 @@ export const TimeSelect: React.FC<TimeSelectProps> = ({
                     key={h}
                     type="button"
                     data-selected={isSelected}
+                    disabled={Boolean(
+                      (minTime && `${h}:59` < minTime) || (maxTime && `${h}:00` > maxTime)
+                    )}
                     onClick={() => handleSelectHour(h)}
                     className={cn(
-                      'w-full py-1 rounded-md text-xs font-medium text-center transition-colors cursor-pointer',
+                      'w-full py-1 rounded-md text-xs font-medium text-center transition-colors cursor-pointer disabled:opacity-30 disabled:pointer-events-none',
                       isSelected
                         ? 'bg-primary text-white font-bold shadow-2xs'
                         : 'text-foreground hover:bg-muted'
@@ -254,9 +271,10 @@ export const TimeSelect: React.FC<TimeSelectProps> = ({
                     key={m}
                     type="button"
                     data-selected={isSelected}
+                    disabled={isTimeDisabled(`${currentHour}:${m}`)}
                     onClick={() => handleSelectMinute(m)}
                     className={cn(
-                      'w-full py-1 rounded-md text-xs font-medium text-center transition-colors cursor-pointer',
+                      'w-full py-1 rounded-md text-xs font-medium text-center transition-colors cursor-pointer disabled:opacity-30 disabled:pointer-events-none',
                       isSelected
                         ? 'bg-primary text-white font-bold shadow-2xs'
                         : 'text-foreground hover:bg-muted'
@@ -278,6 +296,7 @@ export const TimeSelect: React.FC<TimeSelectProps> = ({
                 const hh = String(now.getHours()).padStart(2, '0')
                 const mm = String(now.getMinutes()).padStart(2, '0')
                 const time = `${hh}:${mm}`
+                if (isTimeDisabled(time)) return
                 setInputText(time)
                 onChange?.(time)
                 setIsOpen(false)

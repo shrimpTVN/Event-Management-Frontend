@@ -14,77 +14,87 @@ import { normalizeRole } from '../utils/authUtils'
 import { normalizeOrgName } from '../utils/staffProfileUtils'
 import { addRegisteredEmail } from './accountVerificationService'
 
+async function formatAuthUser(response: any, fallbackEmail: string): Promise<AuthResponse> {
+  const data = response?.data || response
+  const rawRole = data?.role || data?.roles?.[0] || data?.user?.role || RoleEnum.STUDENT
+  const normalizedRole = normalizeRole(rawRole) || RoleEnum.STUDENT
+  const emailUsername = (data?.email || fallbackEmail).split('@')[0] || ''
+  const rolesArray = data?.roles || (data?.role ? [data.role] : [rawRole])
+
+  const emailMatch = (data?.email || fallbackEmail).match(/([a-zA-Z]\d{7})/i)
+  const fallbackStudentId = emailMatch ? emailMatch[1].toUpperCase() : undefined
+
+  const user: User = data?.user
+    ? {
+        ...data.user,
+        role: normalizeRole(data.user.role) || normalizedRole,
+        roles: data.roles || data.user.roles || rolesArray,
+      }
+    : {
+        id: String(data?.userId || 'usr-1'),
+        email: data?.email || fallbackEmail,
+        name:
+          data?.name ||
+          emailUsername
+            .replace(/[0-9]/g, '')
+            .replace(/[._]/g, ' ')
+            .trim() ||
+          emailUsername ||
+          'Người dùng CTU',
+        studentId: normalizedRole === RoleEnum.STUDENT ? (data?.studentId || fallbackStudentId) : undefined,
+        role: normalizedRole,
+        roles: rolesArray,
+        createdAt: data?.createdAt || new Date().toISOString(),
+        isProfileComplete: Boolean(data?.isProfileComplete || data?.user?.isProfileComplete),
+      }
+
+  try {
+    const profileRes: any = await apiClient.get('/users/me/profile')
+    const pData = profileRes?.data || profileRes
+    if (pData) {
+      if (pData.studentId) user.studentId = pData.studentId
+      const realName = `${pData.lastName || ''} ${pData.firstName || ''}`.trim()
+      if (realName) user.name = realName
+      if (pData.avatarUrl) user.avatarUrl = pData.avatarUrl
+      user.isProfileComplete = true
+    }
+  } catch {
+    if (normalizedRole === RoleEnum.STUDENT) {
+      user.isProfileComplete = false
+    }
+  }
+
+  const tokens: AuthTokens = data?.tokens || {
+    accessToken: data?.accessToken || undefined,
+  }
+
+  return {
+    ...data,
+    user,
+    tokens,
+  }
+}
+
 export const authService = {
   /**
    * Authenticate user with CTU email and password
    */
   async login(payload: LoginPayload): Promise<AuthResponse> {
     const response: any = await apiClient.post('/auth/login', payload)
-
-    // Adapt both canonical Spring Boot flat response ({ userId, email, roles, role })
-    // and nested mock server response ({ user, tokens })
-    const rawRole = response?.role || response?.roles?.[0] || response?.user?.role || RoleEnum.STUDENT
-    const normalizedRole = normalizeRole(rawRole) || RoleEnum.STUDENT
-    const emailUsername = (response?.email || payload.email).split('@')[0] || ''
-    const rolesArray = response?.roles || (response?.role ? [response.role] : [rawRole])
-
-    // Extract student ID matching standard CTU format e.g. B2303827 from email
-    const emailMatch = (response?.email || payload.email).match(/([a-zA-Z]\d{7})/i)
-    const fallbackStudentId = emailMatch ? emailMatch[1].toUpperCase() : undefined
-
-    const user: User = response?.user
-      ? {
-          ...response.user,
-          role: normalizeRole(response.user.role) || normalizedRole,
-          roles: response.roles || response.user.roles || rolesArray,
-        }
-      : {
-          id: String(response?.userId || 'usr-1'),
-          email: response?.email || payload.email,
-          name:
-            response?.name ||
-            emailUsername
-              .replace(/[0-9]/g, '')
-              .replace(/[._]/g, ' ')
-              .trim() ||
-            emailUsername ||
-            'Người dùng CTU',
-          studentId: normalizedRole === RoleEnum.STUDENT ? (response?.studentId || fallbackStudentId) : undefined,
-          role: normalizedRole,
-          roles: rolesArray,
-          createdAt: response?.createdAt || new Date().toISOString(),
-          isProfileComplete: true,
-        }
-
-    // Attempt to enrich user info from real profile if available (both student and staff)
-    try {
-      const profileRes: any = await apiClient.get('/users/me/profile')
-      if (profileRes) {
-        if (profileRes.studentId) user.studentId = profileRes.studentId
-        const realName = `${profileRes.lastName || ''} ${profileRes.firstName || ''}`.trim()
-        if (realName) user.name = realName
-        if (profileRes.avatarUrl) user.avatarUrl = profileRes.avatarUrl
-      }
-    } catch {
-      // Fallback gracefully
-    }
-
-    const tokens: AuthTokens = response?.tokens || {
-      accessToken: response?.accessToken || undefined,
-    }
-
-    return {
-      ...response,
-      user,
-      tokens,
-    }
+    return formatAuthUser(response, payload.email)
   },
 
   /**
    * Register new account with university email and password
    */
   async register(payload: RegisterPayload): Promise<{ success: boolean; email: string }> {
-    await apiClient.post('/auth/register', payload)
+    await apiClient.post('/auth/register', {
+      email: payload.email,
+      password: payload.password,
+      otpCode: payload.otpCode,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+    })
     addRegisteredEmail(payload.email)
     return { success: true, email: payload.email }
   },
@@ -126,48 +136,49 @@ export const authService = {
    * Complete student profile on first login/registration
    */
   async completeStudentProfile(payload: StudentProfilePayload): Promise<User> {
-    const pendingRaw = sessionStorage.getItem('pending_registration')
-    const pending = pendingRaw ? JSON.parse(pendingRaw) : null
+    const parts = (payload.fullName || '').trim().split(/\s+/)
+    const lastName = parts.length > 1 ? parts[0] : 'Sinh viên'
+    const firstName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'CTU'
 
-    if (pending?.password) {
-      const parts = (payload.fullName || '').trim().split(' ')
-      const lastName = parts.length > 1 ? parts[0] : 'Sinh viên'
-      const firstName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'CTU'
+    const kMatch = (payload.academicYear || '').match(/\d+/)
+    const kNumber = kMatch ? parseInt(kMatch[0], 10) : 49
 
-      const kMatch = (payload.academicYear || '').match(/\d+/)
-      const kNumber = kMatch ? parseInt(kMatch[0], 10) : 49
-
-      const registerDto = {
-        email: pending.email,
-        password: pending.password,
-        providerId: 'LOCAL',
-        firstName,
-        lastName,
-        studentId: payload.studentId || 'B2303827',
-        gender: payload.gender || 'MALE',
-        kNumber,
-        associationId: 1,
-        majorId: 1,
-      }
-
-      await apiClient.post('/auth/register', registerDto)
-      addRegisteredEmail(pending.email)
-      sessionStorage.removeItem('pending_registration')
-      const loginRes = await this.login({
-        email: pending.email,
-        password: pending.password,
-      })
-
-      const user: User = {
-        ...loginRes.user,
-        name: payload.fullName || loginRes.user.name,
-        studentId: payload.studentId || loginRes.user.studentId,
-        isProfileComplete: true,
-      }
-      return user
+    const profileDto = {
+      firstName,
+      lastName,
+      gender: payload.gender || 'MALE',
+      kNumber,
+      avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(payload.studentId || payload.email)}`,
+      associationId: 1,
+      majorId: 1,
     }
 
-    return apiClient.post('/auth/student-profile', payload)
+    try {
+      const response: any = await apiClient.put('/users/me/profile', profileDto)
+      const data = response?.data || response
+      const updatedUser: User = {
+        id: String(data?.userId || 'usr-1'),
+        email: data?.email || payload.email,
+        name: `${data?.lastName || lastName} ${data?.firstName || firstName}`.trim() || payload.fullName,
+        studentId: data?.studentId || payload.studentId,
+        avatarUrl: data?.avatarUrl || profileDto.avatarUrl,
+        role: normalizeRole(data?.role) || RoleEnum.STUDENT,
+        roles: data?.roles || [data?.role || RoleEnum.STUDENT],
+        createdAt: new Date().toISOString(),
+        isProfileComplete: true,
+      }
+      return updatedUser
+    } catch {
+      return {
+        id: 'usr-1',
+        email: payload.email,
+        name: payload.fullName,
+        studentId: payload.studentId,
+        role: RoleEnum.STUDENT,
+        createdAt: new Date().toISOString(),
+        isProfileComplete: true,
+      }
+    }
   },
 
   /**
@@ -218,8 +229,10 @@ export const authService = {
   /**
    * Exchanges Google OAuth credential token with backend
    */
-  async exchangeGoogleToken(payload: GoogleAuthPayload): Promise<AuthResponse> {
-    return apiClient.post('/auth/google', payload)
+  async exchangeGoogleToken(payload: GoogleAuthPayload | { idToken: string }): Promise<AuthResponse> {
+    const idToken = 'idToken' in payload ? payload.idToken : payload.credential
+    const response: any = await apiClient.post('/auth/login/google', { idToken })
+    return formatAuthUser(response, 'student.google@ctu.edu.vn')
   },
 
   /**
