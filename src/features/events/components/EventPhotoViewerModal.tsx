@@ -29,6 +29,7 @@ import { DEFAULT_FANPAGES_MAP } from '../services/eventService'
 import { RegisterButton } from './RegisterButton'
 import { useRegistrationDeadline } from './RegistrationDeadline'
 import { cn } from '@/shared/utils/cn'
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
 
 export interface EventPhotoViewerData {
   id: string
@@ -86,6 +87,7 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
   onToggleSave,
   onToggleFollow,
 }) => {
+  const isMobile = useMediaQuery('(max-width: 767px)')
   const { user } = useAuthStore()
   const deadline = useRegistrationDeadline(event?.dateClose, event?.status)
   const [zoomLevel, setZoomLevel] = useState<number>(1)
@@ -101,6 +103,32 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
   const commentInputRef = useRef<HTMLInputElement>(null)
   const viewerContainerRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const openerElementRef = useRef<HTMLElement | null>(null)
+
+  // Mobile gesture states
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [dismissY, setDismissY] = useState(0)
+  const touchStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 })
+  const pinchStartRef = useRef({ dist: 0, zoom: 1 })
+  const isDraggingRef = useRef(false)
+  const isPinchingRef = useRef(false)
+  const lastTapRef = useRef(0)
+
+  useEffect(() => {
+    if (isOpen) {
+      openerElementRef.current = document.activeElement as HTMLElement | null
+      setZoomLevel(1)
+      setPan({ x: 0, y: 0 })
+      setDismissY(0)
+    }
+  }, [isOpen])
+
+  const handleModalClose = () => {
+    onClose()
+    setTimeout(() => {
+      openerElementRef.current?.focus?.()
+    }, 50)
+  }
 
   const fanpageId = String(event?.organizerId || '1')
 
@@ -169,7 +197,7 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose()
+        handleModalClose()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -278,19 +306,152 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
 
   const locationDisplay = getLocationDisplay(event.location)
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      isPinchingRef.current = true
+      isDraggingRef.current = false
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      )
+      pinchStartRef.current = { dist, zoom: zoomLevel }
+      return
+    }
+
+    if (e.touches.length === 1) {
+      const now = Date.now()
+      if (now - lastTapRef.current < 280) {
+        if (zoomLevel > 1) {
+          setZoomLevel(1)
+          setPan({ x: 0, y: 0 })
+          setDismissY(0)
+        } else {
+          setZoomLevel(2.5)
+          setPan({ x: 0, y: 0 })
+          setDismissY(0)
+        }
+        lastTapRef.current = 0
+        return
+      }
+      lastTapRef.current = now
+
+      isDraggingRef.current = true
+      touchStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        panX: pan.x,
+        panY: pan.y,
+      }
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && isPinchingRef.current) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      )
+      const ratio = dist / (pinchStartRef.current.dist || 1)
+      const nextZoom = Math.min(Math.max(pinchStartRef.current.zoom * ratio, 1), 3.5)
+      setZoomLevel(nextZoom)
+      return
+    }
+
+    if (e.touches.length === 1 && isDraggingRef.current) {
+      const deltaX = e.touches[0].clientX - touchStartRef.current.x
+      const deltaY = e.touches[0].clientY - touchStartRef.current.y
+
+      if (zoomLevel > 1) {
+        setPan({
+          x: touchStartRef.current.panX + deltaX,
+          y: touchStartRef.current.panY + deltaY,
+        })
+      } else {
+        if (Math.abs(deltaY) > 6) {
+          setDismissY(deltaY)
+        }
+      }
+    }
+  }
+
+  const handleTouchEnd = () => {
+    isDraggingRef.current = false
+    isPinchingRef.current = false
+
+    if (zoomLevel <= 1) {
+      setZoomLevel(1)
+      setPan({ x: 0, y: 0 })
+      if (Math.abs(dismissY) > 110) {
+        handleModalClose()
+      } else {
+        setDismissY(0)
+      }
+    } else {
+      const maxPanX = (window.innerWidth * (zoomLevel - 1)) / 2 + 60
+      const maxPanY = (window.innerHeight * (zoomLevel - 1)) / 2 + 60
+      setPan((prev) => ({
+        x: Math.min(Math.max(prev.x, -maxPanX), maxPanX),
+        y: Math.min(Math.max(prev.y, -maxPanY), maxPanY),
+      }))
+    }
+  }
+
+  if (isMobile) {
+    return (
+      <div
+        ref={viewerContainerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Xem ảnh sự kiện: ${event.title}`}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black text-white select-none overflow-hidden touch-none"
+        style={{
+          backgroundColor: `rgba(0, 0, 0, ${Math.max(0.4, 1 - Math.abs(dismissY) / 300)})`,
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Nút Đóng góc trên bên trái: vùng chạm tối thiểu 44px, có safe area */}
+        <button
+          type="button"
+          onClick={handleModalClose}
+          aria-label="Đóng xem ảnh"
+          className="absolute top-[max(12px,env(safe-area-inset-top))] left-[max(12px,env(safe-area-inset-left))] z-50 h-11 w-11 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center active:scale-95 transition-transform cursor-pointer border border-white/20"
+        >
+          <X className="h-6 w-6" />
+        </button>
+
+        {/* Khung ảnh toàn màn hình căn giữa, giữ tỷ lệ */}
+        <div className="w-full h-full flex items-center justify-center p-2">
+          <img
+            src={event.bannerUrl}
+            alt={event.title}
+            style={{
+              transform: `translate3d(${pan.x}px, ${pan.y + dismissY}px, 0) scale(${zoomLevel})`,
+              transition:
+                isDraggingRef.current || isPinchingRef.current ? 'none' : 'transform 0.2s ease-out',
+            }}
+            className="max-h-[92dvh] max-w-full object-contain select-none shadow-2xl pointer-events-auto"
+            draggable={false}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       ref={viewerContainerRef}
-      className="fixed inset-0 z-50 flex flex-col md:flex-row bg-black text-foreground overflow-hidden select-none animate-in fade-in-0 duration-200"
+      className="fixed inset-0 z-50 flex h-dvh flex-col md:flex-row bg-black text-foreground overflow-y-auto md:overflow-hidden select-none animate-in fade-in-0 duration-200"
     >
       {/* ===================== KHU VỰC TRÁI: HÌNH ẢNH TO RÕ TOÀN MÀN HÌNH ===================== */}
-      <div className="flex-1 relative flex items-center justify-center bg-black min-h-[45vh] md:min-h-0 overflow-hidden">
+      <div className="relative flex h-[45dvh] shrink-0 items-center justify-center bg-black md:h-full md:flex-1 md:min-h-0 overflow-hidden">
         {/* Nút Đóng góc trên bên trái */}
         <div className="absolute top-3 left-3 z-30 flex items-center gap-2">
           <Tooltip content="Đóng (Esc)">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleModalClose}
               aria-label="Đóng xem ảnh"
               className="h-10 w-10 rounded-full bg-black/60 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer backdrop-blur-md border border-white/10"
             >
@@ -351,13 +512,13 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
             src={event.bannerUrl}
             alt={event.title}
             style={{ transform: `scale(${zoomLevel})` }}
-            className="max-h-[92vh] max-w-full object-contain select-none shadow-2xl rounded-sm"
+            className="max-h-[42dvh] md:max-h-[92dvh] max-w-full object-contain select-none shadow-2xl rounded-sm"
           />
         </div>
       </div>
 
       {/* ===================== KHU VỰC PHẢI: CHI TIẾT SỰ KIỆN, BÌNH LUẬN & THÔNG TIN QUAN TRỌNG ===================== */}
-      <aside className="w-full md:w-[390px] lg:w-[440px] xl:w-[460px] shrink-0 h-full flex flex-col min-h-0 bg-white dark:bg-card border-l border-border/80 text-left select-text">
+      <aside className="w-full md:w-[390px] lg:w-[440px] xl:w-[460px] shrink-0 h-auto md:h-full flex flex-col min-h-0 bg-white dark:bg-card border-l border-border/80 text-left select-text">
         {/* 1. Header tác giả: Bỏ viền dưới, tên fanpage 2 dòng có icon xác thực cùng hàng ký tự cuối, bỏ icon công khai */}
         <div className="px-3.5 sm:px-4 pt-3 sm:pt-3.5 pb-1 flex items-center justify-between gap-3 bg-white/95 dark:bg-card/95 backdrop-blur-xs shrink-0">
           {/* Thông tin bên trái: Avatar thật, Tên thật (cho phép 2 dòng, icon xác thực cùng hàng ký tự cuối) */}
@@ -531,7 +692,7 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
             {/* 3. Benefits / Điểm rèn luyện */}
             {Boolean(
               (event.benefitLines && event.benefitLines.length > 0) ||
-                (event.pointsReward && event.pointsReward.trim())
+              (event.pointsReward && event.pointsReward.trim())
             ) && (
               <div className="flex items-start gap-2.5 min-w-0">
                 <Gift className="h-4 w-4 text-foreground/80 dark:text-muted-foreground shrink-0 stroke-[2.2] mt-0.5" />

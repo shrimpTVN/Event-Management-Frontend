@@ -1,11 +1,29 @@
 import { Tooltip } from '@/components/ui/tooltip'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Home, Bookmark, Clock, ClipboardList, Hand, ChevronDown, ChevronUp } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/shared'
 import { useAuthStore } from '@/features/auth'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
+import { eventService } from '../services/eventService'
+import type { Event } from '../types/event.types'
+
+const getFanpageLastVisited = (fanpageId: string): number => {
+  try {
+    const val = localStorage.getItem(`fanpage_last_visited_${fanpageId}`)
+    return val ? parseInt(val, 10) : 0
+  } catch {
+    return 0
+  }
+}
+
+const markFanpageAsVisited = (fanpageId: string) => {
+  try {
+    localStorage.setItem(`fanpage_last_visited_${fanpageId}`, Date.now().toString())
+  } catch {}
+}
 
 export interface FollowedOrg {
   id: string
@@ -17,18 +35,85 @@ export interface FollowedOrg {
 interface StudentLeftSidebarProps {
   followedOrgs?: FollowedOrg[]
   showHomeLink?: boolean
+  mobile?: boolean
 }
 
 export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
   followedOrgs,
   showHomeLink = false,
+  mobile = false,
 }) => {
   const location = useLocation()
   const currentPath = location.pathname
 
   const [isExpanded, setIsExpanded] = useState(false)
+  const [visitedTimes, setVisitedTimes] = useState<Record<string, number>>({})
 
   const { isAuthenticated } = useAuthStore()
+
+  // Auto-mark active fanpage as visited if user is currently on /fanpage/:id
+  useEffect(() => {
+    const match = currentPath.match(/^\/fanpage\/([^/]+)/)
+    if (match && match[1]) {
+      const activeFpId = match[1]
+      markFanpageAsVisited(activeFpId)
+      setVisitedTimes((prev) => {
+        if (prev[activeFpId]) return prev
+        return { ...prev, [activeFpId]: Date.now() }
+      })
+    }
+  }, [currentPath])
+
+  // Fetch all published events to check for newly posted activities per fanpage
+  const { data: allEvents = [] } = useQuery<Event[]>({
+    queryKey: ['events', 'feed'],
+    queryFn: () => eventService.getEvents(),
+    staleTime: 60 * 1000,
+  })
+
+  // Map each fanpage ID to the timestamp of its latest published event
+  const latestEventTimeMap = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const ev of allEvents) {
+      const orgId = String(ev.organizerId || ev.fanpageId || '')
+      if (!orgId) continue
+      const timeStr = ev.createdAt || ev.dateOpen || ev.startTime
+      const t = timeStr ? new Date(timeStr).getTime() : 0
+      if (!isNaN(t) && t > 0) {
+        const currentMax = map.get(orgId) || 0
+        if (t > currentMax) {
+          map.set(orgId, t)
+        }
+      }
+    }
+    return map
+  }, [allEvents])
+
+  // Determine whether a fanpage has a new event the user hasn't seen yet
+  const isOrgUnread = (orgId: string): boolean => {
+    if (currentPath === `/fanpage/${orgId}`) {
+      return false
+    }
+
+    const latestEventTime = latestEventTimeMap.get(orgId)
+    if (!latestEventTime) {
+      return false
+    }
+
+    const lastVisited = visitedTimes[orgId] ?? getFanpageLastVisited(orgId)
+    if (lastVisited > 0) {
+      return latestEventTime > lastVisited
+    }
+
+    // If user has never visited this fanpage before, show blue dot if event was posted within the last 7 days
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
+    return Date.now() - latestEventTime < SEVEN_DAYS_MS
+  }
+
+  const handleFanpageClick = (orgId: string) => {
+    markFanpageAsVisited(orgId)
+    setVisitedTimes((prev) => ({ ...prev, [orgId]: Date.now() }))
+  }
 
   // Fetch fanpages from backend if not provided as prop (following when authenticated)
   const { data: apiFanpages, isLoading } = useQuery<FollowedOrg[]>({
@@ -39,19 +124,14 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
           const res: any = await apiClient.get('/fanpages/following', { params: { size: 50 } })
           const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
           if (Array.isArray(list) && list.length > 0) {
-            return list.map((fp: any, idx: number) => ({
+            return list.map((fp: any) => ({
               id: String(fp.id),
-              name:
-                fp.orgName ||
-                (fp.name?.includes('CNTT')
-                  ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông'
-                  : fp.name),
+              name: fp.orgName || fp.fullName || fp.name,
               avatarUrl:
                 fp.avatarUrl ||
                 (String(fp.id) === '1'
                   ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
                   : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'),
-              hasUnread: idx < 2,
             }))
           }
           return []
@@ -61,38 +141,38 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
       }
       const res: any = await apiClient.get('/fanpages', { params: { size: 50 } })
       const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
-      return list.map((fp: any, _idx: number) => ({
+      return list.map((fp: any) => ({
         id: String(fp.id),
-        name:
-          fp.orgName ||
-          (fp.name?.includes('CNTT') ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông' : fp.name),
+        name: fp.orgName || fp.fullName || fp.name,
         avatarUrl:
           fp.avatarUrl ||
           (String(fp.id) === '1'
             ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
             : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'),
-        hasUnread: false,
       }))
     },
     enabled: !followedOrgs,
   })
 
   const orgsToDisplay = followedOrgs || apiFanpages || []
-  const hasMore = orgsToDisplay.length > 6
-  const visibleOrgs = isExpanded ? orgsToDisplay : orgsToDisplay.slice(0, 6)
+  const collapsedLimit = mobile ? 4 : 6
+  const hasMore = orgsToDisplay.length > collapsedLimit
+  const visibleOrgs = isExpanded ? orgsToDisplay : orgsToDisplay.slice(0, collapsedLimit)
 
   // Auto-expand if current active fanpage is past index 5
   useEffect(() => {
     const activeIndex = orgsToDisplay.findIndex((org) => currentPath === `/fanpage/${org.id}`)
-    if (activeIndex >= 6) {
+    if (!mobile && activeIndex >= collapsedLimit) {
       setIsExpanded(true)
     }
-  }, [currentPath, orgsToDisplay])
+  }, [currentPath, orgsToDisplay, mobile, collapsedLimit])
 
   return (
     // add resize left size bar
     //refactor: add maximize button
-    <aside className="w-full flex flex-col gap-6 text-sm">
+    <aside
+      className={`${mobile ? 'student-mobile-navigation gap-5' : 'gap-6'} w-full flex flex-col text-sm`}
+    >
       {/* 0. Home Link (Optional - for profile or inner pages) */}
       {showHomeLink && (
         <Link
@@ -127,10 +207,17 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
           <div className="flex flex-col gap-1.5">
             {visibleOrgs.map((org) => {
               const isActive = currentPath === `/fanpage/${org.id}`
+              const hasUnread =
+                typeof org.hasUnread === 'boolean' && followedOrgs
+                  ? org.hasUnread
+                  : isOrgUnread(org.id)
+
               return (
                 <Tooltip content={org.name} key={org.id}>
                   <Link
                     to={`/fanpage/${org.id}`}
+                    aria-current={isActive ? 'page' : undefined}
+                    onClick={() => handleFanpageClick(org.id)}
                     className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl transition-colors text-left group ${
                       isActive
                         ? 'bg-[#BDD7F0]/60 dark:bg-primary/20 text-[#1B406F] dark:text-primary font-semibold'
@@ -157,9 +244,13 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
                         {org.name}
                       </span>
                     </div>
-                    {org.hasUnread && (
-                      <Tooltip content="Có bài đăng mới">
-                        <span className="h-2 w-2 rounded-full bg-[#00AFF0] shrink-0" />
+                    {hasUnread && (
+                      <Tooltip content="Có sự kiện mới">
+                        <span
+                          data-testid={`unread-dot-${org.id}`}
+                          aria-label="Có sự kiện mới"
+                          className="h-2 w-2 rounded-full bg-[#00AFF0] shrink-0"
+                        />
                       </Tooltip>
                     )}
                   </Link>
@@ -167,20 +258,24 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
               )
             })}
 
-            {/* Nút Xem thêm / Thu gọn khi có nhiều hơn 6 fanpage */}
+            {/* Expand the remaining fanpages without changing their order. */}
             {hasMore && (
-              <button
+              <Button
+                variant="ghost"
+                aria-expanded={isExpanded}
                 type="button"
                 onClick={() => setIsExpanded((prev) => !prev)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-[#1B4B8A] dark:text-blue-400 hover:bg-[#EFF5FC] dark:hover:bg-blue-950/40 transition-colors cursor-pointer group mt-0.5"
+                className="h-auto w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-[#1B4B8A] dark:text-blue-400 hover:bg-[#EFF5FC] dark:hover:bg-blue-950/40 transition-colors cursor-pointer group mt-0.5"
               >
-                <span>{isExpanded ? 'Thu gọn' : `Xem thêm (${orgsToDisplay.length - 6})`}</span>
+                <span>
+                  {isExpanded ? 'Thu gọn' : `Xem thêm (${orgsToDisplay.length - collapsedLimit})`}
+                </span>
                 {isExpanded ? (
                   <ChevronUp className="h-4 w-4 text-[#1B4B8A] dark:text-blue-400 group-hover:-translate-y-0.5 transition-transform" />
                 ) : (
                   <ChevronDown className="h-4 w-4 text-[#1B4B8A] dark:text-blue-400 group-hover:translate-y-0.5 transition-transform" />
                 )}
-              </button>
+              </Button>
             )}
           </div>
         ) : (
@@ -196,6 +291,7 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
         <nav className="flex flex-col gap-1">
           <Link
             to="/events/saved"
+            aria-current={['/events/saved', '/saved'].includes(currentPath) ? 'page' : undefined}
             className={`flex items-center gap-3 px-3.5 py-2 rounded-xl font-medium text-xs transition-colors ${
               currentPath === '/events/saved' || currentPath === '/saved'
                 ? 'bg-[#BDD7F0]/60 dark:bg-primary/20 text-[#1B406F] dark:text-primary font-semibold'
@@ -213,6 +309,7 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
           </Link>
           <Link
             to="/history"
+            aria-current={currentPath === '/history' ? 'page' : undefined}
             className={`flex items-center gap-3 px-3.5 py-2 rounded-xl font-medium text-xs transition-colors ${
               currentPath === '/history' || location.search.includes('history=true')
                 ? 'bg-[#BDD7F0]/60 dark:bg-primary/20 text-[#1B406F] dark:text-primary font-semibold'
@@ -237,6 +334,7 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
         <nav className="flex flex-col gap-1">
           <Link
             to="/training-points"
+            aria-current={['/training-points', '/drl'].includes(currentPath) ? 'page' : undefined}
             className={`flex items-center gap-3 px-3.5 py-2 rounded-xl font-medium text-xs transition-colors ${
               currentPath === '/training-points'
                 ? 'bg-[#BDD7F0]/60 dark:bg-primary/20 text-[#1B406F] dark:text-primary font-semibold'
@@ -250,10 +348,11 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
                   : 'text-[#9CA3AF]'
               }`}
             />
-            <span>Quản lý điểm rèn luyện</span>
+            <span>{mobile ? 'Điểm rèn luyện' : 'Quản lý điểm rèn luyện'}</span>
           </Link>
           <Link
             to="/sv5t"
+            aria-current={['/sv5t', '/sinh-vien-5-tot'].includes(currentPath) ? 'page' : undefined}
             className={`flex items-center gap-3 px-3.5 py-2 rounded-xl font-medium text-xs transition-colors ${
               currentPath === '/sv5t' || currentPath === '/sinh-vien-5-tot'
                 ? 'bg-[#BDD7F0]/60 dark:bg-primary/20 text-[#1B406F] dark:text-primary font-semibold'
@@ -267,44 +366,46 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
                   : 'text-[#9CA3AF]'
               }`}
             />
-            <span>Quản lý tiêu chí SV5T</span>
+            <span>{mobile ? 'Sinh viên 5 tốt' : 'Quản lý tiêu chí SV5T'}</span>
           </Link>
         </nav>
       </div>
 
       {/* 4. Footer Links matching Social Network Specs from screenshot */}
-      <div className="pt-4 border-t border-border/60 text-xs font-medium text-[#6B7280] flex flex-col gap-1.5 px-1 pb-4">
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-relaxed text-[11px] text-muted-foreground">
-          <a href="#privacy" className="hover:underline">
-            Quyền riêng tư
-          </a>
-          <span>·</span>
-          <a href="#terms" className="hover:underline">
-            Điều khoản
-          </a>
-          <span>·</span>
-          <a href="#ads" className="hover:underline">
-            Quảng cáo
-          </a>
-          <span>·</span>
-          <a href="#choices" className="hover:underline inline-flex items-center gap-0.5">
-            <span>Lựa chọn quảng cáo</span>
-            <span className="text-[9px]">▷</span>
-          </a>
-          <span>·</span>
-          <a href="#cookie" className="hover:underline">
-            Cookie
-          </a>
-          <span>·</span>
-          <a href="#more" className="hover:underline">
-            Xem thêm
-          </a>
+      {!mobile && (
+        <div className="pt-4 border-t border-border/60 text-xs font-medium text-[#6B7280] flex flex-col gap-1.5 px-1 pb-4">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-relaxed text-[11px] text-muted-foreground">
+            <a href="#privacy" className="hover:underline">
+              Quyền riêng tư
+            </a>
+            <span>·</span>
+            <a href="#terms" className="hover:underline">
+              Điều khoản
+            </a>
+            <span>·</span>
+            <a href="#ads" className="hover:underline">
+              Quảng cáo
+            </a>
+            <span>·</span>
+            <a href="#choices" className="hover:underline inline-flex items-center gap-0.5">
+              <span>Lựa chọn quảng cáo</span>
+              <span className="text-[9px]">▷</span>
+            </a>
+            <span>·</span>
+            <a href="#cookie" className="hover:underline">
+              Cookie
+            </a>
+            <span>·</span>
+            <a href="#more" className="hover:underline">
+              Xem thêm
+            </a>
+          </div>
+          <div className="text-[11px] text-muted-foreground/70">Đại học Cần Thơ © 2026</div>
         </div>
-        <div className="text-[11px] text-muted-foreground/70">Đại học Cần Thơ © 2026</div>
-      </div>
+      )}
 
       {/* Bottom spacer for sidebar scroll breathing room */}
-      <div className="h-16 w-full shrink-0" aria-hidden="true" />
+      {!mobile && <div className="h-16 w-full shrink-0" aria-hidden="true" />}
     </aside>
   )
 }

@@ -1,5 +1,6 @@
 import { CalendarDays, Check, ExternalLink, Link, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useAuthStore, isStudentUser, isSuperAdminUser } from '@/features/auth'
 import type { AdminEvent } from '../types/fanpageAdmin.types'
 
 interface EventManagementSummaryProps {
@@ -41,6 +42,8 @@ export function EventManagementSummary({
   onCloseEvent,
   closingDisabled,
 }: EventManagementSummaryProps) {
+  const user = useAuthStore((state) => state.user)
+  const canViewStudentPage = isStudentUser(user) && !isSuperAdminUser(user)
   const registrationDate = (value?: string) => {
     if (!value) return 'Chưa cập nhật'
     const parsed = new Date(value)
@@ -187,16 +190,18 @@ export function EventManagementSummary({
               </div>
             </dl>
             <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(`/events/${event.id}`, '_blank')}
-                className="gap-1.5 text-xs"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Xem trang sự kiện
-              </Button>
+              {canViewStudentPage && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(`/events/${event.id}`, '_blank')}
+                  className="gap-1.5 text-xs"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Xem trang sự kiện
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="ghost"

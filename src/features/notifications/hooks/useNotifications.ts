@@ -1,3 +1,4 @@
+import { normalizeNotification } from '../notificationPath'
 import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/features/auth/store/authStore'
@@ -7,7 +8,9 @@ import type { NotificationItem, NotificationStatus } from '../types/notification
 /**
  * Hook lắng nghe kết nối Server-Sent Events (SSE) thời gian thực
  */
-export function useNotificationStream(onNotificationReceived?: (notification: NotificationItem) => void) {
+export function useNotificationStream(
+  onNotificationReceived?: (notification: NotificationItem) => void
+) {
   const queryClient = useQueryClient()
   const { user, token } = useAuthStore()
 
@@ -25,7 +28,7 @@ export function useNotificationStream(onNotificationReceived?: (notification: No
 
       eventSource.addEventListener('NOTIFICATION', (event: MessageEvent) => {
         try {
-          const data = JSON.parse(event.data)
+          const data = normalizeNotification(JSON.parse(event.data))
           // Invalidate queries để đồng bộ danh sách và số lượng chưa đọc ngay lập tức
           queryClient.invalidateQueries({ queryKey: ['notifications'] })
           queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
@@ -198,4 +201,3 @@ export function useFanpageNotificationActions(fanpageId?: number | string) {
     isMarkingAllAsRead: markAllAsReadMutation.isPending,
   }
 }
-

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import ctuLogo from '@/assets/CTU_logo.png'
 import { usePageTransitionStore, triggerMajorTransition } from '@/shared/store/pageTransitionStore'
+import { useAuthStore } from '@/features/auth/store/authStore'
 
 const AUTH_PATHS = ['/login', '/register', '/dang-nhap', '/dang-ky', '/verify-otp']
 const ADMIN_PATHS = ['/admin', '/super-admin']
@@ -27,6 +28,8 @@ const isFanpageWorkspacePath = (path: string): boolean => {
 export const FullscreenTransitionLoader: React.FC = () => {
   const location = useLocation()
   const { isOpen, isFadingOut, title, subtitle } = usePageTransitionStore()
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const hadSessionRef = useRef(isAuthenticated)
 
   const currentFanpageId = (location.state as any)?.fanpageId
     ? String((location.state as any)?.fanpageId)
@@ -38,6 +41,7 @@ export const FullscreenTransitionLoader: React.FC = () => {
   useEffect(() => {
     const prev = prevPathRef.current
     const curr = location.pathname
+    if (isAuthenticated) hadSessionRef.current = true
 
     if (prev === curr && prevFanpageIdRef.current === currentFanpageId) {
       return
@@ -51,44 +55,29 @@ export const FullscreenTransitionLoader: React.FC = () => {
     const isNowAdmin = ADMIN_PATHS.some((p) => curr.startsWith(p))
 
     // 1. Chuyển từ Auth sang ứng dụng (Đăng nhập / Đăng ký thành công)
-    if (wasAuth && !isNowAuth) {
-      triggerMajorTransition(
-        'Đang vào hệ thống...',
-        'Chào mừng bạn đến với CTU Event',
-        500
-      )
+    if (wasAuth && !isNowAuth && isAuthenticated) {
+      triggerMajorTransition('Đang vào hệ thống...', 'Chào mừng bạn đến với CTU Event', 500)
     }
     // 2. Chuyển từ ứng dụng về Auth (Đăng xuất)
-    else if (!wasAuth && isNowAuth && prev !== '/') {
-      triggerMajorTransition(
-        'Đang đăng xuất...',
-        'Hẹn gặp lại bạn trên CTU Event',
-        400
-      )
+    else if (!wasAuth && isNowAuth && hadSessionRef.current) {
+      triggerMajorTransition('Đang đăng xuất...', 'Hẹn gặp lại bạn trên CTU Event', 400)
     }
     // 3. Chuyển vào không gian Quản trị Fanpage / Ban tổ chức
-    else if (!wasFanpageWorkspace && isNowFanpageWorkspace) {
-      triggerMajorTransition(
-        'Đang mở không gian Fanpage...',
-        'CTU Event Organizer Workspace',
-        500
-      )
+    else if (!wasFanpageWorkspace && isNowFanpageWorkspace && isAuthenticated) {
+      triggerMajorTransition('Đang mở không gian Fanpage...', 'CTU Event Organizer Workspace', 500)
     }
     // 4. Chuyển đổi giữa 2 Fanpage khác nhau trong workspace ban tổ chức
     else if (
       isNowFanpageWorkspace &&
+      isAuthenticated &&
       currentFanpageId &&
       prevFanpageIdRef.current &&
       currentFanpageId !== prevFanpageIdRef.current
     ) {
-      triggerMajorTransition(
-        'Đang chuyển đổi Fanpage...',
-        'Đang tải dữ liệu ban tổ chức',
-        450
-      )
+      triggerMajorTransition('Đang chuyển đổi Fanpage...', 'Đang tải dữ liệu ban tổ chức', 450)
     }
     // 5. Chuyển vào cổng Quản trị viên cấp cao (Super Admin)
-    else if (!wasAdmin && isNowAdmin) {
+    else if (!wasAdmin && isNowAdmin && isAuthenticated) {
       triggerMajorTransition(
         'Đang chuyển đến cổng Super Admin...',
         'Hệ thống Quản lý Sự kiện CTU Event',
@@ -98,7 +87,8 @@ export const FullscreenTransitionLoader: React.FC = () => {
 
     prevPathRef.current = curr
     prevFanpageIdRef.current = currentFanpageId
-  }, [location.pathname, currentFanpageId])
+    hadSessionRef.current = isAuthenticated
+  }, [location.pathname, currentFanpageId, isAuthenticated])
 
   if (!isOpen) return null
 
@@ -133,9 +123,7 @@ export const FullscreenTransitionLoader: React.FC = () => {
         <h3 className="text-base md:text-lg font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
           {title}
         </h3>
-        <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
-          {subtitle}
-        </p>
+        <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">{subtitle}</p>
       </div>
     </aside>
   )

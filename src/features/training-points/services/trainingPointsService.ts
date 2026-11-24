@@ -1,4 +1,5 @@
 import { apiClient } from '@/shared'
+import { capTrainingPoints } from '../utils/scoreCalculator'
 import type {
   AcademicYear,
   Semester,
@@ -22,7 +23,16 @@ export const trainingPointsService = {
     const res = await apiClient.get<unknown, StudentSemesterPointGroupedTree[]>(
       `/student-semester-points/grouped-tree/${semesterId}`
     )
-    return Array.isArray(res) ? res : []
+    return Array.isArray(res)
+      ? res.map((section) => ({
+          ...section,
+          totalPoint: capTrainingPoints(section.totalPoint, section.maximum),
+          items: section.items.map((item) => ({
+            ...item,
+            totalPoint: capTrainingPoints(item.totalPoint, item.maximum),
+          })),
+        }))
+      : []
   },
 
   /**

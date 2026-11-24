@@ -2,16 +2,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useEffect, useRef, useId } from 'react'
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
-import { Search, Filter, Calendar, ArrowRight, Loader2, X } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Search, Calendar, ArrowRight, Loader2, X } from 'lucide-react'
 import { eventService } from '../services/eventService'
 import type { Event } from '../types/event.types'
-import { EventFilterModal, type EventFilterFormValues } from './EventFilterModal'
 
 export const NavbarSearchAutocomplete: React.FC = () => {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
-  const showFilter = pathname !== '/' && pathname !== '/search'
   const listId = useId()
   const [activeIndex, setActiveIndex] = useState(-1)
   const [searchParams] = useSearchParams()
@@ -21,7 +18,6 @@ export const NavbarSearchAutocomplete: React.FC = () => {
   const [suggestions, setSuggestions] = useState<Event[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -32,19 +28,6 @@ export const NavbarSearchAutocomplete: React.FC = () => {
     setIsOpen(false)
     setActiveIndex(-1)
   }, [searchParams])
-
-  // Count active filters in URL params
-  const activeFiltersCount = [
-    'academicYear',
-    'semesterId',
-    'eventTypeId',
-    'fanpageId',
-    'criteriaId',
-    'pointCategoryId',
-    'status',
-    'dateHappenFrom',
-    'dateHappenTo',
-  ].filter((key) => Boolean(searchParams.get(key))).length
 
   // Debounce query
   useEffect(() => {
@@ -122,45 +105,6 @@ export const NavbarSearchAutocomplete: React.FC = () => {
     navigate(`/events/${event.id}`)
   }
 
-  const handleApplyFilter = (values: EventFilterFormValues) => {
-    const params = new URLSearchParams()
-    if (query.trim()) {
-      params.set('keyword', query.trim())
-    }
-
-    Object.entries(values).forEach(([key, val]) => {
-      if (Array.isArray(val) && val.length > 0) {
-        params.set(key, val.join(','))
-      } else if (val && String(val).trim()) {
-        params.set(key, String(val).trim())
-      }
-    })
-
-    navigate(`/search?${params.toString()}`)
-  }
-
-  // Current filter values from URL to populate modal
-  const rawFanpageIds = searchParams.get('fanpageIds')
-  const fanpageId = searchParams.get('fanpageId')
-  const parsedFanpageIds = rawFanpageIds
-    ? rawFanpageIds.split(',').filter(Boolean)
-    : fanpageId
-      ? [fanpageId]
-      : undefined
-
-  const currentFilterValues: EventFilterFormValues = {
-    academicYear: searchParams.get('academicYear') || undefined,
-    semesterId: searchParams.get('semesterId') || undefined,
-    eventTypeId: searchParams.get('eventTypeId') || undefined,
-    fanpageId: fanpageId || undefined,
-    fanpageIds: parsedFanpageIds,
-    criteriaId: searchParams.get('criteriaId') || undefined,
-    pointCategoryId: searchParams.get('pointCategoryId') || undefined,
-    status: searchParams.get('status') || undefined,
-    dateHappenFrom: searchParams.get('dateHappenFrom') || undefined,
-    dateHappenTo: searchParams.get('dateHappenTo') || undefined,
-  }
-
   return (
     <>
       <div
@@ -212,7 +156,7 @@ export const NavbarSearchAutocomplete: React.FC = () => {
               }
             }}
             placeholder="Tìm kiếm sự kiện..."
-            className={`h-10 w-full min-w-0 rounded-lg border-border bg-muted/30 pl-10 ${showFilter ? 'pr-20' : 'pr-10'} text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20`}
+            className="h-10 w-full min-w-0 rounded-lg border-border bg-muted/30 pl-10 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20"
           />
 
           {query && (
@@ -225,7 +169,7 @@ export const NavbarSearchAutocomplete: React.FC = () => {
                   setQuery('')
                   setSuggestions([])
                 }}
-                className={`${showFilter ? 'right-10' : 'right-2'} absolute h-8 w-8 text-muted-foreground hover:text-foreground p-1 cursor-pointer`}
+                className="absolute right-2 h-8 w-8 text-muted-foreground hover:text-foreground p-1 cursor-pointer"
                 aria-label="Xóa tìm kiếm"
               >
                 <X className="h-3.5 w-3.5" />
@@ -233,38 +177,6 @@ export const NavbarSearchAutocomplete: React.FC = () => {
             </Tooltip>
           )}
 
-          {showFilter && (
-            <>
-              {/* Filter Trigger Button */}
-              <Tooltip
-                content={
-                  activeFiltersCount > 0
-                    ? `Đang bật ${activeFiltersCount} bộ lọc`
-                    : 'Bộ lọc nâng cao'
-                }
-              >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  type="button"
-                  onClick={() => setIsFilterOpen(true)}
-                  className={`absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg border transition-colors cursor-pointer ${
-                    activeFiltersCount > 0
-                      ? 'border-primary bg-primary/10 text-primary font-bold'
-                      : 'border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
-                  aria-label="Mở bộ lọc nâng cao"
-                >
-                  <Filter className="h-3.5 w-3.5" />
-                  {activeFiltersCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white shadow-xs">
-                      {activeFiltersCount}
-                    </span>
-                  )}
-                </Button>
-              </Tooltip>{' '}
-            </>
-          )}
         </form>
 
         {isOpen && query.trim().length > 0 && (
@@ -378,15 +290,6 @@ export const NavbarSearchAutocomplete: React.FC = () => {
         )}
       </div>
 
-      {/* Filter Modal dropping from top */}
-      {showFilter && (
-        <EventFilterModal
-          isOpen={isFilterOpen}
-          onClose={() => setIsFilterOpen(false)}
-          initialValues={currentFilterValues}
-          onApply={handleApplyFilter}
-        />
-      )}
     </>
   )
 }

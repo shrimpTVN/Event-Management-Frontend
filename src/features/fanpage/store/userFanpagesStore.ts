@@ -4,7 +4,6 @@ import { persist } from 'zustand/middleware'
 export interface UserFanpageItem {
   id: string
   name: string
-  code?: string
   role?: string
   avatarUrl?: string
   isVerified?: boolean
@@ -75,7 +74,6 @@ export const useUserFanpagesStore = create<UserFanpagesState>()(
           const newFanpage: UserFanpageItem = {
             id: notif.fanpageId,
             name: notif.fanpageName,
-            code: notif.fanpageName.slice(0, 3).toUpperCase(),
             role: 'Cộng tác viên',
           }
 

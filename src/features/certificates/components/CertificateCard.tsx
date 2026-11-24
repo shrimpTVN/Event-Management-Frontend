@@ -1,3 +1,5 @@
+import { Button } from '@/components/ui/button'
+import { format, parseISO, isValid } from 'date-fns'
 import React, { useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { Award, Download, CheckCircle, Shield, Loader2, Building, Calendar } from 'lucide-react'
@@ -5,6 +7,12 @@ import { useQuery } from '@tanstack/react-query'
 import { isMockMode } from '@/shared'
 import { certificateService } from '../services/certificateService'
 import type { Certificate } from '../types/certificate.types'
+
+const displayDate = (value?: string) => {
+  if (!value) return '—'
+  const date = parseISO(value)
+  return isValid(date) ? format(date, 'dd/MM/yyyy') : value
+}
 
 export const CertificateCard: React.FC = () => {
   const [searchParams] = useSearchParams()
@@ -20,7 +28,7 @@ export const CertificateCard: React.FC = () => {
 
   if (!registrationId) {
     return (
-      <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-3">
+      <div className="rounded-2xl border border-dashed border-border bg-card p-5 sm:p-12 text-center flex flex-col items-center justify-center gap-3">
         <Award className="h-10 w-10 text-muted-foreground" />
         <h3 className="font-semibold text-foreground text-base">Chưa chọn chứng nhận</h3>
         <p className="text-xs text-muted-foreground max-w-sm">
@@ -69,7 +77,7 @@ export const CertificateCard: React.FC = () => {
   return (
     <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-sm space-y-6 text-left">
       {/* Top Header Badge */}
-      <div className="flex items-center justify-between border-b border-border pb-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 shrink-0">
             <Award className="h-6 w-6" />
@@ -78,7 +86,9 @@ export const CertificateCard: React.FC = () => {
             <h2 className="text-base sm:text-lg font-bold font-k2d text-foreground">
               GIẤY CHỨNG NHẬN ĐIỆN TỬ
             </h2>
-            <p className="text-xs text-muted-foreground">Đại học Cần Thơ — Hệ thống quản lý sự kiện & ĐRL</p>
+            <p className="text-xs text-muted-foreground">
+              Đại học Cần Thơ — Hệ thống quản lý sự kiện & ĐRL
+            </p>
           </div>
         </div>
         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-xs font-semibold text-emerald-600">
@@ -94,7 +104,8 @@ export const CertificateCard: React.FC = () => {
           Hoạt động hoàn thành
         </span>
         <h3 className="font-bold text-sm sm:text-base text-foreground leading-snug">
-          {cert?.eventTitle || 'HỘI THẢO CHUYÊN ĐỀ: TRÍ TUỆ NHÂN TẠO & XU HƯỚNG MÔ HÌNH NGÔN NGỮ LỚN (LLM)'}
+          {cert?.eventTitle ||
+            'HỘI THẢO CHUYÊN ĐỀ: TRÍ TUỆ NHÂN TẠO & XU HƯỚNG MÔ HÌNH NGÔN NGỮ LỚN (LLM)'}
         </h3>
       </div>
 
@@ -116,7 +127,7 @@ export const CertificateCard: React.FC = () => {
           <span className="text-muted-foreground">Ngày cấp chứng nhận:</span>
           <p className="font-semibold text-foreground mt-0.5 flex items-center gap-1">
             <Calendar className="h-3.5 w-3.5 text-primary" />
-            {cert?.issueDate || '16/08/2026'}
+            {displayDate(cert?.issueDate)}
           </p>
         </div>
         <div>
@@ -134,11 +145,11 @@ export const CertificateCard: React.FC = () => {
           <span>Ký số bởi Hội đồng ĐRL & Đoàn Thanh niên ĐHCT</span>
         </div>
 
-        <button
+        <Button
           type="button"
           onClick={handleDownloadPdf}
           disabled={isDownloading}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs sm:text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow cursor-pointer"
+          className="h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs sm:text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow cursor-pointer"
         >
           {isDownloading ? (
             <>
@@ -151,7 +162,7 @@ export const CertificateCard: React.FC = () => {
               <span>Tải chứng nhận PDF</span>
             </>
           )}
-        </button>
+        </Button>
       </div>
     </div>
   )

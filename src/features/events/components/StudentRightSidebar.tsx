@@ -68,7 +68,7 @@ export const StudentRightSidebar: React.FC = () => {
     return `HK${semNum} NH ${formattedYear}`
   }, [semestersList, activeSemester, academicYears])
 
-  // Compute criteria items and total points strictly from BE grouped tree
+  // The shared training-points service caps section totals for both this sidebar and the detail page.
   const { criteriaList, currentScore, classification, pointsNeeded } = useMemo(() => {
     const list: CriteriaItem[] = (semesterPointsTree || []).map((root) => {
       const current = root.totalPoint || 0

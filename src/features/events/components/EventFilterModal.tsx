@@ -1,8 +1,7 @@
-import { matchesEventFilters, eventFilterChips } from '../utils/eventFilters'
+import { createEventFilterMatcher, eventFilterChips } from '../utils/eventFilters'
 import { Input } from '@/components/ui/input'
 import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { createPortal } from 'react-dom'
 import {
   X,
   RotateCcw,
@@ -11,7 +10,11 @@ import {
   ChevronUp,
   Search as SearchIcon,
   SlidersHorizontal,
+  Sparkles,
 } from 'lucide-react'
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import { cn } from '@/shared/utils/cn'
 import { useQuery } from '@tanstack/react-query'
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
 import {
@@ -44,6 +47,7 @@ export interface EventFilterFormValues {
   dateHappenTo?: string
   childCategoryIds?: string[]
   childCriteriaIds?: string[]
+  feedScope?: 'ALL' | 'RECOMMENDED' | 'FOLLOWING'
 }
 
 interface EventFilterModalProps {
@@ -53,6 +57,7 @@ interface EventFilterModalProps {
   onApply: (values: EventFilterFormValues) => void
   events?: any[]
   hideFanpageFilter?: boolean
+  options?: EventFilterOptions
 }
 
 // Preset trạng thái sự kiện (không có chip "Tất cả" - mặc định để trống là tất cả)
@@ -65,16 +70,25 @@ const STATUS_CHIPS = [
 ]
 
 const EMPTY_FILTER_VALUES: EventFilterFormValues = {}
+const EMPTY_EVENTS: any[] = []
 
-export const EventFilterModal: React.FC<EventFilterModalProps> = ({
+// Keep the expensive form and preview unmounted while the filter is closed.
+export const EventFilterModal: React.FC<EventFilterModalProps> = (props) =>
+  props.isOpen ? <EventFilterPanel {...props} /> : null
+
+const EventFilterPanel: React.FC<EventFilterModalProps> = ({
   isOpen,
   onClose,
-  initialValues = EMPTY_FILTER_VALUES,
+  initialValues: incomingValues = EMPTY_FILTER_VALUES,
   onApply,
   events,
   hideFanpageFilter = false,
+  options: suppliedOptions,
 }) => {
-  const { isAuthenticated } = useAuthStore()
+  // A parent query refresh must not reset choices in an already-open filter.
+  const initialValues = useRef(incomingValues).current
+  const isMobile = useMediaQuery('(max-width: 767px)')
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const [formValues, setFormValues] = useState<EventFilterFormValues>(initialValues)
   const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>(
     initialValues.academicYear || 'ALL'
@@ -100,15 +114,16 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
   const modalRef = useRef<HTMLDivElement>(null)
   const advancedRef = useRef<HTMLDivElement>(null)
 
-  const { data: options } = useQuery<EventFilterOptions>({
+  const { data: queriedOptions } = useQuery<EventFilterOptions>({
     queryKey: ['event-filter-options'],
     queryFn: () => eventFilterOptionsService.getFilterOptions(),
     staleTime: 5 * 60 * 1000,
-    enabled: isOpen,
+    enabled: isOpen && !suppliedOptions,
   })
+  const options = suppliedOptions ?? queriedOptions
 
   // Lấy danh sách fanpage đang theo dõi (để ưu tiên hiển thị ở nhóm Đang theo dõi)
-  const { data: followedFanpages = [] } = useQuery<any[]>({
+  const { data: followedFanpages = EMPTY_EVENTS } = useQuery<any[]>({
     queryKey: ['fanpages', 'following', isAuthenticated],
     queryFn: async () => {
       if (!isAuthenticated) return []
@@ -120,11 +135,11 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
       }
     },
     staleTime: 5 * 60 * 1000,
-    enabled: isOpen && isAuthenticated,
+    enabled: isOpen && isAuthenticated && !hideFanpageFilter,
   })
 
   // Dữ liệu sự kiện dùng để tính toán đếm số lượng kết quả xem trước
-  const { data: fallbackEvents = [] } = useQuery<any[]>({
+  const { data: fallbackEvents = EMPTY_EVENTS } = useQuery<any[]>({
     queryKey: ['events', 'filter-modal-preview'],
     queryFn: () => eventService.getEvents(),
     staleTime: 60 * 1000,
@@ -487,16 +502,25 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
     onClose()
   }
 
-  const draftValues = {
-    ...formValues,
-    academicYear: selectedAcademicYear === 'ALL' ? undefined : selectedAcademicYear,
-    fanpageId: hideFanpageFilter ? undefined : selectedFanpageIds[0],
-    fanpageIds: hideFanpageFilter ? undefined : selectedFanpageIds,
-  }
-  const previewMatchingCount = previewSourceEvents.filter((event) =>
-    matchesEventFilters(event, draftValues, options)
-  ).length
-  const activeCount = eventFilterChips(draftValues, options).length
+  const draftValues = useMemo(
+    () => ({
+      ...formValues,
+      academicYear: selectedAcademicYear === 'ALL' ? undefined : selectedAcademicYear,
+      fanpageId: hideFanpageFilter ? undefined : selectedFanpageIds[0],
+      fanpageIds: hideFanpageFilter ? undefined : selectedFanpageIds,
+    }),
+    [formValues, selectedAcademicYear, hideFanpageFilter, selectedFanpageIds]
+  )
+  const previewMatchingCount = useMemo(() => {
+    const matches = createEventFilterMatcher(draftValues, options)
+    let count = 0
+    for (const event of previewSourceEvents) if (matches(event)) count++
+    return count
+  }, [previewSourceEvents, draftValues, options])
+  const activeCount = useMemo(
+    () => eventFilterChips(draftValues, options).length,
+    [draftValues, options]
+  )
 
   // Đếm số lượng bộ lọc đang bật bên trong phần Nâng cao
   const advancedActiveCount = [
@@ -552,28 +576,28 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
 
   if (!isOpen) return null
 
-  const modalContent = (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-stretch sm:justify-end pointer-events-none">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity pointer-events-auto"
-        onClick={() => {
+  return (
+    <Sheet
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) {
           setOpenCombobox(null)
           onClose()
-        }}
-      />
-
-      {/* Filter Drawer: Right Slide-over on Desktop, Bottom Sheet on Mobile */}
-      <div
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Bộ lọc sự kiện"
-        onClick={(e) => e.stopPropagation()}
-        className="relative pointer-events-auto w-full sm:w-[440px] sm:max-w-[440px] h-auto max-h-[90vh] sm:max-h-full sm:h-full overflow-hidden bg-white dark:bg-card border-t sm:border-t-0 sm:border-l border-border/80 rounded-t-xl sm:rounded-none shadow-2xl text-left animate-in slide-in-from-bottom-6 sm:slide-in-from-right duration-300 select-none flex flex-col"
+        }
+      }}
+    >
+      <SheetContent
+        side={isMobile ? 'bottom' : 'right'}
+        overlayClassName="backdrop-blur-none data-[state=open]:duration-150 data-[state=closed]:duration-150 motion-reduce:animate-none"
+        className={cn(
+          'p-0 flex flex-col select-none overflow-hidden bg-white dark:bg-card z-50 text-left gap-0 will-change-transform data-[state=open]:duration-150 data-[state=closed]:duration-150 motion-reduce:animate-none [&>button:last-child]:hidden',
+          isMobile
+            ? 'w-full h-auto max-h-[88dvh] rounded-t-2xl border-t border-border/80 shadow-2xl'
+            : 'sm:w-[440px] sm:max-w-[440px] h-full rounded-none border-l border-border/80 shadow-2xl'
+        )}
       >
         {/* Mobile Swipe Handle Indicator */}
-        <div className="pt-2.5 pb-1 sm:hidden flex justify-center">
+        <div className="pt-2.5 pb-1 sm:hidden flex justify-center shrink-0">
           <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
         </div>
 
@@ -581,9 +605,9 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
         <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-border/50 shrink-0 bg-muted/20">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-k2d font-bold text-base sm:text-lg text-foreground tracking-tight">
+              <SheetTitle className="font-k2d font-bold text-base sm:text-lg text-foreground tracking-tight">
                 Bộ lọc sự kiện
-              </h2>
+              </SheetTitle>
               {activeCount > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[11px]">
                   {activeCount} đang chọn
@@ -605,6 +629,47 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
 
         {/* Filter Content - Cuộn mượt mà */}
         <div className="flex flex-col px-4 sm:px-5 py-4 gap-3 overflow-y-auto custom-scrollbar flex-1 min-h-0 divide-y divide-border/40">
+          {/* ============================================================ */}
+          {/* 0. Nguồn sự kiện & Phân loại (Từ các tab: Khám phá, Gợi ý ĐRL, Đang theo dõi) */}
+          {/* ============================================================ */}
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold text-foreground/80 block">
+              Nguồn sự kiện & Phân loại
+            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { key: 'ALL', label: 'Tất cả' },
+                { key: 'RECOMMENDED', label: 'Gợi ý (Có ĐRL)', icon: Sparkles },
+                { key: 'FOLLOWING', label: 'Đang theo dõi' },
+              ].map((item) => {
+                const isSelected =
+                  (!formValues.feedScope && item.key === 'ALL') || formValues.feedScope === item.key
+                return (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      setFormValues((prev) => ({
+                        ...prev,
+                        feedScope: item.key === 'ALL' ? undefined : (item.key as any),
+                      }))
+                    }}
+                    aria-pressed={isSelected}
+                    className={getChipClass(isSelected)}
+                  >
+                    {item.icon && (
+                      <item.icon
+                        className={`h-3.5 w-3.5 mr-1 ${isSelected ? 'text-amber-500' : 'text-muted-foreground'}`}
+                      />
+                    )}
+                    {item.label}
+                  </Button>
+                )
+              })}
+            </div>
+          </div>
           {/* ============================================================ */}
           {/* 1. Trạng thái (hay dùng nhất - Không cần chip Tất cả)        */}
           {/* ============================================================ */}
@@ -1297,7 +1362,7 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
             }`}
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            <span>Thiết lập lại {activeCount > 0 ? `(${activeCount})` : ''}</span>
+            <span>Xóa bộ lọc {activeCount > 0 ? `(${activeCount})` : ''}</span>
           </Button>
 
           <Button
@@ -1307,14 +1372,16 @@ export const EventFilterModal: React.FC<EventFilterModalProps> = ({
             className="h-9 px-4 rounded-lg text-xs font-semibold shadow-md flex items-center justify-center gap-2 transition-all bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer active:scale-[0.98]"
           >
             <Check className="h-4 w-4" />
-            <span>{`Xem ${previewMatchingCount} sự kiện`}</span>
+            <span>
+              {isMobile
+                ? `Áp dụng (${previewMatchingCount})`
+                : `Xem ${previewMatchingCount} sự kiện`}
+            </span>
           </Button>
         </div>
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   )
-
-  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent
 }
 
 export const EventFilterDrawer = EventFilterModal

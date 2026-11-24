@@ -20,7 +20,7 @@ export const AuthLayoutWrapper: React.FC<AuthLayoutWrapperProps> = ({
 }) => {
   return (
     <div
-      className="auth-layout notranslate relative min-h-screen w-full overflow-hidden bg-[#F8FAFC] dark:bg-background flex items-center justify-center p-4 sm:p-6 lg:p-8 select-none"
+      className="auth-layout notranslate relative min-h-screen w-full overflow-hidden bg-[#F8FAFC] dark:bg-background flex items-center justify-center px-4 pb-6 pt-24 sm:px-6 sm:pb-8 sm:pt-28 lg:p-8 select-none"
       translate="no"
     >
       {/* 0. Ambient Aurora Mesh Glow (Đồng bộ chuẩn hệ màu Brand Blue, Sky & Cyan của hệ thống) */}
@@ -48,7 +48,7 @@ export const AuthLayoutWrapper: React.FC<AuthLayoutWrapperProps> = ({
       {/* 2. Center Form Card (Figma: form-card [560px] with elegant backdrop glass effect) */}
       <div className="relative z-10 w-full flex items-center justify-center my-auto">
         <div
-          className={`w-full ${cardMaxWidth} rounded-2xl border border-slate-200/90 dark:border-border/90 bg-white/95 dark:bg-card/95 backdrop-blur-md shadow-xl p-6 sm:p-10 transition-all`}
+          className={`w-full ${cardMaxWidth} rounded-2xl border border-slate-200/90 dark:border-border/90 bg-white/95 dark:bg-card/95 backdrop-blur-md shadow-xl p-4 sm:p-8 md:p-10 transition-all`}
         >
           {/* Card Header (Left-aligned as in Figma wireframe) */}
           <div className={`mb-6 ${centerText ? 'text-center' : 'text-left'}`}>

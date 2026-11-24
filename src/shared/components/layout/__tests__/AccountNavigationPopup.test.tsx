@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AccountNavigationPopup } from '../AccountNavigationPopup'
 import { RoleEnum, type User } from '@/features/auth'
@@ -12,6 +12,94 @@ const queryClient = new QueryClient({
 })
 
 describe('AccountNavigationPopup', () => {
+  it('shows every joined fanpage in the mobile picker and navigates to its workspace', () => {
+    const onClose = vi.fn()
+    const Location = () => {
+      const location = useLocation()
+      return (
+        <output data-testid="picker-location">
+          {location.pathname}:{location.state?.fanpageId}
+        </output>
+      )
+    }
+    const client = new QueryClient({ defaultOptions: { queries: { enabled: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <Location />
+          <AccountNavigationPopup
+            isOpen
+            embedded
+            accountPicker
+            onClose={onClose}
+            onLogout={vi.fn()}
+            user={{
+              id: 'picker-student',
+              name: 'Sinh viên thử',
+              email: 'b2300000@student.ctu.edu.vn',
+              role: RoleEnum.STUDENT,
+              createdAt: '2026-01-01',
+            }}
+            availableFanpages={Array.from({ length: 4 }, (_, i) => ({
+              id: String(i + 1),
+              name: `Trang thử ${i + 1}`,
+              role: 'Cộng tác viên',
+            }))}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+    expect(
+      screen.getByRole('menuitem', { name: 'Đang dùng tài khoản Sinh viên thử' })
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Chuyển sang Trang thử 4' }))
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(screen.getByTestId('picker-location')).toHaveTextContent('/fanpage/workspace:4')
+  })
+  it('opens the full fanpage hub for students', () => {
+    const onClose = vi.fn()
+    const Location = () => {
+      const location = useLocation()
+      return (
+        <output data-testid="location">
+          {location.pathname}:{location.state?.fanpageId}
+        </output>
+      )
+    }
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/']}>
+          <Location />
+          <AccountNavigationPopup
+            isOpen
+            embedded
+            onClose={onClose}
+            onLogout={vi.fn()}
+            user={{
+              id: 'expand-student',
+              email: 'expand@student.ctu.edu.vn',
+              name: 'Sinh viên',
+              role: RoleEnum.STUDENT,
+              createdAt: '2026-01-01',
+            }}
+            availableFanpages={Array.from({ length: 4 }, (_, i) => ({
+              id: String(i + 1),
+              name: `Đơn vị ${i + 1}`,
+              role: 'Cộng tác viên',
+            }))}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+    expect(screen.getByText('Chuyển sang fanpage')).toBeInTheDocument()
+    fireEvent.mouseDown(document.body)
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.queryByText('Đơn vị 4')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Xem tất cả fanpage' }))
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(screen.getByTestId('location')).toHaveTextContent('/staff/fanpages:')
+  })
+
   it('correctly extracts standard MSSV (e.g. B2303827) even if user has prefix LOCB2303827', () => {
     const mockUser: User = {
       id: '1',

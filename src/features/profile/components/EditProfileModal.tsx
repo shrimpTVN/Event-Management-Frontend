@@ -98,7 +98,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       />
 
       {/* Modal Dialog */}
-      <div className="relative w-full max-w-lg rounded-xl border border-border bg-card p-6 sm:p-7 shadow-2xl z-10 max-h-[90vh] overflow-y-auto flex flex-col gap-5 custom-scrollbar">
+      <div className="student-responsive-dialog relative w-full max-w-lg rounded-xl border border-border bg-card p-6 sm:p-7 shadow-2xl z-10 max-h-[calc(100dvh-1.5rem)] overflow-y-auto flex flex-col gap-5 custom-scrollbar">
         <div className="flex items-center justify-between pb-3 border-b border-border">
           <h2 className="text-lg font-semibold text-[#111827] dark:text-foreground">
             Cập nhật hồ sơ sinh viên

@@ -1,8 +1,6 @@
 import { apiClient } from '@/shared/services/api'
-import type {
-  NotificationPageResponse,
-  NotificationStatus,
-} from '../types/notification.types'
+import { normalizeNotification } from '../notificationPath'
+import type { NotificationPageResponse, NotificationStatus } from '../types/notification.types'
 
 export const notificationService = {
   /**
@@ -26,11 +24,11 @@ export const notificationService = {
     const res: any = await apiClient.get('/notifications', { params })
     // If backend returns Page object directly or wrapped in data
     if (res && Array.isArray(res.content)) {
-      return res as NotificationPageResponse
+      return { ...res, content: res.content.map(normalizeNotification) } as NotificationPageResponse
     }
     if (Array.isArray(res)) {
       return {
-        content: res,
+        content: res.map(normalizeNotification),
         totalElements: res.length,
         totalPages: 1,
         size: res.length,
@@ -112,10 +110,10 @@ export const notificationService = {
 
     const res: any = await apiClient.get(`/notifications/fanpages/${fanpageId}`, { params })
     if (res && Array.isArray(res.content)) {
-      return res as NotificationPageResponse
+      return { ...res, content: res.content.map(normalizeNotification) } as NotificationPageResponse
     }
     return {
-      content: Array.isArray(res) ? res : [],
+      content: Array.isArray(res) ? res.map(normalizeNotification) : [],
       totalElements: Array.isArray(res) ? res.length : 0,
       totalPages: 1,
       size,

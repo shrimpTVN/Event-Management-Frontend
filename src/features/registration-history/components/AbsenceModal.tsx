@@ -10,12 +10,7 @@ interface AbsenceModalProps {
   onSubmit: (data: AbsenceFormData) => void
 }
 
-export const AbsenceModal: React.FC<AbsenceModalProps> = ({
-  isOpen,
-  onClose,
-  event,
-  onSubmit,
-}) => {
+export const AbsenceModal: React.FC<AbsenceModalProps> = ({ isOpen, onClose, event, onSubmit }) => {
   const [sessionId, setSessionId] = useState('')
   const [reason, setReason] = useState('')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -84,7 +79,7 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
       />
 
       {/* Modal Dialog */}
-      <div className="relative w-full max-w-xl bg-white dark:bg-card border border-border rounded-2xl shadow-xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150">
+      <div className="student-responsive-dialog relative w-full max-w-xl bg-white dark:bg-card border border-border rounded-2xl shadow-xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
           <div className="flex items-center gap-2.5">
@@ -149,13 +144,13 @@ export const AbsenceModal: React.FC<AbsenceModalProps> = ({
                 onChange={(e) => setSessionId(e.target.value)}
                 className="w-full px-3.5 py-2.5 text-xs md:text-sm bg-muted/40 border border-border/80 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary font-sans cursor-pointer"
               >
-                {sessions.length > 0 ? (
-                  sessions.map((s, idx) => (
-                    <option key={s.id || idx} value={s.id || `session-${idx}`}>
-                      {s.sessionName || `Buổi ${idx + 1}`}
-                    </option>
-                  ))
-                ) : null}
+                {sessions.length > 0
+                  ? sessions.map((s, idx) => (
+                      <option key={s.id || idx} value={s.id || `session-${idx}`}>
+                        {s.sessionName || `Buổi ${idx + 1}`}
+                      </option>
+                    ))
+                  : null}
                 <option value="all">Toàn bộ thời gian sự kiện</option>
               </select>
             </div>

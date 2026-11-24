@@ -64,10 +64,8 @@ vi.mock('../../services/fanpageAdminService', () => ({
 
 const fanpage: FanpageSummary = {
   id: '7',
-  code: 'FP7',
   name: 'Đoàn trường',
   fullName: 'Đoàn trường',
-  avatarText: 'ĐT',
   role: 'ADMIN',
   isVerified: true,
   email: '',

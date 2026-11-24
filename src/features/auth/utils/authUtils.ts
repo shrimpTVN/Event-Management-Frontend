@@ -1,7 +1,13 @@
 /**
  * Authentication and authorization utility functions for CTU domains
  */
-import { RoleEnum, type UserRole, STAFF_ROLES, STUDENT_ROLES, ADMIN_ROLES } from '../types/auth.types'
+import {
+  RoleEnum,
+  type UserRole,
+  STAFF_ROLES,
+  STUDENT_ROLES,
+  ADMIN_ROLES,
+} from '../types/auth.types'
 
 /**
  * Normalizes any role string (e.g. 'ROLE_STUDENT', 'STUDENT', 'ROLE_FANPAGE_ADMIN', 'ROLE_ADMIN')
@@ -9,7 +15,10 @@ import { RoleEnum, type UserRole, STAFF_ROLES, STUDENT_ROLES, ADMIN_ROLES } from
  */
 export const normalizeRole = (role?: UserRole | string | null): RoleEnum | null => {
   if (!role) return null
-  const cleaned = role.trim().toUpperCase().replace(/^ROLE_/, '')
+  const cleaned = role
+    .trim()
+    .toUpperCase()
+    .replace(/^ROLE_/, '')
   if (cleaned === 'FANPAGE_ADMIN') return RoleEnum.FANPAGE_ADMIN
   if (cleaned === 'ADMIN') return RoleEnum.ADMIN
   if (cleaned === 'STUDENT') return RoleEnum.STUDENT
@@ -63,7 +72,11 @@ export const isSuperAdminUser = (
 export const isStaffRole = (role?: UserRole | string | null): boolean => {
   if (!role) return false
   const norm = normalizeRole(role)
-  return norm === RoleEnum.FANPAGE_ADMIN || norm === RoleEnum.ADMIN || STAFF_ROLES.includes(role as UserRole)
+  return (
+    norm === RoleEnum.FANPAGE_ADMIN ||
+    norm === RoleEnum.ADMIN ||
+    STAFF_ROLES.includes(role as UserRole)
+  )
 }
 
 /**
@@ -76,15 +89,83 @@ export const isStudentRole = (role?: UserRole | string | null): boolean => {
 }
 
 /**
- * Determines whether a user object is a staff/organizer/admin based on role, roles array, and email.
+ * Checks whether a user is primarily a student (CTU student email, studentId, or student role).
  */
-export const isStaffUser = (
-  user?: { role?: UserRole | string | null; email?: string | null; roles?: string[] | null } | null
+export const isStudentUser = (
+  user?: {
+    role?: UserRole | string | null
+    email?: string | null
+    roles?: string[] | null
+    studentId?: string | null
+  } | null
 ): boolean => {
   if (!user) return false
+  const email = (user.email || '').trim().toLowerCase()
+  if (email.startsWith('student') || email.endsWith('@student.ctu.edu.vn')) return true
+  if (user.studentId) return true
+  if (isStudentRole(user.role)) return true
+  if (Array.isArray(user.roles) && user.roles.some((r) => isStudentRole(r))) return true
+  return false
+}
+
+/**
+ * Determines whether a user object is pure staff/organizer (excluding students who are collaborators/fanpage admins).
+ */
+export const isStaffUser = (
+  user?: {
+    role?: UserRole | string | null
+    email?: string | null
+    roles?: string[] | null
+    studentId?: string | null
+  } | null
+): boolean => {
+  if (!user) return false
+  if (isStudentUser(user)) return false
   if (isStaffRole(user.role)) return true
   if (Array.isArray(user.roles) && user.roles.some((r) => isStaffRole(r))) return true
-  return isStaffEmail(user.email) && !isStudentRole(user.role)
+  return isStaffEmail(user.email)
+}
+
+/** Personal landing page, independent of fanpage membership. */
+export const getAccountHomePath = (user: Parameters<typeof isStudentUser>[0]): string => {
+  if (!user) return '/login'
+  if (isSuperAdminUser(user)) return '/admin'
+  if (isStaffUser(user)) return '/staff/fanpages'
+  if (isStudentUser(user)) return '/'
+  return '/login'
+}
+
+export const getLoginDestination = (
+  user: Parameters<typeof isStudentUser>[0] & { isProfileComplete?: boolean },
+  redirect?: string | null
+): string => {
+  const home = getAccountHomePath(user)
+  if (home !== '/') return home
+  if (isStudentRole(user?.role) && !user?.isProfileComplete) return '/onboarding/student'
+  // Only accept local application paths from the login query string.
+  if (
+    !redirect ||
+    !redirect.startsWith('/') ||
+    redirect.startsWith('//') ||
+    /[\\\s]/.test(redirect)
+  )
+    return home
+  const pathname = redirect.split(/[?#]/)[0]
+  if (
+    [
+      '/login',
+      '/register',
+      '/dang-nhap',
+      '/dang-ky',
+      '/verify-otp',
+      '/admin',
+      '/super-admin',
+      '/dashboard',
+      '/onboarding/staff',
+    ].includes(pathname)
+  )
+    return home
+  return redirect
 }
 
 /**

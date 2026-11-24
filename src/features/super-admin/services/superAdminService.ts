@@ -11,12 +11,29 @@ import type {
   SuperAdminSv5tCriteria,
   SuperAdminSchool,
   SuperAdminMajor,
-  SuperAdminOverviewStats,
   FanpageStatus,
   AdminEventStatus,
   SemesterStatus,
   Sv5tScope,
 } from '../types/superAdmin.types'
+
+// The existing level endpoints include inactive entries, unlike the public tree endpoints.
+async function fetchCatalogLevels(path: string): Promise<any[]> {
+  const items: any[] = []
+  const seen = new Set<number>()
+  for (let level = 0; ; level++) {
+    const response: any = await apiClient.get(`${path}/level`, { params: { level } })
+    const rows: any[] = Array.isArray(response) ? response : response?.data
+    if (!Array.isArray(rows)) throw new Error('Dữ liệu danh mục không hợp lệ.')
+    if (!rows.length) return items
+    if (rows.some((row) => seen.has(row.id)))
+      throw new Error('API trả về cấp tiêu chí không hợp lệ.')
+    rows.forEach((row) => {
+      seen.add(row.id)
+      items.push(row)
+    })
+  }
+}
 
 // apiClient already unwraps BaseResponse.data. Read every server page before filtering locally.
 async function fetchAllPages(url: string, params: Record<string, unknown> = {}): Promise<any[]> {
@@ -136,8 +153,10 @@ export function mapAdminFanpage(
     contactEmail: fanpage.helpContact ?? '',
     contactPhone: fanpage.helpPhone ?? '',
     schoolName: fanpage.parentOrg ?? '',
-    proofFileUrl: fanpage.proofFileUrl,
-    proofFileName: fanpage.proofFileName,
+    proofFileUrl: fanpage.evidenceUrl || fanpage.proofFileUrl,
+    proofFileName:
+      fanpage.proofFileName ||
+      (fanpage.evidenceUrl ? 'Minh chứng thành lập / ủy quyền' : undefined),
     createdAt: dateLabel(fanpage.createdAt),
     status,
     avatarUrl: fanpage.avatarUrl,
@@ -377,27 +396,6 @@ export const superAdminService = {
     }
   },
   // ==========================================
-  // 1. OVERVIEW & STATISTICS
-  // ==========================================
-  getOverviewStats: async (): Promise<SuperAdminOverviewStats> => {
-    const [users, fanpages, events] = await Promise.all([
-      fetchUsersAndProfiles('/users/admin'),
-      fetchAdminRecords('/fanpages/admin', ['ACTIVE', 'PENDING', 'BANNED']),
-      fetchAdminRecords('/events/admin', ['DRAFT', 'PUBLISHED', 'CLOSED', 'CANCELLED']),
-    ])
-    return {
-      totalUsers: users.length,
-      totalFanpages: fanpages.length,
-      totalEvents: events.length,
-      totalParticipations: null,
-      pendingFanpagesCount: fanpages.filter((f) => f.status === 'PENDING').length,
-      violationReportsCount: events.filter((e) => e.status === 'VIOLATED').length,
-      userGrowthRate: null,
-      eventGrowthRate: null,
-    }
-  },
-
-  // ==========================================
   // 2. USER MANAGEMENT
   // ==========================================
   getUsers: async (params?: {
@@ -477,6 +475,17 @@ export const superAdminService = {
     } catch (err) {
       console.error('Failed to change user role:', err)
       throw err
+    }
+  },
+
+  getAdminStaffProfile: async (userId: string | number): Promise<any> => {
+    if (!isValidUserId(userId)) throw new Error('Thiếu ID tài khoản hợp lệ.')
+    try {
+      const res: any = await apiClient.get(`/users/admin/${userId}/staff-profile`)
+      return res?.data ?? res
+    } catch (err) {
+      console.error('Failed to get admin staff profile:', err)
+      return null
     }
   },
 
@@ -701,13 +710,15 @@ export const superAdminService = {
   // ==========================================
   getPointCategories: async (): Promise<SuperAdminPointCategory[]> => {
     try {
-      const res: any = await apiClient.get('/point-categories')
-      const flatList: any[] = Array.isArray(res) ? res : res?.data || []
+      const flatList = await fetchCatalogLevels('/point-categories')
+      flatList.sort((a, b) => (a.childrenOrder ?? 1) - (b.childrenOrder ?? 1) || a.id - b.id)
 
       const mapItem = (c: any): SuperAdminPointCategory => ({
         id: c.id,
         name: c.name,
         maximum: c.maximum || 0,
+        dateApply: c.dateApply,
+        isMaxChild: c.isMaxChild ?? false,
         level: c.level || 0,
         note: c.note,
         parentCategoryId: c.parentCategoryId || null,
@@ -739,6 +750,7 @@ export const superAdminService = {
   createPointCategory: async (payload: {
     name: string
     maximum: number
+    dateApply: string
     level: number
     note?: string
     parentCategoryId?: number | null
@@ -758,7 +770,26 @@ export const superAdminService = {
     payload: Partial<SuperAdminPointCategory>
   ): Promise<boolean> => {
     try {
-      await apiClient.patch(`/point-categories/admin/${id}`, payload)
+      const {
+        name,
+        note,
+        maximum,
+        dateApply,
+        parentCategoryId,
+        childrenOrder,
+        isActive,
+        isMaxChild,
+      } = payload
+      await apiClient.patch(`/point-categories/admin/${id}`, {
+        name,
+        note,
+        maximum,
+        dateApply,
+        parentCategoryId,
+        childrenOrder,
+        isActive,
+        isMaxChild,
+      })
       return true
     } catch (err) {
       console.error('Failed to update point category:', err)
@@ -781,14 +812,16 @@ export const superAdminService = {
   // ==========================================
   getCriterias: async (): Promise<SuperAdminSv5tCriteria[]> => {
     try {
-      const res: any = await apiClient.get('/criterias')
-      const flatList: any[] = Array.isArray(res) ? res : res?.data || []
+      const flatList = await fetchCatalogLevels('/criterias')
+      flatList.sort((a, b) => (a.childrenOrder ?? 1) - (b.childrenOrder ?? 1) || a.id - b.id)
 
       const mapItem = (c: any): SuperAdminSv5tCriteria => ({
         id: c.id,
         name: c.name,
         note: c.note,
         scope: (c.scope as Sv5tScope) || 'UNIVERSITY',
+        requiredChildren: c.requiredChildren ?? null,
+        requiredOccurrences: c.requiredOccurrences ?? 1,
         level: c.level || 0,
         childrenOrder: c.childrenOrder || 1,
         parentId: c.parentId || null,
@@ -818,10 +851,12 @@ export const superAdminService = {
   createCriteria: async (payload: {
     name: string
     level: number
+    childrenOrder: number
     parentId?: number | null
     note?: string
     scope?: string
     requiredChildren?: number | null
+    requiredOccurrences?: number
   }): Promise<boolean> => {
     try {
       await apiClient.post('/criterias/admin', {
@@ -831,6 +866,8 @@ export const superAdminService = {
         note: payload.note || '',
         scope: payload.scope || 'UNIVERSITY',
         requiredChildren: payload.requiredChildren || null,
+        childrenOrder: payload.childrenOrder,
+        requiredOccurrences: payload.requiredOccurrences ?? 1,
       })
       return true
     } catch (err) {
@@ -844,7 +881,17 @@ export const superAdminService = {
     payload: Partial<SuperAdminSv5tCriteria>
   ): Promise<boolean> => {
     try {
-      await apiClient.put(`/criterias/admin/${id}`, payload)
+      const { name, note, scope, childrenOrder, requiredChildren, requiredOccurrences, parentId } =
+        payload
+      await apiClient.put(`/criterias/admin/${id}`, {
+        name,
+        note,
+        scope,
+        childrenOrder,
+        requiredChildren,
+        requiredOccurrences,
+        parentId,
+      })
       return true
     } catch (err) {
       console.error('Failed to update criteria:', err)

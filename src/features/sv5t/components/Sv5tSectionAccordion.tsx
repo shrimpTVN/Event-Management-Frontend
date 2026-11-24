@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
 import React, { useState } from 'react'
 import { BadgeCheck, ChevronRight } from 'lucide-react'
 import { Sv5tRow } from './Sv5tRow'
@@ -24,6 +25,7 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
   defaultExpanded = false,
   onToggleExpand,
 }) => {
+  const isMobile = useMediaQuery('(max-width: 767px)')
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const sectionRef = React.useRef<HTMLDivElement>(null)
   const contentId = React.useId()
@@ -32,6 +34,12 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
     const nextState = !isExpanded
     setIsExpanded(nextState)
     onToggleExpand?.(nextState)
+    if (!nextState && sectionRef.current) {
+      const rect = sectionRef.current.getBoundingClientRect()
+      if (rect.top < 60) {
+        sectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }
   }
 
   // Flatten direct and nested children into printable rows with codes like 1.1, 1.2, 1.3, 1.3.1
@@ -91,21 +99,28 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
         onClick={handleToggle}
         aria-expanded={isExpanded}
         aria-controls={contentId}
-        className="achievement-accordion__trigger group relative h-auto min-h-[64px] rounded-none w-full flex items-center justify-between gap-3 px-3 sm:px-4 py-3 whitespace-normal cursor-pointer text-left select-none focus-visible:ring-inset"
+        className="achievement-accordion__trigger group relative h-auto min-h-[56px] sm:min-h-[64px] rounded-none w-full flex items-center justify-between gap-3 px-3 sm:px-4 py-3 whitespace-normal cursor-pointer text-left select-none focus-visible:ring-inset"
       >
-        <span className="achievement-accordion__heading relative z-10 flex flex-col gap-1 min-w-0 text-xs sm:text-sm leading-relaxed">
-          <span className="font-semibold">{standard.name}</span>
-          <span className="achievement-accordion__description text-xs font-normal tabular-nums">
-            Đã đạt {completedDirect}/{requiredCount} tiêu chí
-          </span>
+        <span className="achievement-accordion__heading relative z-10 flex-1 md:flex-none min-w-0 flex flex-col gap-1 text-xs md:text-sm leading-relaxed text-left">
+          <span className="font-semibold break-words">{standard.name}</span>
+          {!isMobile && (
+            <span className="achievement-accordion__description text-xs font-normal tabular-nums">
+              Đã đạt {completedDirect}/{requiredCount} tiêu chí
+            </span>
+          )}
         </span>
-        <span className="relative z-10 flex shrink-0 items-center gap-3">
+        <span className="relative z-10 flex shrink-0 items-center gap-2 sm:gap-3">
+          {isMobile && (
+            <span className="text-xs font-semibold tabular-nums text-muted-foreground shrink-0">
+              {completedDirect}/{requiredCount} tiêu chí
+            </span>
+          )}
           {standard.isCompleted ? (
             <span
               role="img"
               aria-label="Đạt tiêu chuẩn"
               title="Đạt tiêu chuẩn"
-              className="achievement-accordion__completed flex h-8 w-6 items-center justify-center"
+              className="hidden md:flex achievement-accordion__completed h-8 w-6 items-center justify-center"
             >
               <BadgeCheck
                 aria-hidden="true"
@@ -116,7 +131,10 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
           ) : (
             <span className="sr-only">Chưa đạt tiêu chuẩn</span>
           )}
-          <ChevronRight aria-hidden="true" className="achievement-accordion__chevron h-4 w-4" />
+          <ChevronRight
+            aria-hidden="true"
+            className="achievement-accordion__chevron h-4 w-4 shrink-0"
+          />
         </span>
         <span
           aria-hidden="true"
@@ -138,8 +156,8 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
       >
         <div className="min-h-0 overflow-hidden">
           <div className="w-full overflow-x-auto custom-scrollbar border-t border-border">
-            <div className="min-w-[822px] flex flex-col">
-              <div className="flex items-stretch bg-muted/40 text-muted-foreground text-xs font-semibold min-h-10 border-b border-border">
+            <div className="student-score-content min-w-[822px] flex flex-col">
+              <div className="student-score-heading flex items-stretch bg-muted/40 text-muted-foreground text-xs font-semibold min-h-10 border-b border-border">
                 <div className="w-[86px] shrink-0 px-1 py-2 flex items-center justify-center border-r border-border text-center">
                   Mã TC
                 </div>

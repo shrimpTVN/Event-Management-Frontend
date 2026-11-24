@@ -204,16 +204,35 @@ export const StaffProfileForm: React.FC = () => {
         role: updatedUser.role || RoleEnum.FANPAGE_ADMIN,
         isProfileComplete: true,
       })
-      navigate('/staff/fanpages', { replace: true })
+      const redirect = searchParams.get('redirect') || '/staff/fanpages'
+      navigate(redirect, { replace: true })
     } catch (err: any) {
+      const errCode = err.response?.data?.code || err.response?.data?.exceptionCode || ''
       const msg = err.response?.data?.message || err.message || ''
-      if (typeof msg === 'string' && (msg.includes('Staff ID already exists') || msg.toLowerCase().includes('staff id'))) {
-        setApiError('Mã số cán bộ (CB) này đã tồn tại trong hệ thống. Vui lòng chỉnh sửa lại mã cán bộ bên dưới và bấm Lưu lại.')
+
+      if (
+        errCode === 'STAFF_ID_ALREADY_EXISTS' ||
+        (typeof msg === 'string' &&
+          (msg.includes('Staff ID already exists') || msg.toLowerCase().includes('staff id')))
+      ) {
+        setApiError(
+          'Mã số cán bộ (CB) này đã tồn tại trong hệ thống. Vui lòng chỉnh sửa lại mã cán bộ bên dưới và bấm Lưu lại.'
+        )
         setError('staffId', {
           type: 'manual',
           message: 'Mã số cán bộ này đã tồn tại trên hệ thống. Vui lòng kiểm tra lại.',
         })
-      } else if (typeof msg === 'string' && (msg.includes('already exists') || msg.toLowerCase().includes('email'))) {
+      } else if (
+        errCode === 'STAFF_PROFILE_ALREADY_EXISTS' ||
+        (typeof msg === 'string' && msg.includes('User already has a staff profile'))
+      ) {
+        updateUser({ isProfileComplete: true })
+        const redirect = searchParams.get('redirect') || '/staff/fanpages'
+        navigate(redirect, { replace: true })
+      } else if (
+        typeof msg === 'string' &&
+        (msg.includes('already exists') || msg.toLowerCase().includes('email'))
+      ) {
         setApiError('Email hoặc thông tin tài khoản này đã tồn tại trong hệ thống.')
       } else {
         setApiError(

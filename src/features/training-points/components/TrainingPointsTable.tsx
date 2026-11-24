@@ -1,4 +1,6 @@
 import React from 'react'
+import { Button } from '@/components/ui/button'
+import { matchesPageSearchTree, useMobilePageSearch } from '@/shared/components/layout/MobileSubpageHeader'
 import { TrainingPointsSectionAccordion } from './TrainingPointsSectionAccordion'
 import { Skeleton } from '@/components/ui/skeleton'
 import type {
@@ -35,6 +37,7 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
   resetKey,
   aggregateScores,
 }) => {
+  const { query, setQuery } = useMobilePageSearch()
   const [, setExpandedSections] = React.useState<Record<number, boolean>>({})
   const headerScrollRef = React.useRef<HTMLDivElement>(null)
   const bodyScrollRef = React.useRef<HTMLDivElement>(null)
@@ -64,9 +67,9 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
     return (
       <div className="w-full bg-background border border-border rounded-xl p-3 sm:p-4 flex flex-col shadow-2xs overflow-hidden h-auto animate-pulse">
         <div className="w-full overflow-x-auto custom-scrollbar">
-          <div className="w-full min-w-[820px] flex flex-col gap-2">
+          <div className="w-full min-w-0 md:min-w-[820px] flex flex-col gap-2">
             {/* Table Header Skeleton */}
-            <div className="flex items-stretch bg-primary text-primary-foreground rounded-t-md text-xs font-semibold min-h-[44px] shadow-xs select-none">
+            <div className="student-score-heading flex items-stretch bg-primary text-primary-foreground rounded-t-md text-xs font-semibold min-h-[44px] shadow-xs select-none">
               <div className="w-20 min-w-[80px] max-w-[80px] px-1 py-2 flex items-center justify-center border-r border-white/20 text-center shrink-0">
                 Tiêu chí
               </div>
@@ -96,9 +99,9 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <Skeleton className="h-5 w-5 rounded shrink-0" />
                   <Skeleton className="h-4 w-12 rounded shrink-0" />
-                  <Skeleton className="h-4 w-72 rounded" />
+                  <Skeleton className="h-4 w-72 max-w-full rounded" />
                 </div>
-                <div className="flex items-center gap-6 shrink-0 pr-2">
+                <div className="hidden md:flex items-center gap-6 shrink-0 pr-2">
                   <Skeleton className="h-4 w-16 rounded" />
                   <Skeleton className="h-4 w-16 rounded" />
                   <Skeleton className="h-4 w-16 rounded" />
@@ -115,14 +118,14 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
   return (
     <div className="w-full bg-background border border-border rounded-xl p-3 sm:p-4 flex flex-col shadow-2xs h-auto">
       {/* Keep sticky outside the horizontal scroll container so it follows the page scroll. */}
-      <div className="sticky top-0 z-20 bg-background pb-2">
+      <div className="student-score-heading sticky top-0 z-20 bg-background pb-2">
         <div
           ref={headerScrollRef}
           onScroll={syncHorizontalScroll}
           className="w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {/* Main Dark Navy Table Header */}
-          <div className="w-full min-w-[824px] flex items-stretch bg-primary text-primary-foreground rounded-t-md text-xs font-semibold min-h-[44px] shadow-xs select-none">
+          <div className="student-score-content training-points-columns training-points-column-heading w-full min-w-[826px] flex items-stretch bg-primary text-primary-foreground rounded-t-md text-xs font-semibold min-h-[44px] shadow-xs select-none">
             {/* 1. Tiêu chí (80px) */}
             <div className="w-20 min-w-[80px] max-w-[80px] px-1 py-2 flex items-center justify-center border-r border-white/20 text-center shrink-0">
               Tiêu chí
@@ -156,11 +159,28 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
         onScroll={syncHorizontalScroll}
         className="w-full overflow-x-auto custom-scrollbar"
       >
-        <div className="w-full min-w-[824px] flex flex-col">
+        <div className="student-score-content w-full min-w-[826px] flex flex-col">
           {/* Section Accordions (Mục I đến V) */}
-          {sections.map((section, idx) => (
+          {query.trim() && !sections.some((section) => matchesPageSearchTree(query, section)) && (
+            <div role="status" className="p-6 text-center rounded-xl bg-card border border-border flex flex-col items-center gap-3">
+              <p className="text-sm text-muted-foreground">
+                Không tìm thấy tiêu chí nào phù hợp với từ khóa &ldquo;{query}&rdquo;.
+              </p>
+              {setQuery && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-3 text-xs"
+                  onClick={() => setQuery('')}
+                >
+                  Xóa từ khóa tìm kiếm
+                </Button>
+              )}
+            </div>
+          )}
+          {sections.map((section, idx) => matchesPageSearchTree(query, section) && (
             <TrainingPointsSectionAccordion
-              key={`${section.id}-${resetKey ?? ''}`}
+              key={`${section.id}-${resetKey ?? ''}-${query}`}
               section={section}
               sectionRoman={ROMAN_NUMERALS[idx] || String(idx + 1)}
               transactions={transactions}
@@ -169,7 +189,7 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
               semesterId={semesterId}
               onSaveSelfScore={onSaveSelfScore}
               onDeleteSelfScore={onDeleteSelfScore}
-              defaultExpanded={false}
+              defaultExpanded={Boolean(query.trim())}
               onToggleExpand={(expanded) => handleToggleSection(section.id, expanded)}
               aggregateScore={aggregateScores?.[section.id]}
             />

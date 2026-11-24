@@ -39,6 +39,7 @@ describe('fanpageService real-time following status', () => {
     expect(result.name).toBe('Đoàn Trường CNTT & TT')
     expect(result.isFollowing).toBe(false)
     expect(result.followerCount).toBe(0)
+    expect(result).toMatchObject({ fullName: '', avatarUrl: '', address: '', orgType: '', parentOrg: '' })
   })
 
   it('fetches isFollowing=true when user has followed the fanpage', async () => {

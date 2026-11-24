@@ -35,7 +35,7 @@ export const FanpageRightSidebar = ({
   })
   return (
     <div className="flex w-full flex-col gap-3 text-left">
-      <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <section className="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] dark:border-border bg-white dark:bg-card p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-k2d text-sm font-semibold text-foreground">Thành viên fanpage</h3>
           {!isLoading && !isError && (

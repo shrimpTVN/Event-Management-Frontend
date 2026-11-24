@@ -1,12 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EventFeedCard } from '../EventFeedCard'
 import type { Event } from '../../types/event.types'
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
+
+vi.mock('@/shared/hooks/useMediaQuery', () => ({ useMediaQuery: vi.fn(() => false) }))
 
 describe('EventFeedCard', () => {
   beforeEach(() => {
+    vi.mocked(useMediaQuery).mockReturnValue(false)
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-11-15T12:00:00'))
   })
@@ -50,6 +54,24 @@ describe('EventFeedCard', () => {
     updatedAt: '2026-10-01T00:00:00',
   }
 
+  it('offers follow and save in the phone post menu and closes after an action', () => {
+    vi.mocked(useMediaQuery).mockReturnValue(true)
+    const follow = vi.fn()
+    const save = vi.fn()
+    renderWithProviders(
+      <EventFeedCard event={mockEvent} onToggleFollow={follow} onToggleSave={save} />
+    )
+    expect(screen.queryByRole('button', { name: 'Theo dõi' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Tùy chọn bài viết' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Theo dõi fanpage' }))
+    expect(follow).toHaveBeenCalledWith(mockEvent.organizerId)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Tùy chọn bài viết' }))
+    expect(screen.getByRole('button', { name: 'Bỏ theo dõi fanpage' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu sự kiện' }))
+    expect(save).toHaveBeenCalledWith(mockEvent.id)
+  })
+
   it('renders fanpage name and avatar as links navigating to /fanpage/:id', () => {
     renderWithProviders(<EventFeedCard event={mockEvent} />)
 
@@ -59,6 +81,32 @@ describe('EventFeedCard', () => {
     links.forEach((link) => {
       expect(link).toHaveAttribute('href', '/fanpage/fanpage-99')
     })
+  })
+
+  it('keeps the phone verification badge inline with the fanpage name and uses status badge with detail action', () => {
+    vi.mocked(useMediaQuery).mockReturnValue(true)
+    renderWithProviders(
+      <EventFeedCard
+        event={{
+          ...mockEvent,
+          status: 'CLOSED',
+          eventTypeName: 'Workshop',
+          startTime: '2026-11-20T07:00:00',
+          endTime: '2026-11-20T09:00:00',
+          organizerFullName: 'Đoàn Thanh niên - Hội Sinh viên Trường Đại học Cần Thơ',
+        }}
+      />
+    )
+    const author = screen.getAllByRole('link', { name: /Đoàn Thanh niên - Hội Sinh viên/ })[1]
+    expect(author.querySelector('img[alt="Đã xác thực"]')).toBeInTheDocument()
+    expect(screen.getByText('Đã đóng đăng ký')).toBeInTheDocument()
+    const labels = screen.getByRole('group', { name: 'Thể loại và trạng thái sự kiện' })
+    expect(within(labels).getByText('Workshop')).toBeInTheDocument()
+    expect(within(labels).getByText('Đã đóng đăng ký')).toBeInTheDocument()
+    expect(screen.getAllByText('Workshop')).toHaveLength(1)
+    expect(screen.getAllByText('Đã đóng đăng ký')).toHaveLength(1)
+    const action = screen.getByRole('button', { name: 'Xem chi tiết' })
+    expect(action).toBeInTheDocument()
   })
 
   it('falls back to /fanpage/1 if organizerId is missing', () => {

@@ -117,6 +117,8 @@ export interface SuperAdminPointCategory {
   name: string
   note?: string
   maximum: number
+  dateApply?: string
+  isMaxChild?: boolean
   level: number
   childrenOrder: number
   parentCategoryId?: number | null
@@ -131,6 +133,8 @@ export interface SuperAdminSv5tCriteria {
   name: string
   note?: string
   scope: Sv5tScope
+  requiredChildren?: number | null
+  requiredOccurrences?: number
   level: number
   childrenOrder: number
   parentId?: number | null

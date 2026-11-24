@@ -11,13 +11,7 @@ export interface PresignedResponse {
   cloudName: string
 }
 
-export type MediaCategory =
-  | 'AVATAR'
-  | 'FANPAGE'
-  | 'EVENT'
-  | 'EVIDENCE'
-  | 'CERTIFICATE'
-  | 'GENERAL'
+export type MediaCategory = 'AVATAR' | 'FANPAGE' | 'EVENT' | 'EVIDENCE' | 'CERTIFICATE' | 'GENERAL'
 
 export const mediaService = {
   /**
@@ -38,10 +32,7 @@ export const mediaService = {
    * Uploads an image file to Cloudinary via backend-generated presigned signature
    * Returns the secure URL of the uploaded image
    */
-  uploadImage: async (
-    file: File,
-    category: MediaCategory = 'EVENT'
-  ): Promise<string> => {
+  uploadImage: async (file: File, category: MediaCategory = 'EVENT'): Promise<string> => {
     const ext = file.name.split('.').pop() || 'png'
     const presign = await mediaService.getPresignedUpload(category, ext)
 
@@ -75,7 +66,10 @@ export const mediaService = {
     }
 
     const data = await response.json()
-    return data.secure_url || data.url
+    const uploadedUrl = data.secure_url || data.url
+    if (typeof uploadedUrl !== 'string' || !/^https:\/\//i.test(uploadedUrl)) {
+      throw new Error('Máy chủ chưa trả về đường dẫn tệp hợp lệ. Vui lòng thử lại.')
+    }
+    return uploadedUrl
   },
 }
-

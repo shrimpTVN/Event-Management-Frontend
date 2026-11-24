@@ -1,3 +1,4 @@
+import { PasswordSettings } from '@/features/auth/components/PasswordSettings'
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -74,14 +75,17 @@ export const ProfilePage: React.FC = () => {
       )}
 
       {/* Main Container Layout: Left sidebar (240px) + Main Content (gap 24px) */}
-      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
+      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-3 sm:px-6 gap-4 xl:gap-6 overflow-hidden">
         {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
+        <aside className="hidden xl:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
         {/* Right Main Content: Vertical stack of full-width cards with 12px gap */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto pt-4 pb-12 px-1 sm:pl-8 custom-scrollbar flex flex-col items-center">
+        <main
+          data-student-scroll
+          className="flex-1 min-w-0 h-full overflow-y-auto pt-4 pb-12 px-1 sm:pl-8 custom-scrollbar flex flex-col items-center"
+        >
           <div className="w-full max-w-[1112px] flex flex-col gap-3">
             {isLoading ? (
               <div className="w-full rounded-2xl border border-border bg-card p-12 flex flex-col items-center justify-center gap-3">
@@ -127,6 +131,7 @@ export const ProfilePage: React.FC = () => {
                   onChange={handleFieldChange}
                 />
 
+                <PasswordSettings />
                 {/* Bottom Action Bar in Edit Mode */}
                 {isEditing && (
                   <div className="w-full flex items-center justify-end gap-3 p-4 bg-card border border-border rounded-xl shadow-xs mt-1 animate-in fade-in">
@@ -157,11 +162,10 @@ export const ProfilePage: React.FC = () => {
               </>
             ) : (
               <div className="w-full rounded-2xl border border-dashed border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-3">
-                <h3 className="font-semibold text-foreground text-base">
-                  Chưa có thông tin hồ sơ
-                </h3>
+                <h3 className="font-semibold text-foreground text-base">Chưa có thông tin hồ sơ</h3>
                 <p className="text-xs sm:text-sm text-muted-foreground max-w-sm">
-                  Vui lòng cập nhật thông tin sinh viên để đăng ký tham gia sự kiện và tích lũy điểm rèn luyện.
+                  Vui lòng cập nhật thông tin sinh viên để đăng ký tham gia sự kiện và tích lũy điểm
+                  rèn luyện.
                 </p>
                 <button
                   type="button"

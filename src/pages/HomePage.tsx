@@ -2,13 +2,15 @@ import {
   EventFilterButton,
   EventFilterChips,
 } from '@/features/events/components/EventFilterControls'
-import { matchesEventFilters } from '@/features/events/utils/eventFilters'
+import { createEventFilterMatcher } from '@/features/events/utils/eventFilters'
 import type { EventFilterFormValues } from '@/features/events/components/EventFilterModal'
 import { eventFilterOptionsService } from '@/features/events/services/eventFilterOptionsService'
 import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useMemo } from 'react'
-import { LayoutList, PanelsTopLeft } from 'lucide-react'
+import { LayoutList, PanelsTopLeft, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
 import { useAuthStore } from '@/features/auth'
 import { apiClient } from '@/shared'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -26,6 +28,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 export const HomePage: React.FC = () => {
   const queryClient = useQueryClient()
+  const isMobile = useMediaQuery('(max-width: 767px)')
+  const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<FeedTabType>('DISCOVER')
   const [filterValues, setFilterValues] = useState<EventFilterFormValues>({})
   const { data: filterOptions } = useQuery({
@@ -41,6 +45,8 @@ export const HomePage: React.FC = () => {
       return 'post'
     }
   })
+  const effectiveViewMode = isMobile ? 'post' : viewMode
+
   const changeView = (mode: 'post' | 'list') => {
     setViewMode(mode)
     try {
@@ -152,21 +158,54 @@ export const HomePage: React.FC = () => {
     })
   }, [events, followedFanpageIds, storedEventIds, registeredEventMap, isAuthenticated])
 
-  // Filter events by selected feed tab
+  const handleTabChange = (tab: FeedTabType) => {
+    setActiveTab(tab)
+    if (filterValues.feedScope) {
+      setFilterValues((prev) => {
+        const next = { ...prev }
+        delete next.feedScope
+        return next
+      })
+    }
+  }
+
+  // Filter events by selected feed tab or feedScope in filter values
   const tabEvents = eventsWithFollowState.filter((evt) => {
-    if (activeTab === 'FOLLOWING') {
+    const scope = filterValues.feedScope || (activeTab !== 'DISCOVER' ? activeTab : undefined)
+    if (scope === 'FOLLOWING') {
       return evt.isFollowed === true
     }
-    if (activeTab === 'RECOMMENDED') {
+    if (scope === 'RECOMMENDED') {
       // Show events with training points benefits
       return Boolean(evt.pointsReward)
     }
     return true
   })
 
-  const filteredEvents = tabEvents.filter((event) =>
-    matchesEventFilters(event, filterValues, filterOptions)
-  )
+  const filteredEvents = tabEvents.filter(createEventFilterMatcher(filterValues, filterOptions))
+
+  const searchedEvents = useMemo(() => {
+    if (!searchQuery.trim()) return filteredEvents
+    const q = searchQuery.toLowerCase().trim()
+    return filteredEvents.filter((event) => {
+      const title = (event.title || '').toLowerCase()
+      const org = (event.organizerName || '').toLowerCase()
+      const desc = (event.description || '').toLowerCase()
+      const locStr =
+        typeof event.location === 'string'
+          ? event.location
+          : `${event.location?.address || ''} ${event.location?.city || ''}`
+      const loc = locStr.toLowerCase()
+      const category = (event.category || event.eventTypeName || '').toLowerCase()
+      return (
+        title.includes(q) ||
+        org.includes(q) ||
+        desc.includes(q) ||
+        loc.includes(q) ||
+        category.includes(q)
+      )
+    })
+  }, [filteredEvents, searchQuery])
 
   const handleRegister = (eventId: string) => {
     queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
@@ -262,9 +301,6 @@ export const HomePage: React.FC = () => {
     }
   }
 
-  const [showMobileLeft, setShowMobileLeft] = useState(false)
-  const [showMobileRight, setShowMobileRight] = useState(false)
-
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-[#F0F2F5] dark:bg-background">
       {/* Toast Notification */}
@@ -274,126 +310,100 @@ export const HomePage: React.FC = () => {
         </div>
       )}
 
-      {/* Mobile Toolbar (Visible only on smaller screens where sidebars collapse) */}
-      <div className="flex lg:hidden items-center justify-between gap-2 mb-2 pt-3 shrink-0 bg-card border border-border rounded-xl p-2 text-xs font-semibold">
-        <button
-          type="button"
-          onClick={() => setShowMobileLeft(true)}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors md:hidden"
-        >
-          <span>📁 Menu & Đã theo dõi</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowMobileRight(true)}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-brand-subtle text-primary hover:bg-primary/10 transition-colors"
-        >
-          <span>📊 Điểm rèn luyện (65/100) & Lịch</span>
-        </button>
-      </div>
-
-      {/* Mobile Drawer Left */}
-      {showMobileLeft && (
-        <div className="fixed inset-0 z-50 flex md:hidden">
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
-            onClick={() => setShowMobileLeft(false)}
-          />
-          <div className="relative w-80 max-w-[85%] bg-card p-5 h-full overflow-y-auto custom-scrollbar shadow-2xl z-10 flex flex-col gap-4">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <span className="font-bold text-sm text-foreground">Menu & Tổ chức</span>
-              <button
-                type="button"
-                onClick={() => setShowMobileLeft(false)}
-                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1"
-              >
-                ✕
-              </button>
-            </div>
-            <StudentLeftSidebar />
-          </div>
-        </div>
-      )}
-
-      {/* Mobile Drawer Right */}
-      {showMobileRight && (
-        <div className="fixed inset-0 z-50 flex justify-end lg:hidden">
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
-            onClick={() => setShowMobileRight(false)}
-          />
-          <div className="relative w-88 max-w-[90%] bg-card p-5 h-full overflow-y-auto custom-scrollbar shadow-2xl z-10 flex flex-col gap-4">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <span className="font-bold text-sm text-foreground">Tiến độ ĐRL & Lịch</span>
-              <button
-                type="button"
-                onClick={() => setShowMobileRight(false)}
-                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1"
-              >
-                ✕
-              </button>
-            </div>
-            <StudentRightSidebar />
-          </div>
-        </div>
-      )}
-
       {/* 3-Column Layout: Left sidebar flush left, Right sidebar flush right, Feed centered */}
-      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
+      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-0 md:px-6 gap-4 xl:gap-6 overflow-hidden">
         {/* Left Column: Organization Navigation & Student Tools (Figma width: 240px, pad: 16px 0 10px 0) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
+        <aside className="hidden xl:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
         {/* Center Column: Feed (Tabs + Event Feed Cards, centered with Figma Feed width: 680px, gap: 8px) */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto py-2.5 px-1 flex justify-center custom-scrollbar">
+        <main
+          data-student-scroll
+          className="student-feed-scroll flex-1 min-w-0 h-full overflow-y-auto py-2.5 px-3 sm:px-4 md:px-1 flex justify-center custom-scrollbar"
+        >
           {/* Feed Container with bottom breathing room when scrolled to end */}
-          <div className="w-full max-w-[680px] flex flex-col gap-2 pb-28 sm:pb-36">
-            {/* Feed Filter Tabs */}
-            <div className="flex min-w-0 items-center justify-between gap-1 sm:gap-3">
-              <div className="min-w-0 flex-1">
-                <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          <div className="w-full max-w-[680px] min-w-0 flex flex-col gap-2 pb-28 sm:pb-36">
+            {isMobile ? (
+              /* Mobile Search & Filter Area (< 768px) */
+              <div className="flex items-center gap-2 w-full">
+                <div className="relative flex-1 min-w-0">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Tìm kiếm sự kiện, CLB..."
+                    aria-label="Tìm kiếm sự kiện"
+                    className="h-10 pl-9 pr-8 text-xs sm:text-sm bg-card rounded-xl border-border/80 shadow-2xs focus-visible:ring-1"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      aria-label="Xóa tìm kiếm"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                <EventFilterButton
+                  values={filterValues}
+                  onChange={setFilterValues}
+                  options={filterOptions}
+                  events={tabEvents}
+                  showLabelOnMobile
+                  className="h-10 shrink-0 px-2.5 sm:px-3 rounded-xl shadow-2xs"
+                />
               </div>
-              <EventFilterButton
-                values={filterValues}
-                onChange={setFilterValues}
-                options={filterOptions}
-                events={tabEvents}
-              />
-              <div
-                role="group"
-                aria-label="Kiểu hiển thị sự kiện"
-                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border/70 bg-white p-0.5 dark:bg-card"
-              >
-                <Tooltip content="Bài viết">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Bài viết"
-                    aria-pressed={viewMode === 'post'}
-                    onClick={() => changeView('post')}
-                    className={`h-8 w-8 ${viewMode === 'post' ? 'bg-primary/10 text-primary hover:bg-primary/15' : 'text-muted-foreground'}`}
-                  >
-                    <PanelsTopLeft className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                </Tooltip>
-                <Tooltip content="Danh sách">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Danh sách"
-                    aria-pressed={viewMode === 'list'}
-                    onClick={() => changeView('list')}
-                    className={`h-8 w-8 ${viewMode === 'list' ? 'bg-primary/10 text-primary hover:bg-primary/15' : 'text-muted-foreground'}`}
-                  >
-                    <LayoutList className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                </Tooltip>
+            ) : (
+              /* Desktop Feed Filter Tabs & View switcher (>= 768px) */
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <div className="w-auto flex-1 min-w-0">
+                  <FeedTabs activeTab={activeTab} onTabChange={handleTabChange} />
+                </div>
+                <EventFilterButton
+                  values={filterValues}
+                  onChange={setFilterValues}
+                  options={filterOptions}
+                  events={tabEvents}
+                  className="h-9"
+                />
+                <div
+                  role="group"
+                  aria-label="Kiểu hiển thị sự kiện"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border/70 bg-white p-0.5 dark:bg-card"
+                >
+                  <Tooltip content="Bài viết">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Bài viết"
+                      aria-pressed={viewMode === 'post'}
+                      onClick={() => changeView('post')}
+                      className={`h-8 w-8 ${viewMode === 'post' ? 'bg-primary/10 text-primary hover:bg-primary/15' : 'text-muted-foreground'}`}
+                    >
+                      <PanelsTopLeft className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </Tooltip>
+                  <Tooltip content="Danh sách">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Danh sách"
+                      aria-pressed={viewMode === 'list'}
+                      onClick={() => changeView('list')}
+                      className={`h-8 w-8 ${viewMode === 'list' ? 'bg-primary/10 text-primary hover:bg-primary/15' : 'text-muted-foreground'}`}
+                    >
+                      <LayoutList className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </Tooltip>
+                </div>
               </div>
-            </div>
+            )}
 
             <EventFilterChips
               values={filterValues}
@@ -402,8 +412,8 @@ export const HomePage: React.FC = () => {
             />
 
             {/* Feed List (Figma gap: 8px between consecutive cards) */}
-            <div className="flex flex-col gap-2">
-              {isLoading && viewMode === 'list' ? (
+            <div className={`flex flex-col gap-2 ${effectiveViewMode === 'post' ? 'student-post-feed' : ''}`}>
+              {isLoading && effectiveViewMode === 'list' ? (
                 <div className="flex flex-col gap-2" aria-label="Đang tải danh sách sự kiện">
                   {[1, 2, 3].map((index) => (
                     <div
@@ -439,11 +449,11 @@ export const HomePage: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              ) : filteredEvents.length > 0 ? (
-                filteredEvents.map((event) => (
+              ) : searchedEvents.length > 0 ? (
+                searchedEvents.map((event) => (
                   <EventFeedCard
                     key={event.id}
-                    variant={viewMode}
+                    variant={effectiveViewMode}
                     event={event}
                     onRegister={handleRegister}
                     onCancelRegister={handleCancelRegister}
@@ -452,17 +462,26 @@ export const HomePage: React.FC = () => {
                   />
                 ))
               ) : (
-                <div className="rounded-2xl border border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-2">
+                <div className="rounded-2xl border border-border bg-card p-8 sm:p-12 text-center flex flex-col items-center justify-center gap-2">
                   <span className="text-3xl">🎉</span>
                   <h3 className="font-semibold text-foreground text-base">
-                    {Object.values(filterValues).some(Boolean)
+                    {searchQuery || Object.values(filterValues).some(Boolean)
                       ? 'Không có sự kiện phù hợp'
                       : 'Chưa có sự kiện trong mục này'}
                   </h3>
-                  {Object.values(filterValues).some(Boolean) ? (
-                    <Button variant="outline" size="sm" onClick={() => setFilterValues({})}>
-                      Xóa bộ lọc
-                    </Button>
+                  {searchQuery || Object.values(filterValues).some(Boolean) ? (
+                    <div className="flex items-center gap-2 mt-2">
+                      {searchQuery && (
+                        <Button variant="outline" size="sm" onClick={() => setSearchQuery('')}>
+                          Xóa từ khóa
+                        </Button>
+                      )}
+                      {Object.values(filterValues).some(Boolean) && (
+                        <Button variant="outline" size="sm" onClick={() => setFilterValues({})}>
+                          Xóa bộ lọc
+                        </Button>
+                      )}
+                    </div>
                   ) : (
                     <p className="text-xs text-muted-foreground max-w-sm">
                       Hãy thử chuyển sang tab "Khám phá" để xem các hoạt động mới nhất từ các Đoàn -
@@ -479,7 +498,7 @@ export const HomePage: React.FC = () => {
         </main>
 
         {/* Right Column: Training Points Progress & Calendar Widget (Figma width: 240px, pad: 16px 10px 0 10px) */}
-        <aside className="hidden lg:block w-[256px] min-w-[256px] max-w-[256px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pl-3 pr-1 ml-3 sidebar-scrollbar">
+        <aside className="hidden 2xl:block w-[256px] min-w-[256px] max-w-[256px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pl-3 pr-1 ml-3 sidebar-scrollbar">
           <StudentRightSidebar />
         </aside>
       </div>

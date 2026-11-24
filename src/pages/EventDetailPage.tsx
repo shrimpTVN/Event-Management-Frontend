@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button'
 import React, { useState, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Loader2, CalendarDays } from 'lucide-react'
@@ -32,7 +33,11 @@ export const EventDetailPage: React.FC = () => {
     }
   }
 
-  const { data: event, isLoading, error } = useQuery({
+  const {
+    data: event,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['events', id],
     queryFn: () => eventService.getEventById(id!),
     enabled: Boolean(id),
@@ -145,23 +150,28 @@ export const EventDetailPage: React.FC = () => {
         </div>
       )}
 
-      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
+      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-0 sm:px-6 gap-4 xl:gap-6 overflow-hidden">
         {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
+        <aside className="hidden xl:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
         {/* Center / Main Content */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-1 flex justify-center custom-scrollbar">
+        <main
+          data-student-scroll
+          className="student-feed-scroll flex-1 min-w-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-4 sm:px-1 flex justify-center custom-scrollbar"
+        >
           <div className="w-full max-w-[680px] flex flex-col gap-4 pb-16">
-            <button
+            <Button
+              data-mobile-page-heading
+              variant="ghost"
               type="button"
               onClick={handleGoBack}
-              className="inline-flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors self-start cursor-pointer group"
+              className="min-h-11 inline-flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors self-start cursor-pointer group"
             >
               <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
               <span>Quay lại</span>
-            </button>
+            </Button>
 
             {isLoading ? (
               <div className="w-full rounded-2xl border border-border bg-card p-12 flex flex-col items-center justify-center gap-3">
@@ -169,46 +179,45 @@ export const EventDetailPage: React.FC = () => {
                 <p className="text-sm text-muted-foreground">Đang tải thông tin sự kiện...</p>
               </div>
             ) : event ? (
-              <EventFeedCard
-                event={{
-                  ...event,
-                  isRegistered: isEventRegistered,
-                  registrationStatus: currentRegStatus,
-                }}
-                onRegister={handleRegister}
-                onCancelRegister={handleCancelRegister}
-                onToggleSave={handleToggleSave}
-                onToggleFollow={handleToggleFollow}
-              />
+              <div className="student-post-feed">
+                <EventFeedCard
+                  event={{
+                    ...event,
+                    isRegistered: isEventRegistered,
+                    registrationStatus: currentRegStatus,
+                  }}
+                  onRegister={handleRegister}
+                  onCancelRegister={handleCancelRegister}
+                  onToggleSave={handleToggleSave}
+                  onToggleFollow={handleToggleFollow}
+                />
+              </div>
             ) : (
               <div className="w-full rounded-2xl border border-dashed border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-2">
                 <CalendarDays className="h-10 w-10 text-muted-foreground" />
-                <h3 className="font-semibold text-foreground text-base">
-                  Không tìm thấy sự kiện
-                </h3>
+                <h3 className="font-semibold text-foreground text-base">Không tìm thấy sự kiện</h3>
                 <p className="text-xs text-muted-foreground max-w-sm">
                   {error
                     ? 'Không thể tải chi tiết sự kiện này hoặc sự kiện đã bị xóa.'
                     : 'Sự kiện không tồn tại hoặc bạn không có quyền xem.'}
                 </p>
-                <button
+                <Button
                   type="button"
                   onClick={handleGoBack}
                   className="mt-3 px-4 py-2 text-xs font-semibold text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
                 >
                   Quay lại
-                </button>
+                </Button>
               </div>
             )}
           </div>
         </main>
 
         {/* Right Column: Training Points Progress & Calendar Widget (Matching HomePage & FanpageDetail to center the main content) */}
-        <aside className="hidden lg:block w-[256px] min-w-[256px] max-w-[256px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pl-3 pr-1 ml-3 sidebar-scrollbar">
+        <aside className="hidden 2xl:block w-[256px] min-w-[256px] max-w-[256px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pl-3 pr-1 ml-3 sidebar-scrollbar">
           <StudentRightSidebar />
         </aside>
       </div>
     </div>
   )
 }
-

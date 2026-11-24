@@ -71,6 +71,41 @@ describe('trainingPointsService', () => {
     expect(apiClient.get).toHaveBeenCalledWith('/point-categories/grouped-tree')
     expect(result).toEqual(mockCategories)
   })
+
+  it('caps the shared page/sidebar totals and child totals without changing recorded evidence', async () => {
+    const raw = [
+      {
+        id: 5,
+        maximum: 20,
+        totalPoint: 24,
+        systemPointRecord: 19,
+        manualPointRecord: 5,
+        items: [
+          { id: 51, maximum: 12, totalPoint: 22, systemPointRecord: 19, manualPointRecord: 3 },
+        ],
+      },
+      {
+        id: 1,
+        maximum: 20,
+        totalPoint: 4,
+        systemPointRecord: 4,
+        manualPointRecord: 0,
+        items: [],
+      },
+    ]
+    vi.mocked(apiClient.get).mockResolvedValue(raw)
+    const result = await trainingPointsService.getSemesterPointGroupedTree(1)
+    expect(result[0].totalPoint).toBe(20)
+    expect(result[0].items[0]).toMatchObject({
+      totalPoint: 12,
+      systemPointRecord: 19,
+      manualPointRecord: 3,
+    })
+    expect(result.reduce((sum, section) => sum + section.totalPoint, 0)).toBe(24)
+    expect(raw[0].totalPoint).toBe(24)
+    expect(raw[0].items[0].totalPoint).toBe(22)
+    expect(apiClient.post).not.toHaveBeenCalled()
+  })
 })
 
 describe('evidence API errors', () => {

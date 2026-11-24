@@ -1,3 +1,4 @@
+import { Input } from '@/components/ui/input'
 import { Tooltip } from '@/components/ui/tooltip'
 import React from 'react'
 import { Search, SlidersHorizontal, X, LayoutGrid, List } from 'lucide-react'
@@ -16,6 +17,9 @@ export interface HistoryTabBarProps {
   }
 }
 
+/**
+ * Desktop original folder-style tab bar (Tai bìa hồ sơ gắn liền khung trắng chuẩn Figma trên Laptop)
+ */
 export const HistoryTabBar: React.FC<HistoryTabBarProps> = ({
   activeStatus,
   onStatusChange,
@@ -64,6 +68,75 @@ export const HistoryTabBar: React.FC<HistoryTabBarProps> = ({
   )
 }
 
+/**
+ * Mobile Shopee-style underline tab bar (Nằm sát dưới Header, cuộn ngang trái phải trên điện thoại)
+ */
+export const MobileHistoryTabBar: React.FC<HistoryTabBarProps> = ({
+  activeStatus,
+  onStatusChange,
+  counts,
+}) => {
+  const activeTabRef = React.useRef<HTMLButtonElement | null>(null)
+
+  React.useEffect(() => {
+    if (typeof activeTabRef.current?.scrollIntoView === 'function') {
+      activeTabRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      })
+    }
+  }, [activeStatus])
+
+  const tabs: { id: HistoryStatus; label: string; count: number }[] = [
+    { id: 'ALL', label: 'Tất cả', count: counts?.all ?? 0 },
+    { id: 'UPCOMING', label: 'Sắp diễn ra', count: counts?.upcoming ?? 0 },
+    { id: 'COMPLETED', label: 'Đã điểm danh', count: counts?.completed ?? 0 },
+    { id: 'ABSENT', label: 'Vắng', count: counts?.absent ?? 0 },
+    { id: 'CANCELLED', label: 'Đã hủy', count: counts?.cancelled ?? 0 },
+  ]
+
+  return (
+    <div className="w-full bg-background border-b border-border shrink-0 z-20">
+      <div className="flex items-center gap-5 sm:gap-6 overflow-x-auto no-scrollbar scroll-smooth px-4">
+        {tabs.map((tab) => {
+          const isActive = activeStatus === tab.id
+
+          return (
+            <button
+              key={tab.id}
+              ref={isActive ? activeTabRef : null}
+              type="button"
+              onClick={() => onStatusChange(tab.id)}
+              className={cn(
+                'relative py-3 text-xs transition-colors cursor-pointer whitespace-nowrap select-none flex items-center gap-1 shrink-0 font-medium bg-transparent',
+                isActive
+                  ? 'text-primary font-semibold'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <span>{tab.label}</span>
+              {tab.count !== undefined && tab.count > 0 && (
+                <span className="text-[11px] text-muted-foreground/70 font-normal">
+                  ({tab.count})
+                </span>
+              )}
+
+              {/* Active Underline Indicator in primary */}
+              {isActive && (
+                <span
+                  className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-primary rounded-full"
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export interface HistorySearchBarProps {
   searchTerm: string
   onSearchChange: (value: string) => void
@@ -80,17 +153,17 @@ export const HistorySearchBar: React.FC<HistorySearchBarProps> = ({
   onViewModeChange,
 }) => {
   return (
-    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-border/60">
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 pb-3 border-b border-border/60">
       <div>
         <h2 className="font-k2d font-bold text-base sm:text-lg text-foreground">
           Danh sách sự kiện
         </h2>
-        <p className="text-xs text-muted-foreground mt-0.5">
+        <p className="text-xs text-muted-foreground mt-0.5 hidden sm:block">
           Quản lý, theo dõi minh chứng và lịch sử tham gia sự kiện của bạn.
         </p>
       </div>
 
-      <div className="flex items-center gap-2.5 sm:gap-3">
+      <div className="student-history-search flex items-center gap-2 sm:gap-3">
         {/* View Mode Switcher (Bảng ↔ Thẻ) */}
         {onViewModeChange && (
           <div className="flex items-center gap-0.5 p-0.5 rounded-lg border border-border/80 bg-muted/40 shrink-0">
@@ -103,7 +176,7 @@ export const HistorySearchBar: React.FC<HistorySearchBarProps> = ({
                   'p-1.5 rounded-md transition-colors cursor-pointer',
                   viewMode === 'TABLE'
                     ? 'bg-white dark:bg-card text-primary shadow-2xs font-medium'
-                    : 'text-muted-foreground hover:text-foreground'
+                    : 'text-muted-foreground hover:text-foreground bg-transparent hover:bg-black/5 dark:hover:bg-white/5'
                 )}
               >
                 <List className="h-4 w-4" />
@@ -118,7 +191,7 @@ export const HistorySearchBar: React.FC<HistorySearchBarProps> = ({
                   'p-1.5 rounded-md transition-colors cursor-pointer',
                   viewMode === 'GRID'
                     ? 'bg-white dark:bg-card text-primary shadow-2xs font-medium'
-                    : 'text-muted-foreground hover:text-foreground'
+                    : 'text-muted-foreground hover:text-foreground bg-transparent hover:bg-black/5 dark:hover:bg-white/5'
                 )}
               >
                 <LayoutGrid className="h-4 w-4" />
@@ -128,9 +201,9 @@ export const HistorySearchBar: React.FC<HistorySearchBarProps> = ({
         )}
 
         {/* Search input field */}
-        <div className="relative flex-1 sm:w-72 lg:w-80">
+        <div className="relative min-w-0 flex-1 sm:w-64 lg:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF] pointer-events-none" />
-          <input
+          <Input
             type="text"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -141,7 +214,7 @@ export const HistorySearchBar: React.FC<HistorySearchBarProps> = ({
             <button
               type="button"
               onClick={() => onSearchChange('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded cursor-pointer"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded cursor-pointer bg-transparent"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -149,14 +222,16 @@ export const HistorySearchBar: React.FC<HistorySearchBarProps> = ({
         </div>
 
         {/* Filter button */}
-        <button
-          type="button"
-          onClick={onToggleFilterModal}
-          className="flex items-center gap-2 px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-[#374151] dark:text-foreground bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg hover:bg-muted/50 transition-colors shrink-0 shadow-2xs cursor-pointer"
-        >
-          <SlidersHorizontal className="h-4 w-4 text-[#374151] dark:text-foreground" />
-          <span>Bộ lọc</span>
-        </button>
+        {onToggleFilterModal && (
+          <button
+            type="button"
+            onClick={onToggleFilterModal}
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-[#374151] dark:text-foreground bg-white dark:bg-card border border-[#E5E7EB] dark:border-border rounded-lg hover:bg-muted/50 transition-colors shrink-0 shadow-2xs cursor-pointer"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#374151] dark:text-foreground" />
+            <span className="hidden xs:inline">Bộ lọc</span>
+          </button>
+        )}
       </div>
     </div>
   )

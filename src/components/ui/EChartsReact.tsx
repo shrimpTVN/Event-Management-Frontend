@@ -1,11 +1,26 @@
 import React, { useEffect, useRef } from 'react'
-import * as echarts from 'echarts'
+import { init, use } from 'echarts/core'
+import { BarChart, PieChart } from 'echarts/charts'
+import { AriaComponent, GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+import type { ECharts, EChartsOption } from 'echarts'
+
+use([
+  BarChart,
+  PieChart,
+  AriaComponent,
+  GridComponent,
+  LegendComponent,
+  TooltipComponent,
+  CanvasRenderer,
+])
 
 interface EChartsReactProps {
-  option: echarts.EChartsOption
+  option: EChartsOption
   style?: React.CSSProperties
   className?: string
   loading?: boolean
+  animateOnView?: boolean
 }
 
 export const EChartsReact: React.FC<EChartsReactProps> = ({
@@ -13,18 +28,37 @@ export const EChartsReact: React.FC<EChartsReactProps> = ({
   style = { height: '320px', width: '100%' },
   className = '',
   loading = false,
+  animateOnView = false,
 }) => {
   const chartRef = useRef<HTMLDivElement | null>(null)
-  const chartInstance = useRef<echarts.ECharts | null>(null)
+  const chartInstance = useRef<ECharts | null>(null)
 
   useEffect(() => {
     if (!chartRef.current) return
 
     if (!chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current)
+      chartInstance.current = init(chartRef.current)
     }
 
     const chart = chartInstance.current
+    const element = chartRef.current
+    let mounted = true
+    let visible = !animateOnView || typeof IntersectionObserver === 'undefined'
+    let fontsReady = !document.fonts || document.fonts.status === 'loaded'
+    let drawn = false
+    let width = element.clientWidth
+    let height = element.clientHeight
+    const draw = () => {
+      if (!mounted || loading || !visible || !fontsReady || drawn || chart.isDisposed()) return
+      drawn = true
+      chart.hideLoading()
+      chart.setOption(
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+          ? { ...option, animation: false }
+          : option,
+        true
+      )
+    }
 
     if (loading) {
       chart.showLoading({
@@ -35,21 +69,38 @@ export const EChartsReact: React.FC<EChartsReactProps> = ({
       })
     } else {
       chart.hideLoading()
-      chart.setOption(option, true)
+      draw()
     }
 
     const handleResize = () => {
+      const nextWidth = element.clientWidth
+      const nextHeight = element.clientHeight
+      // The initial ResizeObserver notification must not finish the entrance animation.
+      if (nextWidth === width && nextHeight === height) return
+      width = nextWidth
+      height = nextHeight
       chart.resize()
     }
 
-    // Canvas labels need repainting after the web font finishes loading.
-    let mounted = true
+    // Wait for the font before drawing, so a second paint cannot interrupt the animation.
     void document.fonts?.ready.then(() => {
-      if (mounted && !chart.isDisposed()) {
-        chart.setOption(option, true)
-        chart.resize()
-      }
+      fontsReady = true
+      draw()
     })
+
+    const intersectionObserver =
+      animateOnView && typeof IntersectionObserver !== 'undefined'
+        ? new IntersectionObserver(
+            (entries) => {
+              if (!entries.some((entry) => entry.isIntersecting)) return
+              visible = true
+              draw()
+              intersectionObserver?.disconnect()
+            },
+            { threshold: 0.15 }
+          )
+        : null
+    intersectionObserver?.observe(element)
 
     const resizeObserver = new ResizeObserver(() => {
       handleResize()
@@ -60,10 +111,11 @@ export const EChartsReact: React.FC<EChartsReactProps> = ({
 
     return () => {
       mounted = false
+      intersectionObserver?.disconnect()
       resizeObserver.disconnect()
       window.removeEventListener('resize', handleResize)
     }
-  }, [option, loading])
+  }, [option, loading, animateOnView])
 
   useEffect(() => {
     return () => {

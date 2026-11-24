@@ -32,7 +32,7 @@ export function EventListItem({
   const detailUrl = `/events/${event.id}`
   const from = { from: `${route.pathname}${route.search}` }
   return (
-    <article className="grid grid-cols-[80px_minmax(0,1fr)] gap-x-3 gap-y-3 rounded-xl border border-border/70 bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md dark:bg-card sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-x-4 sm:p-4">
+    <article className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 gap-y-3 rounded-xl border border-border/70 bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md dark:bg-card sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-x-4 sm:p-4">
       <Link
         to={detailUrl}
         state={from}
@@ -59,7 +59,7 @@ export function EventListItem({
             </span>
           )}
         </div>
-        <h2 className="line-clamp-2 font-k2d text-base font-semibold leading-snug text-foreground">
+        <h2 className="line-clamp-3 sm:line-clamp-2 font-k2d text-base font-semibold leading-snug text-foreground">
           <Link to={detailUrl} state={from} className="hover:text-primary">
             {event.title}
           </Link>
@@ -107,7 +107,7 @@ export function EventListItem({
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8"
+                className="h-11 w-11 sm:h-8 sm:w-8"
                 aria-label={event.isSaved ? 'Bỏ lưu sự kiện' : 'Lưu sự kiện'}
                 aria-pressed={Boolean(event.isSaved)}
                 onClick={onSave}

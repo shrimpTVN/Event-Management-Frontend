@@ -1,3 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query'
+import { AdminStatisticsDashboard } from '@/features/super-admin/components/AdminStatisticsDashboard'
+import { flattenTree } from '@/features/super-admin/components/catalogTree'
 import {
   normalizeAdminRole,
   getSuperAdminRoles,
@@ -7,7 +10,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   SuperAdminLayout,
-  SuperAdminOverviewView,
   SuperAdminUsersView,
   SuperAdminFanpagesView,
   SuperAdminEventsView,
@@ -35,10 +37,10 @@ import type {
   SuperAdminSv5tCriteria,
   SuperAdminSchool,
   SuperAdminMajor,
-  SuperAdminOverviewStats,
 } from '@/features/super-admin'
 
 export const SuperAdminPage: React.FC = () => {
+  const queryClient = useQueryClient()
   // Navigation Tab State
   const [activeTab, setActiveTab] = useState<SuperAdminNavTab>('overview')
   const [globalSearchQuery, setGlobalSearchQuery] = useState('')
@@ -48,16 +50,6 @@ export const SuperAdminPage: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   // Backend datasets; empty and failed responses never fall back to demo data
-  const [overviewStats, setOverviewStats] = useState<SuperAdminOverviewStats>({
-    totalUsers: 0,
-    totalFanpages: 0,
-    totalEvents: 0,
-    totalParticipations: null,
-    pendingFanpagesCount: 0,
-    violationReportsCount: 0,
-    userGrowthRate: null,
-    eventGrowthRate: null,
-  })
   const [users, setUsers] = useState<SuperAdminUser[]>([])
   const [fanpages, setFanpages] = useState<SuperAdminFanpage[]>([])
   const [events, setEvents] = useState<SuperAdminEvent[]>([])
@@ -105,55 +97,6 @@ export const SuperAdminPage: React.FC = () => {
     [events]
   )
 
-  const dynamicRanksByEvents = useMemo(
-    () =>
-      [...fanpages]
-        .filter((fanpage) => fanpage.eventsCount != null)
-        .sort((a, b) => (b.eventsCount ?? 0) - (a.eventsCount ?? 0))
-        .slice(0, 5)
-        .map((fanpage) => ({
-          id: fanpage.id,
-          name: fanpage.name,
-          eventsCount: fanpage.eventsCount ?? 0,
-          participationsCount: 0,
-          avatarUrl: fanpage.avatarUrl,
-        })),
-    [fanpages]
-  )
-
-  const dynamicRanksByParticipants = useMemo(
-    () =>
-      fanpages
-        .map((fanpage) => {
-          const ownEvents = events.filter((event) => event.fanpageId === fanpage.id)
-          if (!ownEvents.length || ownEvents.some((event) => event.registeredCount == null))
-            return null
-          return {
-            id: fanpage.id,
-            name: fanpage.name,
-            eventsCount: ownEvents.length,
-            participationsCount: ownEvents.reduce(
-              (total, event) => total + (event.registeredCount ?? 0),
-              0
-            ),
-            avatarUrl: fanpage.avatarUrl,
-          }
-        })
-        .filter((item) => item !== null)
-        .sort((a, b) => b.participationsCount - a.participationsCount)
-        .slice(0, 5),
-    [fanpages, events]
-  )
-
-  const derivedOverviewStats = useMemo(
-    () => ({
-      ...overviewStats,
-      pendingFanpagesCount: pendingFanpages.length,
-      violationReportsCount: violatedEvents.length,
-    }),
-    [overviewStats, pendingFanpages, violatedEvents]
-  )
-
   // Load real data from Backend APIs on mount
   const loadBackendData = useCallback(async () => {
     setIsLoading(true)
@@ -196,16 +139,6 @@ export const SuperAdminPage: React.FC = () => {
       setPointCategories(pointCatsRes.status === 'fulfilled' ? pointCatsRes.value : [])
       setSv5tCriterias(criteriasRes.status === 'fulfilled' ? criteriasRes.value : [])
       setSchools(schoolsRes.status === 'fulfilled' ? schoolsRes.value : [])
-      setOverviewStats({
-        totalUsers: liveUsers.length,
-        totalFanpages: liveFanpages.length,
-        totalEvents: liveEvents.length,
-        totalParticipations: null,
-        pendingFanpagesCount: 0,
-        violationReportsCount: 0,
-        userGrowthRate: null,
-        eventGrowthRate: null,
-      })
       const names = [
         'người dùng / hồ sơ',
         'fanpage',
@@ -241,6 +174,7 @@ export const SuperAdminPage: React.FC = () => {
   const handleToggleUserStatus = async (userId: string) => {
     try {
       await superAdminService.toggleUserStatus(userId)
+      void queryClient.invalidateQueries({ queryKey: ['admin-statistics-dashboard'] })
     } catch (err) {
       console.warn('API error toggling user status:', err)
       setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
@@ -291,6 +225,7 @@ export const SuperAdminPage: React.FC = () => {
   const handleApproveFanpage = async (fanpageId: string) => {
     try {
       await superAdminService.acceptFanpage(fanpageId)
+      void queryClient.invalidateQueries({ queryKey: ['admin-statistics-dashboard'] })
     } catch (err) {
       console.warn('API error approving fanpage:', err)
       setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
@@ -306,6 +241,7 @@ export const SuperAdminPage: React.FC = () => {
   const handleRejectFanpage = async (fanpageId: string, reason: string) => {
     try {
       await superAdminService.rejectFanpage(fanpageId, reason)
+      void queryClient.invalidateQueries({ queryKey: ['admin-statistics-dashboard'] })
     } catch (err) {
       console.warn('API error rejecting fanpage:', err)
       setLoadError('Không thể gửi lý do từ chối đăng ký. Vui lòng thử lại.')
@@ -329,8 +265,10 @@ export const SuperAdminPage: React.FC = () => {
     try {
       if (currentFanpage?.status === 'ACTIVE') {
         await superAdminService.banFanpage(fanpageId)
+        void queryClient.invalidateQueries({ queryKey: ['admin-statistics-dashboard'] })
       } else {
         await superAdminService.unbanFanpage(fanpageId)
+        void queryClient.invalidateQueries({ queryKey: ['admin-statistics-dashboard'] })
       }
     } catch (err) {
       console.warn('API error toggling lock for fanpage:', err)
@@ -415,57 +353,42 @@ export const SuperAdminPage: React.FC = () => {
 
   const handleOpenEditPointCategory = (cat: SuperAdminPointCategory) => {
     setSelectedPointCategory(cat)
-    setParentPointCategory(null)
+    setParentPointCategory(
+      flattenTree(pointCategories).find((item) => item.id === cat.parentCategoryId) ?? null
+    )
     setIsPointCategoryModalOpen(true)
   }
 
   const handleSavePointCategory = async (catData: Partial<SuperAdminPointCategory>) => {
-    try {
-      if (catData.id) {
-        await superAdminService.updatePointCategory(catData.id, catData)
-      } else {
-        await superAdminService.createPointCategory({
-          name: catData.name || 'Tiêu chí mới',
-          maximum: catData.maximum || 5,
-          level: catData.level || 0,
-          note: catData.note,
-          parentCategoryId: catData.parentCategoryId,
-          childrenOrder: catData.childrenOrder,
-        })
-      }
-      const refreshed = await superAdminService.getPointCategories()
-      setPointCategories(refreshed)
-      return
-    } catch (err) {
-      console.warn('API error saving point category:', err)
-      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
-      return
+    if (catData.id) {
+      await superAdminService.updatePointCategory(catData.id, catData)
+    } else {
+      await superAdminService.createPointCategory({
+        name: catData.name!,
+        maximum: catData.maximum!,
+        dateApply: catData.dateApply!,
+        level: catData.level ?? 0,
+        note: catData.note ?? '',
+        parentCategoryId: catData.parentCategoryId,
+        childrenOrder: catData.childrenOrder,
+      })
     }
+    setPointCategories(await superAdminService.getPointCategories())
   }
 
   const handleTogglePointCategoryActive = async (categoryId: number) => {
-    try {
-      const target = pointCategories.find((c) => c.id === categoryId)
-      await superAdminService.updatePointCategory(categoryId, {
-        isActive: target ? !target.isActive : true,
-      })
-    } catch (err) {
-      console.warn('API error toggling point category active:', err)
-      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
-      return
-    }
+    const target = flattenTree(pointCategories).find((item) => item.id === categoryId)
+    if (!target) throw new Error('Không tìm thấy tiêu chí.')
+    await superAdminService.updatePointCategory(categoryId, {
+      ...target,
+      isActive: !target.isActive,
+    })
+    setPointCategories(await superAdminService.getPointCategories())
+  }
 
-    const toggleRecursive = (list: SuperAdminPointCategory[]): SuperAdminPointCategory[] =>
-      list.map((c) => {
-        if (c.id === categoryId) {
-          return { ...c, isActive: !c.isActive }
-        }
-        if (c.children) {
-          return { ...c, children: toggleRecursive(c.children) }
-        }
-        return c
-      })
-    setPointCategories((prev) => toggleRecursive(prev))
+  const handleDeletePointCategory = async (id: number) => {
+    await superAdminService.deletePointCategory(id)
+    setPointCategories(await superAdminService.getPointCategories())
   }
 
   // --- Handlers: SV5T Criteria ---
@@ -477,44 +400,40 @@ export const SuperAdminPage: React.FC = () => {
 
   const handleOpenEditSv5tCriteria = (crit: SuperAdminSv5tCriteria) => {
     setSelectedSv5tCriteria(crit)
-    setParentSv5tCriteria(null)
+    setParentSv5tCriteria(
+      flattenTree(sv5tCriterias).find((item) => item.id === crit.parentId) ?? null
+    )
     setIsSv5tCriteriaModalOpen(true)
   }
 
   const handleSaveSv5tCriteria = async (critData: Partial<SuperAdminSv5tCriteria>) => {
-    try {
-      if (critData.id) {
-        await superAdminService.updateCriteria(critData.id, critData)
-      } else {
-        await superAdminService.createCriteria({
-          name: critData.name || 'Tiêu chuẩn mới',
-          level: critData.level || 0,
-          parentId: critData.parentId,
-          note: critData.note,
-          scope: critData.scope,
-        })
-      }
-      const refreshed = await superAdminService.getCriterias()
-      setSv5tCriterias(refreshed)
-      return
-    } catch (err) {
-      console.warn('API error saving SV5T criteria:', err)
-      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
-      return
+    if (critData.id) {
+      await superAdminService.updateCriteria(critData.id, critData)
+    } else {
+      await superAdminService.createCriteria({
+        name: critData.name!,
+        level: critData.level ?? 0,
+        parentId: critData.parentId,
+        note: critData.note,
+        scope: critData.scope,
+        childrenOrder: critData.childrenOrder ?? 1,
+        requiredChildren: critData.requiredChildren,
+        requiredOccurrences: critData.requiredOccurrences,
+      })
     }
+    setSv5tCriterias(await superAdminService.getCriterias())
   }
 
   const handleToggleSv5tCriteriaActive = async (criteriaId: number) => {
-    try {
-      await superAdminService.toggleCriteriaStatus(criteriaId)
-      const refreshed = await superAdminService.getCriterias()
-      setSv5tCriterias(refreshed)
-      return
-    } catch (err) {
-      console.warn('API error toggling criteria status:', err)
-      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
-      return
-    }
+    await superAdminService.toggleCriteriaStatus(criteriaId)
+    setSv5tCriterias(await superAdminService.getCriterias())
+  }
+
+  const handleDeleteSv5tCriteria = async (id: number) => {
+    const target = flattenTree(sv5tCriterias).find((item) => item.id === id)
+    // Both endpoints soft-delete; changing status preserves the existing parent relation.
+    if (target?.isActive) await superAdminService.toggleCriteriaStatus(id)
+    setSv5tCriterias(await superAdminService.getCriterias())
   }
 
   // --- Handlers: Schools & Majors ---
@@ -619,7 +538,7 @@ export const SuperAdminPage: React.FC = () => {
         </div>
       )}
       {/* Loading state indicator */}
-      {isLoading ? (
+      {isLoading && activeTab !== 'overview' ? (
         <div className="space-y-6 animate-pulse">
           {/* Header Skeleton */}
           <div className="space-y-2">
@@ -675,12 +594,10 @@ export const SuperAdminPage: React.FC = () => {
         <>
           {/* 1. Main View Rendering based on activeTab */}
           {activeTab === 'overview' && (
-            <SuperAdminOverviewView
-              stats={derivedOverviewStats}
+            <AdminStatisticsDashboard
+              semesters={semesters}
               pendingFanpages={pendingFanpages}
               violatedEvents={violatedEvents}
-              ranksByEvents={dynamicRanksByEvents}
-              ranksByParticipants={dynamicRanksByParticipants}
               onNavigateTab={setActiveTab}
               onReviewFanpage={handleOpenFanpageReview}
               onModerateEvent={handleOpenEventModeration}
@@ -727,6 +644,7 @@ export const SuperAdminPage: React.FC = () => {
               onOpenCreateModal={handleOpenCreatePointCategory}
               onOpenEditModal={handleOpenEditPointCategory}
               onToggleActive={handleTogglePointCategoryActive}
+              onDelete={handleDeletePointCategory}
             />
           )}
 
@@ -736,6 +654,7 @@ export const SuperAdminPage: React.FC = () => {
               onOpenCreateModal={handleOpenCreateSv5tCriteria}
               onOpenEditModal={handleOpenEditSv5tCriteria}
               onToggleActive={handleToggleSv5tCriteriaActive}
+              onDelete={handleDeleteSv5tCriteria}
             />
           )}
 

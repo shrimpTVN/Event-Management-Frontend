@@ -53,11 +53,13 @@ describe('StaffFanpageHub', () => {
       </AppProviders>
     )
 
-    expect(screen.getByText(/Chọn fanpage để quản lý sự kiện/i)).toBeInTheDocument()
+    expect(screen.getByText(/Chọn fanpage quản lý/i)).toBeInTheDocument()
     expect(await screen.findByText('Fanpage Thử Nghiệm API')).toBeInTheDocument()
     expect(screen.getByTestId('role-badge-101')).toHaveTextContent('Quản trị viên')
-    expect(screen.getByText(/Fanpage đang quản trị \(1\)/i)).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Đăng xuất' })[0]).toBeInTheDocument()
+    expect(screen.getByText(/Fanpage của bạn \(1\)/i)).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Vào quản lý Fanpage Thử Nghiệm API' })
+    ).toHaveAttribute('href', '/fanpage/admin')
   })
 
   it('renders empty state when staff has no fanpages yet', async () => {
@@ -72,10 +74,43 @@ describe('StaffFanpageHub', () => {
     )
 
     expect(await screen.findByText(/Hiện tại bạn chưa có fanpage nào/i)).toBeInTheDocument()
-    expect(
-      screen.getByText(/Tài khoản cán bộ của bạn hiện chưa tham gia hoặc sở hữu fanpage nào/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Bạn hiện chưa tham gia hoặc sở hữu fanpage nào/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Đăng ký tạo fanpage ngay/i })).toBeInTheDocument()
+  })
+
+  it('shows participating fanpages and registration for students', async () => {
+    useAuthStore.getState().setAuth(
+      {
+        id: 'student-hub',
+        email: 'student@student.ctu.edu.vn',
+        name: 'Sinh viên',
+        role: RoleEnum.STUDENT,
+        createdAt: '2026-01-01',
+      },
+      'student-token'
+    )
+    vi.mocked(apiClient.get).mockImplementation((url: string) =>
+      Promise.resolve(
+        url === '/fanpages/my-fanpages'
+          ? [{ id: 'member-page', name: 'Câu lạc bộ', role: 'MEMBER' }]
+          : []
+      )
+    )
+    render(
+      <AppProviders>
+        <MemoryRouter>
+          <StaffFanpageHub />
+        </MemoryRouter>
+      </AppProviders>
+    )
+    expect(await screen.findByRole('link', { name: 'Vào quản lý Câu lạc bộ' })).toHaveAttribute(
+      'href',
+      '/fanpage/workspace'
+    )
+    expect(screen.getByRole('link', { name: 'Đăng ký fanpage mới' })).toHaveAttribute(
+      'href',
+      '/register/fanpage'
+    )
   })
 
   it('handles logout when clicking logout button', async () => {
@@ -100,7 +135,8 @@ describe('StaffFanpageHub', () => {
       </AppProviders>
     )
 
-    const logoutBtn = screen.getAllByRole('button', { name: 'Đăng xuất' })[0]
+    expect(screen.getAllByRole('button', { name: 'Đăng xuất' })).toHaveLength(1)
+    const logoutBtn = screen.getByRole('button', { name: 'Đăng xuất' })
     fireEvent.click(logoutBtn)
 
     await waitFor(() => {

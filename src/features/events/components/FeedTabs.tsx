@@ -1,5 +1,6 @@
 import React from 'react'
 import { Sparkles } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 export type FeedTabType = 'DISCOVER' | 'RECOMMENDED' | 'FOLLOWING'
 
@@ -8,47 +9,35 @@ interface FeedTabsProps {
   onTabChange: (tab: FeedTabType) => void
 }
 
-export const FeedTabs: React.FC<FeedTabsProps> = ({ activeTab, onTabChange }) => {
-  return (
-    <div className="w-full max-w-[680px] h-10 bg-[#F0F2F5] dark:bg-muted p-1 rounded-[10px] flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2">
-      <button
-        type="button"
-        onClick={() => onTabChange('DISCOVER')}
-        className={`h-8 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap text-xs sm:text-sm transition-all flex items-center justify-center shrink-0 cursor-pointer ${
-          activeTab === 'DISCOVER'
-            ? 'bg-white dark:bg-card text-[#1B4B8A] dark:text-primary font-semibold shadow-xs'
-            : 'bg-[#E5E7EB] dark:bg-muted/80 text-[#6B7280] dark:text-muted-foreground font-medium hover:bg-[#E5E7EB]/80'
-        }`}
-      >
-        Khám phá
-      </button>
+const tabs: { id: FeedTabType; label: string }[] = [
+  { id: 'DISCOVER', label: 'Khám phá' },
+  { id: 'RECOMMENDED', label: 'Gợi ý' },
+  { id: 'FOLLOWING', label: 'Đang theo dõi' },
+]
 
-      <button
+export const FeedTabs: React.FC<FeedTabsProps> = ({ activeTab, onTabChange }) => (
+  <div
+    role="group"
+    aria-label="Nguồn bài viết"
+    className="grid w-full grid-cols-3 items-center gap-1 rounded-lg bg-muted/60 p-1 md:flex md:h-10 md:max-w-[680px] md:gap-2"
+  >
+    {tabs.map((tab) => (
+      <Button
+        key={tab.id}
+        variant="ghost"
         type="button"
-        onClick={() => onTabChange('RECOMMENDED')}
-        className={`h-8 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
-          activeTab === 'RECOMMENDED'
-            ? 'bg-white dark:bg-card text-[#1B4B8A] dark:text-primary font-semibold shadow-xs'
-            : 'bg-[#E5E7EB] dark:bg-muted/80 text-[#6B7280] dark:text-muted-foreground font-medium hover:bg-[#E5E7EB]/80'
-        }`}
+        aria-pressed={activeTab === tab.id}
+        onClick={() => onTabChange(tab.id)}
+        className={`h-11 min-w-0 gap-1.5 px-1 text-xs md:h-8 md:px-3 md:text-sm ${activeTab === tab.id ? 'bg-background text-primary font-semibold shadow-xs hover:bg-background' : 'text-muted-foreground font-medium hover:bg-muted'}`}
       >
-        <Sparkles
-          className={`h-4 w-4 shrink-0 ${activeTab === 'RECOMMENDED' ? 'text-amber-500' : 'text-[#6B7280]'}`}
-        />
-        <span>Gợi ý</span>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => onTabChange('FOLLOWING')}
-        className={`h-8 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap text-xs sm:text-sm transition-all flex items-center justify-center shrink-0 cursor-pointer ${
-          activeTab === 'FOLLOWING'
-            ? 'bg-white dark:bg-card text-[#1B4B8A] dark:text-primary font-semibold shadow-xs'
-            : 'bg-[#E5E7EB] dark:bg-muted/80 text-[#6B7280] dark:text-muted-foreground font-medium hover:bg-[#E5E7EB]/80'
-        }`}
-      >
-        Đang theo dõi
-      </button>
-    </div>
-  )
-}
+        {tab.id === 'RECOMMENDED' && (
+          <Sparkles
+            aria-hidden="true"
+            className={`h-4 w-4 shrink-0 ${activeTab === tab.id ? 'text-amber-500' : ''}`}
+          />
+        )}
+        {tab.label}
+      </Button>
+    ))}
+  </div>
+)

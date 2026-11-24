@@ -13,10 +13,8 @@ vi.mock('@/features/fanpage-admin', async (importOriginal) => {
       getAvailableFanpages: vi.fn().mockResolvedValue([
         {
           id: '10',
-          code: 'TEST-ADM',
           name: 'Fanpage Admin Mock Test',
           fullName: 'Fanpage Quản Trị Hệ Thống Mock Test',
-          avatarText: 'ADM',
           role: 'Quản trị viên',
           isVerified: true,
           email: 'admin-test@ctu.edu.vn',
@@ -31,8 +29,6 @@ vi.mock('@/features/fanpage-admin', async (importOriginal) => {
         {
           id: 'post-10',
           authorName: 'Fanpage Admin Mock Test',
-          authorCode: 'ADM',
-          authorAvatarText: 'AD',
           timeAgo: '1 ngày',
           isPublic: true,
           title: 'SỰ KIỆN TEST HOÀN CHỈNH',

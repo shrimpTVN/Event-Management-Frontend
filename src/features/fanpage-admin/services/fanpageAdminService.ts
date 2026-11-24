@@ -52,7 +52,10 @@ function formatEventPointsReward(ev: any): string {
   const rewards: string[] = []
 
   if (Array.isArray(ev.eventPoints) && ev.eventPoints.length > 0) {
-    const totalPoints = ev.eventPoints.reduce((sum: number, p: any) => sum + (Number(p.point) || 0), 0)
+    const totalPoints = ev.eventPoints.reduce(
+      (sum: number, p: any) => sum + (Number(p.point) || 0),
+      0
+    )
     if (totalPoints > 0) {
       const firstCatId = ev.eventPoints[0]?.pointCategoryId
       const code = CTU_CRITERIA_CODE_MAP[firstCatId] || ev.eventPoints[0]?.pointCategoryCode || ''
@@ -168,14 +171,7 @@ export const fanpageAdminService = {
       const list = Array.isArray(res) ? res : res?.data || []
       return list.map((fp: any) => {
         const id = String(fp.fanpageId || fp.id)
-        const name = fp.fanpageName || fp.name || ''
-        const code =
-          fp.code ||
-          (name.includes('CNTT')
-            ? 'CNTT'
-            : name.includes('Cần Thơ') || name.includes('CTU')
-              ? 'CTU'
-              : 'CLB')
+        const name = fp.fanpageOrgName || fp.orgName || fp.fanpageName || fp.name || ''
         const role =
           fp.role === 'ADMIN'
             ? 'Quản trị viên'
@@ -185,20 +181,19 @@ export const fanpageAdminService = {
 
         return {
           id,
-          code,
           name,
-          fullName: fp.fanpageOrgName || fp.orgName || name,
-          avatarText: (code || name || 'FP').substring(0, 3).toUpperCase(),
+          fullName: fp.fanpageOrgName || fp.orgName || '',
           avatarUrl: fp.fanpageAvatarUrl || fp.avatarUrl || '',
           role,
-          isVerified: fp.status === 'ACTIVE' || true,
+          isVerified: fp.status === 'ACTIVE',
           email: fp.helpContact || fp.email || '',
           phone: fp.helpPhone || fp.phone || '',
-          address: fp.address || 'Khu II, Đại học Cần Thơ',
+          address: '',
           followersCount: fp.followersCount || fp.followerCount || 0,
           eventsCount: fp.eventsCount || fp.eventCount || 0,
           description: fp.fanpageDescription || fp.description || '',
-          parentOrg: fp.parentOrg || 'Đoàn Thanh niên - Hội Sinh viên ĐH Cần Thơ',
+          parentOrg: fp.parentOrg || '',
+          orgType: fp.orgType || '',
         }
       })
     } catch {
@@ -260,8 +255,6 @@ export const fanpageAdminService = {
             ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông'
             : ev.fanpageName) ||
           'Ban Tổ Chức',
-        authorCode: 'BTC',
-        authorAvatarText: (ev.authorName || 'FP').substring(0, 2).toUpperCase(),
         authorAvatarUrl:
           ev.authorAvatarUrl ||
           ev.organizerAvatarUrl ||
@@ -725,27 +718,19 @@ export const fanpageAdminService = {
       if (!fp || !fp.id) return null
       return {
         id: String(fp.id),
-        code:
-          fp.code ||
-          (fp.name?.includes('CNTT')
-            ? 'CNTT'
-            : fp.name?.includes('Cần Thơ') || fp.name?.includes('CTU')
-              ? 'CTU'
-              : 'CLB'),
         name: fp.name,
-        fullName: fp.orgName || fp.name,
-        avatarText: (fp.code || fp.name || 'FP').substring(0, 3).toUpperCase(),
+        fullName: fp.orgName || '',
         avatarUrl: fp.avatarUrl || '',
         role: fp.role || 'Quản trị viên',
         isVerified: fp.status === 'ACTIVE',
         email: fp.helpContact || fp.email || '',
         phone: fp.helpPhone || fp.phone || '',
-        address: fp.address || 'Khu II, Đại học Cần Thơ',
+        address: '',
         followersCount: fp.followersCount || fp.followerCount || 0,
         eventsCount: fp.eventsCount || fp.eventCount || 0,
         description: fp.description || '',
-        parentOrg: fp.parentOrg || 'Đoàn Thanh niên - Hội Sinh viên ĐH Cần Thơ',
-        orgType: fp.orgType || 'Đoàn Khoa / Trường',
+        parentOrg: fp.parentOrg || '',
+        orgType: fp.orgType || '',
       }
     } catch (err) {
       console.error('Failed to get fanpage detail', err)
@@ -763,19 +748,10 @@ export const fanpageAdminService = {
     const targetId = fanpageId || '1'
     try {
       const payload = {
-        name: data.name,
-        orgName: data.fullName || data.name,
-        fullName: data.fullName,
-        code: data.code,
         description: data.description,
         avatarUrl: data.avatarUrl,
         helpContact: data.email,
-        email: data.email,
         helpPhone: data.phone,
-        phone: data.phone,
-        address: data.address,
-        parentOrg: data.parentOrg,
-        orgType: data.orgType,
       }
       const res: any = await apiClient.put(`/fanpages/fanpage-admin/${targetId}`, payload)
       return res?.data || res

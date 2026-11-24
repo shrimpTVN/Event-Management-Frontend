@@ -4,11 +4,15 @@ import {
 } from '@/features/events/components/EventFilterControls'
 import { eventFilterChips } from '@/features/events/utils/eventFilters'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { matchesEventFilters } from '@/features/events/utils/eventFilters'
-import React, { useState, useMemo, useEffect } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { createEventFilterMatcher } from '@/features/events/utils/eventFilters'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
+import { useScrollActivity } from '@/shared/hooks/useScrollActivity'
+import { MobileSearchResultCard } from '@/features/events/components/MobileSearchResultCard'
+import { useMobileSearchScroll } from '@/features/events/hooks/useMobileSearchScroll'
+import './SearchPage.css'
 import {
   StudentLeftSidebar,
   StudentRightSidebar,
@@ -27,13 +31,14 @@ export const SearchPage: React.FC = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { isAuthenticated } = useAuthStore()
+  const isPhone = useMediaQuery('(max-width: 767px)')
+  const location = useLocation()
+  const onScroll = useScrollActivity(isPhone)
 
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
 
   // Parse filters from URL
   const keyword = searchParams.get('keyword') || searchParams.get('search') || ''
-  const [mobileQuery, setMobileQuery] = useState(keyword)
-  useEffect(() => setMobileQuery(keyword), [keyword])
   const academicYear = searchParams.get('academicYear') || undefined
   const semesterId = searchParams.get('semesterId')
     ? Number(searchParams.get('semesterId'))
@@ -75,9 +80,18 @@ export const SearchPage: React.FC = () => {
   )
 
   // Fetch events matching search/filter
-  const { data: rawEvents = [], isLoading } = useQuery({
+  const {
+    data: rawEvents = [],
+    isLoading,
+    isFetching,
+    isPlaceholderData,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ['events', 'search', filters],
     queryFn: () => eventService.getEvents(filters),
+    placeholderData: isPhone ? keepPreviousData : undefined,
+    staleTime: isPhone ? 30_000 : 0,
   })
 
   // Fetch followed fanpages to maintain follow state on cards
@@ -162,9 +176,8 @@ export const SearchPage: React.FC = () => {
 
   const finalFilteredEvents = useMemo(
     () =>
-      eventsWithFollowState.filter((event) =>
-        matchesEventFilters(
-          event,
+      eventsWithFollowState.filter(
+        createEventFilterMatcher(
           {
             status,
             academicYear,
@@ -193,6 +206,21 @@ export const SearchPage: React.FC = () => {
       filterOptions,
     ]
   )
+  const previousResults = useRef<Event[]>([])
+  useEffect(() => {
+    if (!isPlaceholderData && !isLoading && !isError) {
+      previousResults.current = finalFilteredEvents
+    }
+  }, [finalFilteredEvents, isPlaceholderData, isLoading, isError])
+  const displayResults =
+    isPhone && isPlaceholderData ? previousResults.current : finalFilteredEvents
+  const scroll = useMobileSearchScroll(
+    `${location.pathname}${location.search}`,
+    isPhone,
+    !isLoading && !isPlaceholderData && !isError,
+    displayResults.length
+  )
+  const visibleResults = isPhone ? displayResults.slice(0, scroll.count) : displayResults
 
   // Handlers for EventFeedCard actions
   const handleRegister = (eventId: string) => {
@@ -264,7 +292,7 @@ export const SearchPage: React.FC = () => {
         next.set(k, String(v).trim())
       }
     })
-    setSearchParams(next)
+    setSearchParams(next, { replace: isPhone })
   }
 
   const currentModalValues: EventFilterFormValues = {
@@ -283,7 +311,9 @@ export const SearchPage: React.FC = () => {
   const hasFilters = eventFilterChips(currentModalValues, filterOptions).length > 0
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden bg-muted/40 dark:bg-background">
+    <div
+      className={`${isPhone ? 'mobile-search-page' : ''} w-full h-full flex flex-col overflow-hidden bg-muted/40 dark:bg-background`}
+    >
       {/* Toast Notification */}
       {notificationMessage && (
         <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-foreground text-background px-4 py-2.5 text-xs font-semibold shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2">
@@ -292,46 +322,26 @@ export const SearchPage: React.FC = () => {
       )}
 
       {/* 3-Column Layout matching HomePage */}
-      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
+      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-3 sm:px-6 gap-4 xl:gap-6 overflow-hidden">
         {/* Left Column: Organization Navigation Sidebar */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
+        <aside className="hidden xl:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
         {/* Center Column: Search Results Feed */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto py-3 px-1 flex justify-center custom-scrollbar">
+        <main
+          ref={scroll.ref}
+          onScroll={onScroll}
+          data-student-scroll
+          className="search-results-scroll flex-1 min-w-0 h-full overflow-y-auto py-3 px-1 flex justify-center custom-scrollbar"
+        >
           <div className="w-full max-w-[680px] flex flex-col gap-3 pb-8 sm:pb-12">
             <div className="flex flex-col gap-3 px-1 py-1 text-left">
-              <form
-                className="flex items-center gap-2 md:hidden"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  const next = new URLSearchParams(searchParams)
-                  next.delete('search')
-                  if (mobileQuery.trim()) next.set('keyword', mobileQuery.trim())
-                  else next.delete('keyword')
-                  setSearchParams(next)
-                }}
-              >
-                <Input
-                  aria-label="Tìm kiếm trong kết quả"
-                  placeholder="Tìm kiếm sự kiện..."
-                  value={mobileQuery}
-                  onChange={(event) => setMobileQuery(event.target.value)}
-                  className="h-9 min-w-0 flex-1 rounded-lg text-sm"
-                />
-                <Button
-                  type="submit"
-                  size="icon"
-                  className="h-9 w-9 shrink-0"
-                  aria-label="Tìm kiếm"
-                >
-                  <Search className="h-4 w-4" />
-                </Button>
-              </form>
               <div className="flex min-w-0 items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <h1 className="truncate font-k2d text-lg font-semibold text-foreground">
+                  <h1
+                    className={`${isPhone ? 'sr-only' : ''} truncate font-k2d text-lg font-semibold text-foreground`}
+                  >
                     {keyword ? (
                       <>
                         Kết quả cho: <span className="text-primary">"{keyword}"</span>
@@ -341,7 +351,11 @@ export const SearchPage: React.FC = () => {
                     )}
                   </h1>
                   <span className="text-xs text-muted-foreground">
-                    {isLoading ? 'Đang tìm kiếm…' : `${finalFilteredEvents.length} sự kiện`}
+                    {isLoading || (isPhone && isFetching)
+                      ? 'Đang tìm kiếm…'
+                      : isPhone && isError
+                        ? 'Chưa tải được kết quả'
+                        : `${finalFilteredEvents.length} sự kiện`}
                   </span>
                 </div>
                 <EventFilterButton
@@ -349,18 +363,35 @@ export const SearchPage: React.FC = () => {
                   onChange={handleApplyFilterModal}
                   options={filterOptions}
                   events={rawEvents}
+                  showLabelOnMobile={isPhone}
+                  className={isPhone ? 'h-11 px-3 text-sm' : ''}
                 />
               </div>
               <EventFilterChips
                 values={currentModalValues}
                 onChange={handleApplyFilterModal}
                 options={filterOptions}
+                touchFriendly={isPhone}
               />
             </div>
 
             {/* Results List */}
-            <div className="flex flex-col gap-2">
-              {isLoading ? (
+            <div
+              className="flex flex-col gap-2"
+              aria-busy={(isPhone && isFetching) || undefined}
+              aria-label="Kết quả tìm kiếm"
+            >
+              {isPhone && isError ? (
+                <div
+                  role="alert"
+                  className="flex flex-col items-center gap-3 rounded-xl border border-border bg-background p-5 text-center text-sm"
+                >
+                  <p>Không thể tải kết quả tìm kiếm. Vui lòng thử lại.</p>
+                  <Button variant="outline" onClick={() => void refetch()} className="h-11">
+                    Thử lại
+                  </Button>
+                </div>
+              ) : isLoading ? (
                 <div className="flex flex-col gap-2">
                   {[1, 2, 3].map((number) => (
                     <div
@@ -377,18 +408,22 @@ export const SearchPage: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              ) : finalFilteredEvents.length > 0 ? (
-                finalFilteredEvents.map((event) => (
-                  <EventFeedCard
-                    key={event.id}
-                    event={event}
-                    variant="list"
-                    onRegister={handleRegister}
-                    onCancelRegister={handleCancelRegister}
-                    onToggleSave={handleToggleSave}
-                    onToggleFollow={handleToggleFollow}
-                  />
-                ))
+              ) : displayResults.length > 0 ? (
+                visibleResults.map((event) =>
+                  isPhone ? (
+                    <MobileSearchResultCard key={event.id} event={event} />
+                  ) : (
+                    <EventFeedCard
+                      key={event.id}
+                      event={event}
+                      variant="list"
+                      onRegister={handleRegister}
+                      onCancelRegister={handleCancelRegister}
+                      onToggleSave={handleToggleSave}
+                      onToggleFollow={handleToggleFollow}
+                    />
+                  )
+                )
               ) : (
                 /* Empty state */
                 <div className="rounded-xl border border-border bg-card p-6 sm:p-8 text-center flex flex-col items-center justify-center gap-3 shadow-xs">
@@ -415,7 +450,7 @@ export const SearchPage: React.FC = () => {
                         type="button"
                         onClick={() => handleApplyFilterModal({})}
                         variant="outline"
-                        className="h-9 rounded-lg text-xs"
+                        className={isPhone ? 'h-11 rounded-lg text-sm' : 'h-9 rounded-lg text-xs'}
                       >
                         Xóa tất cả bộ lọc
                       </Button>
@@ -424,19 +459,29 @@ export const SearchPage: React.FC = () => {
                       size="sm"
                       type="button"
                       onClick={() => navigate('/')}
-                      className="h-9 rounded-lg text-xs"
+                      className={isPhone ? 'h-11 rounded-lg text-sm' : 'h-9 rounded-lg text-xs'}
                     >
                       Về trang chủ
                     </Button>
                   </div>
                 </div>
               )}
+              {isPhone && !isError && !isLoading && displayResults.length > scroll.count && (
+                <Button
+                  variant="outline"
+                  disabled={isFetching}
+                  className="h-11 w-full"
+                  onClick={scroll.showMore}
+                >
+                  Xem thêm kết quả
+                </Button>
+              )}
             </div>
           </div>
         </main>
 
         {/* Right Column: Training Points Progress & Calendar Widget */}
-        <aside className="hidden lg:block w-[256px] min-w-[256px] max-w-[256px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pl-3 pr-1 ml-3 sidebar-scrollbar">
+        <aside className="hidden 2xl:block w-[256px] min-w-[256px] max-w-[256px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pl-3 pr-1 ml-3 sidebar-scrollbar">
           <StudentRightSidebar />
         </aside>
       </div>

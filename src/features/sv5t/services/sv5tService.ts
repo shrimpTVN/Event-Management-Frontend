@@ -106,7 +106,10 @@ export const sv5tService = {
         const manualTxs = existingTxs.filter(
           (t: any) =>
             t.completionSource === 'MANUAL' ||
-            (!t.eventId && (t.completionSource === null || t.completionSource === undefined || t.completionSource === 'MANUAL'))
+            (!t.eventId &&
+              (t.completionSource === null ||
+                t.completionSource === undefined ||
+                t.completionSource === 'MANUAL'))
         )
         if (manualTxs.length > 0) {
           for (const tx of manualTxs) {
@@ -152,12 +155,49 @@ export const sv5tService = {
   },
 
   async getAllCriteriaTransactions(academicYearId: number): Promise<CriteriaTransaction[]> {
-    const res: any = await apiClient.get(
-      `/criteria-transactions/me/academic-years/${academicYearId}`
+    try {
+      const res: any = await apiClient.get(
+        `/criteria-transactions/me/academic-years/${academicYearId}`
+      )
+      const list = Array.isArray(res) ? res : res?.data
+      if (!Array.isArray(list)) throw new Error('Dữ liệu ghi nhận SV5T không hợp lệ')
+      return list.filter((t) => t.isActive !== false)
+    } catch (error) {
+      // Older BE versions expose history per criterion only. Other failures must
+      // remain visible instead of being treated as an empty history.
+      if ((error as { response?: { status?: number } })?.response?.status !== 404) throw error
+    }
+
+    const progress: any = await apiClient.get(
+      `/criteria-progress/me/academic-years/${academicYearId}`
     )
-    const list = Array.isArray(res) ? res : res?.data
-    if (!Array.isArray(list)) return []
-    return list.filter((t) => t.isActive !== false)
+    const roots = progress?.criteria ?? progress?.criterias
+    if (!Array.isArray(roots)) throw new Error('Dữ liệu tiêu chí SV5T không hợp lệ')
+    const ids = new Set<number>()
+    const collect = (node: any) => {
+      if (Array.isArray(node.children) && node.children.length) node.children.forEach(collect)
+      else {
+        const id = Number(node.criteriaId ?? node.id)
+        if (Number.isFinite(id) && id > 0) ids.add(id)
+      }
+    }
+    roots.forEach(collect)
+    const criteriaIds = [...ids]
+    const records: CriteriaTransaction[] = []
+    // Bound concurrent requests for mobile connections.
+    for (let index = 0; index < criteriaIds.length; index += 4) {
+      const batch = await Promise.all(
+        criteriaIds.slice(index, index + 4).map(async (id) => {
+          const transactions = await this.getCriteriaTransactions(id, academicYearId)
+          return transactions.map((transaction) => ({
+            ...transaction,
+            criteriaId: transaction.criteriaId ?? id,
+          }))
+        })
+      )
+      records.push(...batch.flat())
+    }
+    return records
   },
 
   /**

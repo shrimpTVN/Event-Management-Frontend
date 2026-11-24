@@ -15,7 +15,10 @@ export const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({
   onChange,
 }) => {
   return (
-    <div className="w-full max-w-[1112px] rounded-xl border border-border bg-card p-6 sm:p-7 shadow-sm flex flex-col gap-5 transition-all">
+    <div
+      data-editing={isEditing}
+      className="student-profile-section w-full max-w-[1112px] rounded-xl border border-border bg-card p-6 sm:p-7 shadow-sm flex flex-col gap-5 transition-all"
+    >
       {/* Card Section Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-base font-medium text-[#1B4B8A] dark:text-primary tracking-normal uppercase">
@@ -58,9 +61,7 @@ export const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({
           {isEditing ? (
             <select
               value={formData?.gender ?? 'Nam'}
-              onChange={(e) =>
-                onChange?.({ gender: e.target.value as 'Nam' | 'Nữ' | 'Khác' })
-              }
+              onChange={(e) => onChange?.({ gender: e.target.value as 'Nam' | 'Nữ' | 'Khác' })}
               className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all"
             >
               <option value="Nam">Nam</option>

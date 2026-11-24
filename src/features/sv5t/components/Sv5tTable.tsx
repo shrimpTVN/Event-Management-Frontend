@@ -1,4 +1,6 @@
 import React from 'react'
+import { Button } from '@/components/ui/button'
+import { matchesPageSearchTree, useMobilePageSearch } from '@/shared/components/layout/MobileSubpageHeader'
 import { Sv5tSectionAccordion } from './Sv5tSectionAccordion'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { CriteriaProgressNode } from '../types/sv5t.types'
@@ -20,6 +22,7 @@ export const Sv5tTable: React.FC<Sv5tTableProps> = ({
   isLoading,
   resetKey,
 }) => {
+  const { query, setQuery } = useMobilePageSearch()
   return (
     <div
       aria-busy={isLoading || undefined}
@@ -38,17 +41,34 @@ export const Sv5tTable: React.FC<Sv5tTableProps> = ({
               <Skeleton className="h-4 w-24 shrink-0 rounded" />
             </div>
           ))
-        : standards.map((std, idx) => (
+        : standards.map((std, idx) => matchesPageSearchTree(query, std) && (
             <Sv5tSectionAccordion
-              key={`${std.criteriaId || idx + 1}-${resetKey ?? ''}`}
+              key={`${std.criteriaId || idx + 1}-${resetKey ?? ''}-${query}`}
               standard={std}
               standardIndex={idx + 1}
               academicYearId={academicYearId}
               onSaveProgress={onSaveProgress}
               onDeleteProgress={onDeleteProgress}
-              defaultExpanded={false}
+              defaultExpanded={Boolean(query.trim())}
             />
           ))}
+      {!isLoading && query.trim() && !standards.some((standard) => matchesPageSearchTree(query, standard)) && (
+        <div role="status" className="p-6 text-center rounded-xl bg-card border border-border flex flex-col items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            Không tìm thấy tiêu chuẩn nào phù hợp với từ khóa &ldquo;{query}&rdquo;.
+          </p>
+          {setQuery && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-3 text-xs"
+              onClick={() => setQuery('')}
+            >
+              Xóa từ khóa tìm kiếm
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { Building2 as FanpageIcon } from 'lucide-react'
 import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
@@ -89,7 +90,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             />
           ) : (
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1B4B8A] text-white font-bold text-sm shrink-0 border border-border/80">
-              {post.authorName.charAt(0)}
+              <FanpageIcon className="h-5 w-5" aria-hidden="true" />
             </div>
           )}
           <div className="min-w-0">
@@ -107,7 +108,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
         <button
           type="button"
           onClick={handleToggleFollow}
-          className={`shrink-0 text-xs font-medium px-3 py-1 rounded-full transition-colors cursor-pointer ${
+          className={`shrink-0 text-xs font-medium px-3 py-1 rounded-full transition-colors cursor-pointer whitespace-nowrap ${
             isFollowing
               ? 'bg-muted text-muted-foreground'
               : 'bg-[#EFF5FC] hover:bg-blue-100 text-[#065C85] dark:bg-blue-950/50 dark:text-blue-300'

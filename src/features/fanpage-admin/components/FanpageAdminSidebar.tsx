@@ -1,6 +1,15 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { LayoutDashboard, CalendarDays, Users, FilePenLine, Settings } from 'lucide-react'
+import { useAuthStore, isStaffUser, getAccountHomePath } from '@/features/auth'
+import {
+  LayoutDashboard,
+  CalendarDays,
+  Users,
+  FilePenLine,
+  Settings,
+  ArrowLeft,
+} from 'lucide-react'
 import type { FanpageSummary, AdminNavTab } from '../types/fanpageAdmin.types'
 
 interface FanpageAdminSidebarProps {
@@ -15,6 +24,7 @@ export const FanpageAdminSidebar: React.FC<FanpageAdminSidebarProps> = ({
   activeTab = null,
   onSelectTab,
 }) => {
+  const user = useAuthStore((state) => state.user)
   const navItems: { id: AdminNavTab; label: string; icon: React.FC<{ className?: string }> }[] = [
     { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard },
     { id: 'events', label: 'Sự kiện', icon: CalendarDays },
@@ -54,6 +64,17 @@ export const FanpageAdminSidebar: React.FC<FanpageAdminSidebarProps> = ({
             )
           })}
         </nav>
+      </div>
+
+      {/* Nút quay về trang chủ sinh viên */}
+      <div className="mt-auto pt-3 border-t border-[#E5E7EB] dark:border-border">
+        <Link
+          to={getAccountHomePath(user)}
+          className="w-full h-10 px-3 rounded-lg flex items-center justify-start gap-3 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted transition-all group"
+        >
+          <ArrowLeft className="h-4 w-4 shrink-0 text-muted-foreground group-hover:-translate-x-0.5 transition-transform" />
+          <span>{isStaffUser(user) ? 'Về danh sách fanpage' : 'Về trang chủ sinh viên'}</span>
+        </Link>
       </div>
     </aside>
   )

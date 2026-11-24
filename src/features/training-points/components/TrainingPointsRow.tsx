@@ -1,3 +1,5 @@
+import { MobileCriterionCard } from '@/shared/components/MobileCriterionCard'
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
 import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -11,6 +13,7 @@ import type {
   StudentSemesterPointFlattenedItem,
 } from '../types/trainingPoints.types'
 import { trainingPointsService } from '../services/trainingPointsService'
+import { capTrainingPoints } from '../utils/scoreCalculator'
 
 interface TrainingPointsRowProps {
   item: PointCategoryNode | StudentSemesterPointFlattenedItem
@@ -39,6 +42,7 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
   onSaveSelfScore,
   onDeleteSelfScore,
 }) => {
+  const isMobile = useMediaQuery('(max-width: 767px)')
   const [isSelfModalOpen, setIsSelfModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
 
@@ -65,101 +69,120 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
   const indentClass = item.level === 3 ? 'pl-5' : item.level === 2 ? 'pl-2.5' : ''
 
   // Total for this criterion: recorded points + student score, capped at maximum
-  const rowTotal = Math.min(item.maximum, recordedPoints + selfScore)
+  const rowTotal = capTrainingPoints(recordedPoints + selfScore, item.maximum)
 
   return (
     <>
-      <div
-        className={`flex items-stretch border-b border-border text-xs min-h-[36px] transition-colors ${
-          isGroupHeader
-            ? 'bg-muted/40 font-medium text-foreground'
-            : 'bg-background hover:bg-muted/20 text-foreground/90'
-        }`}
-      >
-        {/* 1. Tiêu chí (80px) */}
-        <div className="w-20 min-w-[80px] max-w-[80px] px-1 py-2 flex items-center justify-center border-r border-border font-medium text-foreground/80 shrink-0 text-center">
-          {criteriaCode}
-        </div>
-
-        {/* 2. Tên tiêu chí (flex-1 min-w-[280px]) */}
+      {isMobile ? (
+        <MobileCriterionCard
+          code={criteriaCode}
+          title={item.name}
+          note={item.note || undefined}
+          group={!isLeaf}
+          result={isLeaf ? `${rowTotal}/${item.maximum}` : undefined}
+          recorded={`${recordedPoints} điểm`}
+          evaluation={`${selfScore} điểm`}
+          evaluated={Boolean(selfScore || effectiveDescription)}
+          onEvaluate={() => setIsSelfModalOpen(true)}
+          onDetail={() => setIsDetailModalOpen(true)}
+        />
+      ) : (
         <div
-          className={`flex-1 min-w-[280px] px-3 py-2 flex flex-col justify-center border-r border-border ${indentClass}`}
+          className={`student-score-row training-points-columns flex items-stretch border-b border-border text-xs min-h-[36px] tabular-nums transition-colors ${
+            isGroupHeader
+              ? 'bg-muted/40 font-medium text-foreground'
+              : 'bg-background hover:bg-muted/20 text-foreground/90'
+          }`}
         >
-          <span
-            className={`${isGroupHeader ? 'font-semibold text-foreground' : 'text-foreground/90'} leading-relaxed`}
+          {/* 1. Tiêu chí (80px) */}
+          <div className="w-20 min-w-[80px] max-w-[80px] px-1 py-2 flex items-center justify-center border-r border-border font-medium text-foreground/80 shrink-0 text-center">
+            {criteriaCode}
+          </div>
+
+          {/* 2. Tên tiêu chí (flex-1 min-w-[280px]) */}
+          <div
+            className={`flex-1 min-w-[280px] px-3 py-2 flex flex-col justify-center border-r border-border ${indentClass}`}
           >
-            {item.name}
-          </span>
-          {item.note && (
-            <span className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-              {item.note}
+            <span
+              className={`${isGroupHeader ? 'font-semibold text-foreground' : 'text-foreground/90'} leading-relaxed`}
+            >
+              {item.name}
             </span>
-          )}
-        </div>
-
-        {/* 3. Điểm tối đa (96px) */}
-        <div className="w-24 min-w-[96px] max-w-[96px] px-1 py-2 flex items-center justify-center border-r border-border font-medium text-foreground/80 shrink-0 text-center">
-          {item.maximum > 0 ? item.maximum : ''}
-        </div>
-
-        {/* 4. Dữ liệu ghi nhận (112px) */}
-        <div className="w-28 min-w-[112px] max-w-[112px] px-1 py-2 flex items-center justify-center border-r border-border text-center shrink-0">
-          {recordedPoints > 0 ? (
-            <span className="font-semibold text-primary">{recordedPoints}</span>
-          ) : (
-            <span className="text-muted-foreground/60">—</span>
-          )}
-        </div>
-
-        {/* 5. SV đánh giá (112px) - Click cây bút mở Modal tự chấm điểm */}
-        <div className="w-28 min-w-[112px] max-w-[112px] px-1 py-2 flex items-center justify-center border-r border-border shrink-0">
-          {isLeaf ? (
-            <Tooltip content="Nhấp để tự chấm điểm và nhập minh chứng">
-              <Button
-                variant="ghost"
-                size="sm"
-                type="button"
-                onClick={() => setIsSelfModalOpen(true)}
-                className="group flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-md border border-transparent hover:border-[#A6ADB8] hover:bg-muted/60 transition-all cursor-pointer"
-              >
-                <span className="font-medium text-xs text-foreground group-hover:text-primary min-w-[12px] text-center">
-                  {selfScore}
-                </span>
-                <Pencil className="h-3.5 w-3.5 text-[#A6ADB8] group-hover:text-primary transition-colors shrink-0" />
-              </Button>
-            </Tooltip>
-          ) : null}
-        </div>
-
-        {/* 6. Chi tiết tổng hợp/Tổng (144px) - Hiện con mắt nếu có dữ liệu */}
-        <div className="w-36 min-w-[144px] max-w-[144px] px-2 py-2 flex items-center justify-center shrink-0 text-center gap-2">
-          {isLeaf ? (
-            <>
-              <span
-                className={`font-semibold ${rowTotal > 0 ? 'text-foreground' : 'text-muted-foreground/60'}`}
-              >
-                {rowTotal}
+            {item.note && (
+              <span className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                {item.note}
               </span>
+            )}
+          </div>
 
-              {/* Eye icon shown only if row has selfScore > 0 or recordedPoints > 0 */}
-              {isLeaf && (
-                <Tooltip content="Xem chi tiết hoạt động được cộng và nội dung đánh giá">
-                  <Button
-                    type="button"
-                    onClick={() => setIsDetailModalOpen(true)}
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Chi tiết điểm và minh chứng"
-                    className="h-8 w-8 shrink-0 text-primary hover:bg-primary/10"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                  </Button>
-                </Tooltip>
-              )}
-            </>
-          ) : null}
+          {/* 3. Điểm tối đa (96px) */}
+          <div className="w-24 min-w-[96px] max-w-[96px] px-1 py-2 flex items-center justify-center border-r border-border font-medium text-foreground/80 shrink-0 text-center">
+            <span className="student-score-label">Điểm tối đa</span>
+            {item.maximum > 0 ? item.maximum : ''}
+          </div>
+
+          {/* 4. Dữ liệu ghi nhận (112px) */}
+          <div className="w-28 min-w-[112px] max-w-[112px] px-1 py-2 flex items-center justify-center border-r border-border text-center shrink-0">
+            <span className="student-score-label">Điểm hệ thống</span>
+            {recordedPoints > 0 ? (
+              <span className="font-semibold text-primary">{recordedPoints}</span>
+            ) : (
+              <span className="text-muted-foreground/60">—</span>
+            )}
+          </div>
+
+          {/* 5. SV đánh giá (112px) - Click cây bút mở Modal tự chấm điểm */}
+          <div className="w-28 min-w-[112px] max-w-[112px] px-1 py-2 flex items-center justify-center border-r border-border shrink-0">
+            <span className="student-score-label">Tự đánh giá</span>
+            {isLeaf ? (
+              <Tooltip content="Nhấp để tự chấm điểm và nhập minh chứng">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  onClick={() => setIsSelfModalOpen(true)}
+                  className="group relative flex w-full items-center justify-center px-7 py-1 rounded-md border border-transparent hover:border-border hover:bg-muted/60 transition-colors cursor-pointer"
+                >
+                  <span className="relative inline-flex items-center justify-center font-medium text-xs text-foreground group-hover:text-primary min-w-[12px] text-center">
+                    {selfScore}
+                    <Pencil className="absolute left-full ml-1.5 h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </span>
+                </Button>
+              </Tooltip>
+            ) : null}
+          </div>
+
+          {/* 6. Chi tiết tổng hợp/Tổng (144px) - Hiện con mắt nếu có dữ liệu */}
+          <div className="relative w-36 min-w-[144px] max-w-[144px] px-10 py-2 flex items-center justify-center shrink-0 text-center">
+            <span className="student-score-label">Tổng / Chi tiết</span>
+            {isLeaf ? (
+              <span className="relative inline-flex min-w-[12px] items-center justify-center">
+                <span
+                  className={`font-semibold ${rowTotal > 0 ? 'text-foreground' : 'text-muted-foreground/60'}`}
+                >
+                  {rowTotal}
+                </span>
+
+                {/* Eye icon shown only if row has selfScore > 0 or recordedPoints > 0 */}
+                {isLeaf && (
+                  <Tooltip content="Xem chi tiết hoạt động được cộng và nội dung đánh giá">
+                    <Button
+                      type="button"
+                      onClick={() => setIsDetailModalOpen(true)}
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Chi tiết điểm và minh chứng"
+                      className="absolute left-full h-8 w-6 p-0 shrink-0 text-primary hover:bg-primary/10"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  </Tooltip>
+                )}
+              </span>
+            ) : null}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Modal Tự đánh giá */}
       {isSelfModalOpen && (

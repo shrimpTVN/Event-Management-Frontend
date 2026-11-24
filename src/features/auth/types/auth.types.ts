@@ -45,6 +45,7 @@ export interface User {
   createdAt: string
   isProfileComplete?: boolean
   studentId?: string
+  staffId?: string
 }
 
 export interface AuthTokens {

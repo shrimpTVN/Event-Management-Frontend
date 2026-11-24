@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button'
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -23,6 +24,9 @@ export interface RegisterButtonProps {
   disabledReason?: 'closed' | 'full' | 'unavailable'
   className?: string
   size?: 'sm' | 'md' | 'lg'
+  compact?: boolean
+  label?: string
+  onRegisteredClick?: () => void
   onRegisterSuccess?: () => void
   onCancelSuccess?: () => void
 }
@@ -41,6 +45,9 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
   disabledReason = 'unavailable',
   className = '',
   size = 'md',
+  compact = false,
+  label,
+  onRegisteredClick,
   onRegisterSuccess,
   onCancelSuccess,
 }) => {
@@ -263,6 +270,10 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
     if (isLoading) return
 
     if (isRegistered) {
+      if (onRegisteredClick) {
+        onRegisteredClick()
+        return
+      }
       // Toggle dropdown overlay (always allowed for registered users)
       setIsOpen((prev) => !prev)
     } else if (!disabled) {
@@ -272,19 +283,37 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
 
   // Sizing styles
   const sizeClasses = {
-    sm: 'h-7 px-2.5 text-xs whitespace-nowrap',
-    md: 'h-8 px-3 text-xs whitespace-nowrap',
-    lg: 'h-9 sm:h-10 px-4 text-sm font-semibold whitespace-nowrap',
+    sm: 'h-11 md:h-7 px-2.5 text-xs whitespace-nowrap',
+    md: 'h-11 md:h-8 px-3 text-xs whitespace-nowrap',
+    lg: 'h-11 md:h-10 px-4 text-sm font-semibold whitespace-nowrap',
   }[size]
+  const actionLabel = isLoading
+    ? 'Đang xử lý'
+    : isRegistered
+      ? label ||
+        (registrationStatus === 'COMPLETED'
+          ? 'Đã hoàn thành'
+          : registrationStatus === 'CHECKED_IN'
+            ? 'Đang tham gia'
+            : 'Đã đăng ký')
+      : disabled
+        ? disabledReason === 'closed'
+          ? 'Đã đóng đăng ký'
+          : disabledReason === 'full'
+            ? 'Đã đủ chỗ'
+            : 'Không thể đăng ký'
+        : label || 'Đăng ký ngay'
 
   return (
     <div className="relative inline-block text-left select-none">
       {/* 1. Main Button */}
-      <button
+      <Button
+        variant="ghost"
         ref={buttonRef}
         type="button"
         onClick={handleButtonClick}
         disabled={isLoading || (!isRegistered && disabled)}
+        aria-label={actionLabel}
         className={`inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold font-heading transition-all duration-150 shadow-2xs whitespace-nowrap focus:outline-none ${sizeClasses} ${
           isLoading
             ? 'bg-[#72A8DE] hover:bg-[#72A8DE] text-white cursor-wait'
@@ -297,38 +326,53 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
                 : 'bg-[#1F5CA9] hover:bg-[#1B4B8A] active:bg-[#1B406F] text-white cursor-pointer focus:ring-2 focus:ring-[#00AFF0]'
         } ${className}`}
       >
+        {compact && !isLoading && !isRegistered && <CalendarCheck className="h-5 w-5 shrink-0" />}
         {isLoading ? (
           <>
-            <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-white" />
+            <Loader2
+              className={`h-3.5 w-3.5 animate-spin shrink-0 ${compact ? 'text-primary' : 'text-white'}`}
+            />
             <span>Đang xử lý</span>
           </>
         ) : isRegistered ? (
           <>
             <span>
-              {registrationStatus === 'COMPLETED'
-                ? 'Đã hoàn thành'
-                : registrationStatus === 'CHECKED_IN'
-                  ? 'Đang tham gia'
-                  : 'Đã đăng ký'}
+              {label ||
+                (registrationStatus === 'COMPLETED'
+                  ? compact
+                    ? 'Hoàn tất'
+                    : 'Đã hoàn thành'
+                  : registrationStatus === 'CHECKED_IN'
+                    ? compact
+                      ? 'Tham gia'
+                      : 'Đang tham gia'
+                    : 'Đã đăng ký')}
             </span>
-            {isOpen ? (
-              <ChevronUp className="h-3.5 w-3.5 shrink-0 stroke-[2.5]" />
-            ) : (
-              <ChevronDown className="h-3.5 w-3.5 shrink-0 stroke-[2.5]" />
-            )}
+            {!onRegisteredClick &&
+              (isOpen ? (
+                <ChevronUp className="h-3.5 w-3.5 shrink-0 stroke-[2.5]" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 stroke-[2.5]" />
+              ))}
           </>
         ) : disabled ? (
           <span>
             {disabledReason === 'closed'
-              ? 'Đã đóng đăng ký'
+              ? compact
+                ? 'Đã đóng'
+                : 'Đã đóng đăng ký'
               : disabledReason === 'full'
-                ? 'Đã đủ chỗ'
-                : 'Không thể đăng ký'}
+                ? compact
+                  ? 'Đủ chỗ'
+                  : 'Đã đủ chỗ'
+                : compact
+                  ? 'Tạm khóa'
+                  : 'Không thể đăng ký'}
           </span>
         ) : (
-          <span>Đăng ký ngay</span>
+          <span>{label || (compact ? 'Đăng ký' : 'Đăng ký ngay')}</span>
         )}
-      </button>
+      </Button>
 
       {/* 2. Overlay Dropdown Menu (Figma Node 910:4855) - Rendered via Portal to avoid overflow clipping */}
       {isOpen &&
@@ -342,7 +386,8 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Item 1: Xem lịch sử tham gia */}
-            <button
+            <Button
+              variant="ghost"
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
@@ -353,13 +398,14 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
             >
               <CalendarCheck className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <span>Xem lịch sử tham gia</span>
-            </button>
+            </Button>
 
             {/* Chỉ cho phép Hủy đăng ký nếu sự kiện CHƯA điểm danh và CHƯA hoàn thành */}
             {(!registrationStatus || registrationStatus === 'REGISTERED') && (
               <>
                 <div className="h-[1px] bg-[#E5E7EB] dark:bg-border my-0.5" />
-                <button
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation()
@@ -370,7 +416,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
                 >
                   <Ban className="h-3.5 w-3.5 text-[#C7212B] dark:text-red-400 shrink-0" />
                   <span>Hủy đăng ký</span>
-                </button>
+                </Button>
               </>
             )}
           </div>,
@@ -402,20 +448,22 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border/60">
-                <button
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={() => setShowCancelConfirm(false)}
                   className="px-3.5 py-1.5 text-xs font-medium border border-border rounded-md hover:bg-muted transition-colors cursor-pointer"
                 >
                   Giữ đăng ký
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={handleCancelRegistration}
                   className="px-4 py-1.5 bg-[#C7212B] hover:bg-[#a81c25] text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
                 >
                   Xác nhận hủy
-                </button>
+                </Button>
               </div>
             </div>
           </div>,
@@ -453,7 +501,8 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
                 {(errorModal.message.toLowerCase().includes('profile') ||
                   errorModal.message.toLowerCase().includes('thông tin') ||
                   errorModal.message.toLowerCase().includes('hồ sơ')) && (
-                  <button
+                  <Button
+                    variant="ghost"
                     type="button"
                     onClick={() => {
                       setErrorModal({ isOpen: false, message: '' })
@@ -464,15 +513,16 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
                     className="px-4 py-1.5 bg-[#1F5CA9] hover:bg-[#1B4B8A] text-white text-xs sm:text-sm font-semibold rounded-md transition-colors cursor-pointer"
                   >
                     Cập nhật thông tin ngay
-                  </button>
+                  </Button>
                 )}
-                <button
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={() => setErrorModal({ isOpen: false, message: '' })}
                   className="px-4 py-1.5 border border-border hover:bg-muted text-xs sm:text-sm font-medium rounded-md transition-colors cursor-pointer"
                 >
                   Đã hiểu
-                </button>
+                </Button>
               </div>
             </div>
           </div>,
@@ -508,14 +558,16 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
-                <button
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={() => setShowProfilePrompt(false)}
                   className="px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors cursor-pointer"
                 >
                   Để sau
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={() => {
                     setShowProfilePrompt(false)
@@ -526,7 +578,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
                   className="px-5 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
                 >
                   Cập nhật ngay
-                </button>
+                </Button>
               </div>
             </div>
           </div>,

@@ -63,6 +63,22 @@ export interface FanpageDashboardData {
 }
 
 const count = z.number().int().nonnegative()
+const absentRateSchema = z.object({
+  month: z.number().int().min(1).max(12),
+  monthName: z.string(),
+  totalRegistrations: count,
+  absentCount: count,
+  absentRate: z.number().nonnegative(),
+})
+const absentStudentSchema = z.object({
+  studentId: z.string().nullish(),
+  userId: z.number().int().positive(),
+  fullName: z.string(),
+  email: z.string(),
+  avatarUrl: z.string().nullish(),
+  absenceCount: count,
+})
+export type FanpageAbsentStudent = z.infer<typeof absentStudentSchema>
 const overviewSchema = z.object({
   totalEvents: count,
   totalFollowers: count.optional(),
@@ -134,16 +150,47 @@ const dashboardSchema = z
 
 // apiClient already unwraps BaseResponse.data. Request failures must reach React Query.
 export const fanpageStatisticsService = {
+  async getAbsentRates(fanpageId: string | number, year: number, semesterId?: string) {
+    return z
+      .array(absentRateSchema)
+      .parse(
+        await apiClient.get(`/fanpages/${fanpageId}/statistics/absent-rate`, {
+          params: { year, ...(semesterId ? { semesterId } : {}) },
+        })
+      )
+  },
+  async getAbsentStudents(fanpageId: string | number, semesterId: string, minAbsences = 3) {
+    return z
+      .array(absentStudentSchema)
+      .parse(
+        await apiClient.get(`/fanpages/${fanpageId}/statistics/absent-students`, {
+          params: { semesterId, minAbsences },
+        })
+      )
+  },
+  async alertAbsentStudents(
+    fanpageId: string | number,
+    semesterId: string,
+    studentUserIds: number[],
+    message: string
+  ) {
+    await apiClient.post(`/fanpages/${fanpageId}/statistics/absent-students/alert`, {
+      semesterId: Number(semesterId),
+      studentUserIds,
+      message,
+    })
+  },
   getFanpageOverview: async (fanpageId: string | number): Promise<FanpageOverview> =>
     overviewSchema.parse(await apiClient.get(`/fanpages/${fanpageId}/statistics/overview`)),
 
   getMonthlyTrends: async (
     fanpageId: string | number,
-    year?: number
+    year?: number,
+    semesterId?: string | number
   ): Promise<FanpageMonthlyTrend[]> =>
     z.array(trendSchema).parse(
       await apiClient.get(`/fanpages/${fanpageId}/statistics/trends`, {
-        params: year ? { year } : {},
+        params: { ...(year ? { year } : {}), ...(semesterId ? { semesterId } : {}) },
       })
     ),
 

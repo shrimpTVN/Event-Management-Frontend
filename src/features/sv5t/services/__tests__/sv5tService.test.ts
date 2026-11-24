@@ -89,7 +89,10 @@ describe('sv5tService', () => {
 })
 
 it('loads all records for the selected academic year and preserves both distinct events', async () => {
-  vi.mocked(apiClient.get).mockResolvedValue([{ id: 1, criteriaId: 20, eventId: 51 }, { id: 2, criteriaId: 20, eventId: 52 }])
+  vi.mocked(apiClient.get).mockResolvedValue([
+    { id: 1, criteriaId: 20, eventId: 51 },
+    { id: 2, criteriaId: 20, eventId: 52 },
+  ])
   expect(await sv5tService.getAllCriteriaTransactions(7)).toHaveLength(2)
   expect(apiClient.get).toHaveBeenLastCalledWith('/criteria-transactions/me/academic-years/7')
 })
@@ -97,4 +100,38 @@ it('propagates transaction request failures instead of silently returning empty 
   vi.mocked(apiClient.get).mockRejectedValue(new Error('Unavailable'))
   await expect(sv5tService.getAllCriteriaTransactions(7)).rejects.toThrow('Unavailable')
   await expect(sv5tService.getCriteriaTransactions(20, 7)).rejects.toThrow('Unavailable')
+})
+
+it('uses supported per-criterion history when the year endpoint is missing', async () => {
+  vi.mocked(apiClient.get).mockReset()
+  vi.mocked(apiClient.get).mockImplementation(async (url) => {
+    if (url === '/criteria-transactions/me/academic-years/7') throw { response: { status: 404 } }
+    if (url === '/criteria-progress/me/academic-years/7')
+      return {
+        criterias: [{ id: 40, children: [{ id: 402 }, { criteriaId: 403 }] }],
+      }
+    if (url === '/criteria-transactions/me/criterias/402/academic-years/7')
+      return [
+        { id: 1, eventId: 51 },
+        { id: 2, eventId: 52 },
+        { id: 3, isActive: false },
+      ]
+    if (url === '/criteria-transactions/me/criterias/403/academic-years/7')
+      return [{ id: 4, criteriaId: 403, completionSource: 'MANUAL' }]
+    throw new Error(`Unexpected URL: ${url}`)
+  })
+  expect(await sv5tService.getAllCriteriaTransactions(7)).toEqual([
+    { id: 1, eventId: 51, criteriaId: 402 },
+    { id: 2, eventId: 52, criteriaId: 402 },
+    { id: 4, criteriaId: 403, completionSource: 'MANUAL' },
+  ])
+})
+
+it('does not conceal a failed per-criterion history request', async () => {
+  vi.mocked(apiClient.get).mockReset()
+  vi.mocked(apiClient.get)
+    .mockRejectedValueOnce({ response: { status: 404 } })
+    .mockResolvedValueOnce({ criteria: [{ criteriaId: 402 }] })
+    .mockRejectedValueOnce(new Error('History unavailable'))
+  await expect(sv5tService.getAllCriteriaTransactions(7)).rejects.toThrow('History unavailable')
 })

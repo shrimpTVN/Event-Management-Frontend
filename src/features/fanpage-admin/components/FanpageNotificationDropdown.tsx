@@ -1,3 +1,5 @@
+import { notificationPath } from '@/features/notifications/notificationPath'
+import { Building2 as FanpageIcon } from 'lucide-react'
 import { Tooltip } from '@/components/ui/tooltip'
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -20,7 +22,6 @@ export const FanpageNotificationDropdown: React.FC<FanpageNotificationDropdownPr
   isOpen,
   onClose,
   fanpageId,
-  fanpageName,
 }) => {
   const popupRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
@@ -146,18 +147,8 @@ export const FanpageNotificationDropdown: React.FC<FanpageNotificationDropdownPr
       markAsRead(item.id)
     }
 
-    if (item.url) {
-      let dest = item.url.trim()
-      if (/^\d+$/.test(dest)) {
-        if (
-          item.title?.toLowerCase().includes('event') ||
-          item.message?.toLowerCase().includes('sự kiện')
-        ) {
-          dest = `/events/${dest}`
-        } else {
-          dest = `/fanpage/${dest}`
-        }
-      }
+    const dest = notificationPath(item)
+    if (dest) {
       navigate(dest)
       onClose()
     }
@@ -272,7 +263,7 @@ export const FanpageNotificationDropdown: React.FC<FanpageNotificationDropdownPr
                     />
                   ) : (
                     <div className="w-11 h-11 rounded-full bg-[#1B4B8A]/10 text-[#1B4B8A] font-bold flex items-center justify-center text-xs">
-                      {fanpageName?.substring(0, 2).toUpperCase() || 'FP'}
+                      <FanpageIcon className="h-5 w-5" aria-hidden="true" />
                     </div>
                   )}
 

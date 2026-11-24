@@ -15,7 +15,7 @@ export const EvaluationRegulationModal: React.FC<EvaluationRegulationModalProps>
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
       <div
-        className="bg-card text-card-foreground border border-border w-full max-w-lg rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="student-responsive-dialog bg-card text-card-foreground border border-border w-full max-w-lg rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[calc(100dvh-1.5rem)]"
         role="dialog"
         aria-modal="true"
       >
@@ -42,7 +42,8 @@ export const EvaluationRegulationModal: React.FC<EvaluationRegulationModalProps>
         {/* Content */}
         <div className="p-5 overflow-y-auto space-y-4 text-xs md:text-sm text-foreground/90 leading-relaxed custom-scrollbar">
           <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg p-3 text-amber-900 dark:text-amber-200 text-xs">
-            Sinh viên thực hiện tự đánh giá kết quả rèn luyện của học kỳ theo đúng khung thời gian quy định của nhà trường.
+            Sinh viên thực hiện tự đánh giá kết quả rèn luyện của học kỳ theo đúng khung thời gian
+            quy định của nhà trường.
           </div>
 
           <div className="space-y-3">
@@ -51,7 +52,8 @@ export const EvaluationRegulationModal: React.FC<EvaluationRegulationModalProps>
               <div>
                 <p className="font-semibold text-foreground">1. Sinh viên tự đánh giá</p>
                 <p className="text-muted-foreground text-xs mt-0.5">
-                  Thời gian: Từ tuần 15 đến tuần 17 của học kỳ chính thức. Sinh viên đối chiếu minh chứng và tự chấm điểm.
+                  Thời gian: Từ tuần 15 đến tuần 17 của học kỳ chính thức. Sinh viên đối chiếu minh
+                  chứng và tự chấm điểm.
                 </p>
               </div>
             </div>
@@ -59,9 +61,12 @@ export const EvaluationRegulationModal: React.FC<EvaluationRegulationModalProps>
             <div className="flex items-start gap-3 p-3 rounded-lg border border-border bg-muted/20">
               <Clock className="h-5 w-5 text-primary shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-foreground">2. Họp xét điểm tại Lớp & Cố vấn học tập</p>
+                <p className="font-semibold text-foreground">
+                  2. Họp xét điểm tại Lớp & Cố vấn học tập
+                </p>
                 <p className="text-muted-foreground text-xs mt-0.5">
-                  Thời gian: Tuần 18 - 19 của học kỳ. Ban cán sự lớp phối hợp Cố vấn học tập tổ chức họp bình xét và duyệt điểm.
+                  Thời gian: Tuần 18 - 19 của học kỳ. Ban cán sự lớp phối hợp Cố vấn học tập tổ chức
+                  họp bình xét và duyệt điểm.
                 </p>
               </div>
             </div>
@@ -71,7 +76,8 @@ export const EvaluationRegulationModal: React.FC<EvaluationRegulationModalProps>
               <div>
                 <p className="font-semibold text-foreground">3. Công bố kết quả chính thức</p>
                 <p className="text-muted-foreground text-xs mt-0.5">
-                  Khoa/Trường thẩm định và công bố trên hệ thống Quản lý đào tạo trước khi bắt đầu học kỳ kế tiếp.
+                  Khoa/Trường thẩm định và công bố trên hệ thống Quản lý đào tạo trước khi bắt đầu
+                  học kỳ kế tiếp.
                 </p>
               </div>
             </div>
