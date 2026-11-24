@@ -35,7 +35,7 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <header className="sticky top-0 z-50 w-full border-b border-[#E5E7EB] dark:border-border bg-white/95 dark:bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-card/80">
       <div className="w-full flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* 1. Left: Mobile Sidebar Toggle & CTU Brand Logo */}
         <div className="flex items-center gap-3 shrink-0">

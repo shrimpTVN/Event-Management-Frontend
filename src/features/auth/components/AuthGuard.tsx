@@ -2,7 +2,14 @@ import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import type { UserRole } from '../types/auth.types'
-import { isStaffRole, isSuperAdminUser, normalizeRole } from '../utils/authUtils'
+import {
+  getAccountHomePath,
+  isStaffRole,
+  isStaffUser,
+  isStudentUser,
+  isSuperAdminUser,
+  normalizeRole,
+} from '../utils/authUtils'
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -10,6 +17,7 @@ interface AuthGuardProps {
   allowedRoles?: UserRole[]
   disallowedRoles?: UserRole[]
   roleRedirectPath?: string
+  audience?: 'student' | 'staff'
 }
 
 export const AuthGuard: React.FC<AuthGuardProps> = ({
@@ -18,11 +26,12 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   allowedRoles,
   disallowedRoles,
   roleRedirectPath,
+  audience,
 }) => {
   const { isAuthenticated, user } = useAuthStore()
   const location = useLocation()
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
     const isRoot = location.pathname === '/'
     const targetUrl = isRoot
       ? '/login'
@@ -32,11 +41,16 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
 
   const userRoleNorm = normalizeRole(user?.role)
 
+  if (
+    (audience === 'student' && (!isStudentUser(user) || isSuperAdminUser(user))) ||
+    (audience === 'staff' && (!isStaffUser(user) || isSuperAdminUser(user)))
+  ) {
+    return <Navigate to={getAccountHomePath(user)} replace />
+  }
+
   // Handle disallowed roles (e.g. staff disallowed on student home page)
   if (disallowedRoles && userRoleNorm) {
-    const isDisallowed = disallowedRoles.some(
-      (r) => normalizeRole(r) === userRoleNorm
-    )
+    const isDisallowed = disallowedRoles.some((r) => normalizeRole(r) === userRoleNorm)
     if (isDisallowed) {
       if (isSuperAdminUser(user)) {
         return <Navigate to="/admin" replace />
@@ -47,15 +61,13 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   }
 
   // Handle allowed roles whitelist
-  if (allowedRoles && userRoleNorm) {
-    const isAllowed = allowedRoles.some(
-      (r) => normalizeRole(r) === userRoleNorm
-    )
+  if (allowedRoles) {
+    const isAllowed = allowedRoles.some((r) => normalizeRole(r) === userRoleNorm)
     if (!isAllowed) {
       if (isSuperAdminUser(user)) {
         return <Navigate to="/admin" replace />
       }
-      const fallbackPath = isStaffRole(user?.role) ? '/staff/fanpages' : '/'
+      const fallbackPath = userRoleNorm ? getAccountHomePath(user) : '/login'
       return <Navigate to={roleRedirectPath || fallbackPath} replace />
     }
   }
@@ -80,4 +92,3 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
 
   return <>{children}</>
 }
-

@@ -1,3 +1,4 @@
+import { Input } from '@/components/ui/input'
 import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
@@ -128,7 +129,8 @@ export const OtpVerificationForm: React.FC = () => {
         // Complete student registration via backend POST /auth/register
         const parts = (pending.fullName || '').trim().split(/\s+/)
         const lastName = pending.lastName || (parts.length > 1 ? parts[0] : 'Sinh viên')
-        const firstName = pending.firstName || (parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'CTU')
+        const firstName =
+          pending.firstName || (parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'CTU')
 
         await authService.register({
           email,
@@ -163,7 +165,8 @@ export const OtpVerificationForm: React.FC = () => {
         const defaultUser: User = res?.user || {
           id: 'usr-' + newUserId,
           email,
-          name: emailUsername.replace(/[._]/g, ' ') || (staffDetected ? 'Cán bộ CTU' : 'Sinh viên CTU'),
+          name:
+            emailUsername.replace(/[._]/g, ' ') || (staffDetected ? 'Cán bộ CTU' : 'Sinh viên CTU'),
           studentId: !staffDetected ? emailUsername.toUpperCase() : undefined,
           role: staffDetected ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT,
           createdAt: new Date().toISOString(),
@@ -241,9 +244,9 @@ export const OtpVerificationForm: React.FC = () => {
           <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Mã OTP (6 chữ số)
           </label>
-          <div className="flex items-center justify-center gap-2 sm:gap-3" onPaste={handlePaste}>
+          <div className="grid grid-cols-6 gap-1.5 sm:gap-3" onPaste={handlePaste}>
             {otpDigits.map((digit, idx) => (
-              <input
+              <Input
                 key={idx}
                 ref={(el) => {
                   inputRefs.current[idx] = el
@@ -255,7 +258,7 @@ export const OtpVerificationForm: React.FC = () => {
                 value={digit}
                 onChange={(e) => handleDigitChange(idx, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(idx, e)}
-                className="w-11 h-13 sm:w-13 sm:h-14 text-center font-k2d font-bold text-xl sm:text-2xl rounded-xl border border-border bg-[#F9FAFB] dark:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+                className="w-full min-w-0 h-12 sm:h-14 text-center font-k2d font-bold text-xl sm:text-2xl rounded-xl border border-border bg-[#F9FAFB] dark:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
               />
             ))}
           </div>

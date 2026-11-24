@@ -192,6 +192,21 @@ describe('superadmin API data', () => {
       params: { role: 'FANPAGE_ADMIN' },
     })
   })
+  it('fetches staff profile by user id for admin', async () => {
+    get.mockResolvedValueOnce({
+      userId: 2,
+      email: 'organizer@ctu.edu.vn',
+      staffProfile: { staffId: 'CB-0104', orgName: 'Đoàn CNTT' },
+    })
+    const res = await superAdminService.getAdminStaffProfile('2')
+    expect(get).toHaveBeenLastCalledWith('/users/admin/2/staff-profile')
+    expect(res).toEqual(
+      expect.objectContaining({
+        userId: 2,
+        staffProfile: expect.objectContaining({ staffId: 'CB-0104' }),
+      })
+    )
+  })
   it('propagates failed list requests instead of presenting a fake empty success', async () => {
     get.mockRejectedValue(new Error('offline'))
     await expect(superAdminService.getUsers()).rejects.toThrow('offline')

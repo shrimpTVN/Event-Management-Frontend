@@ -18,7 +18,14 @@ export function EventFilterButton({
   options,
   events,
   hideFanpageFilter = false,
-}: FilterProps & { events: FilterableEvent[]; hideFanpageFilter?: boolean }) {
+  showLabelOnMobile = false,
+  className = '',
+}: FilterProps & {
+  events: FilterableEvent[]
+  hideFanpageFilter?: boolean
+  showLabelOnMobile?: boolean
+  className?: string
+}) {
   const [open, setOpen] = useState(false)
   const count = eventFilterChips(values, options).length
   return (
@@ -32,12 +39,12 @@ export function EventFilterButton({
           aria-label="Bộ lọc sự kiện"
           aria-expanded={open}
           aria-haspopup="dialog"
-          className={`h-9 shrink-0 gap-1.5 px-2.5 text-xs ${count ? 'border-primary/30 bg-primary/5 text-primary' : 'border-border/70 text-muted-foreground'}`}
+          className={`h-9 shrink-0 gap-1.5 px-2.5 text-xs ${count ? 'border-primary/30 bg-primary/5 text-primary' : 'border-border/70 text-muted-foreground'} ${className}`}
         >
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Bộ lọc</span>
+          <span className={showLabelOnMobile ? '' : 'hidden sm:inline'}>Bộ lọc</span>
           {count > 0 && (
-            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-sm bg-primary/10 px-1 text-[10px] font-semibold text-primary">
+            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-primary-foreground px-1 text-[10px] font-bold">
               {count}
             </span>
           )}
@@ -50,12 +57,18 @@ export function EventFilterButton({
         onApply={onChange}
         events={events}
         hideFanpageFilter={hideFanpageFilter}
+        options={options}
       />
     </>
   )
 }
 
-export function EventFilterChips({ values, onChange, options }: FilterProps) {
+export function EventFilterChips({
+  values,
+  onChange,
+  options,
+  touchFriendly = false,
+}: FilterProps & { touchFriendly?: boolean }) {
   const chips = eventFilterChips(values, options)
   if (!chips.length) return null
   return (
@@ -66,7 +79,7 @@ export function EventFilterChips({ values, onChange, options }: FilterProps) {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 max-w-[240px] gap-1.5 rounded-lg border border-primary/10 bg-primary/5 px-2 text-xs font-normal text-primary hover:bg-primary/10"
+            className={`${touchFriendly ? 'h-11' : 'h-8'} max-w-[240px] gap-1.5 rounded-lg border border-primary/10 bg-primary/5 px-2 text-xs font-normal text-primary hover:bg-primary/10`}
             aria-label={`Bỏ lọc: ${chip.label}`}
             onClick={() => onChange(removeEventFilter(values, chip.key))}
           >
@@ -79,10 +92,10 @@ export function EventFilterChips({ values, onChange, options }: FilterProps) {
         type="button"
         variant="ghost"
         size="sm"
-        className="h-8 px-2 text-xs font-normal text-muted-foreground"
+        className={`${touchFriendly ? 'h-11' : 'h-8'} px-2 text-xs font-normal text-muted-foreground`}
         onClick={() => onChange({})}
       >
-        Xóa tất cả
+        {touchFriendly ? 'Xóa lọc' : 'Xóa tất cả'}
       </Button>
     </div>
   )

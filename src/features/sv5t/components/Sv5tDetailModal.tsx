@@ -142,7 +142,7 @@ export function Sv5tDetailModal({
     >
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border bg-background text-left font-sans text-foreground shadow-xl focus:outline-none">
+        <Dialog.Content className="student-responsive-dialog student-achievement-dialog fixed left-1/2 top-1/2 z-50 flex max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border bg-background text-left font-sans text-foreground shadow-xl focus:outline-none">
           <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
             <div className="flex min-w-0 flex-col gap-1">
               <Dialog.Title className="font-k2d text-xl font-semibold">

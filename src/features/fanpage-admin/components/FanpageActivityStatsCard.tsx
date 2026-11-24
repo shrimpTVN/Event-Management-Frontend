@@ -8,7 +8,7 @@ interface Props {
   onRetry?: () => void
 }
 export const FanpageActivityStatsCard = ({ stats, isLoading, onRetry }: Props) => (
-  <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 text-left shadow-sm">
+  <section className="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] dark:border-border bg-white dark:bg-card p-4 text-left shadow-sm">
     <div className="flex flex-wrap items-center justify-between gap-1">
       <h3 className="font-k2d text-sm font-semibold text-foreground">Hoạt động</h3>
       <span className="text-[11px] text-muted-foreground">Toàn thời gian</span>

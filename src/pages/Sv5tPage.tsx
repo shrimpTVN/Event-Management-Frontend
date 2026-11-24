@@ -3,6 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { StudentLeftSidebar } from '@/features/events'
 import { useAuthStore } from '@/features/auth'
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
+import { useScrollActivity } from '@/shared/hooks/useScrollActivity'
 import {
   sv5tService,
   Sv5tHeader,
@@ -18,6 +20,8 @@ import {
 
 export const Sv5tPage: React.FC = () => {
   const queryClient = useQueryClient()
+  const isMobile = useMediaQuery('(max-width: 767px)')
+  const handleScroll = useScrollActivity()
   const user = useAuthStore((s) => s.user)
   const userKey = user?.id || user?.email || 'current'
 
@@ -54,7 +58,12 @@ export const Sv5tPage: React.FC = () => {
   }, [academicYears, selectedYearId])
 
   // 2. Fetch Student Criteria Progress for appliedYearId
-  const { data: criteriaProgress, isLoading } = useQuery({
+  const {
+    data: criteriaProgress,
+    isLoading,
+    isError: progressError,
+    refetch: refetchProgress,
+  } = useQuery({
     queryKey: ['student-criteria-progress', appliedYearId],
     queryFn: () => sv5tService.getStudentCriteriaProgress(appliedYearId),
     enabled: Boolean(appliedYearId),
@@ -70,13 +79,7 @@ export const Sv5tPage: React.FC = () => {
     refetch: refetchTransactions,
   } = useQuery({
     queryKey: ['student-criteria-transactions-all', appliedYearId],
-    queryFn: async () => {
-      try {
-        return await sv5tService.getAllCriteriaTransactions(appliedYearId)
-      } catch {
-        return []
-      }
-    },
+    queryFn: () => sv5tService.getAllCriteriaTransactions(appliedYearId),
     enabled: Boolean(appliedYearId),
     staleTime: 0,
     refetchOnMount: 'always',
@@ -174,18 +177,13 @@ export const Sv5tPage: React.FC = () => {
       delete updatedNoteMap[criteriaId]
     }
 
+    await progressMutation.mutateAsync({ criteriaId, completed, note: finalNote })
     setLocalCompletedMap(updatedCompletedMap)
     setLocalNoteMap(updatedNoteMap)
     setStoredEvaluations(userKey, appliedYearId, {
       completedMap: updatedCompletedMap,
       noteMap: updatedNoteMap,
     })
-
-    try {
-      await progressMutation.mutateAsync({ criteriaId, completed, note: finalNote })
-    } catch (err) {
-      console.warn('API sync warning:', err)
-    }
   }
 
   const handleDeleteProgress = async (criteriaTransactionId: number, criteriaId: number) => {
@@ -193,24 +191,34 @@ export const Sv5tPage: React.FC = () => {
     const updatedNoteMap = { ...localNoteMap }
     delete updatedNoteMap[criteriaId]
 
+    await deleteProgressMutation.mutateAsync(criteriaTransactionId)
     setLocalCompletedMap(updatedCompletedMap)
     setLocalNoteMap(updatedNoteMap)
     setStoredEvaluations(userKey, appliedYearId, {
       completedMap: updatedCompletedMap,
       noteMap: updatedNoteMap,
     })
-
-    try {
-      await deleteProgressMutation.mutateAsync(criteriaTransactionId)
-    } catch (err) {
-      console.warn('Failed to delete criteria transaction:', err)
-    }
   }
 
-  // Handle clicking "Tìm" button
+  // Handle clicking "Tìm" button on desktop
   const handleApplyFilter = () => {
     setAppliedYearId(selectedYearId)
     setAppliedScope(selectedScope)
+  }
+
+  // Synchronous changes on mobile, draft on desktop
+  const handleYearChange = (newYearId: number) => {
+    setSelectedYearId(newYearId)
+    if (isMobile) {
+      setAppliedYearId(newYearId)
+    }
+  }
+
+  const handleScopeChange = (newScope: EvaluationScope) => {
+    setSelectedScope(newScope)
+    if (isMobile) {
+      setAppliedScope(newScope)
+    }
   }
 
   // Build complete hierarchical criteria tree with all children and correct required counts
@@ -232,62 +240,80 @@ export const Sv5tPage: React.FC = () => {
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-muted/40 font-sans">
-      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
+      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-4 md:gap-6 overflow-hidden">
         {/* Left Sidebar */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
+        <aside className="hidden xl:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto py-5 pl-1 pr-4 sm:pr-6 custom-scrollbar">
+        <main
+          data-student-scroll
+          onScroll={handleScroll}
+          className="flex-1 min-w-0 h-full overflow-y-auto py-4 md:py-5 pl-0 md:pl-1 pr-1 md:pr-6 student-scrollbar"
+        >
           <div className="w-full max-w-full flex flex-col gap-4 pb-16">
             {/* 1. Header with title, filter and regulation modal trigger */}
-            <div className="shrink-0">
+            <div className="shrink-0 order-1">
               <Sv5tHeader
                 academicYears={academicYears}
                 selectedYearId={selectedYearId}
                 selectedScope={selectedScope}
-                onYearChange={setSelectedYearId}
-                onScopeChange={setSelectedScope}
+                onYearChange={handleYearChange}
+                onScopeChange={handleScopeChange}
                 onSearch={handleApplyFilter}
                 onOpenRegulation={() => setIsRegulationModalOpen(true)}
               />
             </div>
 
-            {/* 2. Notice Warning Banner */}
-            <div className="shrink-0">
-              <Sv5tNoticeBanner />
-            </div>
-
-            {/* 3. Summary Overview Card matching Figma 12-col grid */}
-            <div className="shrink-0">
+            {/* 2. Summary Overview Card (Mobile order: 2, Desktop order: 3) */}
+            <div className="shrink-0 order-2 md:order-3">
               <Sv5tSummary
                 academicYearLabel={academicYearLabel}
                 completedStandardsCount={completedStandardsCount}
                 totalStandardsCount={standards.length || 5}
                 scope={appliedScope}
                 isLoading={isLoading}
+                unavailable={progressError || !appliedYearId}
               />
             </div>
 
-            {transactionsError && (
-              <div role="alert" className="flex items-center gap-3 text-sm text-muted-foreground">
-                Chưa tải được lịch sử ghi nhận SV5T.
-                <Button variant="outline" size="sm" onClick={() => void refetchTransactions()}>
-                  Thử lại
-                </Button>
-              </div>
-            )}
+            {/* 3. Notice Warning Banner (Mobile order: 3, Desktop order: 2) */}
+            <div className="shrink-0 order-3 md:order-2">
+              <Sv5tNoticeBanner />
+            </div>
 
-            {/* 4. Detailed Standards Evaluation Table */}
-            <Sv5tTable
-              standards={standards}
-              academicYearId={appliedYearId || 2}
-              onSaveProgress={handleSaveProgress}
-              onDeleteProgress={handleDeleteProgress}
-              isLoading={isLoading}
-              resetKey={`${appliedYearId}-${appliedScope}`}
-            />
+            {/* 4. Detailed Standards Evaluation Table (Order: 4) */}
+            <div className="shrink-0 order-4 flex flex-col gap-3">
+              {progressError && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-destructive/30 bg-background p-3 text-sm"
+                >
+                  Không tải được tiêu chuẩn.{' '}
+                  <Button variant="ghost" className="h-11" onClick={() => void refetchProgress()}>
+                    Thử lại
+                  </Button>
+                </div>
+              )}
+              {transactionsError && (
+                <div role="alert" className="flex items-center gap-3 text-sm text-muted-foreground">
+                  Chưa tải được lịch sử ghi nhận SV5T.
+                  <Button variant="outline" size="sm" onClick={() => void refetchTransactions()}>
+                    Thử lại
+                  </Button>
+                </div>
+              )}
+
+              <Sv5tTable
+                standards={standards}
+                academicYearId={appliedYearId || 2}
+                onSaveProgress={handleSaveProgress}
+                onDeleteProgress={handleDeleteProgress}
+                isLoading={isLoading}
+                resetKey={`${appliedYearId}-${appliedScope}`}
+              />
+            </div>
           </div>
         </main>
       </div>

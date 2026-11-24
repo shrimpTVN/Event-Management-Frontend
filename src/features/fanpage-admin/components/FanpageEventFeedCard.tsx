@@ -1,3 +1,4 @@
+import { Building2 as FanpageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip } from '@/components/ui/tooltip'
 import { TextTooltip } from '@/components/ui/text-tooltip'
@@ -187,7 +188,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
             />
           ) : (
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1B4B8A] text-white font-bold text-sm shrink-0">
-              {post.authorName.charAt(0)}
+              <FanpageIcon className="h-5 w-5" aria-hidden="true" />
             </div>
           )}
           <div className="flex flex-col gap-0.5 min-w-0 flex-1">
@@ -414,7 +415,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
                   ? `${post.registeredCount || 0}/${post.capacity} sinh viên`
                   : (post.registeredCount || 0) > 0
                     ? `${post.registeredCount} sinh viên`
-                    : (post.quotaText || 'Không giới hạn')}
+                    : post.quotaText || 'Không giới hạn'}
               </span>
             </div>
           </div>
@@ -459,7 +460,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
                   ? `${post.registeredCount || 0}/${post.capacity} sinh viên`
                   : (post.registeredCount || 0) > 0
                     ? `${post.registeredCount} sinh viên`
-                    : (post.quotaText || 'Không giới hạn')}
+                    : post.quotaText || 'Không giới hạn'}
               </span>
             </div>
           </div>

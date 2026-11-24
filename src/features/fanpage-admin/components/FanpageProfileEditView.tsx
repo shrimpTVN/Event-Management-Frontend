@@ -1,33 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  Mail,
-  Save,
-  Upload,
-  Building2,
-  FileText,
-  AlertCircle,
-  CheckCircle2,
-  Pencil,
-  X,
-  Lock,
-} from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import React, { useEffect, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertCircle, CheckCircle2, ImagePlus, Loader2, Pencil, Save, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useAuthStore, isStaffUser } from '@/features/auth'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { mediaService } from '@/shared'
 import type { FanpageSummary } from '../types/fanpageAdmin.types'
 import { fanpageAdminService } from '../services/fanpageAdminService'
-import { mediaService } from '@/shared'
-import { Loader2 } from 'lucide-react'
+import { FanpageProfileDetails } from './FanpageProfileDetails'
 
 interface FanpageProfileEditViewProps {
   currentFanpage: FanpageSummary
@@ -35,533 +15,297 @@ interface FanpageProfileEditViewProps {
   onCancel?: () => void
 }
 
+type EditableProfile = Pick<FanpageSummary, 'avatarUrl' | 'description' | 'email' | 'phone'>
+const getEditableProfile = (fanpage: FanpageSummary): EditableProfile => ({
+  avatarUrl: fanpage.avatarUrl || '',
+  description: fanpage.description || '',
+  email: fanpage.email || '',
+  phone: fanpage.phone || '',
+})
+
 export const FanpageProfileEditView: React.FC<FanpageProfileEditViewProps> = ({
   currentFanpage,
   onSave,
   onCancel,
 }) => {
   const queryClient = useQueryClient()
-  const { user } = useAuthStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const isCurrentUserAdmin =
-    currentFanpage.role === 'Quản trị viên' ||
-    currentFanpage.role === 'ADMIN' ||
-    (user ? isStaffUser(user) : false)
-
-  // Edit toggle mode: Default is disabled (view-only)
+  const isAdmin = ['ADMIN', 'QUẢN TRỊ VIÊN'].includes(currentFanpage.role?.trim().toUpperCase())
   const [isEditing, setIsEditing] = useState(false)
-
-  // 1. Fetch real fanpage detail
-  const { data: detailData } = useQuery<FanpageSummary | null>({
-    queryKey: ['fanpage-detail', currentFanpage.id],
-    queryFn: () => fanpageAdminService.getFanpageDetail(currentFanpage.id),
-    initialData: currentFanpage,
-  })
-
-  const effectiveFanpage = detailData || currentFanpage
-
-  // 2. Form state initialized from real data
-  const [name, setName] = useState(effectiveFanpage.name || '')
-  const [fullName, setFullName] = useState(effectiveFanpage.fullName || '')
-  const [code, setCode] = useState(effectiveFanpage.code || '')
-  const [parentOrg, setParentOrg] = useState(
-    effectiveFanpage.parentOrg || 'Đoàn Thanh niên Đại học Cần Thơ'
-  )
-  const [orgType, setOrgType] = useState(effectiveFanpage.orgType || 'Đoàn Khoa / Trường')
-  const [email, setEmail] = useState(effectiveFanpage.email || '')
-  const [phone, setPhone] = useState(effectiveFanpage.phone || '')
-  const [address, setAddress] = useState(effectiveFanpage.address || 'Khu II, Đại học Cần Thơ')
-  const [description, setDescription] = useState(effectiveFanpage.description || '')
-  const [avatarUrl, setAvatarUrl] = useState(effectiveFanpage.avatarUrl || '')
+  const [draft, setDraft] = useState(() => getEditableProfile(currentFanpage))
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
-
-  // Reset helper
-  const resetFormValues = (src: FanpageSummary) => {
-    setName(src.name || '')
-    setFullName(src.fullName || '')
-    setCode(src.code || '')
-    setParentOrg(src.parentOrg || 'Đoàn Thanh niên Đại học Cần Thơ')
-    setOrgType(src.orgType || 'Đoàn Khoa / Trường')
-    setEmail(src.email || '')
-    setPhone(src.phone || '')
-    setAddress(src.address || 'Khu II, Đại học Cần Thơ')
-    setDescription(src.description || '')
-    setAvatarUrl(src.avatarUrl || '')
-  }
-
-  // Sync state if detailData loads/changes
-  useEffect(() => {
-    if (detailData) {
-      resetFormValues(detailData)
-    }
-  }, [detailData])
-
-  // 3. Feedback message state
-  const [feedback, setFeedback] = useState<{
-    type: 'success' | 'error'
-    message: string
-  } | null>(null)
-
-  // 4. Save mutation
-  const updateMutation = useMutation({
-    mutationFn: (updatedPayload: Partial<FanpageSummary>) =>
-      fanpageAdminService.updateFanpageProfile(currentFanpage.id, updatedPayload),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['fanpage-detail', currentFanpage.id] })
-      queryClient.invalidateQueries({ queryKey: ['fanpage-detail-by-id'] })
-      queryClient.invalidateQueries({ queryKey: ['admin-available-fanpages'] })
-      queryClient.invalidateQueries({ queryKey: ['staff-my-fanpages'] })
-      queryClient.invalidateQueries({ queryKey: ['admin-fanpages'] })
-      setIsEditing(false)
-      setFeedback({
-        type: 'success',
-        message: 'Cập nhật thông tin fanpage thành công!',
-      })
-      onSave?.(variables)
-      setTimeout(() => setFeedback(null), 4000)
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
+    null
+  )
+  const {
+    data: detailData,
+    isFetching,
+    isPlaceholderData,
+    isError,
+    refetch,
+  } = useQuery<FanpageSummary>({
+    queryKey: ['fanpage-detail', currentFanpage.id],
+    queryFn: async () => {
+      const detail = await fanpageAdminService.getFanpageDetail(currentFanpage.id)
+      if (!detail) throw new Error('Không tải được hồ sơ fanpage')
+      return detail
     },
-    onError: () => {
-      setFeedback({
-        type: 'error',
-        message: 'Lưu thay đổi thất bại, vui lòng thử lại.',
-      })
-    },
+    placeholderData: currentFanpage,
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
+  const fanpage = detailData || currentFanpage
 
-  // 5. Handle Real File Upload for Avatar (Live Preview)
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  useEffect(() => {
+    setIsEditing(false)
+    setAvatarFile(null)
+    setFeedback(null)
+  }, [currentFanpage.id, isAdmin])
 
-    setAvatarFile(file)
-    const previewUrl = URL.createObjectURL(file)
-    setAvatarUrl(previewUrl)
-  }
-
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!isCurrentUserAdmin || !isEditing) return
-
-    if (!name.trim()) {
-      setFeedback({ type: 'error', message: 'Tên fanpage không được để trống' })
+  useEffect(() => {
+    if (!avatarFile) {
+      setPreviewUrl('')
       return
     }
+    const url = URL.createObjectURL(avatarFile)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [avatarFile])
 
-    let finalAvatarUrl = avatarUrl
-
-    if (avatarFile) {
-      setIsUploadingAvatar(true)
-      try {
-        finalAvatarUrl = await mediaService.uploadImage(avatarFile, 'FANPAGE')
-        setAvatarUrl(finalAvatarUrl)
-        setAvatarFile(null)
-      } catch (uploadErr: any) {
-        console.error('Lỗi upload avatar fanpage lên Cloudinary:', uploadErr)
-        setFeedback({
-          type: 'error',
-          message: uploadErr?.message || 'Tải ảnh đại diện lên Cloudinary thất bại. Vui lòng thử lại!',
-        })
-        setIsUploadingAvatar(false)
-        return
+  const updateMutation = useMutation({
+    mutationFn: (payload: EditableProfile) =>
+      fanpageAdminService.updateFanpageProfile(currentFanpage.id, payload),
+    onSuccess: (_, payload) => {
+      queryClient.setQueryData<FanpageSummary | null>(
+        ['fanpage-detail', currentFanpage.id],
+        (old) => ({ ...(old || fanpage), ...payload })
+      )
+      for (const key of [
+        'fanpage-detail',
+        'fanpage-detail-by-id',
+        'admin-available-fanpages',
+        'staff-my-fanpages',
+        'admin-fanpages',
+        'my-participating-fanpages',
+      ]) {
+        queryClient.invalidateQueries({ queryKey: [key] })
       }
-      setIsUploadingAvatar(false)
-    }
+      setIsEditing(false)
+      setFeedback({ type: 'success', message: 'Đã lưu thông tin fanpage.' })
+      onSave?.(payload)
+    },
+    onError: () =>
+      setFeedback({ type: 'error', message: 'Chưa lưu được thay đổi. Vui lòng thử lại.' }),
+  })
+  const busy = isUploading || updateMutation.isPending
+  const editing = isAdmin && isEditing
+  const avatar = previewUrl || draft.avatarUrl
 
-    updateMutation.mutate({
-      name,
-      fullName,
-      code,
-      parentOrg,
-      orgType,
-      email,
-      phone,
-      address,
-      description,
-      avatarUrl: finalAvatarUrl,
-    })
+  const startEdit = () => {
+    setDraft(getEditableProfile(fanpage))
+    setAvatarFile(null)
+    setFeedback(null)
+    setIsEditing(true)
   }
-
-  const handleCancelEdit = () => {
-    resetFormValues(effectiveFanpage)
+  const cancelEdit = () => {
+    setAvatarFile(null)
     setIsEditing(false)
     setFeedback(null)
     onCancel?.()
   }
+  const selectLogo = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setFeedback({ type: 'error', message: 'Vui lòng chọn ảnh PNG, JPG hoặc WEBP.' })
+      return
+    }
+    setFeedback(null)
+    setAvatarFile(file)
+    event.target.value = ''
+  }
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!editing || busy) return
+    setFeedback(null)
+    const payload: EditableProfile = {
+      ...draft,
+      email: draft.email.trim(),
+      phone: draft.phone.trim(),
+    }
+    if (avatarFile) {
+      setIsUploading(true)
+      try {
+        payload.avatarUrl = await mediaService.uploadImage(avatarFile, 'FANPAGE')
+        if (!payload.avatarUrl) throw new Error('Missing uploaded URL')
+        setDraft(payload)
+        setAvatarFile(null)
+      } catch {
+        setFeedback({ type: 'error', message: 'Chưa tải được ảnh đại diện. Vui lòng thử lại.' })
+        setIsUploading(false)
+        return
+      }
+      setIsUploading(false)
+    }
+    updateMutation.mutate(payload)
+  }
+  const actions = isAdmin ? (
+    editing ? (
+      <>
+        <Button type="button" variant="ghost" onClick={cancelEdit} disabled={busy}>
+          Hủy
+        </Button>
+        <Button
+          type="submit"
+          disabled={busy}
+          className="gap-2 bg-[#1B4B8A] text-white hover:bg-[#153D70] focus-visible:ring-primary/40"
+        >
+          {busy ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Save className="h-4 w-4" aria-hidden="true" />
+          )}
+          {isUploading
+            ? 'Đang tải ảnh...'
+            : updateMutation.isPending
+              ? 'Đang lưu...'
+              : 'Lưu thay đổi'}
+        </Button>
+      </>
+    ) : (
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={startEdit}
+        disabled={isFetching || isError}
+        className="gap-2 text-primary hover:bg-primary/5 hover:text-primary dark:text-blue-300 dark:hover:bg-primary/10"
+      >
+        <Pencil className="h-4 w-4" aria-hidden="true" />
+        Chỉnh sửa thông tin
+      </Button>
+    )
+  ) : undefined
 
   return (
-    <form onSubmit={handleFormSubmit} className="w-full space-y-6 text-left animate-in fade-in duration-300">
-      {/* 1. Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-            <span>Quản trị fanpage</span>
-            <span>/</span>
-            <span className="text-primary font-bold">Thông tin fanpage</span>
-          </p>
-          <h1 className="font-k2d font-bold text-2xl text-foreground mt-1">
-            Thông tin fanpage ({effectiveFanpage.name})
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Hồ sơ công khai, đơn vị chủ quản và các kênh liên lạc hỗ trợ sinh viên.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          {!isCurrentUserAdmin ? (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200/80 dark:border-amber-800/40 shadow-2xs">
-              <Lock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-              <span>Chế độ xem thông tin</span>
-            </div>
-          ) : !isEditing ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setIsEditing(true)}
-              className="h-9 rounded-lg gap-2 cursor-pointer"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              <span>Chỉnh sửa thông tin</span>
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleCancelEdit}
-                className="h-9 rounded-lg gap-1.5 cursor-pointer"
-              >
-                <X className="h-3.5 w-3.5" />
-                <span>Hủy bỏ</span>
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={updateMutation.isPending || isUploadingAvatar}
-                className="h-9 rounded-lg gap-2 cursor-pointer"
-              >
-                {isUploadingAvatar ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Đang tải ảnh...</span>
-                  </>
-                ) : updateMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Đang lưu...</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-3.5 w-3.5" />
-                    <span>Lưu thay đổi</span>
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Thông báo chế độ xem dành cho Cộng tác viên (MEMBER) */}
-      {!isCurrentUserAdmin && (
-        <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/40 text-xs text-[#1B4B8A] dark:text-blue-300 flex items-center gap-2.5 shadow-2xs">
-          <AlertCircle className="h-4 w-4 shrink-0 text-[#1B4B8A] dark:text-blue-400" />
-          <span>
-            Bạn đang xem hồ sơ Fanpage ở chế độ <strong>Cộng tác viên (Read-Only)</strong>. Chỉ Quản trị viên của Fanpage mới có quyền thay đổi thông tin giới thiệu, nhận diện và liên hệ.
-          </span>
+    <form onSubmit={submit} className="flex w-full flex-col gap-5 text-left">
+      <h1 className="font-k2d text-2xl font-bold text-foreground">Thông tin fanpage</h1>
+      {isFetching && isPlaceholderData && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Đang tải thông tin fanpage...
+        </p>
+      )}
+      {isError && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"
+        >
+          <span>Chưa tải được đầy đủ thông tin fanpage.</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={isFetching}
+            onClick={() => refetch()}
+          >
+            Thử lại
+          </Button>
         </div>
       )}
-
-      {/* Feedback Alert */}
       {feedback && (
         <div
-          className={`p-3 rounded-lg text-xs font-medium flex items-center justify-between gap-2 animate-in fade-in ${
-            feedback.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-              : 'bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
-          }`}
+          role={feedback.type === 'error' ? 'alert' : 'status'}
+          className={`flex items-center justify-between gap-3 rounded-lg border p-3 text-sm ${feedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'border-destructive/20 bg-destructive/10 text-destructive'}`}
         >
           <div className="flex items-center gap-2">
             {feedback.type === 'success' ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
             ) : (
-              <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+              <AlertCircle className="h-4 w-4 shrink-0" />
             )}
             <span>{feedback.message}</span>
           </div>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Đóng thông báo"
             onClick={() => setFeedback(null)}
-            className="text-xs opacity-70 hover:opacity-100 cursor-pointer"
           >
-            ✕
-          </button>
+            <X className="h-4 w-4" />
+          </Button>
         </div>
       )}
-
-      {/* 2. Balanced 2-Column Grid Layout (Rule 5.2 & Rule 5.3) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
-        
-        {/* ================= CARD 1: NHẬN DIỆN & LOGO (Col 1) ================= */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-card border border-border space-y-5 shadow-2xs">
-          <div className="border-b border-border pb-3 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-primary" />
-                <span>Nhận diện & Tên fanpage</span>
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Biểu trưng và thông tin đại diện của đơn vị
-              </p>
-            </div>
-          </div>
-
-          {/* Logo Circular Upload with Live Preview */}
-          <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/30 border border-border">
-            <div className="relative h-20 w-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={name}
-                  className="h-full w-full object-cover rounded-full"
-                />
-              ) : (
-                <div className="h-full w-full rounded-full bg-primary text-white font-k2d font-bold text-lg flex items-center justify-center">
-                  {code || 'FP'}
-                </div>
-              )}
-              {isUploadingAvatar && (
-                <div className="absolute inset-0 bg-black/60 backdrop-blur-2xs flex items-center justify-center text-white">
-                  <Loader2 className="h-6 w-6 animate-spin text-white" />
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <input
+      <FanpageProfileDetails
+        fanpage={editing ? { ...fanpage, ...draft, avatarUrl: avatar } : fanpage}
+        actions={actions}
+        avatarControl={
+          editing ? (
+            <>
+              <Input
                 ref={fileInputRef}
                 type="file"
-                accept="image/png, image/jpeg, image/webp"
+                accept="image/png,image/jpeg,image/webp"
+                aria-label="Chọn logo fanpage"
                 className="hidden"
-                disabled={!isEditing}
-                onChange={handleFileChange}
+                disabled={busy}
+                onChange={selectLogo}
               />
-              {isEditing ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="h-8 rounded-lg text-xs gap-1.5 cursor-pointer"
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  <span>Tải ảnh từ máy</span>
-                </Button>
-              ) : (
-                <span className="text-xs text-muted-foreground font-medium">
-                  Ảnh đại diện chính thức
-                </span>
-              )}
-              <p className="text-[11px] text-muted-foreground">
-                Hỗ trợ định dạng PNG, JPG, WEBP.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="fp-name" className="text-xs font-semibold">
-                Tên hiển thị fanpage <span className="text-rose-500">*</span>
-              </Label>
-              <Input
-                id="fp-name"
-                value={name}
-                disabled={!isEditing}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="VD: Đoàn Trường CNTT & TT"
-                className="h-10 text-xs rounded-lg placeholder:text-muted-foreground/60 disabled:bg-muted/40 disabled:cursor-not-allowed"
-                required
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="fp-code" className="text-xs font-semibold">
-                Mã viết tắt
-              </Label>
-              <Input
-                id="fp-code"
-                value={code}
-                disabled={!isEditing}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="VD: CNTT"
-                className="h-10 text-xs rounded-lg font-mono uppercase placeholder:text-muted-foreground/60 disabled:bg-muted/40 disabled:cursor-not-allowed"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* ================= CARD 2: PHÁP NHÂN & ĐƠN VỊ CHỦ QUẢN (Col 2) ================= */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-card border border-border space-y-5 shadow-2xs">
-          <div className="border-b border-border pb-3 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" />
-                <span>Pháp nhân & Đơn vị chủ quản</span>
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Cơ quan quản lý và mô hình tổ chức trực thuộc
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="fp-fullname" className="text-xs font-semibold">
-                Tên đầy đủ của tổ chức
-              </Label>
-              <Input
-                id="fp-fullname"
-                value={fullName}
-                disabled={!isEditing}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="VD: Đoàn Trường Công nghệ Thông tin & Truyền thông"
-                className="h-10 text-xs rounded-lg placeholder:text-muted-foreground/60 disabled:bg-muted/40 disabled:cursor-not-allowed"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="fp-parent" className="text-xs font-semibold">
-                Đơn vị chủ quản cấp trên
-              </Label>
-              <Input
-                id="fp-parent"
-                value={parentOrg}
-                disabled={!isEditing}
-                onChange={(e) => setParentOrg(e.target.value)}
-                placeholder="VD: Đoàn Thanh niên Đại học Cần Thơ"
-                className="h-10 text-xs rounded-lg placeholder:text-muted-foreground/60 disabled:bg-muted/40 disabled:cursor-not-allowed"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="fp-orgtype" className="text-xs font-semibold">
-                Loại hình tổ chức
-              </Label>
-              <Select
-                value={orgType}
-                disabled={!isEditing}
-                onValueChange={(val) => setOrgType(val)}
+              <Button
+                type="button"
+                size="icon"
+                disabled={busy}
+                aria-label="Đổi ảnh đại diện"
+                title="Đổi ảnh đại diện (PNG, JPG, WEBP)"
+                onClick={() => fileInputRef.current?.click()}
+                className="h-8 w-8 border-2 border-white bg-primary text-primary-foreground hover:bg-primary/90 dark:border-card"
               >
-                <SelectTrigger
-                  id="fp-orgtype"
-                  className="h-10 text-xs rounded-lg disabled:bg-muted/40 disabled:cursor-not-allowed"
-                >
-                  <SelectValue placeholder="Chọn loại hình tổ chức" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Đoàn Khoa / Trường">Đoàn Khoa / Trường</SelectItem>
-                  <SelectItem value="Hội Sinh viên">Hội Sinh viên</SelectItem>
-                  <SelectItem value="Câu lạc bộ học thuật">Câu lạc bộ học thuật</SelectItem>
-                  <SelectItem value="Đội nhóm tình nguyện">Đội nhóm tình nguyện</SelectItem>
-                  <SelectItem value="Phòng ban chức năng">Phòng ban chức năng</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-
-        {/* ================= CARD 3: THÔNG TIN LIÊN HỆ & ĐỊA ĐIỂM (md:col-span-2) ================= */}
-        <div className="md:col-span-2 p-6 rounded-2xl bg-white dark:bg-card border border-border space-y-5 shadow-2xs">
-          <div className="border-b border-border pb-3 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                <Mail className="h-4 w-4 text-primary" />
-                <span>Kênh liên hệ & Địa điểm hỗ trợ</span>
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Kênh tiếp nhận thắc mắc và hỗ trợ sinh viên tham gia sự kiện
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="fp-email" className="text-xs font-semibold">
-                Email hỗ trợ <span className="text-rose-500">*</span>
-              </Label>
-              <Input
-                id="fp-email"
-                type="email"
-                value={email}
-                disabled={!isEditing}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="contact@ctu.edu.vn"
-                className="h-10 text-xs rounded-lg placeholder:text-muted-foreground/60 disabled:bg-muted/40 disabled:cursor-not-allowed"
-                required
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="fp-phone" className="text-xs font-semibold">
-                Số điện thoại liên hệ
-              </Label>
-              <Input
-                id="fp-phone"
-                type="tel"
-                value={phone}
-                disabled={!isEditing}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="0912 345 678"
-                className="h-10 text-xs rounded-lg placeholder:text-muted-foreground/60 disabled:bg-muted/40 disabled:cursor-not-allowed"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="fp-address" className="text-xs font-semibold">
-                Văn phòng / Khu vực làm việc
-              </Label>
-              <Input
-                id="fp-address"
-                value={address}
-                disabled={!isEditing}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Khu II, Đại học Cần Thơ"
-                className="h-10 text-xs rounded-lg placeholder:text-muted-foreground/60 disabled:bg-muted/40 disabled:cursor-not-allowed"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* ================= CARD 4: MÔ TẢ HOẠT ĐỘNG (md:col-span-2) ================= */}
-        <div className="md:col-span-2 p-6 rounded-2xl bg-white dark:bg-card border border-border space-y-5 shadow-2xs">
-          <div className="border-b border-border pb-3 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" />
-                <span>Giới thiệu & Mô tả hoạt động</span>
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Hiển thị trên phần giới thiệu trang chi tiết fanpage
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
+                <ImagePlus className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </>
+          ) : undefined
+        }
+        descriptionControl={
+          editing ? (
             <Textarea
               id="fp-desc"
               rows={4}
-              value={description}
-              disabled={!isEditing}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Giới thiệu về mục tiêu, các sự kiện tiêu biểu và tôn chỉ hoạt động của fanpage..."
-              className="text-xs rounded-lg placeholder:text-muted-foreground/60 leading-relaxed resize-y disabled:bg-muted/40 disabled:cursor-not-allowed"
+              disabled={busy}
+              value={draft.description}
+              onChange={(e) => setDraft((old) => ({ ...old, description: e.target.value }))}
+              placeholder="Giới thiệu về fanpage..."
+              className="resize-y text-sm leading-relaxed"
             />
-          </div>
-        </div>
-
-      </div>
+          ) : undefined
+        }
+        emailControl={
+          editing ? (
+            <Input
+              id="fp-email"
+              type="email"
+              disabled={busy}
+              value={draft.email}
+              onChange={(e) => setDraft((old) => ({ ...old, email: e.target.value }))}
+              placeholder="contact@ctu.edu.vn"
+              autoComplete="email"
+            />
+          ) : undefined
+        }
+        phoneControl={
+          editing ? (
+            <Input
+              id="fp-phone"
+              type="tel"
+              disabled={busy}
+              value={draft.phone}
+              onChange={(e) => setDraft((old) => ({ ...old, phone: e.target.value }))}
+              placeholder="0912 345 678"
+              autoComplete="tel"
+            />
+          ) : undefined
+        }
+      />
     </form>
   )
 }

@@ -40,6 +40,8 @@ test-results/
 # Project internal & AI docs
 .codegraph/
 docs/superpowers/
+artifacts/
+sv5t-mobile-review.*
 
 # Editor directories and files
 .vscode/*

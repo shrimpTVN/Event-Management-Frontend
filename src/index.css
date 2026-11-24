@@ -74,29 +74,29 @@
   }
 
   .dark {
-    --background: 216 55% 10%;
-    --foreground: 210 20% 98%;
+    --background: 210 4% 10%;
+    --foreground: 223 15% 91%;
 
-    --card: 216 48% 14%;
-    --card-foreground: 210 20% 98%;
+    --card: 210 3% 15%;
+    --card-foreground: 223 15% 91%;
 
-    --popover: 216 48% 14%;
-    --popover-foreground: 210 20% 98%;
+    --popover: 210 3% 15%;
+    --popover-foreground: 223 15% 91%;
 
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 56% 20%;
-    --secondary-foreground: 210 20% 98%;
+    --secondary: 210 2% 23%;
+    --secondary-foreground: 223 15% 91%;
 
-    --brand-subtle: 215 56% 20%;
-    --brand-subtle-foreground: 210 20% 98%;
+    --brand-subtle: 214 24% 22%;
+    --brand-subtle-foreground: 213 94% 76%;
 
-    --muted: 215 28% 17%;
-    --muted-foreground: 218 11% 65%;
+    --muted: 240 1% 19%;
+    --muted-foreground: 218 5% 71%;
 
-    --accent: 215 56% 20%;
-    --accent-foreground: 210 20% 98%;
+    --accent: 210 2% 23%;
+    --accent-foreground: 223 15% 91%;
 
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
@@ -106,8 +106,8 @@
     --destructive-foreground: 0 0% 100%;
     --destructive-subtle: 0 63% 20%;
 
-    --border: 215 28% 17%;
-    --input: 215 28% 17%;
+    --border: 210 3% 25%;
+    --input: 210 3% 25%;
     --ring: 217 91% 60%;
   }
 }
@@ -139,6 +139,16 @@
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--muted-foreground) / 0.2) transparent;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .custom-scrollbar::-webkit-scrollbar {

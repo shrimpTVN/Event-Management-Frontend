@@ -20,7 +20,7 @@
 }
 
 .achievement-accordion .achievement-accordion__trigger {
-  color: var(--achievement-accent);
+  color: hsl(var(--foreground));
   background: hsl(var(--background));
   transition:
     color 240ms ease,
@@ -37,7 +37,7 @@
 }
 
 .achievement-accordion[data-completed='true'] .achievement-accordion__trigger {
-  color: var(--achievement-accent);
+  color: hsl(var(--foreground));
   background: hsl(var(--background));
 }
 
@@ -66,6 +66,30 @@
 .achievement-accordion[data-completed='true'] .achievement-accordion__heading {
   background: hsl(var(--background));
   box-shadow: 12px 0 16px 8px hsl(var(--background));
+}
+
+/* The desktop title backing must hug its text, leaving room for the right-hand wash. */
+@media (min-width: 768px) {
+  /* Header, criterion rows and section totals share exactly the same column tracks. */
+  .training-points-columns {
+    display: grid;
+    grid-template-columns: 80px minmax(280px, 1fr) 96px 112px 112px 144px;
+  }
+  .training-points-columns > div {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+  .training-points-column-heading {
+    border-inline: 1px solid transparent;
+  }
+  .student-score-footer.training-points-columns > div:first-child {
+    grid-column: span 2;
+  }
+  .achievement-accordion .achievement-accordion__heading {
+    flex: 0 1 auto;
+    max-width: calc(100% - 4rem);
+  }
 }
 
 .achievement-accordion__chevron {
@@ -138,6 +162,20 @@
   }
   100% {
     transform: scale(1);
+  }
+}
+
+@media (max-width: 767px) {
+  .achievement-accordion[data-completed='true'] .achievement-accordion__trigger::before,
+  .achievement-accordion[data-completed='true'] .achievement-accordion__trigger::after {
+    display: none;
+  }
+  .achievement-accordion[data-completed='true'] .achievement-accordion__heading {
+    background: transparent;
+    box-shadow: none;
+  }
+  .achievement-accordion[data-completed='true'] .achievement-accordion__completed {
+    color: var(--achievement-success);
   }
 }
 

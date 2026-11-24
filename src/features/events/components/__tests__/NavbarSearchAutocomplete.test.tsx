@@ -65,10 +65,10 @@ describe('NavbarSearchAutocomplete', () => {
     expect(screen.queryByLabelText('Mở bộ lọc nâng cao')).not.toBeInTheDocument()
   })
 
-  it('renders search input and filter button', () => {
+  it('renders search without a filter button on the events page', () => {
     renderComponent()
     expect(screen.getByPlaceholderText('Tìm kiếm sự kiện...')).toBeInTheDocument()
-    expect(screen.getByLabelText('Mở bộ lọc nâng cao')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Mở bộ lọc nâng cao')).not.toBeInTheDocument()
   })
 
   it('types text, fetches suggestions, and displays dropdown', async () => {
@@ -124,16 +124,9 @@ describe('NavbarSearchAutocomplete', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/search?keyword=Workshop')
   })
 
-  it('opens filter popup dropping from top when clicking filter button', async () => {
-    renderComponent()
-    const filterBtn = screen.getByLabelText('Mở bộ lọc nâng cao')
-    fireEvent.click(filterBtn)
-
-    await waitFor(() => {
-      expect(screen.getByText('Bộ lọc sự kiện')).toBeInTheDocument()
-      expect(screen.getByText('Học kỳ')).toBeInTheDocument()
-      expect(screen.getByText('Loại hình sự kiện')).toBeInTheDocument()
-      expect(screen.getByText('Đơn vị tổ chức (Fanpage)')).toBeInTheDocument()
-    })
+  it.each(['/saved', '/notifications', '/history', '/profile', '/fanpage/1'])('omits the header filter on %s', (path) => {
+    renderComponent(path)
+    expect(screen.queryByLabelText('Mở bộ lọc nâng cao')).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Tìm kiếm sự kiện' })).toBeInTheDocument()
   })
 })

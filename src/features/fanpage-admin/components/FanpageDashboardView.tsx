@@ -1,3 +1,10 @@
+import {
+  getAcademicYearDashboard,
+  getSemesterDashboard,
+  monthsBetween,
+} from '../services/academicStatistics'
+import { FanpageAbsencePanel } from './FanpageAbsencePanel'
+import { trainingPointsService } from '@/features/training-points'
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { EChartsOption } from 'echarts'
@@ -12,11 +19,11 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EChartsReact } from '@/components/ui/EChartsReact'
+import { toEChartsHsl } from '@/components/ui/echartsColors'
+import { useAuthStore } from '@/features/auth/store/authStore'
+import styles from './FanpageDashboardView.module.css'
 import type { FanpageSummary } from '../types/fanpageAdmin.types'
-import {
-  fanpageStatisticsService,
-  type FanpageDashboardData,
-} from '../services/fanpageStatisticsService'
+import { type FanpageDashboardData } from '../services/fanpageStatisticsService'
 
 interface FanpageDashboardViewProps {
   currentFanpage: FanpageSummary
@@ -38,15 +45,18 @@ function Panel({
   scope,
   children,
   className = '',
+  delay = 0,
 }: {
   title: string
   scope: string
   children: ReactNode
   className?: string
+  delay?: number
 }) {
   return (
     <section
-      className={`flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-background p-4 sm:p-6 ${className}`}
+      className={`flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-background p-4 sm:p-6 ${styles.enter} ${className}`}
+      style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-k2d text-lg font-semibold text-foreground">{title}</h2>
@@ -62,7 +72,14 @@ const Empty = () => (
   </p>
 )
 
-function exportReport(data: FanpageDashboardData, year: number, fanpageId: string) {
+function exportReport(
+  data: FanpageDashboardData,
+  year: string,
+  fanpageId: string,
+  semesterId: string,
+  semesterNumber?: number
+) {
+  const scope = `Năm học ${year} · ${semesterId === 'ALL' ? 'Tất cả học kỳ' : `Học kỳ ${semesterNumber}`}`
   const rows: (string | number)[][] = [
     ['Phạm vi', 'Chỉ số', 'Giá trị'],
     ['Toàn thời gian', 'Tổng sự kiện', data.overview.totalEvents],
@@ -72,7 +89,7 @@ function exportReport(data: FanpageDashboardData, year: number, fanpageId: strin
       ? []
       : [['Hiện tại', 'Người theo dõi', data.overview.totalFollowers]]),
     [],
-    ['Tháng', 'Sự kiện', 'Đăng ký', 'Điểm danh'],
+    [`Tháng (${scope})`, 'Sự kiện', 'Đăng ký', 'Điểm danh'],
     ...data.monthlyTrends.map((item) => [
       item.month,
       item.eventsCount,
@@ -91,7 +108,7 @@ function exportReport(data: FanpageDashboardData, year: number, fanpageId: strin
       item.attendanceRate,
     ]),
     [],
-    [`Cơ cấu sinh viên năm ${year}`, 'Nhóm', 'Sinh viên', 'Tỷ lệ (%)'],
+    [`Cơ cấu sinh viên (${scope})`, 'Nhóm', 'Sinh viên', 'Tỷ lệ (%)'],
     ...(['cohorts', 'schools', 'majors'] as const).flatMap((key, index) =>
       data.demographics[key].map((item) => [
         ['Khóa', 'Khoa / Trường', 'Ngành'][index],
@@ -115,7 +132,7 @@ function exportReport(data: FanpageDashboardData, year: number, fanpageId: strin
   const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }))
   const anchor = document.createElement('a')
   anchor.href = url
-  anchor.download = `thong-ke-fanpage-${fanpageId}-${year}.csv`
+  anchor.download = `thong-ke-fanpage-${fanpageId}-${year}${semesterId !== 'ALL' ? `-hk-${semesterId}` : ''}.csv`
   anchor.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
@@ -125,8 +142,64 @@ export function FanpageDashboardView({
   onCreateEventClick,
   onEventClick,
 }: FanpageDashboardViewProps) {
-  const currentYear = new Date().getFullYear()
-  const [year, setYear] = useState(currentYear)
+  const userName = useAuthStore((state) => state.user?.name?.trim())
+  const [academicYearId, setAcademicYearId] = useState('')
+  const [requestedSemesterId, setSemesterId] = useState('')
+  const academicYearsQuery = useQuery({
+    queryKey: ['academic-years'],
+    queryFn: () => trainingPointsService.getAcademicYears(),
+    retry: false,
+  })
+  const semestersQuery = useQuery({
+    queryKey: ['semesters'],
+    queryFn: () => trainingPointsService.getSemesters(),
+    retry: false,
+  })
+  const academicYears = [...(academicYearsQuery.data ?? [])].sort((a, b) =>
+    b.code.localeCompare(a.code)
+  )
+  const today = new Date().toISOString().slice(0, 10)
+  const selectedAcademicYear =
+    academicYears.find((item) => String(item.id) === academicYearId) ??
+    academicYears.find((item) => item.isActive) ??
+    academicYears.find(
+      (item) => item.startDate && item.endDate && item.startDate <= today && item.endDate >= today
+    ) ??
+    academicYears[0]
+  const availableSemesters = (semestersQuery.data ?? [])
+    .filter((item) =>
+      item.academicYearId != null
+        ? item.academicYearId === selectedAcademicYear?.id
+        : item.academicYear?.replace(/\s/g, '') === selectedAcademicYear?.code.replace(/\s/g, '')
+    )
+    .sort((a, b) => a.number - b.number)
+  const allSemesters = requestedSemesterId === 'ALL'
+  const selectedSemester = allSemesters
+    ? undefined
+    : (availableSemesters.find((item) => String(item.id) === requestedSemesterId) ??
+      availableSemesters[0])
+  const semesterId = allSemesters ? 'ALL' : selectedSemester ? String(selectedSemester.id) : ''
+  const year = selectedAcademicYear?.code.replace(/\s*[-–]\s*/g, ' - ') ?? ''
+  const periodStart = allSemesters
+    ? (selectedAcademicYear?.startDate ??
+      availableSemesters
+        .map((item) => item.startDate)
+        .filter((value): value is string => Boolean(value))
+        .sort()[0])
+    : selectedSemester?.startDate
+  const periodEnd = allSemesters
+    ? (selectedAcademicYear?.endDate ??
+      availableSemesters
+        .map((item) => item.endDate)
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1))
+    : selectedSemester?.endDate
+  const semesterMonths = useMemo(
+    () => monthsBetween(periodStart, periodEnd),
+    [periodStart, periodEnd]
+  )
+  const periodLabel = `Năm học ${year} · ${allSemesters ? 'Tất cả học kỳ' : `Học kỳ ${selectedSemester?.number ?? ''}`}`
   const [group, setGroup] = useState<'cohorts' | 'schools' | 'majors'>('cohorts')
   const dark = useSyncExternalStore(
     subscribeTheme,
@@ -135,59 +208,72 @@ export function FanpageDashboardView({
   )
   const colors = useMemo(() => {
     const css = getComputedStyle(document.documentElement)
-    const token = (name: string) => `hsl(${css.getPropertyValue(name).trim()})`
+    const token = (name: string, fallback: string) =>
+      toEChartsHsl(css.getPropertyValue(name), fallback)
     return {
-      primary: token('--primary'),
-      text: token('--foreground'),
-      muted: token('--muted-foreground'),
-      border: token('--border'),
-      background: token('--background'),
+      primary: token('--primary', '#1B4B8A'),
+      text: token('--foreground', '#0B1626'),
+      muted: token('--muted-foreground', '#5B6675'),
+      border: token('--border', '#E5E7EB'),
+      background: token('--background', '#FFFFFF'),
       secondary: dark ? '#93C5FD' : '#60A5FA',
     }
   }, [dark])
   const query = useQuery({
-    queryKey: ['fanpage-statistics-dashboard', currentFanpage.id, year],
-    queryFn: () => fanpageStatisticsService.getDashboard(currentFanpage.id, year),
-    enabled: Boolean(currentFanpage.id),
+    queryKey: [
+      'fanpage-statistics-dashboard',
+      currentFanpage.id,
+      selectedAcademicYear?.id,
+      semesterId,
+      periodStart,
+      periodEnd,
+      availableSemesters.map((item) => `${item.id}:${item.startDate}:${item.endDate}`).join(','),
+    ],
+    queryFn: () =>
+      allSemesters
+        ? getAcademicYearDashboard(currentFanpage.id, availableSemesters, semesterMonths)
+        : getSemesterDashboard(currentFanpage.id, semesterId, semesterMonths),
+    enabled: Boolean(currentFanpage.id && semesterId && semesterMonths.length),
     staleTime: 60_000,
     retry: false,
   })
   const data = query.data
-  const months = useMemo(
-    () =>
-      Array.from({ length: 12 }, (_, index) => {
-        const month = `${year}-${String(index + 1).padStart(2, '0')}`
-        return (
-          data?.monthlyTrends.find((item) => item.month === month) ?? {
-            month,
-            eventsCount: 0,
-            registrationsCount: 0,
-            attendeesCount: 0,
-          }
-        )
-      }),
-    [data, year]
-  )
+  const months = data?.monthlyTrends ?? []
   const trendsOption = useMemo<EChartsOption>(
     () => ({
+      animation: true,
+      animationDuration: 1000,
+      animationEasing: 'cubicOut',
+      animationDelay: (index) => 220 + index * 40,
+      animationDurationUpdate: 500,
       textStyle: { fontFamily: 'Readex Pro, sans-serif', color: colors.text },
       color: [colors.primary, colors.secondary],
       aria: { enabled: true },
       tooltip: {
         trigger: 'axis',
         renderMode: 'richText',
+        confine: true,
+        position: (point, _params, _dom, _rect, size) => {
+          const [width, height] = size.contentSize
+          const x = point[0] > size.viewSize[0] / 2 ? point[0] - width - 48 : point[0] + 48
+          return [
+            Math.max(8, Math.min(x, size.viewSize[0] - width - 8)),
+            Math.max(8, point[1] - height - 12),
+          ]
+        },
         backgroundColor: colors.background,
         borderColor: colors.border,
         textStyle: { color: colors.text, fontFamily: 'Readex Pro' },
       },
       legend: {
+        selectedMode: false,
         bottom: 0,
         textStyle: { color: colors.muted, fontFamily: 'Readex Pro', fontSize: 12 },
       },
       grid: { left: 8, right: 12, top: 16, bottom: 48, containLabel: true },
       xAxis: {
         type: 'category',
-        data: months.map((_, i) => `Th.${i + 1}`),
+        data: months.map((item) => `Th.${Number(item.month.slice(-2))}/${item.month.slice(0, 4)}`),
         axisTick: { show: false },
         axisLine: { lineStyle: { color: colors.border } },
         axisLabel: { color: colors.muted, fontSize: 12, hideOverlap: true },
@@ -202,6 +288,9 @@ export function FanpageDashboardView({
         {
           name: 'Đăng ký',
           type: 'bar',
+          legendHoverLink: false,
+          emphasis: { focus: 'none', itemStyle: { opacity: 1 } },
+          blur: { itemStyle: { opacity: 1 } },
           barMaxWidth: 24,
           itemStyle: { borderRadius: [4, 4, 0, 0] },
           data: months.map((item) => item.registrationsCount),
@@ -209,6 +298,9 @@ export function FanpageDashboardView({
         {
           name: 'Điểm danh',
           type: 'bar',
+          legendHoverLink: false,
+          emphasis: { focus: 'none', itemStyle: { opacity: 1 } },
+          blur: { itemStyle: { opacity: 1 } },
           barMaxWidth: 24,
           itemStyle: { borderRadius: [4, 4, 0, 0] },
           data: months.map((item) => item.attendeesCount),
@@ -217,9 +309,59 @@ export function FanpageDashboardView({
     }),
     [colors, months]
   )
+  const distributionColors = useMemo(
+    () => [colors.primary, colors.secondary, '#22C55E', '#F59E0B', '#A78BFA', '#14B8A6'],
+    [colors]
+  )
+  const distributionOption = useMemo<EChartsOption>(
+    () => ({
+      animation: true,
+      animationDuration: 1200,
+      animationEasing: 'cubicOut',
+      animationDelay: 280,
+      animationDurationUpdate: 500,
+      color: distributionColors,
+      textStyle: { fontFamily: 'Readex Pro, sans-serif', color: colors.text },
+      aria: { enabled: true },
+      tooltip: {
+        trigger: 'item',
+        renderMode: 'richText',
+        confine: true,
+        formatter: '{b}\n{c} sự kiện ({d}%)',
+        backgroundColor: colors.background,
+        borderColor: colors.border,
+        textStyle: { color: colors.text, fontFamily: 'Readex Pro' },
+      },
+      series: [
+        {
+          name: 'Loại sự kiện',
+          type: 'pie',
+          animationType: 'expansion',
+          radius: ['48%', '72%'],
+          center: ['50%', '50%'],
+          selectedMode: false,
+          percentPrecision: 1,
+          label: { show: false },
+          labelLine: { show: false },
+          itemStyle: { borderColor: colors.background, borderWidth: 2, borderRadius: 4 },
+          emphasis: { scale: false, focus: 'none' },
+          data: (data?.eventDistribution || []).map((item) => ({
+            name: item.eventTypeName,
+            value: item.eventCount,
+          })),
+        },
+      ],
+    }),
+    [colors, distributionColors, data?.eventDistribution]
+  )
   const demographics = data?.demographics[group] ?? []
   const demographicOption = useMemo<EChartsOption>(
     () => ({
+      animation: true,
+      animationDuration: 900,
+      animationEasing: 'cubicOut',
+      animationDelay: (index) => 220 + Math.min(index, 12) * 45,
+      animationDurationUpdate: 500,
       textStyle: { fontFamily: 'Readex Pro, sans-serif' },
       aria: { enabled: true },
       tooltip: {
@@ -260,17 +402,57 @@ export function FanpageDashboardView({
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-6 text-left font-sans">
-      <header className="flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
+      <header
+        className={`flex flex-col justify-between gap-4 xl:flex-row xl:items-center ${styles.enter}`}
+      >
         <div className="flex min-w-0 flex-col gap-1">
+          <p className="text-sm font-medium text-primary">
+            {userName ? `Xin chào, ${userName}!` : 'Xin chào!'}
+          </p>
           <h1 className="font-k2d text-2xl font-bold text-foreground md:text-3xl">
             Thống kê fanpage
           </h1>
           <p className="truncate text-sm text-muted-foreground">{currentFanpage.name}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={String(selectedAcademicYear?.id ?? '')}
+            onValueChange={(value) => {
+              setAcademicYearId(value)
+              setSemesterId('')
+            }}
+          >
+            <SelectTrigger aria-label="Năm học phân tích" className="h-10 w-36 min-w-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {academicYears.map((item) => (
+                <SelectItem key={item.id} value={String(item.id)}>
+                  {item.code.replace(/\s*[-–]\s*/g, ' - ')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={semesterId} onValueChange={setSemesterId}>
+            <SelectTrigger aria-label="Học kỳ phân tích" className="h-10 w-40 min-w-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tất cả học kỳ</SelectItem>
+              {availableSemesters.map((item) => (
+                <SelectItem key={item.id} value={String(item.id)}>
+                  Học kỳ {item.number}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Button
             variant="outline"
-            onClick={() => data && exportReport(data, year, currentFanpage.id)}
+            onClick={() =>
+              data &&
+              exportReport(data, year, currentFanpage.id, semesterId, selectedSemester?.number)
+            }
             disabled={!data || query.isError || query.isFetching}
             className="gap-2"
           >
@@ -288,7 +470,23 @@ export function FanpageDashboardView({
           )}
         </div>
       </header>
-      {query.isPending ? (
+
+      {academicYearsQuery.isError || semestersQuery.isError ? (
+        <div role="alert" className="flex items-center gap-3">
+          <p>Không tải được năm học và học kỳ.</p>
+          <Button
+            variant="outline"
+            onClick={() => {
+              void academicYearsQuery.refetch()
+              void semestersQuery.refetch()
+            }}
+          >
+            Thử lại
+          </Button>
+        </div>
+      ) : !academicYearsQuery.isPending && !semestersQuery.isPending && !semesterMonths.length ? (
+        <p role="status">Chưa có học kỳ với ngày bắt đầu/kết thúc hợp lệ để thống kê.</p>
+      ) : query.isPending ? (
         <div role="status" aria-label="Đang tải thống kê" className="flex flex-col gap-6">
           <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
             {[0, 1, 2, 3].map((key) => (
@@ -343,10 +541,11 @@ export function FanpageDashboardView({
                     : number(data.overview.totalFollowers),
                 scope: 'Hiện tại',
               },
-            ].map((item) => (
+            ].map((item, index) => (
               <div
                 key={item.title}
-                className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-5"
+                className={`flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-5 ${styles.enter}`}
+                style={{ animationDelay: `${index * 60}ms` }}
               >
                 <p className="text-sm text-muted-foreground">{item.title}</p>
                 <p className="font-k2d text-2xl font-bold tabular-nums text-foreground sm:text-3xl">
@@ -356,53 +555,55 @@ export function FanpageDashboardView({
               </div>
             ))}
           </div>
-          <Panel title="Đăng ký và điểm danh" scope={`Năm ${year}`}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">Theo tháng diễn ra sự kiện</p>
-              <Select value={String(year)} onValueChange={(value) => setYear(Number(value))}>
-                <SelectTrigger aria-label="Năm phân tích" className="h-10 w-36">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 10 }, (_, i) => currentYear - i).map((value) => (
-                    <SelectItem key={value} value={String(value)}>
-                      Năm {value}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {data.monthlyTrends.some((item) => item.eventsCount > 0) ? (
-              <EChartsReact option={trendsOption} style={{ height: 300, width: '100%' }} />
+          <Panel title="Đăng ký và điểm danh" scope={periodLabel} delay={180}>
+            <p className="text-sm text-muted-foreground">Theo tháng diễn ra sự kiện</p>
+            {months.some((item) => item.eventsCount > 0) ? (
+              <EChartsReact
+                animateOnView
+                option={trendsOption}
+                style={{ height: 300, width: '100%' }}
+              />
             ) : (
               <Empty />
             )}
           </Panel>
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-            <Panel title="Loại sự kiện" scope="Toàn thời gian">
-              {data.eventDistribution.length ? (
-                <ul className="flex flex-col gap-4">
-                  {data.eventDistribution.map((item) => (
-                    <li key={item.eventTypeName} className="flex flex-col gap-2">
-                      <div className="flex justify-between gap-3 text-sm">
-                        <span className="min-w-0 break-words text-foreground">
-                          {item.eventTypeName}
-                        </span>
-                        <span className="shrink-0 tabular-nums text-muted-foreground">
-                          {number(item.eventCount)}
-                        </span>
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-primary"
-                          style={{
-                            width: `${data.overview.totalEvents ? (item.eventCount / data.overview.totalEvents) * 100 : 0}%`,
-                          }}
-                        />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+            <Panel title="Loại sự kiện" scope="Toàn thời gian" delay={240}>
+              {data.eventDistribution.some((item) => item.eventCount > 0) ? (
+                <figure className="m-0 flex min-w-0 flex-col gap-3">
+                  <EChartsReact
+                    option={distributionOption}
+                    animateOnView
+                    style={{ height: 240, width: '100%' }}
+                  />
+                  <figcaption>
+                    <ul className="flex flex-col gap-3">
+                      {data.eventDistribution.map((item, index) => (
+                        <li
+                          key={item.eventTypeName}
+                          className="flex items-start justify-between gap-3 text-sm"
+                        >
+                          <span className="flex min-w-0 items-start gap-2">
+                            <span
+                              className="mt-1 h-3 w-3 shrink-0 rounded-sm"
+                              style={{
+                                backgroundColor:
+                                  distributionColors[index % distributionColors.length],
+                              }}
+                              aria-hidden="true"
+                            />
+                            <span className="break-words text-foreground">
+                              {item.eventTypeName}
+                            </span>
+                          </span>
+                          <span className="shrink-0 tabular-nums text-muted-foreground">
+                            {number(item.eventCount)} · {percent(item.percentage)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </figcaption>
+                </figure>
               ) : (
                 <Empty />
               )}
@@ -411,6 +612,7 @@ export function FanpageDashboardView({
               title="Sự kiện có nhiều lượt điểm danh"
               scope="Toàn thời gian"
               className="xl:col-span-2"
+              delay={300}
             >
               {data.topEvents.length ? (
                 <div className="overflow-x-auto">
@@ -467,31 +669,41 @@ export function FanpageDashboardView({
           </div>
           <Panel
             title="Cơ cấu sinh viên đăng ký"
-            scope={`Năm ${year} · Không trùng sinh viên trong từng nhóm`}
+            scope={
+              allSemesters ? periodLabel : `${periodLabel} · Không trùng sinh viên trong từng nhóm`
+            }
+            delay={360}
           >
-            <div role="group" aria-label="Phân nhóm sinh viên" className="flex flex-wrap gap-2">
-              {(
-                [
-                  ['cohorts', 'Khóa'],
-                  ['schools', 'Khoa / Trường'],
-                  ['majors', 'Ngành'],
-                ] as const
-              ).map(([key, label]) => (
-                <Button
-                  key={key}
-                  size="sm"
-                  variant={group === key ? 'secondary' : 'ghost'}
-                  aria-pressed={group === key}
-                  onClick={() => setGroup(key)}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-            {demographics.length ? (
+            {!allSemesters && (
+              <div role="group" aria-label="Phân nhóm sinh viên" className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ['cohorts', 'Khóa'],
+                    ['schools', 'Khoa / Trường'],
+                    ['majors', 'Ngành'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <Button
+                    key={key}
+                    size="sm"
+                    variant={group === key ? 'secondary' : 'ghost'}
+                    aria-pressed={group === key}
+                    onClick={() => setGroup(key)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            )}
+            {allSemesters ? (
+              <p className="text-sm text-muted-foreground">
+                Chọn một học kỳ để xem cơ cấu sinh viên không trùng lặp.
+              </p>
+            ) : demographics.length ? (
               <div className="max-h-[480px] overflow-y-auto">
                 <EChartsReact
                   option={demographicOption}
+                  animateOnView
                   style={{ height: Math.max(220, demographics.length * 40 + 48), width: '100%' }}
                 />
               </div>
@@ -499,6 +711,16 @@ export function FanpageDashboardView({
               <Empty />
             )}
           </Panel>
+          <FanpageAbsencePanel
+            key={`${currentFanpage.id}-${year}-${semesterId}`}
+            fanpageId={currentFanpage.id}
+            fanpageName={currentFanpage.name}
+            year={Number(semesterMonths[0]?.slice(0, 4))}
+            semesterId={allSemesters ? undefined : semesterId}
+            academicSemesters={allSemesters ? availableSemesters : undefined}
+            periodMonths={semesterMonths}
+            periodLabel={periodLabel}
+          />
         </>
       )}
     </div>

@@ -1,6 +1,7 @@
 export type NotificationStatus = 'UNREAD' | 'READ' | 'ARCHIVED'
 
 export interface NotificationItem {
+  type?: string
   id: number | string
   title: string
   message: string
@@ -25,4 +26,3 @@ export interface NotificationPageResponse {
   first: boolean
   empty: boolean
 }
-

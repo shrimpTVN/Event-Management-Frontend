@@ -59,6 +59,7 @@ describe('NotificationDropdown', () => {
         id: 1,
         fanpageId: 10,
         fanpageName: 'Đoàn Trường CNTT & TT',
+        inviterName: 'Nguyễn Minh Anh',
         userFirstName: 'Minh Anh',
         userLastName: 'Nguyễn',
         status: 'PENDING',

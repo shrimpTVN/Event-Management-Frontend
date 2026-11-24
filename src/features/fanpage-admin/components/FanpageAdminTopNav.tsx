@@ -1,10 +1,11 @@
+import { Building2 as FanpageIcon } from 'lucide-react'
 import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Search, Plus, Menu, X, MessageSquare, Bell } from 'lucide-react'
+import { Plus, Menu, X, MessageSquare, Bell } from 'lucide-react'
 import logoSvg from '@/assets/logo.svg'
-import { useAuthStore, isStaffUser } from '@/features/auth'
+import { useAuthStore, isStaffUser, getAccountHomePath } from '@/features/auth'
 import { useFanpageUnreadNotificationCount } from '@/features/notifications'
 import { AccountNavigationPopup } from '@/shared/components/layout/AccountNavigationPopup'
 import { FanpageNotificationDropdown } from './FanpageNotificationDropdown'
@@ -33,14 +34,12 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
   currentFanpageAvatarUrl,
   availableFanpages,
   onSelectFanpage,
-  onLogoClick,
   onCreateEventClick,
   onPersonalProfileClick,
 }) => {
   const { user, clearAuth } = useAuthStore()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [searchQuery, setSearchQuery] = useState('')
   const [showAccountPopup, setShowAccountPopup] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
 
@@ -64,15 +63,8 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
     navigate('/login')
   }
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      navigate(`/events?search=${encodeURIComponent(searchQuery.trim())}`)
-    }
-  }
-
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <header className="sticky top-0 z-50 w-full border-b border-[#E5E7EB] dark:border-border bg-white/95 dark:bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-card/80">
       <div className="w-full flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* 1. Left: Mobile Sidebar Toggle & CTU Brand Logo */}
         <div className="flex items-center gap-3 shrink-0">
@@ -85,55 +77,21 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
             {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          {onLogoClick ? (
-            <Tooltip content="Về trang quản trị Fanpage hiện tại">
-              <button
-                type="button"
-                onClick={onLogoClick}
-                className="flex items-center shrink-0 group transition-transform hover:opacity-95 cursor-pointer bg-transparent border-none p-0 text-left"
-              >
-                <img
-                  src={logoSvg}
-                  alt="CTU Event - HTQL Sự Kiện"
-                  className="h-10 w-auto object-contain"
-                />
-              </button>
-            </Tooltip>
-          ) : (
-            <Tooltip content="Trang Fanpage">
-              <Link
-                to={homePath}
-                state={currentFanpageId ? { fanpageId: currentFanpageId } : undefined}
-                className="flex items-center shrink-0 group transition-transform hover:opacity-95"
-              >
-                <img
-                  src={logoSvg}
-                  alt="CTU Event - HTQL Sự Kiện"
-                  className="h-10 w-auto object-contain"
-                />
-              </Link>
-            </Tooltip>
-          )}
+          <Tooltip content={isStaffUser(user) ? 'Về danh sách fanpage' : 'Về trang chủ'}>
+            <Link
+              to={getAccountHomePath(user)}
+              className="flex items-center shrink-0 group transition-transform hover:opacity-95 cursor-pointer"
+            >
+              <img
+                src={logoSvg}
+                alt="CTU Event - HTQL Sự Kiện"
+                className="h-10 w-auto object-contain"
+              />
+            </Link>
+          </Tooltip>
         </div>
 
-        {/* 2. Center: Search Bar with Integrated Filter Funnel (Student style) */}
-        <form
-          onSubmit={handleSearchSubmit}
-          className="hidden md:flex flex-1 max-w-xl mx-8 relative items-center"
-        >
-          <div className="relative w-full flex items-center">
-            <Search className="absolute left-3.5 h-4 w-4 text-[#9CA3AF] pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm sự kiện, hoạt động..."
-              className="w-full h-10 rounded-xl border border-[#E5E7EB] dark:border-border bg-[#F9FAFB] dark:bg-background pl-10 pr-4 text-sm text-[#374151] dark:text-foreground placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-sans"
-            />
-          </div>
-        </form>
-
-        {/* 3. Right: Create Event Action, Messages, Notifications, & User Avatar */}
+        {/* 2. Right: Create Event Action, Messages, Notifications, & User Avatar */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Quick Create Event CTA Button */}
           <button
@@ -230,7 +188,7 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
                     />
                   ) : currentFanpageName ? (
                     <div className="absolute -bottom-1 -right-1 w-[18px] h-[18px] min-w-[18px] max-w-[18px] min-h-[18px] max-h-[18px] rounded-full bg-slate-700 text-white text-[8px] font-bold flex items-center justify-center border-2 border-white dark:border-card shadow-xs">
-                      {currentFanpageName.slice(0, 1).toUpperCase()}
+                      <FanpageIcon className="h-2.5 w-2.5" aria-hidden="true" />
                     </div>
                   ) : null}
                 </button>

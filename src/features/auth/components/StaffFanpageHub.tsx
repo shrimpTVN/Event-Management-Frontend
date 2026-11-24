@@ -1,4 +1,5 @@
-import { Tooltip } from '@/components/ui/tooltip'
+import { Building2 as FanpageIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -58,7 +59,6 @@ function getFanpageRoleBadge(role?: string) {
 
 interface FanpageInvitation {
   id: string
-  code: string
   name: string
   inviter: string
   role?: string
@@ -68,7 +68,6 @@ interface FanpageInvitation {
 
 interface JoinedFanpage {
   id: string
-  code: string
   name: string
   orgName?: string
   role?: string
@@ -85,8 +84,8 @@ export const StaffFanpageHub: React.FC = () => {
 
   // Fetch real profile from backend to ensure avatar is loaded
   const { data: staffProfile } = useQuery({
-    queryKey: ['profile', 'me'],
-    queryFn: () => profileService.getMyProfile(),
+    queryKey: ['profile', 'me', user?.id, 'staff'],
+    queryFn: () => profileService.getMyStaffProfile(),
     enabled: Boolean(user?.email && !user?.avatarUrl),
   })
 
@@ -128,10 +127,10 @@ export const StaffFanpageHub: React.FC = () => {
   })
 
   const { data: apiFanpages = [] } = useQuery<JoinedFanpage[]>({
-    queryKey: ['staff-my-fanpages'],
+    queryKey: ['staff-my-fanpages', user?.id],
     queryFn: async () => {
       try {
-        const res: any = await apiClient.get('/fanpages/fanpage-admin/my-fanpages')
+        const res: any = await apiClient.get('/fanpages/my-fanpages')
         const list = Array.isArray(res) ? res : res?.data || []
         return list.map((fp: any) => {
           const id = String(fp.fanpageId ?? fp.id ?? '')
@@ -139,20 +138,9 @@ export const StaffFanpageHub: React.FC = () => {
           const orgName = fp.fanpageOrgName ?? fp.orgName ?? fp.parentOrg ?? ''
           const avatarUrl = fp.fanpageAvatarUrl ?? fp.avatarUrl ?? ''
           const role = fp.role ?? fp.memberRole ?? (fp.isAdmin === false ? 'MEMBER' : 'ADMIN')
-          const code =
-            fp.code ||
-            (name.includes('CNTT')
-              ? 'CNTT'
-              : name.includes('Đoàn TN') ||
-                  name.includes('Hội SV') ||
-                  name.includes('Cần Thơ') ||
-                  name.includes('CTU')
-                ? 'ĐHCT'
-                : (name || 'FP').substring(0, 4).toUpperCase())
 
           return {
             id,
-            code,
             name,
             orgName,
             role,
@@ -196,16 +184,12 @@ export const StaffFanpageHub: React.FC = () => {
     respondMutation.mutate({ id, accept })
   }
 
-  const handleGoToFanpage = (fanpageId: string) => {
-    navigate('/fanpage/admin', { state: { fanpageId } })
-  }
-
   // Filter only pending invitations for display
   const pendingInvitations = invitations.filter((i) => i.status === 'PENDING')
 
   return (
     <div className="min-h-screen bg-[#F0F2F5] dark:bg-background py-8 px-4 sm:px-6 lg:px-8 flex flex-col justify-between">
-      <div className="max-w-[1200px] mx-auto w-full space-y-4">
+      <div className="max-w-[1040px] mx-auto w-full flex flex-col gap-4">
         {actionNotice && (
           <div className="flex items-center gap-2 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
@@ -215,73 +199,66 @@ export const StaffFanpageHub: React.FC = () => {
 
         {/* Top bar with user info & quick logout */}
         {user && (
-          <div className="flex items-center justify-between px-1 text-xs text-[#6B7280] dark:text-muted-foreground">
-            <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-between gap-3 px-1 text-xs text-[#6B7280] dark:text-muted-foreground">
+            <div className="flex items-center gap-2.5 min-w-0">
               {user.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
                   alt={user.name || 'Avatar'}
-                  className="w-7 h-7 rounded-full object-cover border border-border"
+                  className="w-7 h-7 shrink-0 rounded-full object-cover border border-border"
                 />
               ) : (
-                <div className="w-7 h-7 rounded-full bg-[#1B4B8A] text-white flex items-center justify-center font-bold text-xs">
+                <div className="w-7 h-7 shrink-0 rounded-full bg-[#1B4B8A] text-white flex items-center justify-center font-bold text-xs">
                   {(user.name || user.email || 'U').charAt(0).toUpperCase()}
                 </div>
               )}
-              <span className="font-semibold text-foreground">{user.name || user.email}</span>
+              <span className="font-semibold text-foreground truncate">
+                {user.name || user.email}
+              </span>
               {user.email && (
                 <span className="hidden sm:inline text-muted-foreground">({user.email})</span>
               )}
             </div>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#6B7280] dark:text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
+              className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-[#6B7280] dark:text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span>Đăng xuất</span>
-            </button>
+            </Button>
           </div>
         )}
 
         {/* Main Content Card */}
-        <div className="w-full bg-white dark:bg-card rounded-2xl border border-[#E5E7EB] dark:border-border p-6 sm:p-10 shadow-sm space-y-8 text-left">
+        <div className="w-full bg-white dark:bg-card rounded-xl border border-[#E5E7EB] dark:border-border p-5 sm:p-8 shadow-sm flex flex-col gap-6 text-left">
           {/* Card Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#F3F4F6] dark:border-border">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#F3F4F6] dark:border-border">
             <div>
               <h1 className="font-k2d font-bold text-2xl sm:text-3xl text-[#0B1626] dark:text-foreground tracking-tight">
-                Chọn fanpage để quản lý sự kiện
+                Chọn fanpage quản lý
               </h1>
               <p className="font-sans text-sm text-[#4B5563] dark:text-muted-foreground mt-1.5 leading-relaxed">
-                Chọn fanpage bạn muốn làm việc để vào trang quản lý sự kiện, hoặc đăng ký fanpage
-                mới.
+                Chọn fanpage để quản lý sự kiện của đơn vị bạn.
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5 self-start sm:self-center shrink-0">
+            <div className="flex items-center gap-2 self-start md:self-center shrink-0">
               <Link
                 to="/register/fanpage"
-                className="px-4 h-9 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white font-semibold text-xs transition-all shadow-xs flex items-center gap-1.5 shrink-0"
+                className="px-4 h-10 rounded-lg border border-border hover:border-primary hover:bg-primary/5 text-primary font-semibold text-sm transition-colors flex items-center gap-2 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Đăng ký fanpage mới</span>
               </Link>
-              <Tooltip content="Đăng xuất khỏi hệ thống">
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="px-3.5 h-9 rounded-lg border border-[#E5E7EB] dark:border-border hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-950/30 dark:hover:text-red-400 text-[#4B5563] dark:text-muted-foreground font-medium text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <LogOut className="h-3.5 w-3.5" />
-                  <span>Đăng xuất</span>
-                </button>
-              </Tooltip>
             </div>
           </div>
 
           {/* LỜI MỜI THAM GIA (Chỉ hiển thị khi có lời mời đang chờ - PENDING) */}
           {pendingInvitations.length > 0 && (
-            <div className="rounded-2xl border border-amber-200/90 dark:border-amber-900/50 bg-gradient-to-r from-amber-50/80 via-orange-50/40 to-transparent dark:from-amber-950/25 dark:via-orange-950/15 dark:to-transparent p-5 space-y-3.5">
+            <div className="rounded-2xl border border-amber-200/90 dark:border-amber-900/50 bg-gradient-to-r from-amber-50/80 via-orange-50/40 to-transparent dark:from-amber-950/25 dark:via-orange-950/15 dark:to-transparent p-5 flex flex-col gap-3.5">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-400">
                   <Mail className="h-4 w-4" />
@@ -291,7 +268,7 @@ export const StaffFanpageHub: React.FC = () => {
                 </h3>
               </div>
 
-              <div className="space-y-2.5">
+              <div className="flex flex-col gap-2.5">
                 {pendingInvitations.map((inv) => (
                   <div
                     key={inv.id}
@@ -306,7 +283,7 @@ export const StaffFanpageHub: React.FC = () => {
                         />
                       ) : (
                         <div className="h-11 w-11 rounded-full bg-primary text-primary-foreground font-k2d font-bold text-xs flex items-center justify-center shrink-0">
-                          {inv.code}
+                          <FanpageIcon className="h-5 w-5" aria-hidden="true" />
                         </div>
                       )}
                       <div className="min-w-0">
@@ -321,7 +298,7 @@ export const StaffFanpageHub: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                      <button
+                      <Button
                         type="button"
                         disabled={respondMutation.isPending}
                         onClick={() => handleRespondInvitation(inv.id, true)}
@@ -329,16 +306,18 @@ export const StaffFanpageHub: React.FC = () => {
                       >
                         <Check className="h-3.5 w-3.5 shrink-0" />
                         <span>Chấp nhận</span>
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
                         disabled={respondMutation.isPending}
                         onClick={() => handleRespondInvitation(inv.id, false)}
                         className="h-8 px-3 rounded-lg border border-[#D1D5DB] dark:border-border text-[#4B5563] dark:text-muted-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted active:scale-95 font-medium text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-50"
                       >
                         <X className="h-3.5 w-3.5 shrink-0" />
                         <span>Từ chối</span>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -347,16 +326,11 @@ export const StaffFanpageHub: React.FC = () => {
           )}
 
           {/* DANH SÁCH FANPAGE ĐANG QUẢN TRỊ (Dạng danh sách hàng ngang thanh lịch) */}
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-[#0B1626] dark:text-foreground">
-                Fanpage đang quản trị ({fanpagesList.length})
+              <h2 className="text-base font-semibold text-[#0B1626] dark:text-foreground">
+                Fanpage của bạn ({fanpagesList.length})
               </h2>
-              {fanpagesList.length > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  Rê chuột vào fanpage để mở trang quản lý
-                </span>
-              )}
             </div>
 
             {fanpagesList.length === 0 ? (
@@ -364,13 +338,13 @@ export const StaffFanpageHub: React.FC = () => {
                 <div className="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#1B4B8A] dark:text-primary flex items-center justify-center shadow-2xs">
                   <Building2 className="h-8 w-8 stroke-[1.75]" />
                 </div>
-                <div className="max-w-md space-y-1.5">
+                <div className="max-w-md flex flex-col gap-1.5">
                   <h3 className="font-k2d font-bold text-lg text-foreground">
                     Hiện tại bạn chưa có fanpage nào
                   </h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Tài khoản cán bộ của bạn hiện chưa tham gia hoặc sở hữu fanpage nào. Vui lòng
-                    đăng ký để tạo fanpage và bắt đầu tổ chức sự kiện nhé!
+                    Bạn hiện chưa tham gia hoặc sở hữu fanpage nào. Vui lòng đăng ký để tạo fanpage
+                    và bắt đầu tổ chức sự kiện nhé!
                   </p>
                 </div>
                 <Link
@@ -382,18 +356,24 @@ export const StaffFanpageHub: React.FC = () => {
                 </Link>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 {fanpagesList.map((fp) => {
                   const roleBadge = getFanpageRoleBadge(fp.role)
                   const RoleIcon = roleBadge.icon
 
                   return (
-                    <div
+                    <Link
                       key={fp.id}
-                      onClick={() => handleGoToFanpage(fp.id)}
-                      className="group relative p-4 rounded-xl border border-[#E5E7EB] dark:border-border bg-white dark:bg-card hover:border-[#1B4B8A] dark:hover:border-primary hover:shadow-md hover:bg-primary/[0.02] transition-all duration-200 cursor-pointer flex items-center justify-between gap-4"
+                      to={
+                        getFanpageRoleBadge(fp.role).label === 'Quản trị viên'
+                          ? '/fanpage/admin'
+                          : '/fanpage/workspace'
+                      }
+                      state={{ fanpageId: fp.id }}
+                      aria-label={`Vào quản lý ${fp.name}`}
+                      className="group relative p-4 sm:p-5 rounded-xl border border-border bg-white dark:bg-card hover:border-primary hover:bg-primary/5 transition-colors duration-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                     >
-                      <div className="flex items-center gap-4 min-w-0 flex-1">
+                      <div className="flex w-full items-center gap-4 min-w-0 flex-1">
                         {fp.avatarUrl ? (
                           <img
                             src={fp.avatarUrl}
@@ -402,12 +382,12 @@ export const StaffFanpageHub: React.FC = () => {
                           />
                         ) : (
                           <div className="h-12 w-12 rounded-full bg-slate-800 text-white font-k2d font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-[#1B4B8A] transition-colors">
-                            {fp.code}
+                            <FanpageIcon className="h-6 w-6" aria-hidden="true" />
                           </div>
                         )}
-                        <div className="min-w-0 space-y-1 flex-1">
-                          <div className="flex items-center gap-2.5 flex-wrap">
-                            <h4 className="font-semibold text-sm sm:text-base text-foreground group-hover:text-[#1B4B8A] dark:group-hover:text-primary transition-colors truncate">
+                        <div className="min-w-0 flex flex-col gap-1 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="font-semibold text-sm sm:text-base text-foreground group-hover:text-[#1B4B8A] dark:group-hover:text-primary transition-colors break-words">
                               {fp.name}
                             </h4>
                             <span
@@ -436,14 +416,13 @@ export const StaffFanpageHub: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Nút hành động hiện khi hover */}
-                      <div className="opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all duration-200 shrink-0">
-                        <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white text-xs font-semibold shadow-xs">
-                          <span>Đi tới trang này</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
+                      <div className="self-end sm:self-center shrink-0">
+                        <span className="inline-flex items-center gap-2 px-2 py-2 rounded-lg text-primary text-sm font-semibold">
+                          <span>Vào quản lý</span>
+                          <ArrowRight className="h-4 w-4" aria-hidden="true" />
                         </span>
                       </div>
-                    </div>
+                    </Link>
                   )
                 })}
               </div>
@@ -453,16 +432,19 @@ export const StaffFanpageHub: React.FC = () => {
       </div>
 
       {/* CTU Portal Footer */}
-      <div className="mt-8 text-center text-xs text-[#6B7280] dark:text-muted-foreground space-y-1">
-        <p className="font-medium text-foreground/80">
-          Đại học Cần Thơ (CTU) • Hệ thống quản lý sự kiện
-        </p>
+      <footer className="mt-8 flex flex-col gap-2 text-center text-xs leading-relaxed text-muted-foreground">
+        <p className="font-medium">Đại học Cần Thơ (CTU) • Hệ thống quản lý sự kiện</p>
         <p>
-          Quản trị hệ thống sự kiện CTU | Hotline:{' '}
-          <span className="font-medium text-foreground/80">(0292) 3832 663</span> | Email:{' '}
-          <span className="text-primary font-medium">social-admin@ctu.edu.vn</span>
+          Hỗ trợ:{' '}
+          <a href="tel:02923832663" className="hover:text-primary hover:underline">
+            (0292) 3832 663
+          </a>
+          {' · '}
+          <a href="mailto:social-admin@ctu.edu.vn" className="hover:text-primary hover:underline">
+            social-admin@ctu.edu.vn
+          </a>
         </p>
-      </div>
+      </footer>
     </div>
   )
 }

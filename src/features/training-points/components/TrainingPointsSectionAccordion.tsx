@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
 import React, { useState } from 'react'
 import { BadgeCheck, ChevronRight } from 'lucide-react'
 import '@/shared/styles/achievementAccordion.css'
@@ -10,7 +11,7 @@ import type {
   PointCategoryGroupedTree,
   StudentSemesterPointFlattenedItem,
 } from '../types/trainingPoints.types'
-import { computeCategoryScore } from '../utils/scoreCalculator'
+import { capTrainingPoints, computeCategoryScore } from '../utils/scoreCalculator'
 
 interface TrainingPointsSectionAccordionProps {
   section: PointCategoryNode | StudentSemesterPointGroupedTree | PointCategoryGroupedTree
@@ -39,6 +40,7 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
   onToggleExpand,
   aggregateScore,
 }) => {
+  const isMobile = useMediaQuery('(max-width: 767px)')
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const sectionRef = React.useRef<HTMLDivElement>(null)
   const contentId = React.useId()
@@ -47,6 +49,12 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
     const nextState = !isExpanded
     setIsExpanded(nextState)
     onToggleExpand?.(nextState)
+    if (!nextState && sectionRef.current) {
+      const rect = sectionRef.current.getBoundingClientRect()
+      if (rect.top < 60) {
+        sectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }
   }
 
   // Map of categoryId -> recorded points from events/system
@@ -206,21 +214,21 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
       beTotal !== null &&
       totalSelf === ((section as any).manualPointRecord || 0)
     ) {
-      return beTotal
+      return capTrainingPoints(beTotal, section.maximum)
     }
 
     // Nếu có children (cấu trúc cây cũ)
     if ((section as any).children && (section as any).children.length > 0) {
       const computed = computeCategoryScore(section as any, recordedMap, studentScores)
-      if (computed > 0) return computed
+      if (computed > 0) return capTrainingPoints(computed, section.maximum)
     }
 
     // Nếu dùng items từ BE có chỉnh sửa điểm tự chấm ở client
     if ('items' in section && Array.isArray((section as any).items)) {
-      return Math.min(section.maximum, totalRecorded + totalSelf)
+      return capTrainingPoints(totalRecorded + totalSelf, section.maximum)
     }
 
-    return aggregateScore ?? (section as any).totalPoint ?? 0
+    return capTrainingPoints(aggregateScore ?? (section as any).totalPoint ?? 0, section.maximum)
   }, [section, totalRecorded, totalSelf, aggregateScore, recordedMap, studentScores])
 
   const progressPercent =
@@ -243,21 +251,28 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
         aria-controls={contentId}
         type="button"
         onClick={handleToggle}
-        className="achievement-accordion__trigger relative h-auto min-h-[64px] rounded-none w-full flex items-center justify-between gap-3 px-3 sm:px-4 py-3 whitespace-normal cursor-pointer text-left select-none focus-visible:ring-inset"
+        className="achievement-accordion__trigger relative h-auto min-h-[56px] sm:min-h-[64px] rounded-none w-full flex items-center justify-between gap-3 px-3 sm:px-4 py-3 whitespace-normal cursor-pointer text-left select-none focus-visible:ring-inset"
       >
-        <span className="achievement-accordion__heading relative z-10 flex flex-col gap-1 min-w-0 text-xs sm:text-sm leading-relaxed">
-          <span className="font-semibold">{section.name}</span>
-          <span className="achievement-accordion__description text-xs font-normal tabular-nums">
-            {finalSectionScore}/{section.maximum} điểm
-          </span>
+        <span className="achievement-accordion__heading relative z-10 flex-1 md:flex-none min-w-0 flex flex-col gap-1 text-xs md:text-sm leading-relaxed text-left">
+          <span className="font-semibold break-words">{section.name}</span>
+          {!isMobile && (
+            <span className="achievement-accordion__description text-xs font-normal tabular-nums">
+              {finalSectionScore}/{section.maximum} điểm
+            </span>
+          )}
         </span>
-        <span className="relative z-10 flex shrink-0 items-center gap-3">
+        <span className="relative z-10 flex shrink-0 items-center gap-2 sm:gap-3">
+          {isMobile && (
+            <span className="text-xs font-semibold tabular-nums text-muted-foreground shrink-0">
+              {finalSectionScore}/{section.maximum} điểm
+            </span>
+          )}
           {isMaximumReached && (
             <span
               role="img"
               aria-label="Đạt điểm tối đa"
               title="Đạt điểm tối đa"
-              className="achievement-accordion__completed flex h-8 w-6 items-center justify-center"
+              className="hidden md:flex achievement-accordion__completed h-8 w-6 items-center justify-center"
             >
               <BadgeCheck
                 aria-hidden="true"
@@ -266,7 +281,10 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
               />
             </span>
           )}
-          <ChevronRight aria-hidden="true" className="achievement-accordion__chevron h-4 w-4" />
+          <ChevronRight
+            aria-hidden="true"
+            className="achievement-accordion__chevron h-4 w-4 shrink-0"
+          />
         </span>
         <span
           aria-hidden="true"
@@ -317,7 +335,7 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
             ))}
 
             {/* Bottom Section Total Row ("Cộng điểm mục I") */}
-            <div className="flex items-stretch bg-muted/40 border-t border-border font-semibold text-xs h-8">
+            <div className="student-score-footer training-points-columns flex items-stretch bg-muted/40 border-t border-border font-semibold text-xs min-h-10 tabular-nums">
               {/* Title spans across Tiêu chí (80px) + Tên tiêu chí (flex-1 min-w-[280px]) */}
               <div className="flex-1 min-w-[360px] px-3 flex items-center border-r border-border text-foreground font-k2d">
                 Cộng điểm mục {sectionRoman}
@@ -325,11 +343,13 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
 
               {/* Điểm tối đa (96px) */}
               <div className="w-24 min-w-[96px] max-w-[96px] px-1 flex items-center justify-center border-r border-border text-foreground text-center shrink-0">
+                <span className="student-score-label">Điểm tối đa</span>
                 {section.maximum}
               </div>
 
               {/* Dữ liệu ghi nhận (112px) */}
               <div className="w-28 min-w-[112px] max-w-[112px] px-1 flex items-center justify-center border-r border-border text-foreground text-center shrink-0">
+                <span className="student-score-label">Điểm hệ thống</span>
                 {totalRecorded > 0
                   ? totalRecorded
                   : finalSectionScore > 0 && totalSelf === 0
@@ -339,11 +359,13 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
 
               {/* SV đánh giá (112px) */}
               <div className="w-28 min-w-[112px] max-w-[112px] px-1 flex items-center justify-center border-r border-border text-foreground text-center shrink-0">
+                <span className="student-score-label">Tự đánh giá</span>
                 {totalSelf}
               </div>
 
               {/* Chi tiết tổng hợp/Tổng (144px) */}
               <div className="w-36 min-w-[144px] max-w-[144px] px-1 flex items-center justify-center text-primary text-center shrink-0 font-bold">
+                <span className="student-score-label">Tổng</span>
                 {finalSectionScore}
               </div>
             </div>

@@ -7,8 +7,50 @@ import {
   isSuperAdminRole,
   isSuperAdminEmail,
   isSuperAdminUser,
+  getAccountHomePath,
+  getLoginDestination,
 } from '../authUtils'
 import { RoleEnum } from '../../types/auth.types'
+
+describe('account navigation', () => {
+  const student = {
+    role: RoleEnum.STUDENT,
+    email: 'b2300000@student.ctu.edu.vn',
+    isProfileComplete: true,
+  }
+  const staff = {
+    role: RoleEnum.FANPAGE_ADMIN,
+    email: 'organizer@ctu.edu.vn',
+    isProfileComplete: true,
+  }
+  it('chooses separate account home pages', () => {
+    expect(getAccountHomePath(null)).toBe('/login')
+    expect(getAccountHomePath(student)).toBe('/')
+    expect(getAccountHomePath(staff)).toBe('/staff/fanpages')
+    expect(getAccountHomePath({ ...staff, role: RoleEnum.ADMIN })).toBe('/admin')
+  })
+  it('does not return staff to a student URL after login', () => {
+    expect(getLoginDestination(staff, '/events/19')).toBe('/staff/fanpages')
+    expect(getLoginDestination(staff, '/training-points')).toBe('/staff/fanpages')
+  })
+  it('keeps the student deep link and onboarding behavior', () => {
+    expect(getLoginDestination(student, '/events/19?tab=details')).toBe('/events/19?tab=details')
+    expect(getLoginDestination({ ...student, isProfileComplete: false })).toBe(
+      '/onboarding/student'
+    )
+    expect(getAccountHomePath({ ...student, role: RoleEnum.FANPAGE_ADMIN })).toBe('/')
+  })
+  it.each([
+    'https://example.com',
+    '//example.com',
+    '/\\example.com',
+    '/login',
+    '/admin',
+    '/onboarding/staff',
+  ])('rejects an unsafe or incompatible login destination %s', (redirect) => {
+    expect(getLoginDestination(student, redirect)).toBe('/')
+  })
+})
 
 describe('authUtils with Spring Security ROLE_ prefix', () => {
   describe('normalizeRole', () => {

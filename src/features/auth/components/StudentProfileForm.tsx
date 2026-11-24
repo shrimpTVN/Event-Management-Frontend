@@ -29,7 +29,8 @@ export const StudentProfileForm: React.FC = () => {
   const [searchParams] = useSearchParams()
   const { user, updateUser } = useAuthStore()
 
-  const pendingRaw = typeof window !== 'undefined' ? sessionStorage.getItem('pending_registration') : null
+  const pendingRaw =
+    typeof window !== 'undefined' ? sessionStorage.getItem('pending_registration') : null
   const pending = pendingRaw ? JSON.parse(pendingRaw) : null
 
   const defaultEmail = searchParams.get('email') || user?.email || pending?.email || ''
@@ -96,13 +97,21 @@ export const StudentProfileForm: React.FC = () => {
       navigate(searchParams.get('redirect') || '/', { replace: true })
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || ''
-      if (typeof msg === 'string' && (msg.includes('Student ID already exists') || msg.toLowerCase().includes('student id'))) {
-        setApiError('Mã số sinh viên (MSSV) này đã tồn tại trong hệ thống. Vui lòng chỉnh sửa lại mã số sinh viên bên dưới và bấm Lưu lại.')
+      if (
+        typeof msg === 'string' &&
+        (msg.includes('Student ID already exists') || msg.toLowerCase().includes('student id'))
+      ) {
+        setApiError(
+          'Mã số sinh viên (MSSV) này đã tồn tại trong hệ thống. Vui lòng chỉnh sửa lại mã số sinh viên bên dưới và bấm Lưu lại.'
+        )
         setError('studentId', {
           type: 'manual',
           message: 'Mã số sinh viên này đã tồn tại trên hệ thống. Vui lòng kiểm tra lại.',
         })
-      } else if (typeof msg === 'string' && (msg.includes('already exists') || msg.toLowerCase().includes('email'))) {
+      } else if (
+        typeof msg === 'string' &&
+        (msg.includes('already exists') || msg.toLowerCase().includes('email'))
+      ) {
         setApiError('Email hoặc thông tin tài khoản này đã tồn tại trong hệ thống.')
       } else {
         setApiError(
@@ -149,8 +158,8 @@ export const StudentProfileForm: React.FC = () => {
               Hoàn thiện hồ sơ sinh viên
             </h1>
             <p className="font-sans text-sm text-[#4B5563] dark:text-muted-foreground mt-2 leading-relaxed">
-              Vui lòng bổ sung các thông tin cần thiết để hoàn tất hồ sơ lần đầu đăng nhập. Sau khi lưu,
-              bạn sẽ được chuyển tới website sự kiện của trường.
+              Vui lòng bổ sung các thông tin cần thiết để hoàn tất hồ sơ lần đầu đăng nhập. Sau khi
+              lưu, bạn sẽ được chuyển tới website sự kiện của trường.
             </p>
           </div>
 
@@ -208,7 +217,9 @@ export const StudentProfileForm: React.FC = () => {
                   {errors.studentId ? (
                     <p className="text-xs text-destructive mt-1">{errors.studentId.message}</p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Tự động trích xuất từ email sinh viên</p>
+                    <p className="text-xs text-muted-foreground">
+                      Tự động trích xuất từ email sinh viên
+                    </p>
                   )}
                 </div>
 
@@ -277,7 +288,9 @@ export const StudentProfileForm: React.FC = () => {
                     value={facultyValue || undefined}
                     onValueChange={(val) => setValue('faculty', val, { shouldValidate: true })}
                   >
-                    <SelectTrigger className={`h-11 w-full bg-white dark:bg-background ${errors.faculty ? 'border-destructive' : 'border-[#D1D5DB] dark:border-border'}`}>
+                    <SelectTrigger
+                      className={`h-11 w-full bg-white dark:bg-background ${errors.faculty ? 'border-destructive' : 'border-[#D1D5DB] dark:border-border'}`}
+                    >
                       <SelectValue placeholder="-- Chọn Khoa / Trường thành viên --" />
                     </SelectTrigger>
                     <SelectContent>
@@ -314,7 +327,7 @@ export const StudentProfileForm: React.FC = () => {
                 </div>
 
                 {/* Lớp học & Khóa học */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Lớp học */}
                   <div className="space-y-1.5">
                     <Label className="block text-sm font-medium text-foreground">
@@ -342,9 +355,13 @@ export const StudentProfileForm: React.FC = () => {
                     </Label>
                     <Select
                       value={academicYearValue || undefined}
-                      onValueChange={(val) => setValue('academicYear', val, { shouldValidate: true })}
+                      onValueChange={(val) =>
+                        setValue('academicYear', val, { shouldValidate: true })
+                      }
                     >
-                      <SelectTrigger className={`h-11 w-full bg-white dark:bg-background ${errors.academicYear ? 'border-destructive' : 'border-[#D1D5DB] dark:border-border'}`}>
+                      <SelectTrigger
+                        className={`h-11 w-full bg-white dark:bg-background ${errors.academicYear ? 'border-destructive' : 'border-[#D1D5DB] dark:border-border'}`}
+                      >
                         <SelectValue placeholder="-- Chọn Khóa học --" />
                       </SelectTrigger>
                       <SelectContent>
@@ -366,7 +383,8 @@ export const StudentProfileForm: React.FC = () => {
             {/* Bottom Actions Row */}
             <div className="pt-6 border-t border-[#E5E7EB] dark:border-border flex flex-col md:flex-row items-center justify-between gap-6">
               <p className="text-xs text-[#6B7280] dark:text-muted-foreground max-w-lg leading-relaxed text-left">
-                Bạn có thể hoàn thiện ngay bây giờ hoặc cập nhật sau trong phần Hồ sơ sinh viên. Sau khi lưu, bạn sẽ được chuyển tới website sự kiện thông thường.
+                Bạn có thể hoàn thiện ngay bây giờ hoặc cập nhật sau trong phần Hồ sơ sinh viên. Sau
+                khi lưu, bạn sẽ được chuyển tới website sự kiện thông thường.
               </p>
 
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto shrink-0 justify-end">

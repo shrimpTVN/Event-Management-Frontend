@@ -889,8 +889,8 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
                 className={cn(
                   'px-4 sm:px-5 py-2.5 text-xs sm:text-sm transition-all duration-150 cursor-pointer whitespace-nowrap select-none flex items-center gap-1.5',
                   isActive
-                    ? 'bg-card text-foreground font-semibold rounded-t-xl border-t border-x border-border/80 shadow-2xs pb-3'
-                    : 'text-muted-foreground hover:text-foreground font-medium bg-transparent hover:bg-muted/50 rounded-t-lg'
+                    ? 'bg-white dark:bg-card text-foreground font-semibold rounded-t-xl border-t border-x border-[#E5E7EB] dark:border-border shadow-2xs pb-3'
+                    : 'text-muted-foreground hover:text-foreground font-medium bg-transparent hover:bg-black/5 dark:hover:bg-white/5 rounded-t-lg'
                 )}
               >
                 <span>{tab.label}</span>

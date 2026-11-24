@@ -82,7 +82,7 @@ export const ProfileHeaderCard: React.FC<ProfileHeaderCardProps> = ({
   }
 
   return (
-    <div className="w-full max-w-[1112px] rounded-xl border border-border bg-card p-6 sm:p-7 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6 transition-all">
+    <div className="student-profile-header w-full max-w-[1112px] rounded-xl border border-border bg-card p-6 sm:p-7 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-6 transition-all">
       {/* Hidden file input for Cloudinary upload */}
       <input
         ref={fileInputRef}
@@ -93,7 +93,7 @@ export const ProfileHeaderCard: React.FC<ProfileHeaderCardProps> = ({
       />
 
       {/* Left section: Avatar + Info */}
-      <div className="flex flex-col sm:flex-row items-center sm:items-center gap-6 min-w-0 w-full sm:w-auto">
+      <div className="student-profile-identity flex flex-col sm:flex-row items-center sm:items-center gap-6 min-w-0 w-full sm:w-auto">
         {/* Circular Avatar 84x84px with Upload Camera Overlay */}
         <div className="relative shrink-0 group">
           <div
@@ -150,7 +150,7 @@ export const ProfileHeaderCard: React.FC<ProfileHeaderCardProps> = ({
         </div>
 
         {/* Info Stack */}
-        <div className="flex flex-col items-center sm:items-start text-center sm:text-left gap-2 min-w-0 flex-1">
+        <div className="student-profile-name flex flex-col items-center sm:items-start text-center sm:text-left gap-2 min-w-0 flex-1">
           {/* Avatar Upload Actions & Feedback in Edit Mode */}
           {isEditing && (
             <div className="flex flex-col sm:items-start items-center gap-1.5 w-full max-w-md">
@@ -217,7 +217,7 @@ export const ProfileHeaderCard: React.FC<ProfileHeaderCardProps> = ({
       </div>
 
       {/* Right section: Action button */}
-      <div className="shrink-0 self-center sm:self-auto flex items-center gap-3">
+      <div className="flex w-full shrink-0 flex-wrap items-center justify-center gap-3 sm:w-auto lg:self-auto">
         {!isEditing ? (
           <button
             type="button"
@@ -228,7 +228,7 @@ export const ProfileHeaderCard: React.FC<ProfileHeaderCardProps> = ({
             <span>Cập nhật</span>
           </button>
         ) : (
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <button
               type="button"
               onClick={onCancel}

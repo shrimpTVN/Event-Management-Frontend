@@ -28,7 +28,7 @@ export const CancelConfirmModal: React.FC<CancelConfirmModalProps> = ({
       />
 
       {/* Modal Dialog */}
-      <div className="relative w-full max-w-md bg-white dark:bg-card border border-border rounded-2xl shadow-xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150">
+      <div className="student-responsive-dialog relative w-full max-w-md bg-white dark:bg-card border border-border rounded-2xl shadow-xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150">
         <div className="p-6 text-center space-y-4">
           <div className="mx-auto w-12 h-12 rounded-full bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 flex items-center justify-center">
             <AlertTriangle className="h-6 w-6" />
@@ -45,7 +45,8 @@ export const CancelConfirmModal: React.FC<CancelConfirmModalProps> = ({
           </div>
 
           <div className="p-3 rounded-xl bg-muted/40 border border-border/80 text-xs text-muted-foreground text-left">
-            ⚠️ <strong>Lưu ý:</strong> Hủy đăng ký trước khi sự kiện diễn ra sẽ nhường lại chỉ tiêu cho các sinh viên khác và không ảnh hưởng đến điểm rèn luyện của bạn.
+            ⚠️ <strong>Lưu ý:</strong> Hủy đăng ký trước khi sự kiện diễn ra sẽ nhường lại chỉ tiêu
+            cho các sinh viên khác và không ảnh hưởng đến điểm rèn luyện của bạn.
           </div>
         </div>
 

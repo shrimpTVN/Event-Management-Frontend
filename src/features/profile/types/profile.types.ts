@@ -6,7 +6,7 @@ export interface StudentProfile {
   classId: string // e.g. DI2096A1 or DI2496A1
   cohort: string // e.g. K50 (2024 - 2028)
   dateOfBirth: string // e.g. 23 Tháng 9, 2002
-  gender: 'Nam' | 'Nữ' | 'Khác'
+  gender: 'Nam' | 'Nữ' | 'Khác' | ''
   bio: string
   phoneNumber: string
   email: string
@@ -15,5 +15,13 @@ export interface StudentProfile {
   majorCode: string // e.g. 7480201
   academicProgram: string // e.g. Đại trà (Chương trình chuẩn)
   youthUnionBranch: string // e.g. Chi hội sinh viên Mỹ Xuyên - Trần Đề
+  firstName?: string
+  lastName?: string
+  majorId?: number
+  associationId?: number
+  roles?: string[]
+  staffId?: string
+  orgName?: string
+  title?: string
   avatarUrl?: string
 }

@@ -8,7 +8,7 @@ import { loginSchema, type LoginInput } from '../types/auth.schemas'
 import { authService } from '../services/authService'
 import { checkEmailRegistered } from '../services/accountVerificationService'
 import { useAuthStore } from '../store/authStore'
-import { isStaffUser, isStudentRole, isSuperAdminUser } from '../utils/authUtils'
+import { getLoginDestination } from '../utils/authUtils'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 import { GoogleAuthButton } from './GoogleAuthButton'
 
@@ -29,13 +29,7 @@ export const LoginForm: React.FC = () => {
   React.useEffect(() => {
     const state = useAuthStore.getState()
     if (state.isAuthenticated && state.user) {
-      if (isSuperAdminUser(state.user)) {
-        navigate('/admin', { replace: true })
-      } else if (isStaffUser(state.user)) {
-        navigate('/staff/fanpages', { replace: true })
-      } else {
-        navigate(redirectUrl === '/staff/fanpages' || redirectUrl === '/admin' ? '/' : redirectUrl, { replace: true })
-      }
+      navigate(getLoginDestination(state.user, redirectUrl), { replace: true })
     }
   }, [navigate, redirectUrl])
 
@@ -70,26 +64,12 @@ export const LoginForm: React.FC = () => {
         ...data,
         email: normalizedEmail,
       })
-      
+
       // Xóa toàn bộ query cache từ tài khoản trước đó để tránh xung đột dữ liệu
       queryClient.clear()
       setAuth(res.user, res.tokens?.accessToken || null)
 
-      // Phân quyền điều hướng theo vai trò:
-      // 1. Super Admin vào thẳng trang quản trị hệ thống /admin
-      // 2. Cán bộ / Ban tổ chức vào /staff/fanpages
-      // 3. Sinh viên chưa hoàn tất hồ sơ vào /onboarding/student
-      // 4. Sinh viên bình thường vào trang chủ hoặc redirectUrl
-      if (isSuperAdminUser(res.user)) {
-        navigate('/admin', { replace: true })
-      } else if (isStaffUser(res.user)) {
-        navigate('/staff/fanpages', { replace: true })
-      } else if (isStudentRole(res.user.role) && !res.user.isProfileComplete) {
-        navigate('/onboarding/student', { replace: true })
-      } else {
-        const target = redirectUrl === '/staff/fanpages' || redirectUrl === '/admin' ? '/' : redirectUrl
-        navigate(target, { replace: true })
-      }
+      navigate(getLoginDestination(res.user, redirectUrl), { replace: true })
     } catch (err: any) {
       const errorData = err.response?.data
       const rawMsg = (errorData?.message || err.message || '').toString()
@@ -129,8 +109,7 @@ export const LoginForm: React.FC = () => {
         // Phân loại chính xác: Nếu email sai (không tồn tại) thì chỉ báo lỗi ở email,
         // ngược lại nếu email đúng nhưng mật khẩu sai thì chỉ báo lỗi ở mật khẩu.
         const isRegistered =
-          (await checkEmailRegistered(normalizedEmail)) ||
-          (await checkEmailRegistered(data.email))
+          (await checkEmailRegistered(normalizedEmail)) || (await checkEmailRegistered(data.email))
         if (!isRegistered) {
           clearErrors('password')
           setError('email', {
@@ -145,9 +124,7 @@ export const LoginForm: React.FC = () => {
           })
         }
       } else {
-        setApiError(
-          rawMsg || 'Hệ thống đang bận hoặc mất kết nối mạng. Vui lòng thử lại sau.'
-        )
+        setApiError(rawMsg || 'Hệ thống đang bận hoặc mất kết nối mạng. Vui lòng thử lại sau.')
       }
     } finally {
       setIsSubmitting(false)
@@ -169,21 +146,11 @@ export const LoginForm: React.FC = () => {
           password: 'password123',
         })
       }
-      
+
       queryClient.clear()
       setAuth(res.user, res.tokens?.accessToken || null)
 
-      // Phân quyền điều hướng:
-      if (isSuperAdminUser(res.user)) {
-        navigate('/admin', { replace: true })
-      } else if (isStaffUser(res.user)) {
-        navigate('/staff/fanpages', { replace: true })
-      } else if (isStudentRole(res.user.role) && !res.user.isProfileComplete) {
-        navigate('/onboarding/student', { replace: true })
-      } else {
-        const target = redirectUrl === '/staff/fanpages' || redirectUrl === '/admin' ? '/' : redirectUrl
-        navigate(target, { replace: true })
-      }
+      navigate(getLoginDestination(res.user, redirectUrl), { replace: true })
     } catch (err: any) {
       console.error('Google login exchange error:', err)
       const msg =
@@ -197,10 +164,7 @@ export const LoginForm: React.FC = () => {
   }
 
   return (
-    <AuthLayoutWrapper
-      title="Đăng nhập"
-      subtitle="Chào mừng bạn quay trở lại..."
-    >
+    <AuthLayoutWrapper title="Đăng nhập" subtitle="Chào mừng bạn quay trở lại...">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         {apiError && (
           <div className="flex items-center gap-2.5 p-3.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
@@ -209,11 +173,14 @@ export const LoginForm: React.FC = () => {
           </div>
         )}
 
+        {searchParams.get('passwordChanged') === '1' && (
+          <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">
+            Đã đổi mật khẩu. Vui lòng đăng nhập lại.
+          </p>
+        )}
         {/* Email Field */}
         <div className="space-y-1.5 text-left">
-          <label className="block text-sm font-medium text-foreground">
-            Email
-          </label>
+          <label className="block text-sm font-medium text-foreground">Email</label>
           <div className="relative">
             <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <input
@@ -233,16 +200,12 @@ export const LoginForm: React.FC = () => {
               }`}
             />
           </div>
-          {errors.email && (
-            <p className="text-xs text-destructive mt-1">{errors.email.message}</p>
-          )}
+          {errors.email && <p className="text-xs text-destructive mt-1">{errors.email.message}</p>}
         </div>
 
         {/* Password Field */}
         <div className="space-y-1.5 text-left">
-          <label className="block text-sm font-medium text-foreground">
-            Mật khẩu
-          </label>
+          <label className="block text-sm font-medium text-foreground">Mật khẩu</label>
           <div className="relative">
             <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <input

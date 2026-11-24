@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { lazy, Suspense, useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAuthStore } from '@/features/auth'
+import { useAuthStore, getAccountHomePath } from '@/features/auth'
 import { fanpageService } from '@/features/fanpage/services/fanpageService'
 import { useUserFanpagesStore } from '@/features/fanpage/store/userFanpagesStore'
 import {
@@ -12,7 +12,6 @@ import {
   FanpageEventDetailAdminView,
   FanpageMembersView,
   FanpageProfileEditView,
-  FanpageDashboardView,
   FanpageRightSidebar,
   FanpageAdminPersonalProfileView,
   fanpageAdminService,
@@ -20,6 +19,8 @@ import {
   type FanpageFeedPost,
 } from '@/features/fanpage-admin'
 import type { FanpageSummary, AdminNavTab, AdminEvent } from '@/features/fanpage-admin'
+
+const FanpageDashboardView = lazy(() => import('@/features/fanpage-admin/components/FanpageDashboardView').then(module => ({ default: module.FanpageDashboardView })))
 
 export const FanpageAdminPage: React.FC = () => {
   const location = useLocation()
@@ -55,7 +56,7 @@ export const FanpageAdminPage: React.FC = () => {
         useUserFanpagesStore.getState().setMyFanpages(
           result.map((f) => ({
             id: f.id,
-            name: f.name,
+            name: f.fullName || f.name,
             role: f.role,
             avatarUrl: f.avatarUrl,
           }))
@@ -76,7 +77,7 @@ export const FanpageAdminPage: React.FC = () => {
     locationFanpageId ||
     selectedFanpageId ||
     availableFanpages[0]?.id ||
-    '1'
+    ''
 
   // Luôn tải thông tin chi tiết đầy đủ (mô tả, email, phone, địa chỉ, tổ chức trực thuộc) cho activeFanpageId:
   const { data: activeFanpageDetail } = useQuery<FanpageSummary | null>({
@@ -95,23 +96,21 @@ export const FanpageAdminPage: React.FC = () => {
             }
           } catch {}
 
-          const fpCode = (fp as any)?.code || (fp.name || 'FP').slice(0, 3).toUpperCase()
           return {
             id: String(fp.id),
-            code: fpCode,
-            name: fp.name,
-            fullName: fp.fullName || fp.orgName || fp.name,
-            avatarText: fpCode,
+            name: fp.orgName || fp.name,
+            fullName: fp.orgName || fp.name,
             avatarUrl: fp.avatarUrl || '',
             role: userRole,
-            isVerified: fp.isVerified ?? true,
+            isVerified: fp.isVerified ?? false,
             email: fp.email || '',
             phone: fp.phone || '',
-            address: fp.address || '',
+            address: '',
             followersCount: fp.followerCount || 0,
             eventsCount: fp.eventCount || 0,
             description: fp.description || '',
-            parentOrg: fp.parentOrg || fp.orgName || '',
+            parentOrg: fp.parentOrg || '',
+            orgType: fp.orgType || '',
           }
         }
       } catch (e) {
@@ -124,27 +123,15 @@ export const FanpageAdminPage: React.FC = () => {
   })
 
   const fallbackFanpage: FanpageSummary = {
-    id: '1',
-    code: 'CNTT',
-    name: 'Đoàn Trường CNTT & TT',
-    fullName: 'Đoàn Trường CNTT & TT',
-    avatarText: 'CNT',
-    avatarUrl: '',
-    role: 'Cộng tác viên',
-    isVerified: true,
-    email: 'doanit@ctu.edu.vn',
-    phone: '0292.3832.663',
-    address: 'Khu II, Đại học Cần Thơ',
-    followersCount: 1200,
-    eventsCount: 1,
-    description: 'Trang thông tin chính thức của Đoàn TNCS Hồ Chí Minh Khoa CNTT & TT - Trường Đại học Cần Thơ',
-    parentOrg: 'Đoàn Thanh niên - Hội Sinh viên ĐH Cần Thơ',
+    id: activeFanpageId, name: '', fullName: '', avatarUrl: '',
+    role: 'Cộng tác viên', isVerified: false, email: '', phone: '', address: '',
+    followersCount: 0, eventsCount: 0, description: '', parentOrg: '', orgType: '',
   }
 
   // Lấy dữ liệu tóm tắt từ availableFanpages để hiển thị ngay tức thì
   const baseSummary =
     availableFanpages.find((fp) => String(fp.id) === String(activeFanpageId)) ||
-    (availableFanpages.length > 0 ? availableFanpages[0] : fallbackFanpage)
+    fallbackFanpage
 
   // Kết hợp với activeFanpageDetail để luôn có đủ description, email, phone, address, parentOrg
   const currentFanpage: FanpageSummary = {
@@ -339,15 +326,9 @@ export const FanpageAdminPage: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-feed-posts'] })
     queryClient.invalidateQueries({ queryKey: ['admin-events'] })
     queryClient.invalidateQueries({ queryKey: ['admin-follower-count'] })
-    setActiveTab(null)
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev)
-      next.delete('tab')
-      return next
-    })
   }
 
-  if (!currentFanpage) {
+  if (!currentFanpage.id) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-center">
         <h2 className="text-lg font-bold text-foreground">Chưa có Fanpage được chỉ định</h2>
@@ -388,14 +369,7 @@ export const FanpageAdminPage: React.FC = () => {
       onCreateEventClick={handleCreateEventClick}
       onPersonalProfileClick={() => handleSelectTab('personal-profile')}
       onLogoClick={() => {
-        setActiveTab(null)
-        setSearchParams((prev) => {
-          const next = new URLSearchParams(prev)
-          next.delete('tab')
-          return next
-        })
-        const targetPath = isCurrentUserAdmin ? '/fanpage/admin' : '/fanpage/workspace'
-        navigate(targetPath, { state: { fanpageId: currentFanpage.id } })
+        navigate(getAccountHomePath(user))
       }}
       rightSidebar={
         activeTab === null ? (
@@ -476,11 +450,13 @@ export const FanpageAdminPage: React.FC = () => {
 
       {/* 5. Dashboard tổng quan fanpage */}
       {activeTab === 'overview' && (
+        <Suspense fallback={<div role="status" className="min-h-80 rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">Đang tải thống kê...</div>}>
         <FanpageDashboardView
           currentFanpage={enrichedFanpage}
           onCreateEventClick={handleCreateEventClick}
           onEventClick={handleEventClick}
         />
+        </Suspense>
       )}
 
       {/* 6. Quản lý thành viên fanpage */}
@@ -491,7 +467,6 @@ export const FanpageAdminPage: React.FC = () => {
         <FanpageProfileEditView
           currentFanpage={enrichedFanpage}
           onSave={handleSaveFanpageProfile}
-          onCancel={() => setActiveTab(null)}
         />
       )}
 

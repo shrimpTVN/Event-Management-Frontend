@@ -140,7 +140,7 @@ const StudentAttendanceForm: React.FC<StudentAttendanceModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto bg-background rounded-xl shadow-xl border border-border animate-in zoom-in-95 duration-200"
+        className="student-responsive-dialog relative w-full max-w-md max-h-[90dvh] overflow-y-auto bg-background rounded-xl shadow-xl border border-border animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
         aria-label="Điểm danh sự kiện"

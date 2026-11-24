@@ -1,0 +1,78 @@
+/* Phone menu only: keep the shared laptop sidebar styling unchanged. */
+.student-mobile-navigation {
+  flex-shrink: 0;
+}
+.student-mobile-navigation h3 {
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 8px;
+}
+.student-mobile-navigation a,
+.student-mobile-navigation button {
+  min-height: 44px;
+  height: auto;
+  border-radius: 8px;
+  padding: 10px 12px;
+  white-space: normal;
+}
+.student-mobile-navigation a,
+.student-mobile-navigation a span {
+  color: hsl(var(--foreground));
+  font-size: 14px;
+  line-height: 20px;
+}
+.student-mobile-navigation button,
+.student-mobile-navigation button svg {
+  color: hsl(var(--primary));
+  font-size: 14px;
+}
+.student-mobile-navigation a svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: hsl(var(--muted-foreground));
+  fill: none;
+}
+.student-mobile-navigation a img {
+  width: 32px;
+  height: 32px;
+}
+.student-mobile-navigation a[aria-current='page'] {
+  background: hsl(var(--brand-subtle));
+}
+.student-mobile-navigation a[aria-current='page'] :is(span, svg) {
+  color: hsl(var(--brand-subtle-foreground));
+}
+.student-mobile-navigation a:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: -2px;
+}
+
+:is(.student-mobile-drawer, .student-mobile-account-sheet) .mobile-menu-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+:is(.student-mobile-drawer, .student-mobile-account-sheet)
+  .mobile-menu-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+:is(.student-mobile-drawer, .student-mobile-account-sheet)
+  .mobile-menu-scrollbar::-webkit-scrollbar-track,
+:is(.student-mobile-drawer, .student-mobile-account-sheet)
+  .mobile-menu-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+:is(.student-mobile-drawer, .student-mobile-account-sheet)
+  .mobile-menu-scrollbar::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+:is(.student-mobile-drawer, .student-mobile-account-sheet)
+  .mobile-menu-scrollbar[data-scrolling='true'] {
+  scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
+}
+:is(.student-mobile-drawer, .student-mobile-account-sheet)
+  .mobile-menu-scrollbar[data-scrolling='true']::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.35);
+  border-radius: 9999px;
+}

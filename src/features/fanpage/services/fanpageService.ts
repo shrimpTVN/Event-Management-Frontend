@@ -18,7 +18,8 @@ export const fanpageService = {
       const followRes: any = await apiClient.get(`/fanpages/${id}/followers/count`)
       const followData = followRes?.data || followRes
       if (followData) {
-        followerCount = typeof followData.followerCount === 'number' ? followData.followerCount : followerCount
+        followerCount =
+          typeof followData.followerCount === 'number' ? followData.followerCount : followerCount
         isFollowing = Boolean(followData.isFollowing)
       }
     } catch {
@@ -39,22 +40,13 @@ export const fanpageService = {
       }
     }
 
-    const fullName =
-      fp.orgName ||
-      (fp.name?.includes('CNTT') || String(fp.id) === '1'
-        ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông'
-        : fp.name)
-
-    const avatarUrl =
-      fp.avatarUrl ||
-      (String(fp.id) === '1' || fp.name?.includes('CNTT')
-        ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
-        : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=120')
+    const fullName = fp.orgName || ''
+    const avatarUrl = fp.avatarUrl || ''
 
     return {
       id: String(fp.id),
-      name: fp.name,
-      fullName,
+      name: fp.orgName || fp.name,
+      fullName: fp.orgName || fp.name,
       avatarUrl,
       coverUrl: fp.coverUrl,
       followerCount,
@@ -62,12 +54,12 @@ export const fanpageService = {
       email: fp.email ?? fp.helpContact ?? '',
       description: fp.description ?? '',
       isFollowing,
-      isVerified: fp.isVerified ?? (fp.status === 'ACTIVE'),
+      isVerified: fp.isVerified ?? fp.status === 'ACTIVE',
       phone: fp.phone ?? fp.helpPhone ?? '',
-      address: fp.address || 'Khu II, Đường 3/2, Q. Ninh Kiều, TP. Cần Thơ',
-      orgType: fp.orgType || 'YOUTH_UNION',
+      address: '',
+      orgType: fp.orgType || '',
       orgName: fullName,
-      parentOrg: fp.parentOrg || 'Trường Đại học Cần Thơ',
+      parentOrg: fp.parentOrg || '',
     }
   },
 
@@ -77,12 +69,17 @@ export const fanpageService = {
   async getEventsByFanpage(id: string): Promise<Event[]> {
     try {
       const res: any = await apiClient.get(`/events/fanpage/${id}?size=100`)
-      const items = res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
+      const items =
+        res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
       return items.map(normalizeEvent)
     } catch {
       try {
         const resFallback: any = await apiClient.get(`/events?fanpageId=${id}&size=100`)
-        const itemsFallback = resFallback?.content || resFallback?.data?.content || resFallback?.data || (Array.isArray(resFallback) ? resFallback : [])
+        const itemsFallback =
+          resFallback?.content ||
+          resFallback?.data?.content ||
+          resFallback?.data ||
+          (Array.isArray(resFallback) ? resFallback : [])
         return itemsFallback.map(normalizeEvent)
       } catch {
         return []

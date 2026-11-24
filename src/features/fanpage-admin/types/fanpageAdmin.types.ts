@@ -1,9 +1,7 @@
 export interface FanpageSummary {
   id: string
-  code: string
   name: string
   fullName: string
-  avatarText: string
   avatarUrl?: string
   role: string
   isVerified: boolean
@@ -42,8 +40,6 @@ export interface FanpageFeedPost {
   id: string
   eventId?: string
   authorName: string
-  authorCode: string
-  authorAvatarText: string
   authorAvatarUrl?: string
   timeAgo: string
   isPublic: boolean

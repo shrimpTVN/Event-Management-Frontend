@@ -1,6 +1,16 @@
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ShieldCheck, CheckCircle2, User, Award, Calendar, AlertCircle, Loader2 } from 'lucide-react'
+import {
+  ShieldCheck,
+  CheckCircle2,
+  User,
+  Award,
+  Calendar,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/shared'
 import { registrationService } from '../services/registrationService'
@@ -46,14 +56,15 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ eventId, onS
       setIsSubmitting(true)
       setErrorMessage(null)
       await registrationService.registerForEvent(eventId, {
-        fullName: profile?.fullName || profile?.name || 'Đoàn Tài Lộc',
-        email: profile?.email || 'loc@student.ctu.edu.vn',
+        fullName: profile?.fullName || profile?.name || 'Chưa cập nhật',
+        email: profile?.email || 'Chưa cập nhật',
       })
       setSubmitted(true)
       onSubmitSuccess?.()
     } catch (err: any) {
       setErrorMessage(
-        err?.response?.data?.message || 'Không thể đăng ký sự kiện lúc này. Có thể bạn đã đăng ký hoặc sự kiện đã đủ số lượng.'
+        err?.response?.data?.message ||
+          'Không thể đăng ký sự kiện lúc này. Có thể bạn đã đăng ký hoặc sự kiện đã đủ số lượng.'
       )
     } finally {
       setIsSubmitting(false)
@@ -67,9 +78,12 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ eventId, onS
           <CheckCircle2 className="h-10 w-10" />
         </div>
         <div className="space-y-2">
-          <h1 className="font-k2d font-bold text-2xl text-foreground">Đăng ký sự kiện thành công!</h1>
+          <h1 className="font-k2d font-bold text-2xl text-foreground">
+            Đăng ký sự kiện thành công!
+          </h1>
           <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed">
-            Hệ thống đã ghi nhận đăng ký tham gia sự kiện của bạn. Vui lòng có mặt đúng giờ và quét mã/chụp ảnh điểm danh tại sự kiện.
+            Hệ thống đã ghi nhận đăng ký tham gia sự kiện của bạn. Vui lòng có mặt đúng giờ và quét
+            mã/chụp ảnh điểm danh tại sự kiện.
           </p>
         </div>
 
@@ -92,7 +106,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ eventId, onS
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-sm space-y-6 text-left">
+    <div className="rounded-2xl border border-border bg-card p-4 sm:p-8 shadow-sm flex flex-col gap-4 sm:gap-6 text-left">
       <div>
         <h1 className="font-k2d font-bold text-2xl text-foreground">Xác nhận đăng ký tham gia</h1>
         <p className="text-xs sm:text-sm text-muted-foreground mt-1">
@@ -118,7 +132,9 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ eventId, onS
         <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground pt-1">
           <span className="flex items-center gap-1.5">
             <Calendar className="h-3.5 w-3.5 text-primary" />
-            {event?.dateHappen ? new Date(event.dateHappen).toLocaleDateString('vi-VN') : 'Tháng 10/2026'}
+            {event?.dateHappen
+              ? new Date(event.dateHappen).toLocaleDateString('vi-VN')
+              : 'Tháng 10/2026'}
           </span>
           <span className="flex items-center gap-1.5">
             <Award className="h-3.5 w-3.5 text-amber-500" />
@@ -134,58 +150,57 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ eventId, onS
           <span>THÔNG TIN SINH VIÊN XÁC NHẬN</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl border border-border bg-[#F9FAFB] dark:bg-background/60 text-xs">
+        <div className="student-registration-identity grid grid-cols-2 gap-3 p-4 rounded-xl border border-border bg-[#F9FAFB] dark:bg-background/60 text-xs">
           <div>
             <span className="text-muted-foreground">Họ và tên:</span>
             <p className="font-semibold text-foreground text-sm">
-              {profile?.fullName || profile?.name || 'Đoàn Tài Lộc'}
+              {profile?.fullName || profile?.name || 'Chưa cập nhật'}
             </p>
           </div>
           <div>
             <span className="text-muted-foreground">Mã số sinh viên (MSSV):</span>
             <p className="font-semibold text-foreground text-sm font-mono">
-              {profile?.studentId || 'B2303827'}
+              {profile?.studentId || 'Chưa cập nhật'}
             </p>
           </div>
           <div>
             <span className="text-muted-foreground">Lớp sinh hoạt:</span>
-            <p className="font-semibold text-foreground">
-              {profile?.classId || 'DI2396A1'}
-            </p>
+            <p className="font-semibold text-foreground">{profile?.classId || 'Chưa cập nhật'}</p>
           </div>
           <div>
             <span className="text-muted-foreground">Ngành học:</span>
             <p className="font-semibold text-foreground">
-              {profile?.major || profile?.majorName || 'Kỹ thuật phần mềm'}
+              {profile?.major || profile?.majorName || 'Chưa cập nhật'}
             </p>
           </div>
           <div className="sm:col-span-2">
             <span className="text-muted-foreground">Email trường:</span>
             <p className="font-semibold text-foreground font-mono">
-              {profile?.email || 'loc@student.ctu.edu.vn'}
+              {profile?.email || 'Chưa cập nhật'}
             </p>
           </div>
         </div>
       </div>
 
       {/* Rules Commitment Checkbox */}
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="student-registration-form flex flex-col gap-5">
         <label className="flex items-start gap-3 p-3.5 rounded-xl border border-border bg-card hover:bg-muted/40 transition-colors cursor-pointer text-xs">
-          <input
+          <Input
             type="checkbox"
             checked={committed}
             onChange={(e) => setCommitted(e.target.checked)}
             className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
           />
           <span className="text-foreground leading-relaxed">
-            Tôi cam kết tham gia đúng giờ, chấp hành nghiêm túc nội quy sự kiện và thực hiện điểm danh theo quy định để được ghi nhận Điểm Rèn Luyện.
+            Tôi cam kết tham gia đúng giờ, chấp hành nghiêm túc nội quy sự kiện và thực hiện điểm
+            danh theo quy định để được ghi nhận Điểm Rèn Luyện.
           </span>
         </label>
 
-        <button
+        <Button
           type="submit"
           disabled={isSubmitting || !committed}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all shadow cursor-pointer"
+          className="student-registration-submit w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all shadow cursor-pointer"
         >
           {isSubmitting ? (
             <>
@@ -198,7 +213,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ eventId, onS
               <span>Xác nhận tham gia sự kiện</span>
             </>
           )}
-        </button>
+        </Button>
       </form>
     </div>
   )

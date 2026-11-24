@@ -15,7 +15,10 @@ export const AcademicYouthUnionCard: React.FC<AcademicYouthUnionCardProps> = ({
   onChange,
 }) => {
   return (
-    <div className="w-full max-w-[1112px] rounded-xl border border-border bg-card p-6 sm:p-7 shadow-sm flex flex-col gap-5 transition-all">
+    <div
+      data-editing={isEditing}
+      className="student-profile-section w-full max-w-[1112px] rounded-xl border border-border bg-card p-6 sm:p-7 shadow-sm flex flex-col gap-5 transition-all"
+    >
       {/* Card Section Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-base font-medium text-[#1B4B8A] dark:text-primary tracking-normal uppercase">

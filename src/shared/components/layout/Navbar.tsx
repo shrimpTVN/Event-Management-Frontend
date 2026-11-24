@@ -1,9 +1,13 @@
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
+import { StudentNavigationDrawer } from './StudentNavigationDrawer'
+import studentLogo from '@/assets/CTU_logo.png'
+import { Button } from '@/components/ui/button'
 import { Tooltip } from '@/components/ui/tooltip'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAuthStore, isStaffUser } from '@/features/auth'
-import { MessageSquare, Bell } from 'lucide-react'
+import { useAuthStore } from '@/features/auth'
+import { MessageSquare, Bell, Search } from 'lucide-react'
 import logoImg from '@/assets/logo.svg'
 import { AccountNavigationPopup } from './AccountNavigationPopup'
 import { NotificationDropdown } from './NotificationDropdown'
@@ -11,12 +15,19 @@ import { NavbarSearchAutocomplete } from '@/features/events'
 import { useUnreadNotificationCount, useNotificationStream } from '@/features/notifications'
 import { fanpageService } from '@/features/fanpage/services/fanpageService'
 
-export const Navbar: React.FC = () => {
+export const Navbar: React.FC<{ mobileSubpage?: boolean }> = ({ mobileSubpage = false }) => {
   const { user, isAuthenticated, clearAuth } = useAuthStore()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const isMobile = useMediaQuery('(max-width: 767px)')
   const [showDropdown, setShowDropdown] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+
+  useEffect(() => {
+    // Keep the portal in light mode while the theme switch is temporarily hidden.
+    document.documentElement.classList.remove('dark')
+    document.documentElement.style.colorScheme = 'light'
+  }, [])
 
   // Real-time SSE stream lắng nghe thông báo mới khi đăng nhập
   useNotificationStream()
@@ -45,36 +56,46 @@ export const Navbar: React.FC = () => {
     navigate('/login')
   }
 
-  const isStaff = isStaffUser(user)
-  const homePath = isStaff ? '/staff/fanpages' : '/'
-
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-      <div className="w-full flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* 1. Brand Logo: CTU Event (HTQL Sự Kiện) */}
-        <Tooltip content={isStaff ? 'Trung tâm Fanpage' : 'Trang chủ'}>
-          <Link
-            to={homePath}
-            className="flex items-center shrink-0 group transition-transform hover:opacity-95"
-          >
-            <img
-              src={logoImg}
-              alt="CTU Event - HTQL Sự Kiện"
-              className="h-10 w-auto object-contain"
-            />
-          </Link>
-        </Tooltip>
+    <header className={`${mobileSubpage ? 'hidden md:block' : ''} sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80`}>
+      <div className="flex h-16 w-full min-w-0 shrink-0 items-center justify-between gap-1 px-2 sm:gap-3 sm:px-6 lg:px-8">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+          <StudentNavigationDrawer user={user} onLogout={handleLogout} />
+          {/* 1. Brand Logo: CTU Event (HTQL Sự Kiện) */}
+          <Tooltip content="Trang chủ">
+            <Link
+              to="/"
+              className="flex items-center shrink-0 group transition-transform hover:opacity-95"
+            >
+              <img
+                src={logoImg}
+                alt="CTU Event - HTQL Sự Kiện"
+                className="hidden h-10 w-auto object-contain sm:block"
+              />
+              <img src={studentLogo} alt="CTU Event" className="h-9 w-9 object-contain sm:hidden" />
+            </Link>
+          </Tooltip>
+        </div>
 
         {/* 2. Center: Search Bar with Autocomplete Suggestions & Filter Popup */}
         <NavbarSearchAutocomplete />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-auto h-11 w-11 md:hidden"
+          onClick={() => navigate('/events', { state: { focusSearch: true } })}
+          aria-label="Tìm kiếm sự kiện"
+        >
+          <Search className="h-5 w-5" />
+        </Button>
 
         {/* 3. Right: Communication, Notifications, & User Avatar */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-0.5 sm:gap-3 shrink-0">
           {/* Chat / Feedback button */}
           <Tooltip content="Tin nhắn & Hỗ trợ">
             <button
               type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              className="hidden h-11 w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors sm:flex"
               aria-label="Tin nhắn & Hỗ trợ"
             >
               <MessageSquare className="h-5 w-5" />
@@ -87,8 +108,14 @@ export const Navbar: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setShowNotifications((prev) => !prev)
-                  setShowDropdown(false)
+                  if (isMobile) {
+                    setShowNotifications(false)
+                    setShowDropdown(false)
+                    navigate('/notifications')
+                  } else {
+                    setShowNotifications((prev) => !prev)
+                    setShowDropdown(false)
+                  }
                 }}
                 className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
                 aria-label={`Thông báo ${totalUnreadCount > 0 ? `(${totalUnreadCount} chưa đọc)` : ''}`}
@@ -104,15 +131,17 @@ export const Navbar: React.FC = () => {
               </button>
             </Tooltip>
 
-            {/* Notification Dropdown (Matching Facebook-style image) */}
-            <NotificationDropdown
-              isOpen={showNotifications}
-              onClose={() => setShowNotifications(false)}
-            />
+            {/* Notification Dropdown (Matching Facebook-style image on Desktop) */}
+            <div className="hidden md:block">
+              <NotificationDropdown
+                isOpen={showNotifications}
+                onClose={() => setShowNotifications(false)}
+              />
+            </div>
           </div>
 
           {/* User Profile Avatar with Initial 'U' or Photo */}
-          <div className="relative">
+          <div className="relative hidden md:block">
             {isAuthenticated && user ? (
               <div>
                 <button
@@ -121,7 +150,8 @@ export const Navbar: React.FC = () => {
                     setShowDropdown(!showDropdown)
                     setShowNotifications(false)
                   }}
-                  className="flex items-center focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-full cursor-pointer"
+                  aria-label="Tài khoản cá nhân"
+                  className="flex h-11 w-11 items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-full cursor-pointer"
                 >
                   {user.avatarUrl ? (
                     <img

@@ -39,6 +39,8 @@ export interface FilterableEvent {
   semester?: { id?: string | number; academicYear?: string } | null
   eventPoints?: { pointCategoryId?: number | string }[]
   pointCategoryId?: number | string
+  isFollowed?: boolean
+  pointsReward?: number | string | null
 }
 
 function localDay(value?: string) {
@@ -55,87 +57,115 @@ export function matchesEventFilters(
   options?: EventFilterOptions,
   now = new Date()
 ) {
+  return createEventFilterMatcher(values, options, now)(event)
+}
+
+/** Prepare selected IDs and category descendants once for a whole result set. */
+export function createEventFilterMatcher(
+  values: EventFilterFormValues,
+  options?: EventFilterOptions,
+  now = new Date()
+) {
   const statuses = filterIds(values.status)
-  if (
-    statuses.length &&
-    !statuses.some((status) => isEventMatchingRegistrationStatus(event, status, now))
-  )
-    return false
   const types = filterIds(values.eventTypeId)
-  if (types.length) {
-    if (event.eventTypeId != null) {
-      if (!types.includes(String(event.eventTypeId))) return false
-    } else if (
-      !options?.eventTypes.some(
-        (type) =>
-          types.includes(String(type.id)) &&
-          [event.eventTypeName, event.category].some((name) => clean(name) === clean(type.label))
-      )
-    )
-      return false
-  }
   const organizers = values.fanpageIds?.length ? values.fanpageIds : filterIds(values.fanpageId)
-  if (organizers.length && !organizers.includes(String(event.organizerId ?? event.fanpageId ?? '')))
-    return false
   const points = filterIds(values.pointCategoryId)
-  if (points.length) {
-    const allowed = resolveAllowedPointCategoryIds(points, options?.pointCategories)
+  const allowedPoints = points.length
+    ? resolveAllowedPointCategoryIds(points, options?.pointCategories)
+    : null
+  const criteria = filterIds(values.criteriaId)
+  const selectedCriteria = criteria.length
+    ? (options?.criterias || []).filter((option) => criteria.includes(String(option.id)))
+    : []
+  const allowedCriteria = new Set([
+    ...criteria,
+    ...selectedCriteria.flatMap((option) => (option.childIds || []).map(String)),
+  ])
+  criteria.forEach((cid) => {
+    ROOT_CRITERIA_CHILDREN[Number(cid)]?.forEach((id) => allowedCriteria.add(String(id)))
+  })
+  const academicYear = values.academicYear ? year(values.academicYear) : ''
+  return (event: FilterableEvent) => {
+    if (values.feedScope === 'FOLLOWING') {
+      if (!Boolean(event.isFollowed)) return false
+    }
+    if (values.feedScope === 'RECOMMENDED') {
+      const hasPoints = Boolean(
+        event.pointsReward ||
+        (event.eventPoints && event.eventPoints.length > 0) ||
+        event.pointCategoryId
+      )
+      if (!hasPoints) return false
+    }
+
     if (
-      !(event.eventPoints || []).some((point) => allowed.has(Number(point.pointCategoryId))) &&
-      !allowed.has(Number(event.pointCategoryId))
+      statuses.length &&
+      !statuses.some((status) => isEventMatchingRegistrationStatus(event, status, now))
     )
       return false
-  }
-  const criteria = filterIds(values.criteriaId)
-  if (criteria.length) {
-    const selected = (options?.criterias || []).filter((option) =>
-      criteria.includes(String(option.id))
-    )
-    const allowed = new Set([
-      ...criteria,
-      ...selected.flatMap((option) => (option.childIds || []).map(String)),
-    ])
-    criteria.forEach((cid) => {
-      const rootChildren = ROOT_CRITERIA_CHILDREN[Number(cid)]
-      if (rootChildren) {
-        rootChildren.forEach((childId) => allowed.add(String(childId)))
-      }
-    })
-    if (event.criteriaId != null) {
-      if (!allowed.has(String(event.criteriaId))) return false
-    } else if (
-      !selected.some((option) =>
-        [option.label, ...(option.childNames || [])].some(
-          (name) => clean(name) === clean(event.criteriaName || event.sv5tCriteriaName)
+    if (types.length) {
+      if (event.eventTypeId != null) {
+        if (!types.includes(String(event.eventTypeId))) return false
+      } else if (
+        !options?.eventTypes.some(
+          (type) =>
+            types.includes(String(type.id)) &&
+            [event.eventTypeName, event.category].some((name) => clean(name) === clean(type.label))
         )
       )
-    ) {
-      return false
+        return false
     }
+    if (
+      organizers.length &&
+      !organizers.includes(String(event.organizerId ?? event.fanpageId ?? ''))
+    )
+      return false
+    if (allowedPoints) {
+      if (
+        !(event.eventPoints || []).some((point) =>
+          allowedPoints.has(Number(point.pointCategoryId))
+        ) &&
+        !allowedPoints.has(Number(event.pointCategoryId))
+      )
+        return false
+    }
+    if (criteria.length) {
+      if (event.criteriaId != null) {
+        if (!allowedCriteria.has(String(event.criteriaId))) return false
+      } else if (
+        !selectedCriteria.some((option) =>
+          [option.label, ...(option.childNames || [])].some(
+            (name) => clean(name) === clean(event.criteriaName || event.sv5tCriteriaName)
+          )
+        )
+      ) {
+        return false
+      }
+    }
+    const semesterId = event.semesterId ?? event.semester?.id
+    if (
+      values.semesterId &&
+      values.semesterId !== 'ALL' &&
+      String(semesterId ?? '') !== values.semesterId
+    )
+      return false
+    if (values.academicYear && values.academicYear !== 'ALL') {
+      const eventYear =
+        event.academicYear ||
+        event.semester?.academicYear ||
+        options?.semesters.find((semester) => String(semester.id) === String(semesterId))
+          ?.academicYear
+      if (!eventYear || year(eventYear) !== academicYear) return false
+    }
+    if (values.dateHappenFrom || values.dateHappenTo) {
+      const start = localDay(event.startTime || event.dateHappen)
+      if (!start) return false
+      const end = localDay(event.endTime) || start
+      if (values.dateHappenFrom && end < values.dateHappenFrom) return false
+      if (values.dateHappenTo && start > values.dateHappenTo) return false
+    }
+    return true
   }
-  const semesterId = event.semesterId ?? event.semester?.id
-  if (
-    values.semesterId &&
-    values.semesterId !== 'ALL' &&
-    String(semesterId ?? '') !== values.semesterId
-  )
-    return false
-  if (values.academicYear && values.academicYear !== 'ALL') {
-    const eventYear =
-      event.academicYear ||
-      event.semester?.academicYear ||
-      options?.semesters.find((semester) => String(semester.id) === String(semesterId))
-        ?.academicYear
-    if (!eventYear || year(eventYear) !== year(values.academicYear)) return false
-  }
-  if (values.dateHappenFrom || values.dateHappenTo) {
-    const start = localDay(event.startTime || event.dateHappen)
-    if (!start) return false
-    const end = localDay(event.endTime) || start
-    if (values.dateHappenFrom && end < values.dateHappenFrom) return false
-    if (values.dateHappenTo && start > values.dateHappenTo) return false
-  }
-  return true
 }
 
 export function eventFilterChips(values: EventFilterFormValues, options?: EventFilterOptions) {
@@ -148,6 +178,12 @@ export function eventFilterChips(values: EventFilterFormValues, options?: EventF
     if (!ids.length) return
     const labels = ids.map((id) => items?.find((item) => String(item.id) === id)?.label || id)
     chips.push({ key, label: labels.join(', ') })
+  }
+  if (values.feedScope && values.feedScope !== 'ALL') {
+    chips.push({
+      key: 'feedScope',
+      label: values.feedScope === 'FOLLOWING' ? 'Đang theo dõi' : 'Gợi ý (Có ĐRL)',
+    })
   }
   if (values.status)
     chips.push({
@@ -196,6 +232,7 @@ export function eventFilterChips(values: EventFilterFormValues, options?: EventF
 export function removeEventFilter(values: EventFilterFormValues, key: keyof EventFilterFormValues) {
   const next = { ...values }
   delete next[key]
+  if (key === 'feedScope') delete next.feedScope
   if (key === 'criteriaId') delete next.childCriteriaIds
   if (key === 'pointCategoryId') delete next.childCategoryIds
   if (key === 'fanpageIds') delete next.fanpageId

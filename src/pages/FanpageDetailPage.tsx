@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { matchesPageSearch, useMobilePageSearch } from '@/shared/components/layout/MobileSubpageHeader'
 import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/features/auth'
@@ -15,11 +16,18 @@ import {
   EventFeedCard,
   eventService,
   type Event,
+  EventFilterButton,
+  EventFilterChips,
+  createEventFilterMatcher,
+  type EventFilterFormValues,
+  eventFilterOptionsService,
+  type EventFilterOptions,
 } from '@/features/events'
-import { SlidersHorizontal, CheckCircle, AlertCircle, CalendarDays } from 'lucide-react'
+import { CheckCircle, AlertCircle, CalendarDays, RotateCcw } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export const FanpageDetailPage: React.FC = () => {
+  const { query } = useMobilePageSearch()
   const { id } = useParams<{ id: string }>()
   const fanpageId = id || '1'
   const queryClient = useQueryClient()
@@ -91,6 +99,21 @@ export const FanpageDetailPage: React.FC = () => {
     })
   }, [events, registeredEventMap])
 
+  const [filterValues, setFilterValues] = useState<EventFilterFormValues>({})
+
+  const { data: filterOptions } = useQuery<EventFilterOptions>({
+    queryKey: ['events', 'filter-options'],
+    queryFn: () => eventFilterOptionsService.getFilterOptions(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const filteredEvents = useMemo(() => {
+    const matchesFilters = createEventFilterMatcher(filterValues, filterOptions)
+    return eventsWithRegisteredState.filter((event) =>
+      matchesFilters(event) && matchesPageSearch(query, event.title, event.description, event.organizerName)
+    )
+  }, [eventsWithRegisteredState, filterValues, filterOptions, query])
+
   const [notification, setNotification] = useState<{
     type: 'success' | 'info'
     message: string
@@ -104,18 +127,16 @@ export const FanpageDetailPage: React.FC = () => {
   }
 
   const handleRegisterSuccess = (eventId: string) => {
-    queryClient.setQueryData(
-      ['fanpage', fanpageId, 'events'],
-      (old: Event[] = []) =>
-        old.map((e) =>
-          String(e.id) === String(eventId)
-            ? {
-                ...e,
-                isRegistered: true,
-                registeredCount: (e.registeredCount || 0) + 1,
-              }
-            : e
-        )
+    queryClient.setQueryData(['fanpage', fanpageId, 'events'], (old: Event[] = []) =>
+      old.map((e) =>
+        String(e.id) === String(eventId)
+          ? {
+              ...e,
+              isRegistered: true,
+              registeredCount: (e.registeredCount || 0) + 1,
+            }
+          : e
+      )
     )
     queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) => [
       ...(Array.isArray(old) ? old : []),
@@ -127,21 +148,21 @@ export const FanpageDetailPage: React.FC = () => {
   }
 
   const handleCancelRegister = (eventId: string) => {
-    queryClient.setQueryData(
-      ['fanpage', fanpageId, 'events'],
-      (old: Event[] = []) =>
-        old.map((e) =>
-          String(e.id) === String(eventId)
-            ? {
-                ...e,
-                isRegistered: false,
-                registeredCount: Math.max(0, (e.registeredCount || 1) - 1),
-              }
-            : e
-        )
+    queryClient.setQueryData(['fanpage', fanpageId, 'events'], (old: Event[] = []) =>
+      old.map((e) =>
+        String(e.id) === String(eventId)
+          ? {
+              ...e,
+              isRegistered: false,
+              registeredCount: Math.max(0, (e.registeredCount || 1) - 1),
+            }
+          : e
+      )
     )
     queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) =>
-      (Array.isArray(old) ? old : []).filter((r: any) => String(r.eventId || r.id) !== String(eventId))
+      (Array.isArray(old) ? old : []).filter(
+        (r: any) => String(r.eventId || r.id) !== String(eventId)
+      )
     )
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
@@ -152,10 +173,8 @@ export const FanpageDetailPage: React.FC = () => {
     const target = events.find((e) => String(e.id) === String(eventId))
     const nextSavedState = !target?.isSaved
 
-    queryClient.setQueryData(
-      ['fanpage', fanpageId, 'events'],
-      (old: Event[] = []) =>
-        old.map((e) => (String(e.id) === String(eventId) ? { ...e, isSaved: nextSavedState } : e))
+    queryClient.setQueryData(['fanpage', fanpageId, 'events'], (old: Event[] = []) =>
+      old.map((e) => (String(e.id) === String(eventId) ? { ...e, isSaved: nextSavedState } : e))
     )
 
     try {
@@ -177,10 +196,8 @@ export const FanpageDetailPage: React.FC = () => {
     const target = events.find((e) => e.organizerId === organizerId)
     const nextState = !target?.isFollowed
 
-    queryClient.setQueryData(
-      ['fanpage', fanpageId, 'events'],
-      (old: Event[] = []) =>
-        old.map((e) => (e.organizerId === organizerId ? { ...e, isFollowed: nextState } : e))
+    queryClient.setQueryData(['fanpage', fanpageId, 'events'], (old: Event[] = []) =>
+      old.map((e) => (e.organizerId === organizerId ? { ...e, isFollowed: nextState } : e))
     )
 
     try {
@@ -198,16 +215,14 @@ export const FanpageDetailPage: React.FC = () => {
   }
 
   const handleFollowChange = async (nextState: boolean) => {
-    queryClient.setQueryData(
-      ['fanpage', fanpageId],
-      (prev?: FanpageDetail) =>
-        prev
-          ? {
-              ...prev,
-              isFollowing: nextState,
-              followerCount: nextState ? prev.followerCount + 1 : Math.max(0, prev.followerCount - 1),
-            }
-          : prev
+    queryClient.setQueryData(['fanpage', fanpageId], (prev?: FanpageDetail) =>
+      prev
+        ? {
+            ...prev,
+            isFollowing: nextState,
+            followerCount: nextState ? prev.followerCount + 1 : Math.max(0, prev.followerCount - 1),
+          }
+        : prev
     )
 
     try {
@@ -263,14 +278,17 @@ export const FanpageDetailPage: React.FC = () => {
       )}
 
       {/* Main Container Layout: Sidebar flush left, main content centered and scrollable */}
-      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-4 sm:px-6 gap-6 overflow-hidden">
+      <div className="w-full flex-1 min-h-0 flex items-start justify-between px-0 md:px-6 gap-4 xl:gap-6 overflow-hidden">
         {/* Left Column: Fixed Navigation Sidebar (Figma width: 240px) */}
-        <aside className="hidden md:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
+        <aside className="hidden xl:block w-[240px] min-w-[240px] max-w-[240px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 px-0 sidebar-scrollbar">
           <StudentLeftSidebar />
         </aside>
 
         {/* Center / Main Content: Fanpage Profile View */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto pt-4 pb-5 px-1 flex justify-center custom-scrollbar">
+        <main
+          data-student-scroll
+          className="student-feed-scroll flex-1 min-w-0 h-full overflow-y-auto pt-4 pb-5 px-4 md:px-1 flex justify-center custom-scrollbar"
+        >
           <div className="w-full max-w-5xl flex flex-col gap-3.5 pb-28 sm:pb-36">
             {isLoadingFanpage ? (
               <div className="w-full flex flex-col gap-3.5 animate-pulse">
@@ -319,7 +337,10 @@ export const FanpageDetailPage: React.FC = () => {
                     </div>
                     <div className="flex flex-col gap-3.5">
                       {[1, 2].map((n) => (
-                        <div key={n} className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-4">
+                        <div
+                          key={n}
+                          className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-4"
+                        >
                           <div className="flex items-center gap-3">
                             <Skeleton className="w-10 h-10 rounded-full" />
                             <div className="flex-1 space-y-2">
@@ -351,7 +372,15 @@ export const FanpageDetailPage: React.FC = () => {
                 <div className="w-full flex flex-col lg:flex-row items-start gap-4">
                   {/* Left Column: Giới thiệu (Figma width: 340px) - Sticky on scroll, aligned horizontally with sidebars */}
                   <div className="w-full lg:w-[340px] shrink-0 lg:sticky lg:top-0 self-start">
-                    <FanpageAboutCard fanpage={fanpage} />
+                    <details className="md:hidden rounded-xl border border-border bg-background">
+                      <summary className="p-4 font-medium cursor-pointer">
+                        Giới thiệu fanpage
+                      </summary>
+                      <FanpageAboutCard fanpage={fanpage} />
+                    </details>
+                    <div className="hidden md:block">
+                      <FanpageAboutCard fanpage={fanpage} />
+                    </div>
                   </div>
 
                   {/* Right Column: Sự kiện (Feed) */}
@@ -362,15 +391,20 @@ export const FanpageDetailPage: React.FC = () => {
                         Sự kiện
                       </h2>
 
-                      <button
-                        type="button"
-                        onClick={() => showToast('Đang mở bộ lọc sự kiện...', 'info')}
-                        className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-[#374151] dark:text-foreground bg-white dark:bg-card border border-border/80 rounded-lg hover:bg-muted/60 transition-colors shadow-2xs cursor-pointer"
-                      >
-                        <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>Bộ lọc</span>
-                      </button>
+                      <EventFilterButton
+                        values={filterValues}
+                        onChange={setFilterValues}
+                        options={filterOptions}
+                        events={eventsWithRegisteredState}
+                        hideFanpageFilter={true}
+                      />
                     </div>
+
+                    <EventFilterChips
+                      values={filterValues}
+                      onChange={setFilterValues}
+                      options={filterOptions}
+                    />
 
                     {/* Event Feed List */}
                     {isLoadingEvents ? (
@@ -392,9 +426,9 @@ export const FanpageDetailPage: React.FC = () => {
                           </div>
                         ))}
                       </div>
-                    ) : eventsWithRegisteredState.length > 0 ? (
-                      <div className="flex flex-col gap-2">
-                        {eventsWithRegisteredState.map((event) => (
+                    ) : filteredEvents.length > 0 ? (
+                      <div className="student-post-feed flex flex-col gap-2">
+                        {filteredEvents.map((event) => (
                           <EventFeedCard
                             key={event.id}
                             event={event}
@@ -405,6 +439,23 @@ export const FanpageDetailPage: React.FC = () => {
                           />
                         ))}
                       </div>
+                    ) : eventsWithRegisteredState.length > 0 ? (
+                      <div className="w-full bg-white dark:bg-card border border-dashed border-border/80 rounded-xl p-8 sm:p-10 text-center flex flex-col items-center justify-center gap-3 shadow-2xs">
+                        <p className="text-sm font-semibold text-foreground">
+                          Không tìm thấy sự kiện phù hợp
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Hãy thử điều chỉnh lại các tiêu chí bộ lọc của bạn.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setFilterValues({})}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span>Đặt lại bộ lọc</span>
+                        </button>
+                      </div>
                     ) : (
                       <div className="w-full bg-white dark:bg-card border border-dashed border-border/80 rounded-xl p-12 text-center flex flex-col items-center justify-center gap-2">
                         <div className="p-3 rounded-full bg-muted/60 text-muted-foreground">
@@ -414,7 +465,8 @@ export const FanpageDetailPage: React.FC = () => {
                           Chưa có sự kiện nào
                         </h3>
                         <p className="text-xs text-muted-foreground max-w-sm">
-                          Fanpage hiện tại chưa đăng tải sự kiện mới. Hãy theo dõi trang để nhận thông báo sớm nhất!
+                          Fanpage hiện tại chưa đăng tải sự kiện mới. Hãy theo dõi trang để nhận
+                          thông báo sớm nhất!
                         </p>
                       </div>
                     )}
@@ -438,7 +490,7 @@ export const FanpageDetailPage: React.FC = () => {
         </main>
 
         {/* Right Column: Training Points Progress & Calendar Widget (Matching HomePage to center the main content) */}
-        <aside className="hidden lg:block w-[256px] min-w-[256px] max-w-[256px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pl-3 pr-1 ml-3 sidebar-scrollbar">
+        <aside className="hidden 2xl:block w-[256px] min-w-[256px] max-w-[256px] shrink-0 h-full overflow-y-auto pt-4 pb-28 sm:pb-36 pl-3 pr-1 ml-3 sidebar-scrollbar">
           <StudentRightSidebar />
         </aside>
       </div>

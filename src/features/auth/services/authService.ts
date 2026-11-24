@@ -13,6 +13,7 @@ import {
 import { normalizeRole } from '../utils/authUtils'
 import { normalizeOrgName } from '../utils/staffProfileUtils'
 import { addRegisteredEmail } from './accountVerificationService'
+import { useAuthStore } from '../store/authStore'
 
 async function formatAuthUser(response: any, fallbackEmail: string): Promise<AuthResponse> {
   const data = response?.data || response
@@ -35,13 +36,11 @@ async function formatAuthUser(response: any, fallbackEmail: string): Promise<Aut
         email: data?.email || fallbackEmail,
         name:
           data?.name ||
-          emailUsername
-            .replace(/[0-9]/g, '')
-            .replace(/[._]/g, ' ')
-            .trim() ||
+          emailUsername.replace(/[0-9]/g, '').replace(/[._]/g, ' ').trim() ||
           emailUsername ||
           'Người dùng CTU',
-        studentId: normalizedRole === RoleEnum.STUDENT ? (data?.studentId || fallbackStudentId) : undefined,
+        studentId:
+          normalizedRole === RoleEnum.STUDENT ? data?.studentId || fallbackStudentId : undefined,
         role: normalizedRole,
         roles: rolesArray,
         createdAt: data?.createdAt || new Date().toISOString(),
@@ -76,6 +75,31 @@ async function formatAuthUser(response: any, fallbackEmail: string): Promise<Aut
 }
 
 export const authService = {
+  async getAccountSecurity(): Promise<{ hasPassword: boolean }> {
+    const res: any = await apiClient.get('/users/me/security')
+    return { hasPassword: Boolean(res?.hasPassword) }
+  },
+
+  async getFanpageRegistrationEligibility(): Promise<{
+    status: 'ELIGIBLE' | 'PROFILE_REQUIRED' | string
+    reasonCode?: string | null
+    requiresReauthentication?: boolean
+  }> {
+    const res: any = await apiClient.get('/users/me/fanpage-registration-eligibility')
+    return {
+      status: res?.status || 'PROFILE_REQUIRED',
+      reasonCode: res?.reasonCode || null,
+      requiresReauthentication: Boolean(res?.requiresReauthentication),
+    }
+  },
+
+  async createPassword(newPassword: string): Promise<void> {
+    await apiClient.post('/auth/create-password', { newPassword })
+  },
+
+  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+    await apiClient.post('/auth/change-password', { oldPassword, newPassword })
+  },
   /**
    * Authenticate user with CTU email and password
    */
@@ -159,7 +183,9 @@ export const authService = {
       const updatedUser: User = {
         id: String(data?.userId || 'usr-1'),
         email: data?.email || payload.email,
-        name: `${data?.lastName || lastName} ${data?.firstName || firstName}`.trim() || payload.fullName,
+        name:
+          `${data?.lastName || lastName} ${data?.firstName || firstName}`.trim() ||
+          payload.fullName,
         studentId: data?.studentId || payload.studentId,
         avatarUrl: data?.avatarUrl || profileDto.avatarUrl,
         role: normalizeRole(data?.role) || RoleEnum.STUDENT,
@@ -188,11 +214,11 @@ export const authService = {
     const pendingRaw = sessionStorage.getItem('pending_registration')
     const pending = pendingRaw ? JSON.parse(pendingRaw) : null
 
-    if (pending?.password) {
-      const parts = (payload.fullName || '').trim().split(' ')
-      const lastName = parts.length > 1 ? parts[0] : 'Cán bộ'
-      const firstName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'CTU'
+    const parts = (payload.fullName || '').trim().split(' ')
+    const lastName = parts.length > 1 ? parts[0] : 'Cán bộ'
+    const firstName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'CTU'
 
+    if (pending?.password) {
       const registerDto = {
         email: pending.email,
         password: pending.password,
@@ -223,13 +249,47 @@ export const authService = {
       return user
     }
 
-    return apiClient.post('/auth/staff-profile', payload)
+    const currentUser = useAuthStore.getState().user
+    const createDto = {
+      firstName,
+      lastName,
+      gender: 'MALE',
+      staffProfile: {
+        staffId: (payload.staffId || '').substring(0, 20).trim(),
+        orgName: normalizeOrgName(payload.department),
+        title: (payload.position || 'Cán bộ').substring(0, 100).trim(),
+        dateOfBirth: null,
+        phoneNumber: (payload.phoneNumber || '').substring(0, 20).trim() || undefined,
+      },
+    }
+
+    const response: any = await apiClient.post('/users/me/staff-profile', createDto)
+    const updatedUser: User = {
+      ...(currentUser || {}),
+      id: String(response?.userId || currentUser?.id || 'usr-1'),
+      email: response?.email || currentUser?.email || payload.workEmail,
+      name:
+        `${response?.firstName || firstName} ${response?.lastName || lastName}`.trim() ||
+        payload.fullName,
+      role: RoleEnum.FANPAGE_ADMIN,
+      roles: response?.roles
+        ? Array.from(response.roles as Iterable<string>)
+        : currentUser?.roles || [RoleEnum.FANPAGE_ADMIN],
+      createdAt: currentUser?.createdAt || new Date().toISOString(),
+      avatarUrl: response?.avatarUrl || currentUser?.avatarUrl,
+      isProfileComplete: true,
+      staffId: response?.staffProfile?.staffId || payload.staffId,
+    }
+    useAuthStore.getState().updateUser(updatedUser)
+    return updatedUser
   },
 
   /**
    * Exchanges Google OAuth credential token with backend
    */
-  async exchangeGoogleToken(payload: GoogleAuthPayload | { idToken: string }): Promise<AuthResponse> {
+  async exchangeGoogleToken(
+    payload: GoogleAuthPayload | { idToken: string }
+  ): Promise<AuthResponse> {
     const idToken = 'idToken' in payload ? payload.idToken : payload.credential
     const response: any = await apiClient.post('/auth/login/google', { idToken })
     return formatAuthUser(response, 'student.google@ctu.edu.vn')

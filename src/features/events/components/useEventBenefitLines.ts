@@ -65,8 +65,10 @@ export function useEventBenefitLines(
     label: `Xét ${formatCompactCriteria(name, criteriaId).replace(/^(?:Tiêu chuẩn|Xét)\s+/i, '')}`,
     title: formatCriteria(name, criteriaId).replace(/^Tiêu chuẩn\s+/i, ''),
   })
-  const rawLines = pointsReward
-    ? pointsReward
+  const rewardStr =
+    typeof pointsReward === 'string' ? pointsReward : pointsReward ? String(pointsReward) : ''
+  const rawLines = rewardStr
+    ? rewardStr
         .split(' · ')
         .map((l) => l.trim())
         .filter(Boolean)

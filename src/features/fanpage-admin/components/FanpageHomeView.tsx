@@ -4,7 +4,7 @@ import {
   EventFilterButton,
   EventFilterChips,
 } from '@/features/events/components/EventFilterControls'
-import { matchesEventFilters, eventFilterChips } from '@/features/events/utils/eventFilters'
+import { createEventFilterMatcher, eventFilterChips } from '@/features/events/utils/eventFilters'
 import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Pencil, CalendarPlus, Plus, RotateCcw } from 'lucide-react'
@@ -73,7 +73,7 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
 
   const activeDrawerFiltersCount = eventFilterChips(filterValues, filterOptions).length
   const filteredPosts = useMemo(
-    () => posts.filter((post) => matchesEventFilters(post, filterValues, filterOptions)),
+    () => posts.filter(createEventFilterMatcher(filterValues, filterOptions)),
     [posts, filterValues, filterOptions]
   )
 
@@ -97,12 +97,13 @@ export const FanpageHomeView: React.FC<FanpageHomeViewProps> = ({
           isCurrentUserAdmin ? (
             <Button
               type="button"
+              variant="outline"
               onClick={
                 onEditProfileClick ? onEditProfileClick : () => navigate(`${basePath}?tab=profile`)
               }
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold bg-[#1B4B8A] hover:bg-[#153a6b] text-white rounded-lg transition-all shadow-2xs cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold border border-border/80 bg-white dark:bg-card hover:bg-muted/70 text-foreground rounded-lg transition-all shadow-2xs cursor-pointer"
             >
-              <Pencil className="h-4 w-4" />
+              <Pencil className="h-4 w-4 text-muted-foreground" />
               <span>Chỉnh sửa</span>
             </Button>
           ) : null
