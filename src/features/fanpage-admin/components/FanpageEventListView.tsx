@@ -21,12 +21,14 @@ import { Button } from '@/components/ui/button'
 import {
   EventFilterModal,
   type EventFilterFormValues,
-  isEventMatchingRegistrationStatus,
   resolveAllowedPointCategoryIds,
   eventFilterOptionsService,
   type EventFilterOptions,
 } from '@/features/events'
-import type { AdminEvent, EventStatus } from '../types/fanpageAdmin.types'
+import type { AdminEvent } from '../types/fanpageAdmin.types'
+import { adminEventState, adminEventTiming, adminRegistrationLabel } from '../utils/adminEventState'
+import { useTimeBoundary } from '@/shared/hooks/useTimeBoundary'
+import { nextTimeBoundary } from '@/shared/utils/registrationEligibility'
 import { MOCK_ADMIN_EVENTS, fanpageAdminService } from '../services/fanpageAdminService'
 
 // Định dạng thời gian: "04/11/2026 · 07:00" (không hiển thị "07:00 - 07:00" khi giờ bắt đầu và kết thúc giống nhau)
@@ -99,6 +101,22 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
   }, [events, registeredCountQueries])
 
   const validEvents = useMemo(() => events, [events])
+  const now = useTimeBoundary(
+    nextTimeBoundary(
+      events.flatMap((event) =>
+        Object.values(adminEventTiming(event))
+          .filter((value): value is number => value !== null)
+          .map((value) => new Date(value).toISOString())
+      )
+    )
+  )
+  const eventStates = useMemo(
+    () =>
+      new Map(
+        events.map((event) => [event.id, adminEventState(event, registeredCountMap[event.id], now)])
+      ),
+    [events, registeredCountMap, now]
+  )
 
   const { data: filterOptions } = useQuery<EventFilterOptions>({
     queryKey: ['event-filter-options'],
@@ -206,37 +224,17 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
         if (!matchSearch) return false
       }
 
-      // 2. Tab status (ALL, UPCOMING, PUBLISHED, CLOSED, DRAFT)
-      if (activeStatusTab === 'UPCOMING') {
-        if (
-          evt.status === 'CLOSED' ||
-          evt.status === 'COMPLETED' ||
-          evt.status === 'CANCELLED' ||
-          evt.status === 'DRAFT'
-        )
-          return false
-      } else if (activeStatusTab === 'DRAFT') {
-        if (evt.status !== 'DRAFT') return false
-      } else if (activeStatusTab === 'PUBLISHED') {
-        if (evt.status !== 'PUBLISHED') return false
-      } else if (activeStatusTab === 'CLOSED') {
-        if (evt.status !== 'CLOSED' && evt.status !== 'COMPLETED') return false
-      }
+      const state = eventStates.get(evt.id)!
+      if (activeStatusTab !== 'ALL' && state.tab !== activeStatusTab) return false
 
       // 3. Drawer Status (OPEN_REGISTRATION, PUBLISHED, COMPLETED...)
       if (rawStatus.length > 0) {
-        const matchesStatus = rawStatus.some((sKey) =>
-          isEventMatchingRegistrationStatus(
-            {
-              status: evt.status,
-              dateOpen: (evt as any).dateOpen || evt.dateStart,
-              dateClose: (evt as any).dateClose || evt.dateEnd,
-              dateHappen: evt.dateHappen || evt.dateStart,
-              startTime: evt.dateStart,
-              endTime: evt.dateEnd,
-            } as any,
-            sKey
-          )
+        const matchesStatus = rawStatus.some((key) =>
+          key === 'PUBLISHED'
+            ? state.label === 'Chờ diễn ra' || state.tab === 'OPEN_REGISTRATION'
+            : key === 'CLOSED_REGISTRATION'
+              ? adminRegistrationLabel(evt, registeredCountMap[evt.id], now) === 'Đã đóng đăng ký'
+              : state.tab === key
         )
         if (!matchesStatus) return false
       }
@@ -283,7 +281,8 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
         const evtCritName = (evt.sv5tCriteriaName || (evt as any).criteriaName || '').toLowerCase()
         const hasCritMatch =
           (evtCritId && allowedCritIds.has(evtCritId)) ||
-          (evtCritName && critNames.some((cn) => cn && (evtCritName.includes(cn) || cn.includes(evtCritName)))) ||
+          (evtCritName &&
+            critNames.some((cn) => cn && (evtCritName.includes(cn) || cn.includes(evtCritName)))) ||
           (evtCritName && keywords.some((kw) => kw && evtCritName.includes(kw))) ||
           selectedCritLabels.some(
             (lbl) => lbl && evtCritName && (evtCritName.includes(lbl) || lbl.includes(evtCritName))
@@ -319,7 +318,16 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
 
       return true
     })
-  }, [validEvents, searchTerm, activeStatusTab, drawerFilterValues, filterOptions])
+  }, [
+    validEvents,
+    searchTerm,
+    activeStatusTab,
+    drawerFilterValues,
+    filterOptions,
+    eventStates,
+    registeredCountMap,
+    now,
+  ])
 
   const sortedEvents = useMemo(() => {
     if (!dateSort) return filteredEvents
@@ -342,58 +350,31 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
     })
   }, [filteredEvents, dateSort])
 
-  // Đếm số lượng theo trạng thái
-  const counts = useMemo(() => {
-    return {
+  const counts = useMemo(
+    () => ({
       all: validEvents.length,
-      upcoming: validEvents.filter(
-        (e) =>
-          e.status !== 'CLOSED' &&
-          e.status !== 'COMPLETED' &&
-          e.status !== 'CANCELLED' &&
-          e.status !== 'DRAFT'
-      ).length,
-      published: validEvents.filter((e) => e.status === 'PUBLISHED').length,
-      closed: validEvents.filter((e) => e.status === 'CLOSED' || e.status === 'COMPLETED').length,
-      draft: validEvents.filter((e) => e.status === 'DRAFT').length,
-    }
-  }, [validEvents])
+      open: [...eventStates.values()].filter((state) => state.tab === 'OPEN_REGISTRATION').length,
+      ongoing: [...eventStates.values()].filter((state) => state.tab === 'ONGOING').length,
+      completed: [...eventStates.values()].filter((state) => state.tab === 'COMPLETED').length,
+      cancelled: [...eventStates.values()].filter((state) => state.tab === 'CANCELLED').length,
+      draft: [...eventStates.values()].filter((state) => state.tab === 'DRAFT').length,
+    }),
+    [validEvents, eventStates]
+  )
 
-  // Badge trạng thái: chấm màu nhỏ + chữ
-  const renderStatus = (status: EventStatus) => {
-    switch (status) {
-      case 'PUBLISHED':
-        return (
-          <span className="inline-flex items-center gap-1.5 text-xs text-foreground font-medium whitespace-nowrap">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
-            <span>Đang mở</span>
-          </span>
-        )
-      case 'COMPLETED':
-      case 'CLOSED':
-        return (
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-normal whitespace-nowrap">
-            <span className="h-2 w-2 rounded-full bg-muted-foreground/60 shrink-0" />
-            <span>Đã kết thúc</span>
-          </span>
-        )
-      case 'CANCELLED':
-        return (
-          <span className="inline-flex items-center gap-1.5 text-xs text-destructive font-normal whitespace-nowrap">
-            <span className="h-2 w-2 rounded-full bg-destructive shrink-0" />
-            <span>Đã hủy</span>
-          </span>
-        )
-      case 'DRAFT':
-        return (
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-normal whitespace-nowrap">
-            <span className="h-2 w-2 rounded-full bg-muted-foreground/40 shrink-0" />
-            <span>Bản nháp</span>
-          </span>
-        )
-      default:
-        return null
-    }
+  const renderStatus = (event: AdminEvent) => {
+    const state = eventStates.get(event.id)!
+    return (
+      <span className="inline-flex flex-col gap-1 text-xs">
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-medium text-foreground">
+          <span className={cn('h-2 w-2 shrink-0 rounded-full', state.color)} />
+          {state.label}
+        </span>
+        {state.detail && (
+          <span className="pl-3.5 text-[11px] text-muted-foreground">{state.detail}</span>
+        )}
+      </span>
+    )
   }
 
   return (
@@ -430,9 +411,10 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
         <div className="flex items-end gap-1.5 -mb-px relative z-10 overflow-x-auto no-scrollbar">
           {[
             { id: 'ALL', label: 'Tất cả', count: counts.all },
-            { id: 'UPCOMING', label: 'Sắp diễn ra', count: counts.upcoming },
-            { id: 'PUBLISHED', label: 'Đang mở đăng ký', count: counts.published },
-            { id: 'CLOSED', label: 'Đã kết thúc', count: counts.closed },
+            { id: 'OPEN_REGISTRATION', label: 'Đang mở đăng ký', count: counts.open },
+            { id: 'ONGOING', label: 'Đang diễn ra', count: counts.ongoing },
+            { id: 'COMPLETED', label: 'Đã kết thúc', count: counts.completed },
+            { id: 'CANCELLED', label: 'Đã hủy', count: counts.cancelled },
             { id: 'DRAFT', label: 'Bản nháp', count: counts.draft },
           ].map((tab) => {
             const isActive = activeStatusTab === tab.id
@@ -441,6 +423,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveStatusTab(tab.id)}
+                aria-pressed={isActive}
                 className={cn(
                   'px-4 sm:px-5 py-2.5 text-xs sm:text-sm transition-all duration-150 cursor-pointer whitespace-nowrap select-none flex items-center gap-1.5',
                   isActive
@@ -546,9 +529,9 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
               <div
                 className={cn(
                   'grid items-center px-5 py-2 text-xs font-normal text-muted-foreground',
-                  activeStatusTab === 'CLOSED'
+                  activeStatusTab === 'COMPLETED'
                     ? 'grid-cols-[1fr_240px_110px_90px]'
-                    : 'grid-cols-[1fr_240px_110px_110px_90px]'
+                    : 'grid-cols-[1fr_220px_110px_170px_90px]'
                 )}
               >
                 <div>Tên sự kiện</div>
@@ -580,7 +563,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                   </Tooltip>
                 </div>
                 <div>Đăng ký</div>
-                {activeStatusTab !== 'CLOSED' && <div className="text-center">Trạng thái</div>}
+                {activeStatusTab !== 'COMPLETED' && <div className="text-left">Trạng thái</div>}
                 <div className="text-right">Thao tác</div>
               </div>
 
@@ -596,9 +579,9 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                         key={i}
                         className={cn(
                           'bg-white dark:bg-card border border-border/80 rounded-2xl px-5 py-3.5 grid items-center shadow-2xs',
-                          activeStatusTab === 'CLOSED'
+                          activeStatusTab === 'COMPLETED'
                             ? 'grid-cols-[1fr_240px_110px_90px]'
-                            : 'grid-cols-[1fr_240px_110px_110px_90px]'
+                            : 'grid-cols-[1fr_220px_110px_170px_90px]'
                         )}
                       >
                         <div className="flex items-center gap-3 pr-4">
@@ -615,7 +598,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                         <div>
                           <Skeleton className="h-4 w-16 rounded" />
                         </div>
-                        {activeStatusTab !== 'CLOSED' && (
+                        {activeStatusTab !== 'COMPLETED' && (
                           <div className="flex justify-center">
                             <Skeleton className="h-6 w-20 rounded-full" />
                           </div>
@@ -636,7 +619,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                       registeredCountMap[evt.id] ?? evt.registeredCount ?? 0
                     const isNearlyFull =
                       evt.capacity > 0 && realRegisteredCount / evt.capacity >= 0.9
-                    const isClosed = evt.status === 'CLOSED' || evt.status === 'COMPLETED'
+                    const isClosed = eventStates.get(evt.id)?.tab === 'COMPLETED'
                     const eventTime = formatEventTime(evt.dateStart, evt.timeStart, evt.timeEnd)
                     const displayName = cleanEventName(evt.name)
 
@@ -646,9 +629,9 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                         onClick={() => onEventClick && onEventClick(evt.id)}
                         className={cn(
                           'bg-white dark:bg-card border border-border/80 dark:border-border/60 rounded-2xl shadow-2xs hover:shadow-xs hover:border-primary/40 transition-all px-5 py-3.5 grid items-center group cursor-pointer relative',
-                          activeStatusTab === 'CLOSED'
+                          activeStatusTab === 'COMPLETED'
                             ? 'grid-cols-[1fr_240px_110px_90px]'
-                            : 'grid-cols-[1fr_240px_110px_110px_90px]',
+                            : 'grid-cols-[1fr_220px_110px_170px_90px]',
                           isClosed && 'opacity-75 hover:opacity-95'
                         )}
                       >
@@ -693,8 +676,8 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                         </div>
 
                         {/* Cột 4: Trạng thái (chấm màu nhỏ + chữ; ẨN khi đang ở tab "Đã kết thúc") */}
-                        {activeStatusTab !== 'CLOSED' && (
-                          <div className="flex justify-center">{renderStatus(evt.status)}</div>
+                        {activeStatusTab !== 'COMPLETED' && (
+                          <div className="flex justify-start text-left">{renderStatus(evt)}</div>
                         )}
 
                         {/* Cột 5: Thao tác */}
@@ -790,7 +773,7 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
                       >
                         {realRegisteredCount} / {evt.capacity} đăng ký
                       </span>
-                      {activeStatusTab !== 'CLOSED' && renderStatus(evt.status)}
+                      {activeStatusTab !== 'COMPLETED' && renderStatus(evt)}
                     </div>
                   </div>
                 )

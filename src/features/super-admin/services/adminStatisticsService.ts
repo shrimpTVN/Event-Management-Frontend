@@ -78,10 +78,29 @@ export const adminDashboardSchema = z.object({
 })
 export type AdminDashboardData = z.infer<typeof adminDashboardSchema>
 export const adminStatisticsService = {
-  async getDashboard(year: number, semesterId?: string) {
+  async getAcademicYears() {
+    const response: any = await apiClient.get('/academic-years')
+    const data = response?.data ?? response
+    return z
+      .array(
+        z.object({
+          id: z.number().int().positive(),
+          code: z.string().trim().min(1),
+          startDate: z.string().nullable().optional(),
+          endDate: z.string().nullable().optional(),
+          isActive: z.boolean().optional(),
+        })
+      )
+      .parse(Array.isArray(data) ? data : data?.content)
+      .sort((a, b) => b.code.localeCompare(a.code, undefined, { numeric: true }))
+  },
+  async getDashboard(year: number | string, semesterId?: string) {
     return adminDashboardSchema.parse(
       await apiClient.get('/admin/statistics/dashboard', {
-        params: { year, ...(semesterId ? { semesterId } : {}) },
+        params: {
+          ...(typeof year === 'string' ? { academicYear: year } : { year }),
+          ...(semesterId ? { semesterId } : {}),
+        },
       })
     )
   },

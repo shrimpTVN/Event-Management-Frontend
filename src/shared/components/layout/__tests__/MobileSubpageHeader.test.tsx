@@ -50,7 +50,7 @@ describe('mobile subpage navigation', () => {
     show('/events?eventTypeId=3')
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'AI' } })
     fireEvent.submit(screen.getByRole('search'))
-    expect(screen.getByLabelText('Đường dẫn')).toHaveTextContent('/events?eventTypeId=3&keyword=AI')
+    expect(screen.getByLabelText('Đường dẫn')).toHaveTextContent('/search?eventTypeId=3&tab=all&keyword=AI')
   })
   it('does not apply phone-only search when resized to desktop', () => {
     show()

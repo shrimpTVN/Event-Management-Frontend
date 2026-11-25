@@ -1,3 +1,4 @@
+import { EducationFields } from '@/shared/components/EducationFields'
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
@@ -18,11 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-import {
-  CTU_FACULTIES,
-  CTU_ACADEMIC_YEARS,
-  extractStudentIdFromEmail,
-} from '../utils/studentProfileUtils'
+import { CTU_ACADEMIC_YEARS, extractStudentIdFromEmail } from '../utils/studentProfileUtils'
 
 export const StudentProfileForm: React.FC = () => {
   const navigate = useNavigate()
@@ -87,7 +84,11 @@ export const StudentProfileForm: React.FC = () => {
     try {
       setIsSubmitting(true)
       setApiError(null)
-      const updatedUser = await authService.completeStudentProfile(data)
+      const updatedUser = await authService.completeStudentProfile({
+        ...data,
+        schoolId: Number(data.faculty),
+        majorId: Number(data.major),
+      })
       updateUser({
         name: data.fullName || updatedUser.name,
         studentId: data.studentId || updatedUser.studentId,
@@ -279,52 +280,23 @@ export const StudentProfileForm: React.FC = () => {
                   II. THÔNG TIN HỌC TẬP
                 </h2>
 
-                {/* Khoa / Trường thành viên (Radix Select) */}
-                <div className="space-y-1.5">
-                  <Label className="block text-sm font-medium text-foreground">
-                    Khoa / Trường thành viên <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={facultyValue || undefined}
-                    onValueChange={(val) => setValue('faculty', val, { shouldValidate: true })}
-                  >
-                    <SelectTrigger
-                      className={`h-11 w-full bg-white dark:bg-background ${errors.faculty ? 'border-destructive' : 'border-[#D1D5DB] dark:border-border'}`}
-                    >
-                      <SelectValue placeholder="-- Chọn Khoa / Trường thành viên --" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CTU_FACULTIES.map((f) => (
-                        <SelectItem key={f} value={f}>
-                          {f}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.faculty && (
-                    <p className="text-xs text-destructive mt-1">{errors.faculty.message}</p>
-                  )}
-                </div>
-
-                {/* Ngành học */}
-                <div className="space-y-1.5">
-                  <Label className="block text-sm font-medium text-foreground">
-                    Ngành học <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    type="text"
-                    {...register('major')}
-                    placeholder="Ví dụ: Kỹ thuật phần mềm (Mã ngành: 7480103)"
-                    className={`h-11 ${
-                      errors.major
-                        ? 'border-destructive focus-visible:ring-destructive'
-                        : 'border-[#D1D5DB] dark:border-border focus:border-primary'
-                    }`}
-                  />
-                  {errors.major && (
-                    <p className="text-xs text-destructive mt-1">{errors.major.message}</p>
-                  )}
-                </div>
+                <EducationFields
+                  className="flex flex-col gap-5"
+                  schoolId={Number(facultyValue) || undefined}
+                  majorId={Number(watch('major')) || undefined}
+                  onSchoolChange={(school) => {
+                    setValue('faculty', String(school.id), { shouldValidate: true })
+                    setValue('major', '', { shouldValidate: false })
+                  }}
+                  onMajorChange={(major) =>
+                    setValue('major', String(major.id), { shouldValidate: true })
+                  }
+                />
+                {(errors.faculty || errors.major) && (
+                  <p className="text-xs text-destructive">
+                    Vui lòng chọn khoa/trường và ngành học.
+                  </p>
+                )}
 
                 {/* Lớp học & Khóa học */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

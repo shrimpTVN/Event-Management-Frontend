@@ -5,6 +5,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SearchPage } from '../SearchPage'
 import { eventService } from '@/features/events'
 
+vi.mock('@/features/fanpage/services/fanpageSearchService', () => ({
+  fanpageSearchService: { search: vi.fn().mockResolvedValue([]) },
+}))
+
 const mockNavigate = vi.fn()
 
 vi.mock('react-router-dom', async () => {

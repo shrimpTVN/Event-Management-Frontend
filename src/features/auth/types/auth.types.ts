@@ -95,6 +95,8 @@ export interface OtpPayload {
 }
 
 export interface StudentProfilePayload {
+  schoolId?: number
+  majorId?: number
   fullName: string
   studentId: string
   gender: 'MALE' | 'FEMALE' | 'OTHER'

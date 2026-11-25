@@ -362,6 +362,8 @@ export const fanpageAdminService = {
           dateStart,
           dateEnd,
           dateHappen: dateHappenStr,
+          startsAt: ev.startTime || ev.dateHappen || null,
+          endsAt: ev.dateEnd || ev.endTime || null,
           dateOpen: dateOpenStr,
           dateClose: dateCloseStr,
           timeStart,
@@ -371,7 +373,7 @@ export const fanpageAdminService = {
             typeof ev.location === 'string'
               ? ev.location
               : ev.location?.address || 'Hội trường Lớn Khu II ĐHCT',
-          capacity: ev.capacity || 200,
+          capacity: ev.capacity ?? 200,
           maleQuantity: ev.maleQuantity !== undefined ? ev.maleQuantity : 0,
           femaleQuantity: ev.femaleQuantity !== undefined ? ev.femaleQuantity : 0,
           registeredCount: ev.registeredCount || 0,

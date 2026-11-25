@@ -187,6 +187,26 @@ describe('EventFeedCard', () => {
     expect(screen.getByRole('button', { name: 'Đã đăng ký' })).not.toBeDisabled()
   })
 
+  it('hides cancellation in the registered menu after dateClose', () => {
+    renderWithProviders(
+      <EventFeedCard event={{ ...mockEvent, isRegistered: true, registrationStatus: 'REGISTERED', dateClose: '2026-11-14T00:00:00Z' }} />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Đã đăng ký' }))
+    expect(screen.getByRole('button', { name: 'Xem lịch sử tham gia' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Hủy đăng ký' })).not.toBeInTheDocument()
+  })
+
+  it('removes cancellation from an open menu when dateClose passes', () => {
+    const dateClose = new Date(Date.now() + 1000).toISOString()
+    renderWithProviders(
+      <EventFeedCard event={{ ...mockEvent, isRegistered: true, registrationStatus: 'REGISTERED', dateClose }} />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Đã đăng ký' }))
+    expect(screen.getByRole('button', { name: 'Hủy đăng ký' })).toBeInTheDocument()
+    act(() => vi.advanceTimersByTime(1002))
+    expect(screen.queryByRole('button', { name: 'Hủy đăng ký' })).not.toBeInTheDocument()
+  })
+
   it('shows the major SV5T criterion and selected child without the label prefix', () => {
     queryClient.setQueryData(
       ['sv5tCriterias'],

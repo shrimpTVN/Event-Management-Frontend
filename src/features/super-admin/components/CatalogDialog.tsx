@@ -13,7 +13,7 @@ export function CatalogDialog({
 }: {
   open: boolean
   title: string
-  description: string
+  description?: string
   busy?: boolean
   onClose: () => void
   children: ReactNode

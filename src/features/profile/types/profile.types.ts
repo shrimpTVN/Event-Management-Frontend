@@ -18,6 +18,7 @@ export interface StudentProfile {
   firstName?: string
   lastName?: string
   majorId?: number
+  schoolId?: number
   associationId?: number
   roles?: string[]
   staffId?: string

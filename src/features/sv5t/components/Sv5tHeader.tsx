@@ -56,8 +56,8 @@ export const Sv5tHeader: React.FC<Sv5tHeaderProps> = ({
     <div className="student-achievement-header flex flex-col gap-2 pb-1 select-none">
       {/* Mobile View (< 768px): 2 bottom sheet triggers in 1 row + subtle regulation link */}
       <div className="flex md:hidden flex-col gap-2 w-full">
-        <div className="flex items-center gap-2.5 w-full">
-          <div className="flex-[1.2] min-w-0">
+        <div className="grid grid-cols-2 items-center gap-2.5 w-full">
+          <div className="min-w-0">
             <MobileFilterSheet
               title="Chọn năm học"
               value={selectedYearId ? String(selectedYearId) : ''}
@@ -67,7 +67,7 @@ export const Sv5tHeader: React.FC<Sv5tHeaderProps> = ({
               accessibleLabel="Năm học"
             />
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0">
             <MobileFilterSheet
               title="Chọn cấp xét"
               value={selectedScope}

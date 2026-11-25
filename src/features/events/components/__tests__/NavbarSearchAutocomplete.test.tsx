@@ -4,6 +4,11 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NavbarSearchAutocomplete } from '../NavbarSearchAutocomplete'
 import { eventService } from '../../services/eventService'
+import { fanpageSearchService } from '@/features/fanpage/services/fanpageSearchService'
+
+vi.mock('@/features/fanpage/services/fanpageSearchService', () => ({
+  fanpageSearchService: { search: vi.fn().mockResolvedValue([]) },
+}))
 
 const mockNavigate = vi.fn()
 
@@ -40,6 +45,7 @@ describe('NavbarSearchAutocomplete', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(eventService.getEvents).mockResolvedValue([])
+    vi.mocked(fanpageSearchService.search).mockResolvedValue([])
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
@@ -57,7 +63,7 @@ describe('NavbarSearchAutocomplete', () => {
   it('hides the header filter on the student home page', () => {
     renderComponent('/')
     expect(screen.queryByLabelText('Mở bộ lọc nâng cao')).not.toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Tìm kiếm sự kiện...')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Tìm kiếm sự kiện, fanpage…')).toBeInTheDocument()
   })
 
   it('leaves filtering to the results toolbar on the search page', () => {
@@ -67,7 +73,7 @@ describe('NavbarSearchAutocomplete', () => {
 
   it('renders search without a filter button on the events page', () => {
     renderComponent()
-    expect(screen.getByPlaceholderText('Tìm kiếm sự kiện...')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Tìm kiếm sự kiện, fanpage…')).toBeInTheDocument()
     expect(screen.queryByLabelText('Mở bộ lọc nâng cao')).not.toBeInTheDocument()
   })
 
@@ -84,12 +90,12 @@ describe('NavbarSearchAutocomplete', () => {
     vi.mocked(eventService.getEvents).mockResolvedValueOnce(mockResults as any)
 
     renderComponent()
-    const input = screen.getByPlaceholderText('Tìm kiếm sự kiện...')
+    const input = screen.getByPlaceholderText('Tìm kiếm sự kiện, fanpage…')
     fireEvent.change(input, { target: { value: 'Hội thảo' } })
 
     await waitFor(() => {
       expect(screen.getByText('Hội thảo AI trong giáo dục')).toBeInTheDocument()
-      expect(screen.getByText('Gợi ý sự kiện')).toBeInTheDocument()
+      expect(screen.getByText('Sự kiện')).toBeInTheDocument()
     })
   })
 
@@ -117,16 +123,42 @@ describe('NavbarSearchAutocomplete', () => {
 
   it('submits search on Enter and navigates to /search?keyword=...', async () => {
     renderComponent()
-    const input = screen.getByPlaceholderText('Tìm kiếm sự kiện...')
+    const input = screen.getByPlaceholderText('Tìm kiếm sự kiện, fanpage…')
     fireEvent.change(input, { target: { value: 'Workshop' } })
     fireEvent.submit(input.closest('form')!)
 
-    expect(mockNavigate).toHaveBeenCalledWith('/search?keyword=Workshop')
+    expect(mockNavigate).toHaveBeenCalledWith('/search?tab=all&keyword=Workshop')
   })
 
-  it.each(['/saved', '/notifications', '/history', '/profile', '/fanpage/1'])('omits the header filter on %s', (path) => {
-    renderComponent(path)
-    expect(screen.queryByLabelText('Mở bộ lọc nâng cao')).not.toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Tìm kiếm sự kiện' })).toBeInTheDocument()
+  it('suggests fanpages alongside events and opens a selected fanpage', async () => {
+    vi.mocked(eventService.getEvents).mockResolvedValue([
+      { id: 'event', title: 'AI hội thảo' },
+    ] as any)
+    vi.mocked(fanpageSearchService.search).mockResolvedValue([{ id: 'page', name: 'CLB AI' }])
+    renderComponent()
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'AI' } })
+    expect(await screen.findByRole('option', { name: 'AI hội thảo' })).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('option', { name: 'CLB AI' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/fanpage/page')
   })
+
+  it('shows successful suggestions even if the other source fails', async () => {
+    vi.mocked(eventService.getEvents).mockRejectedValue(new Error('offline'))
+    vi.mocked(fanpageSearchService.search).mockResolvedValue([{ id: 'page', name: 'CLB AI' }])
+    renderComponent()
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'AI' } })
+    expect(await screen.findByRole('option', { name: 'CLB AI' })).toBeInTheDocument()
+    expect(screen.getByText('Chưa tải được đầy đủ gợi ý.')).toBeInTheDocument()
+  })
+
+  it.each(['/saved', '/notifications', '/history', '/profile', '/fanpage/1'])(
+    'omits the header filter on %s',
+    (path) => {
+      renderComponent(path)
+      expect(screen.queryByLabelText('Mở bộ lọc nâng cao')).not.toBeInTheDocument()
+      expect(
+        screen.getByRole('combobox', { name: 'Tìm kiếm sự kiện và fanpage' })
+      ).toBeInTheDocument()
+    }
+  )
 })

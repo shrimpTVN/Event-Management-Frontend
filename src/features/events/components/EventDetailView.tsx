@@ -165,6 +165,8 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({ event }) => {
         <RegisterButton
           eventId={event.id}
           eventTitle={event.title}
+          dateClose={event.dateClose}
+          registrationStatus={event.registrationStatus}
           isRegistered={Boolean(event.isRegistered || (event.status as string) === 'REGISTERED')}
           disabled={event.status === 'CLOSED'}
           disabledReason="closed"

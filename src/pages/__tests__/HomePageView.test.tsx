@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@/features/auth'
 import type { Event } from '@/features/events'
+import { formatRecommendationExplain, normalizeEvent } from '@/features/events/services/eventService'
 import { HomePage } from '../HomePage'
 
 vi.mock('@/features/events/components/StudentLeftSidebar', () => ({
@@ -127,5 +128,188 @@ describe('student home event views', () => {
       'aria-pressed',
       'true'
     )
+  })
+
+  it('shows only open-registration events on HomePage and hides status chips from HomePage filter', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { enabled: false, retry: false } } })
+    client.setQueryData(['event-filter-options'], {
+      academicYears: [],
+      semesters: [],
+      eventTypes: [],
+      fanpages: [],
+      criterias: [],
+      pointCategories: [],
+    })
+    client.setQueryData(
+      ['events', 'feed'],
+      [
+        {
+          ...event,
+          id: '10',
+          title: 'Sự kiện đang mở ĐK',
+          dateOpen: '2020-01-01T00:00:00Z',
+          dateClose: '2099-01-01T00:00:00Z',
+          startTime: '2099-02-01T08:00:00Z',
+          endTime: '2099-02-01T11:00:00Z',
+        },
+        {
+          ...event,
+          id: '11',
+          title: 'Sự kiện đã đóng ĐK',
+          dateOpen: '2020-01-01T00:00:00Z',
+          dateClose: '2021-01-01T00:00:00Z',
+          startTime: '2099-02-01T08:00:00Z',
+          endTime: '2099-02-01T11:00:00Z',
+        },
+        {
+          ...event,
+          id: '12',
+          title: 'Sự kiện chưa mở ĐK',
+          dateOpen: '2098-01-01T00:00:00Z',
+          dateClose: '2099-01-01T00:00:00Z',
+          startTime: '2099-02-01T08:00:00Z',
+          endTime: '2099-02-01T11:00:00Z',
+        },
+        {
+          ...event,
+          id: '13',
+          title: 'Sự kiện đã kết thúc',
+          status: 'COMPLETED',
+          startTime: '2021-02-01T08:00:00Z',
+          endTime: '2021-02-01T11:00:00Z',
+        },
+        {
+          ...event,
+          id: '14',
+          title: 'Sự kiện PUBLISHED quá hạn không có dateClose',
+          status: 'PUBLISHED',
+          dateClose: undefined,
+          startTime: '2021-02-01T08:00:00Z',
+          endTime: '2021-02-01T11:00:00Z',
+        },
+      ]
+    )
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <HomePage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    expect(screen.getByText('Sự kiện đang mở ĐK')).toBeInTheDocument()
+    expect(screen.queryByText('Sự kiện đã đóng ĐK')).not.toBeInTheDocument()
+    expect(screen.queryByText('Sự kiện chưa mở ĐK')).not.toBeInTheDocument()
+    expect(screen.queryByText('Sự kiện đã kết thúc')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Sự kiện PUBLISHED quá hạn không có dateClose')
+    ).not.toBeInTheDocument()
+
+    // Status filter chips are hidden on HomePage (they belong to SearchPage)
+    fireEvent.click(screen.getByRole('button', { name: 'Bộ lọc sự kiện' }))
+    expect(screen.queryByText('Trạng thái sự kiện')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Đã kết thúc' })).not.toBeInTheDocument()
+  })
+
+  it('prioritizes recommended events in Discover tab and uses personalized recommendations in Recommended tab when authenticated', () => {
+    useAuthStore.setState({ isAuthenticated: true, user: { id: '1' } as any })
+    const client = new QueryClient({ defaultOptions: { queries: { enabled: false, retry: false } } })
+    client.setQueryData(['event-filter-options'], {
+      academicYears: [],
+      semesters: [],
+      eventTypes: [],
+      fanpages: [],
+      criterias: [],
+      pointCategories: [],
+    })
+    const regularEvent: Event = {
+      ...event,
+      id: '20',
+      title: 'Sự kiện thường mở đăng ký',
+      isFollowed: false,
+    }
+    const recommendedEventA: Event = {
+      ...event,
+      id: '21',
+      title: 'Sự kiện gợi ý ưu tiên số 1',
+      recommendationExplain: 'Bổ sung +3 ĐRL mục V.b còn thiếu',
+      recommendationScore: 95,
+      isRecommended: true,
+    }
+    client.setQueryData(['events', 'feed'], [regularEvent, recommendedEventA])
+    client.setQueryData(['events', 'recommendations', true], [recommendedEventA])
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <HomePage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    // FeedTabs only renders "Khám phá" and "Đang theo dõi" (no standalone "Gợi ý" tab)
+    expect(screen.getByRole('button', { name: 'Khám phá' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Đang theo dõi' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Gợi ý' })).not.toBeInTheDocument()
+
+    // In Discover tab, recommendedEventA should appear before regularEvent in DOM order
+    const headings = screen.getAllByRole('heading', { level: 2 }).map((el) => el.textContent)
+    expect(headings).toEqual(['Sự kiện gợi ý ưu tiên số 1', 'Sự kiện thường mở đăng ký'])
+
+    // Reason text is hidden until hovering/clicking the suggestion icon next to post timestamp
+    expect(screen.queryByText('Bổ sung +3 ĐRL mục V.b còn thiếu')).not.toBeInTheDocument()
+    const tipTrigger = screen.getByLabelText('Lý do gợi ý sự kiện')
+    fireEvent.click(tipTrigger)
+    expect(screen.getByText('Bổ sung +3 ĐRL mục V.b còn thiếu')).toBeInTheDocument()
+  })
+
+  it('formats backend recommendation explain into concise text naming the specific SV5T standard and DRL category', () => {
+    const normalized = normalizeEvent({
+      id: 3,
+      name: 'Chiến dịch Chủ nhật Xanh',
+      criteriaId: 402,
+      criteriaName: 'Tham gia ít nhất 03 ngày tình nguyện trong năm học',
+      status: 'PUBLISHED',
+    })
+    const formatted = formatRecommendationExplain(
+      {
+        explain:
+          'Có thể bổ sung 3 điểm rèn luyện, có thể hoàn thành tiêu chí cấp trên, đến từ trang bạn theo dõi hoặc tham gia, cùng loại với sự kiện bạn đã đăng ký.',
+        fulfillsCriteria: true,
+        pointGains: [
+          {
+            categoryId: 2,
+            categoryName: 'II. Trách nhiệm chấp hành pháp luật và nội quy',
+            pointsOffered: 4,
+            effectiveGain: 3,
+          },
+          {
+            categoryId: 4,
+            categoryName: 'IV. Trách nhiệm công dân trong quan hệ cộng đồng',
+            pointsOffered: 5,
+            effectiveGain: 0,
+          },
+        ],
+      },
+      normalized
+    )
+    expect(formatted).toBe('Bổ sung 3 điểm rèn luyện mục II, có thể hoàn thành tiêu chí Tình nguyện tốt.')
+
+    const ethicsNormalized = normalizeEvent({
+      id: 10,
+      name: 'Sinh hoạt Công dân',
+      criteriaId: 1033,
+      status: 'PUBLISHED',
+    })
+    const ethicsFormatted = formatRecommendationExplain(
+      {
+        explain: 'có thể hoàn thành tiêu chí cấp trên, đến từ trang bạn theo dõi hoặc tham gia.',
+        fulfillsCriteria: true,
+        pointGains: [],
+      },
+      ethicsNormalized
+    )
+    expect(ethicsFormatted).toBe('Có thể hoàn thành tiêu chí Đạo đức tốt, từ trang bạn theo dõi.')
   })
 })

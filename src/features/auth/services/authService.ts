@@ -1,3 +1,4 @@
+import { educationCatalogService } from '@/shared/services/educationCatalogService'
 import { apiClient } from '@/shared'
 import {
   type User,
@@ -160,50 +161,40 @@ export const authService = {
    * Complete student profile on first login/registration
    */
   async completeStudentProfile(payload: StudentProfilePayload): Promise<User> {
-    const parts = (payload.fullName || '').trim().split(/\s+/)
-    const lastName = parts.length > 1 ? parts[0] : 'Sinh viên'
-    const firstName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'CTU'
-
-    const kMatch = (payload.academicYear || '').match(/\d+/)
-    const kNumber = kMatch ? parseInt(kMatch[0], 10) : 49
-
-    const profileDto = {
+    const schoolId = payload.schoolId ?? Number(payload.faculty)
+    const majorId = payload.majorId ?? Number(payload.major)
+    await educationCatalogService.validateSelection(schoolId, majorId)
+    const parts = payload.fullName.trim().split(/\s+/)
+    const lastName = parts.length > 1 ? parts[0] : ''
+    const firstName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0]
+    const kNumber = Number(payload.academicYear.match(/\d+/)?.[0])
+    if (!Number.isInteger(kNumber) || kNumber < 1) throw new Error('Vui lòng chọn khóa học hợp lệ.')
+    const current = useAuthStore.getState().user
+    const response: any = await apiClient.put('/users/me/profile', {
       firstName,
       lastName,
-      gender: payload.gender || 'MALE',
+      gender: payload.gender,
       kNumber,
-      avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(payload.studentId || payload.email)}`,
-      associationId: 1,
-      majorId: 1,
-    }
-
-    try {
-      const response: any = await apiClient.put('/users/me/profile', profileDto)
-      const data = response?.data || response
-      const updatedUser: User = {
-        id: String(data?.userId || 'usr-1'),
-        email: data?.email || payload.email,
-        name:
-          `${data?.lastName || lastName} ${data?.firstName || firstName}`.trim() ||
-          payload.fullName,
-        studentId: data?.studentId || payload.studentId,
-        avatarUrl: data?.avatarUrl || profileDto.avatarUrl,
-        role: normalizeRole(data?.role) || RoleEnum.STUDENT,
-        roles: data?.roles || [data?.role || RoleEnum.STUDENT],
-        createdAt: new Date().toISOString(),
-        isProfileComplete: true,
-      }
-      return updatedUser
-    } catch {
-      return {
-        id: 'usr-1',
-        email: payload.email,
-        name: payload.fullName,
-        studentId: payload.studentId,
-        role: RoleEnum.STUDENT,
-        createdAt: new Date().toISOString(),
-        isProfileComplete: true,
-      }
+      majorId,
+      schoolId,
+      avatarUrl:
+        current?.avatarUrl ||
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(payload.studentId),
+    })
+    const data = response?.data || response
+    if (!data?.email || Number(data.majorId) !== majorId || Number(data.schoolId) !== schoolId)
+      throw new Error('Máy chủ chưa xác nhận đúng ngành học đã chọn.')
+    return {
+      ...current,
+      id: current?.id || String(data.userId || ''),
+      email: data.email,
+      name: [data.lastName, data.firstName].filter(Boolean).join(' '),
+      studentId: data.studentId,
+      avatarUrl: data.avatarUrl,
+      role: normalizeRole(data.role) || RoleEnum.STUDENT,
+      roles: data.roles || current?.roles || [RoleEnum.STUDENT],
+      createdAt: current?.createdAt || new Date().toISOString(),
+      isProfileComplete: true,
     }
   },
 

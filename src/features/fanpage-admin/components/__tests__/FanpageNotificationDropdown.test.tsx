@@ -87,7 +87,7 @@ describe('FanpageNotificationDropdown', () => {
     )
 
     // Check title
-    expect(screen.getByText('Thông báo Fanpage')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Thông báo' })).toBeDefined()
     // Check tabs
     expect(screen.getByRole('button', { name: 'Tất cả' })).toBeDefined()
     expect(screen.getByText('Chưa đọc')).toBeDefined()
@@ -126,9 +126,30 @@ describe('FanpageNotificationDropdown', () => {
       </MemoryRouter>
     )
 
-    const markAllBtn = screen.getByRole('button', { name: 'Đã đọc tất cả' })
+    const markAllBtn = screen.getByRole('button', { name: 'Đánh dấu tất cả là đã đọc' })
+    expect(screen.getAllByRole('button', { name: 'Đánh dấu tất cả là đã đọc' })).toHaveLength(1)
     fireEvent.click(markAllBtn)
 
     expect(mockMarkAllAsRead).toHaveBeenCalled()
+  })
+
+  it('filters unread entries and marks a selected entry with the fanpage action', () => {
+    vi.mocked(notificationsModule.useFanpageUnreadNotificationCount).mockReturnValue({ data: 1 } as any)
+    vi.mocked(notificationsModule.useFanpageNotifications).mockReturnValue({
+      data: { content: [
+        { id: 1, title: 'Đăng ký mới', message: 'Sinh viên vừa đăng ký', status: 'UNREAD', createdAt: new Date().toISOString() },
+        { id: 2, title: 'Thông báo cũ', message: 'Đã xử lý', status: 'READ', createdAt: new Date().toISOString() },
+      ] },
+    } as any)
+    const onClose = vi.fn()
+    render(<MemoryRouter><FanpageNotificationDropdown isOpen onClose={onClose} fanpageId="1" /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'Chưa đọc' }))
+    expect(screen.getByRole('button', { name: 'Chưa đọc' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByText('Thông báo cũ')).not.toBeInTheDocument()
+    expect(notificationsModule.useFanpageNotifications).toHaveBeenLastCalledWith('1', 0, 30, 'UNREAD')
+    fireEvent.click(screen.getByRole('button', { name: /Đăng ký mới/ }))
+    expect(mockMarkAsRead).toHaveBeenCalledWith(1)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
   })
 })

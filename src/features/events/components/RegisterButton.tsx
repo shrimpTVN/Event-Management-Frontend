@@ -14,10 +14,13 @@ import {
 import { apiClient } from '@/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/features/auth'
+import { canCancelRegistration } from '@/shared/utils/registrationEligibility'
+import { useTimeBoundary } from '@/shared/hooks/useTimeBoundary'
 
 export interface RegisterButtonProps {
   eventId: string | number
   eventTitle?: string
+  dateClose?: string | null
   isRegistered?: boolean
   registrationStatus?: 'REGISTERED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED' | string
   disabled?: boolean
@@ -39,6 +42,7 @@ export interface RegisterButtonProps {
 export const RegisterButton: React.FC<RegisterButtonProps> = ({
   eventId,
   eventTitle,
+  dateClose,
   isRegistered: initialRegistered = false,
   registrationStatus: initialStatus,
   disabled = false,
@@ -57,6 +61,8 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
   const [showProfilePrompt, setShowProfilePrompt] = useState(false)
   const [isRegistered, setIsRegistered] = useState(initialRegistered)
   const [registrationStatus, setRegistrationStatus] = useState<string | undefined>(initialStatus)
+  const now = useTimeBoundary(dateClose)
+  const canCancel = canCancelRegistration({ status: registrationStatus, dateClose }, now)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [errorModal, setErrorModal] = useState<{
@@ -184,6 +190,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
       await Promise.all([request, minDelay])
 
       setIsRegistered(true)
+      setRegistrationStatus('REGISTERED')
       queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) => [
         ...(Array.isArray(old) ? old : []),
         { eventId: Number(eventId), status: 'REGISTERED' },
@@ -229,6 +236,10 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
 
   // Handle cancel registration action
   const handleCancelRegistration = async () => {
+    if (!canCancelRegistration({ status: registrationStatus, dateClose })) {
+      setShowCancelConfirm(false)
+      return
+    }
     setIsLoading(true)
     setShowCancelConfirm(false)
     setIsOpen(false)
@@ -319,8 +330,8 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
             ? 'bg-[#72A8DE] hover:bg-[#72A8DE] text-white cursor-wait'
             : isRegistered
               ? registrationStatus === 'COMPLETED'
-                ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white cursor-pointer shadow-xs focus:ring-2 focus:ring-emerald-500/40'
-                : 'bg-[#16A34A] hover:bg-[#15803D] active:bg-[#166534] text-white cursor-pointer shadow-xs focus:ring-2 focus:ring-[#16A34A]/40'
+                ? 'bg-emerald-600 hover:bg-emerald-600 active:bg-emerald-600 text-white hover:text-white cursor-pointer shadow-xs focus:ring-2 focus:ring-emerald-500/40'
+                : 'bg-[#16A34A] hover:bg-[#16A34A] active:bg-[#16A34A] text-white hover:text-white cursor-pointer shadow-xs focus:ring-2 focus:ring-[#16A34A]/40'
               : disabled
                 ? 'bg-[#F3F4F6] dark:bg-muted text-[#6B7280] dark:text-muted-foreground border border-[#E5E7EB] dark:border-border cursor-not-allowed shadow-none'
                 : 'bg-[#1F5CA9] hover:bg-[#1B4B8A] active:bg-[#1B406F] text-white cursor-pointer focus:ring-2 focus:ring-[#00AFF0]'
@@ -401,7 +412,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
             </Button>
 
             {/* Chỉ cho phép Hủy đăng ký nếu sự kiện CHƯA điểm danh và CHƯA hoàn thành */}
-            {(!registrationStatus || registrationStatus === 'REGISTERED') && (
+            {canCancel && (
               <>
                 <div className="h-[1px] bg-[#E5E7EB] dark:bg-border my-0.5" />
                 <Button
@@ -424,7 +435,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
         )}
 
       {/* 3. Modal xác nhận hủy đăng ký */}
-      {showCancelConfirm &&
+      {showCancelConfirm && canCancel &&
         createPortal(
           <div
             className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"

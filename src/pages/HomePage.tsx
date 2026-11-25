@@ -7,6 +7,7 @@ import type { EventFilterFormValues } from '@/features/events/components/EventFi
 import { eventFilterOptionsService } from '@/features/events/services/eventFilterOptionsService'
 import { Tooltip } from '@/components/ui/tooltip'
 import React, { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { LayoutList, PanelsTopLeft, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +16,7 @@ import { useAuthStore } from '@/features/auth'
 import { apiClient } from '@/shared'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fanpageService } from '@/features/fanpage'
+import { isEventMatchingRegistrationStatus } from '@/features/events/services/eventService'
 import {
   StudentLeftSidebar,
   StudentRightSidebar,
@@ -61,8 +63,31 @@ export const HomePage: React.FC = () => {
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ['events', 'feed'],
-    queryFn: () => eventService.getEvents(),
+    queryFn: () => eventService.getEvents({ statuses: ['PUBLISHED'] }),
   })
+
+  // Fetch personalized event recommendations for authenticated student
+  const { data: recommendedEvents = [], isLoading: isLoadingRecommendations } = useQuery<Event[]>({
+    queryKey: ['events', 'recommendations', isAuthenticated],
+    queryFn: async () => {
+      if (!isAuthenticated) return []
+      try {
+        return await eventService.getRecommendations({ size: 50 })
+      } catch {
+        return []
+      }
+    },
+    enabled: isAuthenticated,
+    staleTime: 2 * 60_000,
+  })
+
+  const recommendationMap = useMemo(() => {
+    const map = new Map<string, { event: Event; rankIndex: number }>()
+    recommendedEvents.forEach((item, index) => {
+      map.set(String(item.id), { event: item, rankIndex: index })
+    })
+    return map
+  }, [recommendedEvents])
 
   // Fetch followed fanpages for the user to accurately mark follow state
   const { data: followedFanpages = [] } = useQuery<any[]>({
@@ -148,15 +173,33 @@ export const HomePage: React.FC = () => {
   const eventsWithFollowState = useMemo(() => {
     return events.map((evt) => {
       const regStatus = registeredEventMap.get(String(evt.id))
+      const recEntry = recommendationMap.get(String(evt.id))
       return {
         ...evt,
         isFollowed: evt.isFollowed || followedFanpageIds.has(String(evt.organizerId)),
         isSaved: storedEventIds.has(String(evt.id)) || Boolean(evt.isSaved),
         isRegistered: isAuthenticated ? Boolean(regStatus) : false,
         registrationStatus: isAuthenticated ? regStatus : undefined,
+        recommendationExplain: isAuthenticated
+          ? recEntry?.event.recommendationExplain ?? evt.recommendationExplain
+          : undefined,
+        recommendationScore: isAuthenticated
+          ? recEntry?.event.recommendationScore ?? evt.recommendationScore
+          : undefined,
+        fulfillsCriteria: isAuthenticated
+          ? recEntry?.event.fulfillsCriteria ?? evt.fulfillsCriteria
+          : undefined,
+        isRecommended: isAuthenticated ? Boolean(recEntry || evt.isRecommended) : false,
       }
     })
-  }, [events, followedFanpageIds, storedEventIds, registeredEventMap, isAuthenticated])
+  }, [
+    events,
+    followedFanpageIds,
+    storedEventIds,
+    registeredEventMap,
+    recommendationMap,
+    isAuthenticated,
+  ])
 
   const handleTabChange = (tab: FeedTabType) => {
     setActiveTab(tab)
@@ -169,18 +212,53 @@ export const HomePage: React.FC = () => {
     }
   }
 
-  // Filter events by selected feed tab or feedScope in filter values
-  const tabEvents = eventsWithFollowState.filter((evt) => {
-    const scope = filterValues.feedScope || (activeTab !== 'DISCOVER' ? activeTab : undefined)
-    if (scope === 'FOLLOWING') {
-      return evt.isFollowed === true
+  // HomePage only displays events currently open for registration
+  const openRegistrationEvents = useMemo(
+    () =>
+      eventsWithFollowState.filter((evt) =>
+        isEventMatchingRegistrationStatus(evt, 'OPEN_REGISTRATION')
+      ),
+    [eventsWithFollowState]
+  )
+
+  const activeFeedScope = filterValues.feedScope || (activeTab !== 'DISCOVER' ? activeTab : undefined)
+
+  // Filter & rank events by selected feed tab (or feedScope in filter values)
+  const tabEvents = useMemo(() => {
+    if (activeFeedScope === 'FOLLOWING') {
+      return openRegistrationEvents.filter((evt) => evt.isFollowed === true)
     }
-    if (scope === 'RECOMMENDED') {
-      // Show events with training points benefits
-      return Boolean(evt.pointsReward)
+    if (activeFeedScope === 'RECOMMENDED') {
+      if (isAuthenticated && recommendationMap.size > 0) {
+        return openRegistrationEvents
+          .filter((evt) => recommendationMap.has(String(evt.id)))
+          .sort(
+            (a, b) =>
+              (recommendationMap.get(String(a.id))?.rankIndex ?? Number.MAX_SAFE_INTEGER) -
+              (recommendationMap.get(String(b.id))?.rankIndex ?? Number.MAX_SAFE_INTEGER)
+          )
+      }
+      if (!isAuthenticated) {
+        return openRegistrationEvents.filter((evt) => Boolean(evt.pointsReward))
+      }
+      return []
     }
-    return true
-  })
+    // DISCOVER: prioritize personalized recommended events at top, then remaining open events
+    if (isAuthenticated && recommendationMap.size > 0) {
+      return [...openRegistrationEvents].sort((a, b) => {
+        const aRank = recommendationMap.get(String(a.id))?.rankIndex
+        const bRank = recommendationMap.get(String(b.id))?.rankIndex
+        if (aRank !== undefined && bRank !== undefined) return aRank - bRank
+        if (aRank !== undefined) return -1
+        if (bRank !== undefined) return 1
+        return 0
+      })
+    }
+    return openRegistrationEvents
+  }, [openRegistrationEvents, activeFeedScope, isAuthenticated, recommendationMap])
+
+  const isFeedLoading =
+    isLoading || (activeFeedScope === 'RECOMMENDED' && isAuthenticated && isLoadingRecommendations)
 
   const filteredEvents = tabEvents.filter(createEventFilterMatcher(filterValues, filterOptions))
 
@@ -224,6 +302,7 @@ export const HomePage: React.FC = () => {
       { eventId: Number(eventId), status: 'REGISTERED' },
     ])
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
+    queryClient.invalidateQueries({ queryKey: ['events', 'recommendations'] })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
     setNotificationMessage('Đăng ký tham gia sự kiện thành công!')
     setTimeout(() => setNotificationMessage(null), 3500)
@@ -247,6 +326,7 @@ export const HomePage: React.FC = () => {
       )
     )
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
+    queryClient.invalidateQueries({ queryKey: ['events', 'recommendations'] })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
     setNotificationMessage('Đã hủy đăng ký sự kiện thành công.')
     setTimeout(() => setNotificationMessage(null), 3000)
@@ -353,6 +433,7 @@ export const HomePage: React.FC = () => {
                   onChange={setFilterValues}
                   options={filterOptions}
                   events={tabEvents}
+                  hideStatusFilter
                   showLabelOnMobile
                   className="h-10 shrink-0 px-2.5 sm:px-3 rounded-xl shadow-2xs"
                 />
@@ -368,6 +449,7 @@ export const HomePage: React.FC = () => {
                   onChange={setFilterValues}
                   options={filterOptions}
                   events={tabEvents}
+                  hideStatusFilter
                   className="h-9"
                 />
                 <div
@@ -413,7 +495,7 @@ export const HomePage: React.FC = () => {
 
             {/* Feed List (Figma gap: 8px between consecutive cards) */}
             <div className={`flex flex-col gap-2 ${effectiveViewMode === 'post' ? 'student-post-feed' : ''}`}>
-              {isLoading && effectiveViewMode === 'list' ? (
+              {isFeedLoading && effectiveViewMode === 'list' ? (
                 <div className="flex flex-col gap-2" aria-label="Đang tải danh sách sự kiện">
                   {[1, 2, 3].map((index) => (
                     <div
@@ -430,7 +512,7 @@ export const HomePage: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              ) : isLoading ? (
+              ) : isFeedLoading ? (
                 <div className="flex flex-col gap-3">
                   {[1, 2, 3].map((n) => (
                     <div
@@ -470,7 +552,7 @@ export const HomePage: React.FC = () => {
                       : 'Chưa có sự kiện trong mục này'}
                   </h3>
                   {searchQuery || Object.values(filterValues).some(Boolean) ? (
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
                       {searchQuery && (
                         <Button variant="outline" size="sm" onClick={() => setSearchQuery('')}>
                           Xóa từ khóa
@@ -481,12 +563,29 @@ export const HomePage: React.FC = () => {
                           Xóa bộ lọc
                         </Button>
                       )}
+                      <Link
+                        to="/events"
+                        className="inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold text-foreground hover:bg-muted transition-all"
+                      >
+                        Tìm tất cả sự kiện
+                      </Link>
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground max-w-sm">
-                      Hãy thử chuyển sang tab "Khám phá" để xem các hoạt động mới nhất từ các Đoàn -
-                      Hội và CLB.
-                    </p>
+                    <div className="flex flex-col items-center gap-3">
+                      <p className="text-xs text-muted-foreground max-w-sm">
+                        {activeFeedScope === 'RECOMMENDED'
+                          ? isAuthenticated
+                            ? 'Hiện chưa có sự kiện gợi ý mới nào chưa đăng ký phù hợp với tiến độ ĐRL/SV5T của bạn. Hãy xem thêm ở tab Khám phá hoặc trang Tìm kiếm.'
+                            : 'Trang chủ chỉ hiển thị các sự kiện đang mở đăng ký. Đăng nhập để nhận gợi ý cá nhân hóa theo điểm rèn luyện và Sinh viên 5 tốt.'
+                          : 'Trang chủ chỉ hiển thị các sự kiện đang mở đăng ký. Bạn có thể xem các sự kiện đã đóng hoặc đã kết thúc tại trang Tìm kiếm.'}
+                      </p>
+                      <Link
+                        to="/events"
+                        className="inline-flex h-8 items-center justify-center rounded-lg border border-[#D1D5DB] dark:border-border bg-white dark:bg-background px-3 text-xs font-semibold text-foreground hover:bg-[#F9FAFB] dark:hover:bg-muted transition-all"
+                      >
+                        Tìm tất cả sự kiện
+                      </Link>
+                    </div>
                   )}
                 </div>
               )}

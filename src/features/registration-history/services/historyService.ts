@@ -260,6 +260,7 @@ export function normalizeRegisteredEvent(
     organizer,
     timeHappen: timeHappen || 'Đang cập nhật',
     dateHappen: dateHappen || 'Đang cập nhật',
+    startsAt: info.dateHappen || raw.startsAt || raw.dateHappen,
     dateOpen: info.dateOpen || raw.dateOpen,
     dateClose: info.dateClose || raw.dateClose,
     regDate: raw.regDate,
@@ -285,7 +286,7 @@ export function normalizeRegisteredEvent(
     registrationDate: raw.registrationDate || raw.regDate || '',
     attendanceSessions,
     canCancel:
-      ['REGISTERED', 'UPCOMING', 'APPROVED'].includes(rawStatus) &&
+      rawStatus === 'REGISTERED' &&
       (typeof raw.canCancel === 'boolean' ? raw.canCancel : true),
     canRequestAbsence:
       typeof raw.canRequestAbsence === 'boolean' ? raw.canRequestAbsence : status === 'UPCOMING',

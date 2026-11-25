@@ -66,8 +66,8 @@ export const studentProfileSchema = z.object({
     message: 'Vui lòng chọn giới tính',
   }),
   email: z.string().email('Email không hợp lệ'),
-  faculty: z.string().min(1, 'Vui lòng chọn hoặc nhập Khoa / Trường thành viên'),
-  major: z.string().min(1, 'Vui lòng chọn hoặc nhập Ngành học'),
+  faculty: z.string().regex(/^[1-9]\d*$/, 'Vui lòng chọn Khoa / Trường'),
+  major: z.string().regex(/^[1-9]\d*$/, 'Vui lòng chọn Ngành học'),
   className: z.string().min(1, 'Vui lòng nhập Lớp học'),
   academicYear: z.string().min(1, 'Vui lòng chọn Khóa học'),
 })

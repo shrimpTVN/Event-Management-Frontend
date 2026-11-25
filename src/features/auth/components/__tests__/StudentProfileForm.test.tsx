@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -45,7 +46,7 @@ describe('StudentProfileForm UI & Skip feature', () => {
   it('renders skip buttons allowing student to skip profile completion', () => {
     render(
       <MemoryRouter>
-        <StudentProfileForm />
+        <QueryClientProvider client={new QueryClient()}><StudentProfileForm /></QueryClientProvider>
       </MemoryRouter>
     )
 

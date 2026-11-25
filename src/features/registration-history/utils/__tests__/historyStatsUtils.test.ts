@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   calculateRealHistoryStats,
   computeTrendIndicator,
@@ -8,6 +8,7 @@ import {
 import type { RegisteredEventItem } from '../../types/history.types'
 
 describe('historyStatsUtils', () => {
+  afterEach(() => vi.restoreAllMocks())
   it('returns empty trend values (no badges) when student has no events', () => {
     const stats = calculateRealHistoryStats([], '2026 - 2027', '1')
 
@@ -66,6 +67,7 @@ describe('historyStatsUtils', () => {
   })
 
   it('calculates stats from real event history segmented by semester', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-25T08:00:00+07:00'))
     const mockEvents: RegisteredEventItem[] = [
       // Previous term: 2025-2026, HK2 (e.g. March 2026)
       { id: '1', eventId: 1, status: 'COMPLETED', dateHappen: '2026-03-10T00:00:00Z' },
@@ -75,7 +77,7 @@ describe('historyStatsUtils', () => {
       { id: '3', eventId: 3, status: 'COMPLETED', dateHappen: '2026-10-01T00:00:00Z' },
       { id: '4', eventId: 4, status: 'COMPLETED', dateHappen: '2026-10-15T00:00:00Z' },
       { id: '5', eventId: 5, status: 'COMPLETED', dateHappen: '2026-11-20T00:00:00Z' },
-      { id: '6', eventId: 6, status: 'UPCOMING', dateHappen: '2026-12-05T00:00:00Z' },
+      { id: '6', eventId: 6, status: 'REGISTERED', startsAt: '2026-12-05T00:00:00Z' },
     ]
 
     const stats = calculateRealHistoryStats(mockEvents, '2026 - 2027', '1')

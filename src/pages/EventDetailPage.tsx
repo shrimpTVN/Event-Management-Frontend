@@ -43,6 +43,51 @@ export const EventDetailPage: React.FC = () => {
     enabled: Boolean(id),
   })
 
+  // Fetch followed fanpages and stored events to match HomePage follow/save state
+  const { data: followedFanpages = [] } = useQuery<any[]>({
+    queryKey: ['fanpages', 'sidebar', isAuthenticated],
+    queryFn: async () => {
+      if (!isAuthenticated) return []
+      try {
+        const res: any = await apiClient.get('/fanpages/following', { params: { size: 50 } })
+        const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
+        return Array.isArray(list) ? list : []
+      } catch {
+        return []
+      }
+    },
+    enabled: isAuthenticated,
+  })
+
+  const { data: storedEvents = [] } = useQuery<Event[]>({
+    queryKey: ['events', 'stored', isAuthenticated],
+    queryFn: async () => {
+      if (!isAuthenticated) return []
+      try {
+        return await eventService.getStoredEvents()
+      } catch {
+        return []
+      }
+    },
+    enabled: isAuthenticated,
+  })
+
+  const isEventFollowed = useMemo(() => {
+    if (!event) return false
+    const orgId = String(event.organizerId || event.fanpageId || '')
+    return Boolean(
+      event.isFollowed ||
+        (orgId && followedFanpages.some((fp: any) => String(fp.id) === orgId))
+    )
+  }, [event, followedFanpages])
+
+  const isEventSaved = useMemo(() => {
+    if (!event) return false
+    return Boolean(
+      event.isSaved || storedEvents.some((saved) => String(saved.id) === String(event.id))
+    )
+  }, [event, storedEvents])
+
   // Fetch registrations to determine registration state accurately
   const { data: userRegistrations = [] } = useQuery<any[]>({
     queryKey: ['registrations', 'me', isAuthenticated],
@@ -183,6 +228,8 @@ export const EventDetailPage: React.FC = () => {
                 <EventFeedCard
                   event={{
                     ...event,
+                    isFollowed: isEventFollowed,
+                    isSaved: isEventSaved,
                     isRegistered: isEventRegistered,
                     registrationStatus: currentRegStatus,
                   }}

@@ -67,19 +67,13 @@ describe('real personal profile data', () => {
       associationId: 34,
     })
   })
-  it('resolves missing identifiers from real catalogs rather than assigning ID 1', async () => {
-    vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
-      if (url === '/users/me/profile')
-        return { ...dto, majorId: undefined, associationId: undefined }
-      if (url === '/majors') return [{ id: 12, name: dto.majorName, code: dto.majorCode }]
-      if (url === '/associations') return [{ id: 34, name: dto.associationName }]
-      throw new Error('Unexpected URL')
-    })
-    await profileService.updateMyProfile({ fullName: 'Nguyễn Minh Anh', gender: 'Nữ' })
-    expect(apiClient.put).toHaveBeenCalledWith(
-      '/users/me/profile',
-      expect.objectContaining({ majorId: 12, associationId: 34 })
+  it('requires an explicit major ID instead of matching names or using ID 1', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ ...dto, majorId: undefined })
+    await expect(profileService.updateMyProfile({ fullName: 'Nguyễn Minh Anh' })).rejects.toThrow(
+      'Vui lòng chọn khoa/trường'
     )
+    expect(apiClient.put).not.toHaveBeenCalled()
+    expect(apiClient.get).toHaveBeenCalledTimes(1)
   })
   it('does not write a profile when existing academic identifiers cannot be resolved', async () => {
     vi.mocked(apiClient.get).mockImplementation(async (url: string) =>
@@ -95,5 +89,29 @@ describe('real personal profile data', () => {
     await expect(profileService.updateMyProfile({ fullName: 'Nguyễn Minh Anh' })).rejects.toThrow(
       'API failure'
     )
+  })
+  it('validates the selected school-major relation and saves a changed major by ID', async () => {
+    vi.mocked(apiClient.get).mockImplementation(async (url) =>
+      url === '/schools/8'
+        ? {
+            id: 8,
+            isActive: true,
+            majors: [{ id: 81, name: 'Ngành mới', code: 'NEW', isActive: true }],
+          }
+        : { ...dto, schoolId: 7 }
+    )
+    vi.mocked(apiClient.put).mockResolvedValue({ ...dto, majorId: 81, schoolId: 8 })
+    const result = await profileService.updateMyProfile({ schoolId: 8, majorId: 81 })
+    expect(apiClient.put).toHaveBeenCalledWith(
+      '/users/me/profile',
+      expect.objectContaining({ majorId: 81 })
+    )
+    expect(result).toMatchObject({ majorId: 81, schoolId: 8 })
+  })
+  it('does not keep the previous major after the school changes without a new major selection', async () => {
+    await expect(
+      profileService.updateMyProfile({ schoolId: 8, majorId: undefined })
+    ).rejects.toThrow('Vui lòng chọn')
+    expect(apiClient.put).not.toHaveBeenCalled()
   })
 })

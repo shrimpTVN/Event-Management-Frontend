@@ -21,43 +21,13 @@ export interface CachedFanpageInfo {
 export const DEFAULT_FANPAGES_MAP: Record<string, CachedFanpageInfo> = {
   '1': {
     name: 'Đoàn Trường CNTT & TT',
-    fullName: 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông',
+    fullName: 'Đoàn Trường Công nghệ Thông tin và Truyền thông - Đại học Cần Thơ',
     avatarUrl:
       'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg',
   },
-  '2': {
-    name: 'Trường Đại học Cần Thơ',
-    fullName: 'Trường Đại học Cần Thơ',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=120&auto=format&fit=crop&q=60',
-  },
-  '3': {
-    name: 'CLB Công nghệ phần mềm CTU',
-    fullName: 'CLB Công nghệ phần mềm',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=120&auto=format&fit=crop&q=60',
-  },
-  '4': {
-    name: 'Đoàn Trường Nông nghiệp',
-    fullName: 'Đoàn Trường Nông nghiệp',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=120&auto=format&fit=crop&q=60',
-  },
-  '5': {
-    name: 'CLB Tiếng Anh CTU',
-    fullName: 'CLB Tiếng Anh',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=120&auto=format&fit=crop&q=60',
-  },
-  '6': {
-    name: 'CLB Thể thao CTU',
-    fullName: 'CLB Thể thao',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=120&auto=format&fit=crop&q=60',
-  },
   '7': {
     name: 'Đoàn TN - Hội SV Đại học Cần Thơ',
-    fullName: 'Đoàn Thanh niên - Hội Sinh viên Trường Đại học Cần Thơ',
+    fullName: 'Đoàn Thanh niên - Hội Sinh viên Đại học Cần Thơ',
     avatarUrl:
       'https://res.cloudinary.com/depaiphq0/image/upload/v1793963013/ctu-event/fanpages/u_2_606320c599474b7d.jpg',
   },
@@ -138,16 +108,17 @@ export function resolveCriteriaId(raw: any): number | undefined {
   return undefined
 }
 
-const fanpageCache = new Map<string, CachedFanpageInfo>(Object.entries(DEFAULT_FANPAGES_MAP))
+const fanpageCache = new Map<string, CachedFanpageInfo>()
+let fanpagesCachePromise: Promise<Map<string, CachedFanpageInfo>> | null = null
+let fanpagesCacheLoaded = false
 
 export function updateFanpageCache(id: string | number, data: Partial<CachedFanpageInfo>) {
   const key = String(id)
-  const existing = fanpageCache.get(key) ||
-    DEFAULT_FANPAGES_MAP[key] || {
-      name: '',
-      fullName: '',
-      avatarUrl: '',
-    }
+  const existing = fanpageCache.get(key) || {
+    name: '',
+    fullName: '',
+    avatarUrl: '',
+  }
   fanpageCache.set(key, {
     name: data.name || existing.name,
     fullName: data.fullName || existing.fullName,
@@ -156,22 +127,32 @@ export function updateFanpageCache(id: string | number, data: Partial<CachedFanp
 }
 
 export async function loadFanpagesCache(): Promise<Map<string, CachedFanpageInfo>> {
-  try {
-    const res: any = await apiClient.get('/fanpages?size=100')
-    const list = res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
-    list.forEach((fp: any) => {
-      if (fp.id) {
-        updateFanpageCache(fp.id, {
-          name: fp.name,
-          fullName: fp.orgName || fp.name,
-          avatarUrl: fp.avatarUrl,
-        })
-      }
-    })
-  } catch {
-    // Keep cached defaults
-  }
-  return fanpageCache
+  if (fanpagesCacheLoaded) return fanpageCache
+  if (fanpagesCachePromise) return fanpagesCachePromise
+
+  fanpagesCachePromise = (async () => {
+    try {
+      const res: any = await apiClient.get('/fanpages?size=100')
+      const list = res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
+      list.forEach((fp: any) => {
+        if (fp.id) {
+          updateFanpageCache(fp.id, {
+            name: fp.name,
+            fullName: fp.orgName || fp.name,
+            avatarUrl: fp.avatarUrl,
+          })
+        }
+      })
+      if (list.length > 0) fanpagesCacheLoaded = true
+    } catch {
+      // Allow retry on subsequent requests when fanpages fetch fails
+    } finally {
+      fanpagesCachePromise = null
+    }
+    return fanpageCache
+  })()
+
+  return fanpagesCachePromise
 }
 
 const CTU_CRITERIA_CODE_MAP: Record<number, string> = {
@@ -305,25 +286,31 @@ export function normalizeEvent(raw: Partial<EventResponseDto> & Record<string, a
   const capacity = Number(raw.capacity) || 0
   const registeredCount = Number(raw.registeredCount) || 0
   const organizerId = String(raw.organizerId || raw.fanpageId || '1')
-  const cachedFp = fanpageCache.get(organizerId) || DEFAULT_FANPAGES_MAP[organizerId]
+  const cachedFp = fanpageCache.get(organizerId)
+  const defaultFp = DEFAULT_FANPAGES_MAP[organizerId]
 
   const organizerFullName =
     raw.organizerFullName ||
     raw.fanpageFullName ||
     raw.orgName ||
     cachedFp?.fullName ||
-    (raw.fanpageName &&
-    (raw.fanpageName.includes('CNTT') || raw.fanpageName.includes('Công Nghệ Thông Tin'))
-      ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông'
-      : undefined)
+    raw.fanpageName ||
+    raw.organizerName ||
+    defaultFp?.fullName
 
   const organizerName =
-    organizerFullName || raw.organizerName || raw.fanpageName || cachedFp?.name || ''
+    raw.organizerName ||
+    raw.fanpageName ||
+    organizerFullName ||
+    cachedFp?.name ||
+    defaultFp?.name ||
+    ''
 
   const organizerAvatarUrl =
     raw.organizerAvatarUrl ||
     raw.fanpageAvatarUrl ||
     cachedFp?.avatarUrl ||
+    defaultFp?.avatarUrl ||
     (organizerId === '7' ||
     raw.fanpageId === 7 ||
     (organizerName && organizerName.includes('Hội SV'))
@@ -359,7 +346,7 @@ export function normalizeEvent(raw: Partial<EventResponseDto> & Record<string, a
     eventPoints: Array.isArray(raw.eventPoints) ? raw.eventPoints : [],
     ...normalizeAttendanceConfig(raw),
     quotaText: raw.quotaText || (capacity > 0 ? `${capacity} sinh viên` : undefined),
-    isFollowed: Boolean(raw.isFollowed),
+    isFollowed: Boolean(raw.isFollowed ?? raw.isFollowFanpage),
     isSaved: Boolean(raw.isSaved),
     isRegistered: Boolean(raw.isRegistered || (raw.status as string) === 'REGISTERED'),
     timeAgo: raw.timeAgo || formatEventTimeAgo(raw.createdAt || raw.updatedAt || raw.dateOpen),
@@ -437,7 +424,7 @@ export function isEventMatchingRegistrationStatus(
   const closed =
     ['CLOSED', 'CLOSED_REGISTRATION'].includes(status) || (close !== null && close <= nowMs)
   if (statusKey === 'OPEN_REGISTRATION')
-    return published && !cancelled && !closed && (open === null || open <= nowMs)
+    return published && !cancelled && !completed && !closed && (open === null || open <= nowMs)
   if (statusKey === 'CLOSED_REGISTRATION') return published && closed
   if (statusKey === 'PUBLISHED')
     return published && !completed && !running && (start === null || start > nowMs)
@@ -554,18 +541,124 @@ function buildEventFilterParams(filters?: EventFilters): Record<string, any> {
   return params
 }
 
+const ROOT_SV5T_STANDARD_NAMES: Record<number, string> = {
+  10: 'Đạo đức tốt',
+  20: 'Học tập tốt',
+  30: 'Thể lực tốt',
+  40: 'Tình nguyện tốt',
+  50: 'Hội nhập tốt',
+}
+
+function resolveStandardSv5tName(criteriaId?: number, criteriaName?: string): string | undefined {
+  if (criteriaId !== undefined && Number.isFinite(criteriaId)) {
+    if (ROOT_SV5T_STANDARD_NAMES[criteriaId]) {
+      return ROOT_SV5T_STANDARD_NAMES[criteriaId]
+    }
+    for (const [rootId, children] of Object.entries(ROOT_CRITERIA_CHILDREN)) {
+      if (children.includes(criteriaId)) {
+        return ROOT_SV5T_STANDARD_NAMES[Number(rootId)]
+      }
+    }
+  }
+  const lower = (criteriaName || '').toLowerCase()
+  if (/tình nguyện|hiến máu|mùa hè xanh|cộng đồng/.test(lower)) return 'Tình nguyện tốt'
+  if (/hội nhập|ngoại ngữ|tiếng anh|tin học|kỹ năng|hội thao/.test(lower) && !/thể/.test(lower))
+    return 'Hội nhập tốt'
+  if (/thể lực|thể chất|chạy|bóng/.test(lower)) return 'Thể lực tốt'
+  if (/đạo đức|tư tưởng|chính trị|công dân|văn hóa|lối sống/.test(lower)) return 'Đạo đức tốt'
+  if (/học tập|tín chỉ|nghiên cứu|điểm trung bình/.test(lower)) return 'Học tập tốt'
+  return undefined
+}
+
+function extractRomanCategoryCode(categoryName?: string): string | null {
+  if (!categoryName) return null
+  const match = categoryName.trim().match(/^([IVX]+)\./i)
+  return match ? match[1].toUpperCase() : null
+}
+
+export function formatRecommendationExplain(item: any, normalizedEvent: Event): string | undefined {
+  const rawExplain = typeof item?.explain === 'string' ? item.explain.trim() : ''
+  const isRuleFallback =
+    !rawExplain ||
+    /có thể bổ sung|hoàn thành tiêu chí cấp trên|hoàn thành một tiêu chí|đến từ trang bạn theo dõi|cùng loại với sự kiện/i.test(
+      rawExplain
+    )
+
+  const standardName = resolveStandardSv5tName(
+    normalizedEvent.criteriaId,
+    normalizedEvent.criteriaName
+  )
+
+  if (!isRuleFallback) {
+    return standardName
+      ? rawExplain.replace(/tiêu chí cấp trên/gi, `tiêu chí ${standardName}`)
+      : rawExplain
+  }
+
+  const reasons: string[] = []
+  const pointGains: any[] = Array.isArray(item?.pointGains) ? item.pointGains : []
+  const effectiveGains = pointGains.filter((g) => Number(g?.effectiveGain) > 0)
+  const totalUseful = effectiveGains.reduce((sum, g) => sum + (Number(g.effectiveGain) || 0), 0)
+  const explainedPointsMatch = rawExplain.match(/(\d+)\s*điểm rèn luyện/i)
+  const usefulPoints =
+    totalUseful > 0 ? totalUseful : explainedPointsMatch ? Number(explainedPointsMatch[1]) : 0
+
+  if (usefulPoints > 0) {
+    const codes = Array.from(
+      new Set(
+        effectiveGains
+          .map((g) => extractRomanCategoryCode(g?.categoryName))
+          .filter((c): c is string => Boolean(c))
+      )
+    )
+    const codeSuffix = codes.length > 0 ? ` mục ${codes.join(', ')}` : ''
+    reasons.push(`Bổ sung ${usefulPoints} điểm rèn luyện${codeSuffix}`)
+  }
+
+  const completesParent = /hoàn thành tiêu chí cấp trên/i.test(rawExplain)
+  const fulfillsLeaf = /hoàn thành một tiêu chí/i.test(rawExplain) || Boolean(item?.fulfillsCriteria)
+  if (completesParent) {
+    reasons.push(
+      standardName
+        ? `có thể hoàn thành tiêu chí ${standardName}`
+        : 'có thể hoàn thành tiêu chí cấp trên'
+    )
+  } else if (fulfillsLeaf) {
+    reasons.push(
+      standardName ? `góp phần đạt tiêu chí ${standardName}` : 'có thể hoàn thành một tiêu chí'
+    )
+  }
+
+  if (reasons.length < 2 && /trang bạn theo dõi/i.test(rawExplain)) {
+    reasons.push('từ trang bạn theo dõi')
+  }
+  if (reasons.length < 2 && /cùng loại/i.test(rawExplain)) {
+    reasons.push('cùng loại bạn quan tâm')
+  }
+
+  if (reasons.length === 0) {
+    return rawExplain || undefined
+  }
+
+  const text = `${reasons.join(', ')}.`
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
 export const eventService = {
   /**
    * Fetches public active event list with optional keyword, status, and category filters.
    * Connects to GET /events.
    */
   async getEvents(filters?: EventFilters): Promise<Event[]> {
-    loadFanpagesCache().catch(() => {})
+    const cachePromise = loadFanpagesCache().catch(() => {})
 
     // When status is specifically requested, query Backend directly with that status
     if (filters?.status && (filters.status as any) !== 'ALL') {
       const params = buildEventFilterParams(filters)
-      const res: any = await apiClient.get('/events', { params })
+      const [res]: [any, unknown] = await Promise.all([
+        apiClient.get('/events', { params }),
+        cachePromise,
+      ])
 
       let rawList: any[] = []
       if (res && Array.isArray(res.content)) {
@@ -607,9 +700,14 @@ export const eventService = {
       }
       return list
     }
+    const statusesToFetch =
+      filters?.statuses && filters.statuses.length > 0
+        ? filters.statuses
+        : ['PUBLISHED', 'COMPLETED', 'CLOSED']
     const responses = await Promise.allSettled(
-      ['PUBLISHED', 'COMPLETED', 'CLOSED'].map(fetchStatus)
+      statusesToFetch.map(fetchStatus)
     )
+    await cachePromise
     const eventMap = new Map<string, any>()
     responses.forEach((response) => {
       if (response.status === 'fulfilled')
@@ -650,7 +748,26 @@ export const eventService = {
    * Fetches single event details by ID from GET /events/{id}
    */
   async getEventById(id: string | number): Promise<Event> {
-    const res: any = await apiClient.get(`/events/${id}`)
+    const [res]: [any, unknown] = await Promise.all([
+      apiClient.get(`/events/${id}`),
+      loadFanpagesCache().catch(() => {}),
+    ])
+    const fpId = res?.organizerId || res?.fanpageId
+    if (fpId && !fanpageCache.has(String(fpId))) {
+      try {
+        const fpRes: any = await apiClient.get(`/fanpages/${fpId}`)
+        const fp = fpRes?.data ?? fpRes
+        if (fp?.id || fp?.name || fp?.avatarUrl) {
+          updateFanpageCache(fp.id ?? fpId, {
+            name: fp.name,
+            fullName: fp.orgName || fp.name,
+            avatarUrl: fp.avatarUrl,
+          })
+        }
+      } catch {
+        // Ignore individual fanpage lookup error and normalize from event payload
+      }
+    }
     return normalizeEvent(res)
   },
 
@@ -661,7 +778,10 @@ export const eventService = {
     fanpageId: string | number,
     params?: { page?: number; size?: number }
   ): Promise<Event[]> {
-    const res: any = await apiClient.get(`/events/fanpage/${fanpageId}`, { params })
+    const [res]: [any, unknown] = await Promise.all([
+      apiClient.get(`/events/fanpage/${fanpageId}`, { params }),
+      loadFanpagesCache().catch(() => {}),
+    ])
     let rawList: any[] = []
     if (res && Array.isArray(res.content)) {
       rawList = res.content
@@ -754,5 +874,40 @@ export const eventService = {
       ...normalizeEvent(item),
       isSaved: true,
     }))
+  },
+
+  /**
+   * Fetches personalized recommended events for the authenticated student
+   * from GET /events/recommendations, preserving backend ranking order.
+   */
+  async getRecommendations(params?: { page?: number; size?: number }): Promise<Event[]> {
+    const [res]: [any, unknown] = await Promise.all([
+      apiClient.get('/events/recommendations', {
+        params: { page: params?.page ?? 0, size: params?.size ?? 50 },
+      }),
+      loadFanpagesCache().catch(() => {}),
+    ])
+    const payload = res?.data ?? res
+    const rawList: any[] = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.content)
+        ? payload.content
+        : Array.isArray(payload?.items)
+          ? payload.items
+          : []
+
+    return rawList
+      .filter((item) => item && item.event)
+      .map((item) => {
+        const normalized = normalizeEvent(item.event)
+        return {
+          ...normalized,
+          recommendationExplain: formatRecommendationExplain(item, normalized),
+          recommendationScore:
+            typeof item.effectiveScore === 'number' ? item.effectiveScore : undefined,
+          fulfillsCriteria: Boolean(item.fulfillsCriteria),
+          isRecommended: true,
+        }
+      })
   },
 }

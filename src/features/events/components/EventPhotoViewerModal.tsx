@@ -732,6 +732,7 @@ export const EventPhotoViewerModal: React.FC<EventPhotoViewerModalProps> = ({
               <RegisterButton
                 eventId={eventId}
                 eventTitle={event.title}
+                dateClose={event.dateClose}
                 isRegistered={event.isRegistered}
                 registrationStatus={event.registrationStatus}
                 disabled={

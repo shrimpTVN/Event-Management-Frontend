@@ -31,6 +31,7 @@ export interface RegisteredEventItem {
   }
   timeHappen?: string // e.g. "18h30, 16/09/2026"
   dateHappen?: string // e.g. "Thứ 2, 14/09/2026"
+  startsAt?: string // Original backend timestamp, preserved for time comparisons.
   dateOpen?: string
   dateClose?: string
   regDate?: string

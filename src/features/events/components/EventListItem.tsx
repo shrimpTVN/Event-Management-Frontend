@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Bookmark, CalendarDays, Gift, ImageIcon, MapPin, Users } from 'lucide-react'
+import { Bookmark, CalendarDays, Gift, ImageIcon, MapPin, Sparkles, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { TextTooltip } from '@/components/ui/text-tooltip'
 import { Tooltip } from '@/components/ui/tooltip'
@@ -53,6 +53,17 @@ export function EventListItem({
           >
             {organizerName}
           </Link>
+          {event.timeAgo && <span className="shrink-0 text-muted-foreground/80">· {event.timeAgo}</span>}
+          {(event.recommendationExplain || event.isRecommended) && (
+            <Tooltip content={event.recommendationExplain || 'Sự kiện gợi ý phù hợp với bạn'}>
+              <span
+                aria-label="Lý do gợi ý sự kiện"
+                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-amber-500 hover:bg-amber-500/10 transition-colors cursor-pointer"
+              >
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              </span>
+            </Tooltip>
+          )}
           {event.eventTypeName && (
             <span className="hidden shrink-0 rounded-md bg-primary/5 px-1.5 py-0.5 text-primary sm:inline">
               {event.eventTypeName}

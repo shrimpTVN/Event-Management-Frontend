@@ -57,8 +57,10 @@ export const ProfilePage: React.FC = () => {
       setTimeout(() => setSuccessToast(null), 3000)
       setIsEditing(false)
       setFormData(null)
-    } catch {
-      setSuccessToast('Đã có lỗi khi lưu, vui lòng thử lại!')
+    } catch (err: any) {
+      setSuccessToast(
+        err?.response?.data?.message || err?.message || 'Đã có lỗi khi lưu, vui lòng thử lại!'
+      )
       setTimeout(() => setSuccessToast(null), 3000)
     } finally {
       setIsSaving(false)

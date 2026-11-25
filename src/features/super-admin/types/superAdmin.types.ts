@@ -103,6 +103,7 @@ export type SemesterStatus = 'UPCOMING' | 'ONGOING' | 'COMPLETED'
 
 export interface SuperAdminSemester {
   id: number
+  academicYearId?: number
   number: number // 1, 2, 3
   academicYear: string // ví dụ: "2025-2026"
   startDate: string

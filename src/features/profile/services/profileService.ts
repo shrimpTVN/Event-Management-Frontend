@@ -1,4 +1,5 @@
 import { apiClient } from '@/shared'
+import { educationCatalogService } from '@/shared/services/educationCatalogService'
 import type { StudentProfile } from '../types/profile.types'
 
 export function mapBackendProfileToStudentProfile(dto: any): StudentProfile {
@@ -24,6 +25,7 @@ export function mapBackendProfileToStudentProfile(dto: any): StudentProfile {
     firstName,
     lastName,
     majorId: dto.majorId ?? undefined,
+    schoolId: dto.schoolId ?? undefined,
     associationId: dto.associationId ?? undefined,
     roles: dto.roles || (dto.role ? [dto.role] : undefined),
     staffId: dto.staffId || '',
@@ -108,45 +110,19 @@ export const profileService = {
         'Hồ sơ thiếu giới tính, khóa học hoặc ảnh đại diện. Vui lòng hoàn thiện trước khi lưu.'
       )
     }
-    let majorId = current.majorId
-    let associationId = current.associationId
-    const lookupRequests: Promise<void>[] = []
-    if (!majorId)
-      lookupRequests.push(
-        (async () => {
-          const result: any = await apiClient.get('/majors')
-          const items = result?.data || result
-          if (!Array.isArray(items)) throw new Error('Không tải được danh sách ngành học.')
-          const matches = items.filter((item) =>
-            current.majorCode
-              ? item.code === current.majorCode
-              : current.major && item.name === current.major
-          )
-          if (matches.length === 1) majorId = Number(matches[0].id)
-        })()
-      )
-    if (!associationId)
-      lookupRequests.push(
-        (async () => {
-          const result: any = await apiClient.get('/associations')
-          const items = result?.data || result
-          if (!Array.isArray(items)) throw new Error('Không tải được danh sách chi hội.')
-          const matches = items.filter(
-            (item) => current.youthUnionBranch && item.name === current.youthUnionBranch
-          )
-          if (matches.length === 1) associationId = Number(matches[0].id)
-        })()
-      )
-    await Promise.all(lookupRequests)
+    const majorId =
+      payload.schoolId !== undefined ? payload.majorId : (payload.majorId ?? current.majorId)
     if (
-      !Number.isSafeInteger(majorId) ||
-      !majorId ||
-      majorId < 1 ||
-      !Number.isSafeInteger(associationId) ||
-      !associationId ||
-      associationId < 1
+      payload.schoolId !== undefined &&
+      (payload.schoolId !== current.schoolId || majorId !== current.majorId)
     ) {
-      throw new Error('Chưa xác định được ngành học hoặc chi hội hiện tại. Không thể lưu hồ sơ.')
+      await educationCatalogService.validateSelection(payload.schoolId, majorId ?? 0)
+    }
+    const associationId = current.associationId
+    if (!Number.isSafeInteger(majorId) || !majorId || majorId < 1) {
+      throw new Error(
+        'Chưa xác định được ngành học. Vui lòng chọn khoa/trường và ngành học để lưu hồ sơ.'
+      )
     }
     const res: any = await apiClient.put('/users/me/profile', {
       firstName,
@@ -154,12 +130,15 @@ export const profileService = {
       gender,
       kNumber,
       avatarUrl,
-      associationId,
+      ...(associationId ? { associationId } : {}),
       majorId,
+      ...(payload.schoolId !== undefined ? { schoolId: payload.schoolId } : {}),
     })
     const dto = res?.data || res
     if (!dto || typeof dto !== 'object' || !dto.email)
       throw new Error('Máy chủ chưa trả về hồ sơ đã cập nhật.')
+    if (payload.majorId !== undefined && Number(dto.majorId) !== payload.majorId)
+      throw new Error('Máy chủ chưa xác nhận đúng ngành học đã chọn.')
     return mapBackendProfileToStudentProfile(dto)
   },
 

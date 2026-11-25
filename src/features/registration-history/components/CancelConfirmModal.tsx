@@ -1,6 +1,8 @@
 import React from 'react'
 import { AlertTriangle } from 'lucide-react'
 import type { RegisteredEventItem } from '../types/history.types'
+import { canCancelRegistration } from '@/shared/utils/registrationEligibility'
+import { useTimeBoundary } from '@/shared/hooks/useTimeBoundary'
 
 interface CancelConfirmModalProps {
   isOpen: boolean
@@ -15,7 +17,8 @@ export const CancelConfirmModal: React.FC<CancelConfirmModalProps> = ({
   event,
   onConfirm,
 }) => {
-  if (!isOpen || !event) return null
+  const now = useTimeBoundary(event?.dateClose)
+  if (!isOpen || !event || !canCancelRegistration(event, now)) return null
 
   const title = event.title || event.eventName || 'Sự kiện'
 
@@ -61,7 +64,7 @@ export const CancelConfirmModal: React.FC<CancelConfirmModalProps> = ({
           <button
             type="button"
             onClick={() => {
-              onConfirm(event)
+              if (canCancelRegistration(event)) onConfirm(event)
               onClose()
             }}
             className="px-5 py-2 text-xs md:text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs cursor-pointer"

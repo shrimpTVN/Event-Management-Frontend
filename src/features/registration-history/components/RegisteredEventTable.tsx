@@ -1,4 +1,6 @@
 import { canStudentSelfCheck } from '@/shared/utils/attendanceConfig'
+import { canCancelRegistration, nextTimeBoundary } from '@/shared/utils/registrationEligibility'
+import { useTimeBoundary } from '@/shared/hooks/useTimeBoundary'
 import { Tooltip } from '@/components/ui/tooltip'
 import { RegisteredEventBenefits } from './RegisteredEventBenefits'
 import {
@@ -29,6 +31,7 @@ export const RegisteredEventTable: React.FC<RegisteredEventTableProps> = ({
   onOpenAttendanceModal,
 }) => {
   const navigate = useNavigate()
+  const now = useTimeBoundary(nextTimeBoundary(events.map((event) => event.dateClose)))
 
   const getStatusBadge = (status: string) => {
     const normalized = normalizeHistoryStatus(status)
@@ -97,9 +100,7 @@ export const RegisteredEventTable: React.FC<RegisteredEventTableProps> = ({
             const organizerAvatar = event.organizer?.avatarUrl
             const normalizedStatus = normalizeHistoryStatus(event.status)
             const isSelfAttendance = canStudentSelfCheck(event) && studentAttendanceStep(event.status) != null
-            const canCancel =
-              (event.canCancel ?? normalizedStatus === 'UPCOMING') &&
-              ['REGISTERED', 'UPCOMING', 'APPROVED'].includes(event.status)
+            const canCancel = canCancelRegistration(event, now)
 
             return (
               <div
