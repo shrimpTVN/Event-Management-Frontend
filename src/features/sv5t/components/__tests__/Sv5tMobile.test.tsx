@@ -45,7 +45,7 @@ describe('Sv5t Mobile & Summary Tests', () => {
       />
     )
     expect(screen.getByText('——')).toBeInTheDocument()
-    expect(screen.getByText('Cấp Khoa')).toBeInTheDocument()
+    expect(screen.getByText('Cấp Trường CNTT&TT')).toBeInTheDocument()
   })
 
   it('Sv5tNoticeBanner toggles details on click', () => {

@@ -7,6 +7,7 @@ export interface PointCategory {
   level: number
   childrenOrder: number
   parentCategoryId: number | null
+  isMaxChild?: boolean
   isActive?: boolean
 }
 

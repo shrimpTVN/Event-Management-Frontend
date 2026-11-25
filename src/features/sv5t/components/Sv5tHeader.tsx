@@ -49,7 +49,7 @@ export const Sv5tHeader: React.FC<Sv5tHeaderProps> = ({
 
   const scopeOptions = useMemo(() => [
     { value: 'UNIVERSITY', label: 'Cấp ĐHCT' },
-    { value: 'FACULTY', label: 'Cấp Khoa' },
+    { value: 'FACULTY', label: 'Cấp Trường CNTT&TT' },
   ], [])
 
   return (
@@ -71,7 +71,7 @@ export const Sv5tHeader: React.FC<Sv5tHeaderProps> = ({
             <MobileFilterSheet
               title="Chọn cấp xét"
               value={selectedScope}
-              displayValue={selectedScope === 'UNIVERSITY' ? 'Cấp ĐHCT' : 'Cấp Khoa'}
+              displayValue={selectedScope === 'UNIVERSITY' ? 'Cấp ĐHCT' : 'Cấp Trường CNTT&TT'}
               options={scopeOptions}
               onChange={(val) => onScopeChange(val as EvaluationScope)}
               accessibleLabel="Cấp xét"
@@ -149,12 +149,12 @@ export const Sv5tHeader: React.FC<Sv5tHeaderProps> = ({
               className="w-auto min-w-max h-10 text-xs font-medium bg-background border-border text-foreground shadow-2xs gap-2 px-3"
             >
               <SelectValue placeholder="Cấp xét">
-                {selectedScope === 'UNIVERSITY' ? 'Cấp ĐHCT' : 'Cấp Khoa'}
+                {selectedScope === 'UNIVERSITY' ? 'Cấp ĐHCT' : 'Cấp Trường CNTT&TT'}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="UNIVERSITY">Cấp ĐHCT</SelectItem>
-              <SelectItem value="FACULTY">Cấp Khoa</SelectItem>
+              <SelectItem value="FACULTY">Cấp Trường CNTT&TT</SelectItem>
             </SelectContent>
           </Select>
 

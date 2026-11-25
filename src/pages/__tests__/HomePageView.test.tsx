@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@/features/auth'
-import type { Event } from '@/features/events'
+import { apiClient } from '@/shared'
+import { type Event, getPendingEventViewBatch } from '@/features/events'
 import { formatRecommendationExplain, normalizeEvent } from '@/features/events/services/eventService'
 import { HomePage } from '../HomePage'
 
@@ -73,10 +74,15 @@ function renderHome() {
 
 describe('student home event views', () => {
   beforeEach(() => {
-    localStorage.removeItem('student-home-view')
+    localStorage.clear()
     useAuthStore.setState({ isAuthenticated: false, user: null })
+    vi.spyOn(apiClient, 'post').mockResolvedValue(undefined as any)
   })
-  afterEach(() => localStorage.removeItem('student-home-view'))
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+    localStorage.clear()
+  })
 
   it('applies the local filter with matching preview, keeps it across views, and clears its chip', () => {
     renderHome()
@@ -311,5 +317,131 @@ describe('student home event views', () => {
       ethicsNormalized
     )
     expect(ethicsFormatted).toBe('Có thể hoàn thành tiêu chí Đạo đức tốt, từ trang bạn theo dõi.')
+  })
+
+  it('queues visible recommended cards via IntersectionObserver and flushes POST /events/views before refreshing recommendations', async () => {
+    let observerCallback: IntersectionObserverCallback | null = null
+    const observeMock = vi.fn()
+    const unobserveMock = vi.fn()
+    const disconnectMock = vi.fn()
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(callback: IntersectionObserverCallback) {
+          observerCallback = callback
+        }
+        observe = observeMock
+        unobserve = unobserveMock
+        disconnect = disconnectMock
+      }
+    )
+
+    useAuthStore.setState({ isAuthenticated: true, user: { id: 'view-test-user' } as any })
+    const callOrder: string[] = []
+    const postSpy = vi.spyOn(apiClient, 'post').mockImplementation(async (url, body) => {
+      callOrder.push(`POST ${url}`)
+      expect(body).toMatchObject({ eventIds: [42] })
+      return undefined as any
+    })
+    const getSpy = vi.spyOn(apiClient, 'get').mockImplementation(async (url) => {
+      callOrder.push(`GET ${url}`)
+      if (url === '/events/recommendations') {
+        return {
+          content: [
+            {
+              event: {
+                id: 42,
+                name: 'Sự kiện vừa được xem',
+                status: 'PUBLISHED',
+                dateOpen: '2020-01-01T00:00:00Z',
+                dateClose: '2099-01-01T00:00:00Z',
+                dateHappen: '2099-02-01T08:00:00Z',
+              },
+              explain: 'Bổ sung 3 điểm rèn luyện',
+              viewed: true,
+              effectiveScore: 85,
+              fulfillsCriteria: false,
+            },
+          ],
+        } as any
+      }
+      return [] as any
+    })
+
+    const client = new QueryClient({ defaultOptions: { queries: { enabled: false, retry: false } } })
+    client.setQueryData(['event-filter-options'], {
+      academicYears: [],
+      semesters: [],
+      eventTypes: [],
+      fanpages: [],
+      criterias: [],
+      pointCategories: [],
+    })
+    const unseenRecommended: Event = {
+      ...event,
+      id: '42',
+      title: 'Sự kiện gợi ý mới',
+      recommendationExplain: 'Bổ sung +3 ĐRL',
+      isRecommended: true,
+      isViewed: false,
+    }
+    const viewedRecommended: Event = {
+      ...event,
+      id: '57',
+      title: 'Sự kiện gợi ý đã xem',
+      recommendationExplain: 'Bổ sung +2 ĐRL',
+      isRecommended: true,
+      isViewed: true,
+    }
+    client.setQueryData(['events', 'feed'], [unseenRecommended, viewedRecommended])
+    client.setQueryData(
+      ['events', 'recommendations', true],
+      [unseenRecommended, viewedRecommended]
+    )
+
+    const view = render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <HomePage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    expect(screen.queryByText('Đã xem')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Làm mới gợi ý' })).not.toBeInTheDocument()
+    expect(observeMock).toHaveBeenCalledTimes(2)
+
+    // Only card 42 entered viewport
+    const card42 = document.querySelector('[data-event-id="42"]') as HTMLElement
+    expect(card42).not.toBeNull()
+    observerCallback!(
+      [{ isIntersecting: true, target: card42 } as unknown as IntersectionObserverEntry],
+      {} as IntersectionObserver
+    )
+
+    const queued = getPendingEventViewBatch('view-test-user')
+    expect(queued?.eventIds).toEqual([42])
+
+    // Leaving Home flushes POST /events/views and marks recommendations stale; returning fetches GET /events/recommendations
+    view.unmount()
+    await waitFor(() => {
+      expect(postSpy).toHaveBeenCalledTimes(1)
+    })
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <HomePage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    await waitFor(() => {
+      expect(getSpy).toHaveBeenCalledWith('/events/recommendations', expect.any(Object))
+    })
+    expect(callOrder.indexOf('POST /events/views')).toBeLessThan(
+      callOrder.indexOf('GET /events/recommendations')
+    )
+    expect(getPendingEventViewBatch('view-test-user')).toBeNull()
   })
 })

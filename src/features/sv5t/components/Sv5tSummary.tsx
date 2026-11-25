@@ -52,7 +52,7 @@ export const Sv5tSummary: React.FC<Sv5tSummaryProps> = ({
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>Năm học {academicYearLabel.replace(/\s*-\s*/g, ' - ')}</span>
           <span className="font-medium text-foreground">
-            {scope === 'UNIVERSITY' ? 'Cấp ĐHCT' : 'Cấp Khoa'}
+            {scope === 'UNIVERSITY' ? 'Cấp ĐHCT' : 'Cấp Trường CNTT&TT'}
           </span>
         </div>
 
@@ -121,7 +121,7 @@ export const Sv5tSummary: React.FC<Sv5tSummaryProps> = ({
         <div className="flex flex-col gap-1">
           <span className="text-xs font-medium text-muted-foreground">Cấp xét</span>
           <span className="text-xl sm:text-2xl font-semibold font-k2d text-foreground">
-            {scope === 'UNIVERSITY' ? 'Cấp ĐHCT' : 'Cấp Khoa'}
+            {scope === 'UNIVERSITY' ? 'Cấp ĐHCT' : 'Cấp Trường CNTT&TT'}
           </span>
         </div>
 

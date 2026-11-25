@@ -81,7 +81,7 @@ describe('catalog tree interactions', () => {
     fireEvent.keyDown(screen.getByRole('combobox', { name: 'Phạm vi xét chọn' }), {
       key: 'ArrowDown',
     })
-    fireEvent.click(await screen.findByRole('option', { name: 'Cấp Khoa / Đoàn' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Cấp Trường CNTT&TT' }))
     expect(screen.queryByText('Tiêu chuẩn trường')).not.toBeInTheDocument()
     expect(screen.getByText('Tiêu chuẩn khoa')).toBeInTheDocument()
     fireEvent.keyDown(screen.getByRole('combobox', { name: 'Trạng thái' }), { key: 'ArrowDown' })
@@ -185,4 +185,86 @@ describe('catalog editor saving', () => {
     await act(async () => finish())
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('allows toggling isMaxChild when editing a DRL category', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined)
+    const onClose = vi.fn()
+    render(
+      <CatalogEditor
+        kind="points"
+        item={{
+          id: 311,
+          name: 'Là lực lượng nòng cốt trong các phong trào',
+          maximum: 5,
+          isActive: true,
+          isMaxChild: false,
+          dateApply: '2026-08-01',
+          parentCategoryId: 31,
+        }}
+        onSave={onSave}
+        onClose={onClose}
+      />
+    )
+    const switchBtn = screen.getByRole('switch', {
+      name: /Lấy điểm cao nhất từ các mục con/i,
+    })
+    expect(switchBtn).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(switchBtn)
+    expect(switchBtn).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu tiêu chí' }))
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 311,
+        isMaxChild: true,
+      })
+    )
+  })
+})
+
+it('shows isMaxChild badge and supports quick toggle in points tree menu', async () => {
+  const onToggleMaxChild = vi.fn().mockResolvedValue(undefined)
+  render(
+    <CatalogTreeView
+      kind="points"
+      items={[
+        {
+          id: 3,
+          name: 'III. Hoạt động',
+          maximum: 20,
+          isActive: true,
+          parentCategoryId: null,
+          children: [
+            {
+              id: 311,
+              name: 'Là lực lượng nòng cốt trong các phong trào',
+              maximum: 5,
+              isActive: true,
+              isMaxChild: false,
+              parentCategoryId: 31,
+            },
+            {
+              id: 312,
+              name: 'Được khen thưởng trong các hoạt động phong trào',
+              maximum: 10,
+              isActive: true,
+              isMaxChild: true,
+              parentCategoryId: 31,
+            },
+          ],
+        },
+      ]}
+      onCreate={vi.fn()}
+      onEdit={vi.fn()}
+      onToggle={vi.fn()}
+      onToggleMaxChild={onToggleMaxChild}
+      onDelete={vi.fn()}
+    />
+  )
+  expect(screen.getByText('Max con')).toBeInTheDocument()
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Thao tác với Là lực lượng nòng cốt trong các phong trào' })
+  )
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Bật lấy điểm max mục con' }))
+  await waitFor(() => expect(onToggleMaxChild).toHaveBeenCalledWith(311))
 })

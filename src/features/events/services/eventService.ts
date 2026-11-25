@@ -10,6 +10,7 @@ import type {
   EventUpdateRequestDto,
   EventResponseDto,
   PageResponse,
+  ViewedEventsBatchPayload,
 } from '../types/event.types'
 
 export interface CachedFanpageInfo {
@@ -906,8 +907,24 @@ export const eventService = {
           recommendationScore:
             typeof item.effectiveScore === 'number' ? item.effectiveScore : undefined,
           fulfillsCriteria: Boolean(item.fulfillsCriteria),
+          isViewed: Boolean(item.viewed),
           isRecommended: true,
         }
       })
+  },
+
+  /**
+   * Reports rendered/viewed recommended event IDs for the authenticated student
+   * to POST /events/views with an idempotent client-generated UUID batchId.
+   */
+  async recordEventViews(payload: ViewedEventsBatchPayload): Promise<void> {
+    const validIds = Array.from(
+      new Set(payload.eventIds.filter((id) => Number.isInteger(id) && id > 0))
+    ).slice(0, 1000)
+    if (!payload.batchId || validIds.length === 0) return
+    await apiClient.post('/events/views', {
+      batchId: payload.batchId,
+      eventIds: validIds,
+    })
   },
 }

@@ -133,8 +133,7 @@ function resolveAdminEventStatus(event: any, now = Date.now()): AdminEventStatus
   const candidateEnd = parseTimestamp(
     event.endsAt ?? event.endTime ?? event.dateEnd ?? event.dateEndHappen
   )
-  const end =
-    candidateEnd !== null && (start === null || candidateEnd > start) ? candidateEnd : null
+  const end = candidateEnd !== null && (start === null || candidateEnd > start) ? candidateEnd : null
 
   if (['CLOSED', 'COMPLETED'].includes(event.status) || (end !== null && now >= end)) {
     return 'COMPLETED'
@@ -229,20 +228,20 @@ export function mapAdminUser(user: any, profile?: any): SuperAdminUser {
     (user.staffId != null ? user : undefined)
   const studentProfile = student
     ? {
-        studentId: student.studentId ?? '',
-        schoolName: student.schoolName ?? '',
-        majorName: student.majorName ?? '',
-        kNumber: String(student.kNumber ?? ''),
-        associationName: student.associationName ?? '',
-      }
+      studentId: student.studentId ?? '',
+      schoolName: student.schoolName ?? '',
+      majorName: student.majorName ?? '',
+      kNumber: String(student.kNumber ?? ''),
+      associationName: student.associationName ?? '',
+    }
     : undefined
   const staffProfile = staff
     ? {
-        staffId: staff.staffId ?? '',
-        orgName: staff.orgName ?? '',
-        title: staff.title ?? '',
-        phoneNumber: staff.phoneNumber ?? staff.phone ?? '',
-      }
+      staffId: staff.staffId ?? '',
+      orgName: staff.orgName ?? '',
+      title: staff.title ?? '',
+      phoneNumber: staff.phoneNumber ?? staff.phone ?? '',
+    }
     : undefined
   return {
     id: isValidUserId(user.userId ?? user.id) ? String(user.userId ?? user.id) : '',
@@ -345,11 +344,11 @@ export function mapAdminEvent(
 ): SuperAdminEvent {
   const points = Array.isArray(event.eventPoints)
     ? event.eventPoints.map((p: any) => ({
-        pointCategoryId: p.pointCategoryId,
-        name: p.pointCategoryName ?? categories.get(p.pointCategoryId) ?? '',
-        code: codes.get(p.pointCategoryId) ?? p.pointCategoryCode?.replace(/^mục\s+/i, ''),
-        point: Number(p.point ?? 0),
-      }))
+      pointCategoryId: p.pointCategoryId,
+      name: p.pointCategoryName ?? categories.get(p.pointCategoryId) ?? '',
+      code: codes.get(p.pointCategoryId) ?? p.pointCategoryCode?.replace(/^mục\s+/i, ''),
+      point: Number(p.point ?? 0),
+    }))
     : []
   const status = resolveAdminEventStatus(event, now)
   return {
@@ -399,13 +398,13 @@ export const superAdminService = {
         )
         return member
           ? [
-              {
-                id: String(fanpage.id),
-                name: fanpage.orgName || fanpage.name || '',
-                avatarUrl: fanpage.avatarUrl,
-                role: member.role === 'ADMIN' ? 'ADMIN' : 'MEMBER',
-              },
-            ]
+            {
+              id: String(fanpage.id),
+              name: fanpage.orgName || fanpage.name || '',
+              avatarUrl: fanpage.avatarUrl,
+              role: member.role === 'ADMIN' ? 'ADMIN' : 'MEMBER',
+            },
+          ]
           : []
       }),
       incomplete: results.some((result) => result.status === 'rejected'),
@@ -667,9 +666,7 @@ export const superAdminService = {
           academicYearId: s.academicYearId ?? s.academicYear?.id,
           number: s.number,
           academicYear:
-            typeof s.academicYear === 'string'
-              ? s.academicYear
-              : (s.academicYear?.code ?? s.academicYear?.name ?? ''),
+            typeof s.academicYear === 'string' ? s.academicYear : (s.academicYear?.code ?? s.academicYear?.name ?? ''),
           startDate: s.startDate ? s.startDate.split('T')[0] : '',
           endDate: s.endDate ? s.endDate.split('T')[0] : '',
           status,
@@ -790,6 +787,7 @@ export const superAdminService = {
     note?: string
     parentCategoryId?: number | null
     childrenOrder?: number
+    isMaxChild?: boolean
   }): Promise<boolean> => {
     try {
       await apiClient.post('/point-categories/admin', payload)
@@ -962,16 +960,14 @@ export const superAdminService = {
     return Promise.all(
       schools.map(async (school) => {
         const detail: any = await apiClient.get('/schools/' + school.id)
-        const majors: SuperAdminMajor[] = ((detail?.data ?? detail).majors ?? []).map(
-          (major: any) => ({
-            id: major.id,
-            code: major.code ?? '',
-            name: major.name,
-            schoolId: school.id,
-            isActive: major.isActive,
-            studentCount: major.studentCount,
-          })
-        )
+        const majors: SuperAdminMajor[] = (detail.majors ?? []).map((major: any) => ({
+          id: major.id,
+          code: major.code ?? '',
+          name: major.name,
+          schoolId: school.id,
+          isActive: major.isActive,
+          studentCount: major.studentCount,
+        }))
         return {
           id: school.id,
           name: school.name,

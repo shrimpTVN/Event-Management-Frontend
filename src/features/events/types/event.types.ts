@@ -91,9 +91,15 @@ export interface Event {
   recommendationExplain?: string
   recommendationScore?: number
   fulfillsCriteria?: boolean
+  isViewed?: boolean
   isRecommended?: boolean
   createdAt: string
   updatedAt: string
+}
+
+export interface ViewedEventsBatchPayload {
+  batchId: string
+  eventIds: number[]
 }
 
 export interface EventFilters {

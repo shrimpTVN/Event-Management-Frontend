@@ -1,12 +1,19 @@
 import React from 'react'
 import { Info, X, Calendar, CheckCircle2, Award, FileText } from 'lucide-react'
 
+import type { EvaluationScope } from '../types/sv5t.types'
+
 interface Sv5tRegulationModalProps {
   isOpen: boolean
   onClose: () => void
+  scope?: EvaluationScope
 }
 
-export const Sv5tRegulationModal: React.FC<Sv5tRegulationModalProps> = ({ isOpen, onClose }) => {
+export const Sv5tRegulationModal: React.FC<Sv5tRegulationModalProps> = ({
+  isOpen,
+  onClose,
+  scope = 'UNIVERSITY',
+}) => {
   if (!isOpen) return null
 
   return (
@@ -39,8 +46,19 @@ export const Sv5tRegulationModal: React.FC<Sv5tRegulationModalProps> = ({ isOpen
         {/* Content */}
         <div className="p-5 overflow-y-auto space-y-4 text-xs md:text-sm text-foreground/90 leading-relaxed custom-scrollbar">
           <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-lg p-3 text-blue-900 dark:text-blue-200 text-xs">
-            Căn cứ Quyết định số 17/QĐ-HSV ngày 04/3/2026 của Ban Chấp hành Hội Sinh viên VN Đại học
-            Cần Thơ về tiêu chuẩn xét chọn danh hiệu &quot;Sinh viên 5 tốt&quot;.
+            {scope === 'FACULTY' ? (
+              <>
+                Căn cứ Quyết định số 09-QĐ/ĐTN ngày 14/3/2026 của Ban Thường vụ Đoàn Trường Công
+                nghệ Thông tin và Truyền thông (nhiệm kỳ 2025-2027) về tiêu chuẩn xét chọn danh hiệu
+                &quot;Sinh viên 5 tốt&quot; cấp Trường CNTT&amp;TT. Mốc tính thành tích từ 01/8 năm
+                trước đến 01/8 năm xét.
+              </>
+            ) : (
+              <>
+                Căn cứ Quyết định số 17/QĐ-HSV ngày 04/3/2026 của Ban Chấp hành Hội Sinh viên VN Đại
+                học Cần Thơ về tiêu chuẩn xét chọn danh hiệu &quot;Sinh viên 5 tốt&quot;.
+              </>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -58,10 +76,12 @@ export const Sv5tRegulationModal: React.FC<Sv5tRegulationModalProps> = ({ isOpen
             <div className="flex items-start gap-3 p-3 rounded-lg border border-border bg-muted/20">
               <FileText className="h-5 w-5 text-primary shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-foreground">2. Xét chọn cấp Khoa / Cơ sở</p>
+                <p className="font-semibold text-foreground">
+                  2. Xét chọn cấp Trường CNTT&amp;TT (Cấp cơ sở)
+                </p>
                 <p className="text-muted-foreground text-xs mt-0.5">
                   Thời gian: Từ ngày 21/09 đến 30/09. Hội đồng xét duyệt cấp cơ sở thẩm định và công
-                  nhận danh hiệu cấp Khoa.
+                  nhận danh hiệu cấp Trường CNTT&amp;TT.
                 </p>
               </div>
             </div>
@@ -72,7 +92,7 @@ export const Sv5tRegulationModal: React.FC<Sv5tRegulationModalProps> = ({ isOpen
                 <p className="font-semibold text-foreground">3. Xét duyệt cấp Đại học Cần Thơ</p>
                 <p className="text-muted-foreground text-xs mt-0.5">
                   Thời gian: Tháng 10 hằng năm. Để được xét chọn cấp ĐHCT, sinh viên bắt buộc phải
-                  đạt danh hiệu cấp Khoa/cơ sở trước đó.
+                  đạt danh hiệu cấp Trường CNTT&amp;TT trước đó.
                 </p>
               </div>
             </div>

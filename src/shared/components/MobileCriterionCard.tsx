@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
-import { Eye, Pencil } from 'lucide-react'
+import { Tooltip } from '@/components/ui/tooltip'
+import { getMeaningfulCriterionNote } from '@/shared/utils/criterionNote'
+import { Eye, Info, Pencil } from 'lucide-react'
 
 interface Props {
   code: string
   title: string
   note?: string
+  maxChildExplanation?: string
   result?: ReactNode
   group?: boolean
   recorded?: ReactNode
@@ -19,6 +22,7 @@ export function MobileCriterionCard({
   code,
   title,
   note,
+  maxChildExplanation,
   result,
   group,
   recorded,
@@ -27,8 +31,7 @@ export function MobileCriterionCard({
   onEvaluate,
   onDetail,
 }: Props) {
-  const normalize = (value: string) => value.toLocaleLowerCase('vi').replace(/[\p{P}\s]+/gu, '')
-  const showNote = note && normalize(note) !== normalize(title)
+  const meaningfulNote = getMeaningfulCriterionNote(title, note)
 
   return (
     <article
@@ -42,6 +45,16 @@ export function MobileCriterionCard({
           <span className="text-primary font-semibold">{code}</span>
           {' · '}
           {title}
+          {maxChildExplanation && (
+            <Tooltip content={maxChildExplanation}>
+              <span
+                aria-label="Giải thích cách tính điểm mục con"
+                className="ml-1.5 inline-flex h-5 w-5 align-middle items-center justify-center rounded-full text-amber-600 hover:bg-amber-500/10 dark:text-amber-400 transition-colors cursor-pointer"
+              >
+                <Info className="h-4 w-4" aria-hidden="true" />
+              </span>
+            </Tooltip>
+          )}
         </h3>
         {result != null && (
           <span className="shrink-0 text-sm font-semibold text-primary whitespace-nowrap tabular-nums">
@@ -53,12 +66,12 @@ export function MobileCriterionCard({
       {!group && (
         <>
           {/* Detailed Note Accordion */}
-          {showNote && (
+          {meaningfulNote && (
             <details className="text-xs leading-relaxed text-muted-foreground group/details">
               <summary className="cursor-pointer min-h-11 flex items-center text-primary font-medium select-none">
                 <span>Điều kiện chi tiết</span>
               </summary>
-              <p className="pb-1 text-muted-foreground leading-normal">{note}</p>
+              <p className="pb-1 text-muted-foreground leading-normal">{meaningfulNote}</p>
             </details>
           )}
 
