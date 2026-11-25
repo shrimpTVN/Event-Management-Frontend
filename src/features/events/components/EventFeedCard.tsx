@@ -310,13 +310,12 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
       const isRej = registrationStatus === 'REJECTED'
       return (
         <span
-          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-            isPending
-              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200/50'
-              : isRej
-                ? 'bg-red-500/10 text-red-600 border border-red-200/50'
-                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50'
-          }`}
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${isPending
+            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200/50'
+            : isRej
+              ? 'bg-red-500/10 text-red-600 border border-red-200/50'
+              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50'
+            }`}
         >
           {regLabel}
         </span>
@@ -477,7 +476,11 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
 
   if (isPhone) {
     return (
-      <article className="student-feed-card w-full min-w-0 max-w-[680px] mx-auto rounded-xl bg-white dark:bg-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] dark:border dark:border-border/60 text-left pt-3 pb-3 px-0 flex flex-col gap-3 relative">
+      <article
+        data-event-id={event.id}
+        data-recommended={event.isRecommended ? 'true' : undefined}
+        className="student-feed-card w-full min-w-0 max-w-[680px] mx-auto rounded-xl bg-white dark:bg-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] dark:border dark:border-border/60 text-left pt-3 pb-3 px-0 flex flex-col gap-3 relative"
+      >
         {/* 1. Header: Avatar tròn, tên đơn vị tổ chức, thời gian đăng, menu ⋯ */}
         <div className="flex items-center justify-between gap-2 px-3.5 sm:px-4">
           <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -716,9 +719,8 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
             onClick={handleSaveClick}
             aria-label={isSaved ? 'Bỏ lưu sự kiện' : 'Lưu sự kiện'}
             aria-pressed={isSaved}
-            className={`flex h-10 items-center gap-1.5 px-2 transition-colors cursor-pointer ${
-              isSaved ? 'text-amber-500' : 'text-muted-foreground hover:text-amber-500'
-            }`}
+            className={`flex h-10 items-center gap-1.5 px-2 transition-colors cursor-pointer ${isSaved ? 'text-amber-500' : 'text-muted-foreground hover:text-amber-500'
+              }`}
           >
             <Bookmark
               className={`h-4 w-4 ${isSaved ? 'fill-amber-500 text-amber-500' : ''}`}
@@ -776,7 +778,11 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
   }
 
   return (
-    <article className="student-feed-card w-full min-w-0 max-w-[680px] mx-auto rounded-xl bg-white dark:bg-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] dark:border dark:border-border/60 text-left pt-2.5 pb-[12px] px-0 flex flex-col gap-3 relative">
+    <article
+      data-event-id={event.id}
+      data-recommended={event.isRecommended ? 'true' : undefined}
+      className="student-feed-card w-full min-w-0 max-w-[680px] mx-auto rounded-xl bg-white dark:bg-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] dark:border dark:border-border/60 text-left pt-2.5 pb-[12px] px-0 flex flex-col gap-3 relative"
+    >
       {/* 1. Header: Organization Info & Follow CTA (Figma: FanpageInfo [680x48], pad: 4px 12px 4px 12px, gap: 12px) */}
       <div className="flex min-h-12 items-start md:items-center justify-between gap-2 px-3 py-1">
         <div className="flex items-start md:items-center gap-3 min-w-0 flex-1">
@@ -911,11 +917,10 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
           <button
             type="button"
             onClick={handleFollowClick}
-            className={`h-6 shrink-0 whitespace-nowrap inline-flex items-center justify-center rounded-[5px] text-xs font-medium transition-colors cursor-pointer ${
-              isFollowed
-                ? 'px-2.5 gap-1.5 bg-muted text-muted-foreground hover:bg-muted/80'
-                : 'w-[68px] bg-[#EFF5FC] hover:bg-[#EFF5FC]/80 text-[#065C85] dark:bg-blue-950/40 dark:text-blue-300'
-            }`}
+            className={`h-6 shrink-0 whitespace-nowrap inline-flex items-center justify-center rounded-[5px] text-xs font-medium transition-colors cursor-pointer ${isFollowed
+              ? 'px-2.5 gap-1.5 bg-muted text-muted-foreground hover:bg-muted/80'
+              : 'w-[68px] bg-[#EFF5FC] hover:bg-[#EFF5FC]/80 text-[#065C85] dark:bg-blue-950/40 dark:text-blue-300'
+              }`}
           >
             {isFollowed ? (
               <>
@@ -1147,16 +1152,14 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
               onClick={handleSaveClick}
               aria-label={isSaved ? 'Bỏ lưu sự kiện' : 'Lưu sự kiện'}
               aria-pressed={isSaved}
-              className={`hidden md:flex h-11 w-11 items-center justify-center transition-colors cursor-pointer ${
-                isSaved
-                  ? 'text-amber-500 hover:text-amber-600'
-                  : 'text-[#6B7280] hover:text-amber-500'
-              }`}
+              className={`hidden md:flex h-11 w-11 items-center justify-center transition-colors cursor-pointer ${isSaved
+                ? 'text-amber-500 hover:text-amber-600'
+                : 'text-[#6B7280] hover:text-amber-500'
+                }`}
             >
               <Bookmark
-                className={`h-6 w-6 transition-all ${
-                  isSaved ? 'fill-amber-500 text-amber-500 drop-shadow-xs' : ''
-                }`}
+                className={`h-6 w-6 transition-all ${isSaved ? 'fill-amber-500 text-amber-500 drop-shadow-xs' : ''
+                  }`}
               />
             </button>
           </Tooltip>

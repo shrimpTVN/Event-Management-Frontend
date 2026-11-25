@@ -375,6 +375,7 @@ export const SuperAdminPage: React.FC = () => {
         note: catData.note ?? '',
         parentCategoryId: catData.parentCategoryId,
         childrenOrder: catData.childrenOrder,
+        isMaxChild: catData.isMaxChild,
       })
     }
     setPointCategories(await superAdminService.getPointCategories())
@@ -386,6 +387,16 @@ export const SuperAdminPage: React.FC = () => {
     await superAdminService.updatePointCategory(categoryId, {
       ...target,
       isActive: !target.isActive,
+    })
+    setPointCategories(await superAdminService.getPointCategories())
+  }
+
+  const handleTogglePointCategoryMaxChild = async (categoryId: number) => {
+    const target = flattenTree(pointCategories).find((item) => item.id === categoryId)
+    if (!target) throw new Error('Không tìm thấy tiêu chí.')
+    await superAdminService.updatePointCategory(categoryId, {
+      ...target,
+      isMaxChild: !target.isMaxChild,
     })
     setPointCategories(await superAdminService.getPointCategories())
   }
@@ -652,6 +663,7 @@ export const SuperAdminPage: React.FC = () => {
               onOpenCreateModal={handleOpenCreatePointCategory}
               onOpenEditModal={handleOpenEditPointCategory}
               onToggleActive={handleTogglePointCategoryActive}
+              onToggleMaxChild={handleTogglePointCategoryMaxChild}
               onDelete={handleDeletePointCategory}
             />
           )}

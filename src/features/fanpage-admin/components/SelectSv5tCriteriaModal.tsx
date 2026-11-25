@@ -30,10 +30,10 @@ interface Props {
   criterias: Sv5tCriteriaItem[]
 }
 export const SCOPE_LABELS: Record<string, string> = {
-  UNIVERSITY: 'Cấp trường',
+  UNIVERSITY: 'Cấp ĐHCT',
   SCHOOL: 'Cấp cơ sở',
-  FACULTY: 'Cấp khoa',
-  DEPARTMENT: 'Cấp khoa',
+  FACULTY: 'Cấp Trường CNTT&TT',
+  DEPARTMENT: 'Cấp Trường CNTT&TT',
   PROVINCE: 'Cấp tỉnh',
   CENTRAL: 'Cấp Trung ương',
   NATIONAL: 'Cấp Trung ương',

@@ -6,7 +6,7 @@ import { createEventFilterMatcher } from '@/features/events/utils/eventFilters'
 import type { EventFilterFormValues } from '@/features/events/components/EventFilterModal'
 import { eventFilterOptionsService } from '@/features/events/services/eventFilterOptionsService'
 import { Tooltip } from '@/components/ui/tooltip'
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { LayoutList, PanelsTopLeft, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,11 @@ import {
   FeedTabs,
   EventFeedCard,
   eventService,
+  queueRecommendedEventViews,
+  getPendingEventViewBatch,
+  hasInFlightEventViewFlush,
+  flushPendingEventViews,
+  flushPendingEventViewsKeepalive,
   type FeedTabType,
   type Event,
 } from '@/features/events'
@@ -59,7 +64,10 @@ export const HomePage: React.FC = () => {
   }
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
 
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user, token } = useAuthStore()
+  const viewUserKey = isAuthenticated ? String(user?.id ?? user?.email ?? 'auth') : null
+  const scrollContainerRef = useRef<HTMLElement | null>(null)
+  const feedListRef = useRef<HTMLDivElement | null>(null)
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ['events', 'feed'],
@@ -72,6 +80,11 @@ export const HomePage: React.FC = () => {
     queryFn: async () => {
       if (!isAuthenticated) return []
       try {
+        if (viewUserKey) {
+          await flushPendingEventViews(viewUserKey, (batch) =>
+            eventService.recordEventViews(batch)
+          ).catch(() => ({ ok: false, sentCount: 0 }))
+        }
         return await eventService.getRecommendations({ size: 50 })
       } catch {
         return []
@@ -189,6 +202,7 @@ export const HomePage: React.FC = () => {
         fulfillsCriteria: isAuthenticated
           ? recEntry?.event.fulfillsCriteria ?? evt.fulfillsCriteria
           : undefined,
+        isViewed: isAuthenticated ? Boolean(recEntry?.event.isViewed ?? evt.isViewed) : false,
         isRecommended: isAuthenticated ? Boolean(recEntry || evt.isRecommended) : false,
       }
     })
@@ -284,6 +298,73 @@ export const HomePage: React.FC = () => {
       )
     })
   }, [filteredEvents, searchQuery])
+
+  // Track rendered/visible recommended cards and queue their IDs for batch view reporting
+  useEffect(() => {
+    if (!isAuthenticated || !viewUserKey || !feedListRef.current || isFeedLoading) return
+    const cards = Array.from(
+      feedListRef.current.querySelectorAll<HTMLElement>('[data-recommended="true"][data-event-id]')
+    )
+    if (cards.length === 0) return
+
+    if (typeof IntersectionObserver === 'undefined') {
+      const ids = cards
+        .map((el) => el.dataset.eventId)
+        .filter((id): id is string => Boolean(id))
+      queueRecommendedEventViews(viewUserKey, ids)
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleIds: string[] = []
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue
+          const target = entry.target as HTMLElement
+          const eventId = target.dataset.eventId
+          if (eventId) {
+            visibleIds.push(eventId)
+          }
+          observer.unobserve(target)
+        }
+        if (visibleIds.length > 0) {
+          queueRecommendedEventViews(viewUserKey, visibleIds)
+        }
+      },
+      { root: scrollContainerRef.current, threshold: 0.5 }
+    )
+
+    cards.forEach((card) => observer.observe(card))
+    return () => observer.disconnect()
+  }, [isAuthenticated, viewUserKey, isFeedLoading, searchedEvents, effectiveViewMode, activeTab])
+
+  // On return to Home (with pending or in-flight views) and on exit/pagehide, flush & mark recommendations stale
+  useEffect(() => {
+    if (!isAuthenticated || !viewUserKey) return
+
+    if (getPendingEventViewBatch(viewUserKey) || hasInFlightEventViewFlush(viewUserKey)) {
+      void queryClient.invalidateQueries({ queryKey: ['events', 'recommendations'] })
+    }
+
+    const handlePageHide = () => {
+      flushPendingEventViewsKeepalive(viewUserKey, token)
+    }
+    window.addEventListener('pagehide', handlePageHide)
+
+    return () => {
+      window.removeEventListener('pagehide', handlePageHide)
+      void flushPendingEventViews(viewUserKey, (batch) =>
+        eventService.recordEventViews(batch)
+      ).then((result) => {
+        if (result.sentCount > 0) {
+          void queryClient.invalidateQueries({
+            queryKey: ['events', 'recommendations'],
+            refetchType: 'none',
+          })
+        }
+      })
+    }
+  }, [isAuthenticated, viewUserKey, token, queryClient])
 
   const handleRegister = (eventId: string) => {
     queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
@@ -399,6 +480,7 @@ export const HomePage: React.FC = () => {
 
         {/* Center Column: Feed (Tabs + Event Feed Cards, centered with Figma Feed width: 680px, gap: 8px) */}
         <main
+          ref={scrollContainerRef}
           data-student-scroll
           className="student-feed-scroll flex-1 min-w-0 h-full overflow-y-auto py-2.5 px-3 sm:px-4 md:px-1 flex justify-center custom-scrollbar"
         >
@@ -494,7 +576,10 @@ export const HomePage: React.FC = () => {
             />
 
             {/* Feed List (Figma gap: 8px between consecutive cards) */}
-            <div className={`flex flex-col gap-2 ${effectiveViewMode === 'post' ? 'student-post-feed' : ''}`}>
+            <div
+              ref={feedListRef}
+              className={`flex flex-col gap-2 ${effectiveViewMode === 'post' ? 'student-post-feed' : ''}`}
+            >
               {isFeedLoading && effectiveViewMode === 'list' ? (
                 <div className="flex flex-col gap-2" aria-label="Đang tải danh sách sự kiện">
                   {[1, 2, 3].map((index) => (

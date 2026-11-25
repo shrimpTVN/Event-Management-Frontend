@@ -1,8 +1,10 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown, ChevronRight, Edit2, MoreHorizontal, Plus, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, Edit2, Info, MoreHorizontal, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tooltip } from '@/components/ui/tooltip'
+import { getMeaningfulCriterionNote } from '@/shared/utils/criterionNote'
 import {
   Select,
   SelectContent,
@@ -21,6 +23,7 @@ interface Item {
   maximum?: number
   scope?: string
   isActive: boolean
+  isMaxChild?: boolean
   parentCategoryId?: number | null
 }
 interface Props<T extends Item & { children?: T[] }> {
@@ -29,22 +32,29 @@ interface Props<T extends Item & { children?: T[] }> {
   onCreate: (parent?: T) => void
   onEdit: (item: T) => void
   onToggle: (id: number) => Promise<void>
+  onToggleMaxChild?: (id: number) => Promise<void>
   onDelete: (id: number) => Promise<void>
 }
 
 function Actions({
   name,
   active,
+  isMaxChild,
+  maxChildUnavailable,
   disabled,
   toggleUnavailable,
   onToggle,
+  onToggleMaxChild,
   onDelete,
 }: {
   name: string
   active: boolean
+  isMaxChild?: boolean
+  maxChildUnavailable?: string
   disabled: boolean
   toggleUnavailable?: string
   onToggle: () => void
+  onToggleMaxChild?: () => void
   onDelete: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -144,6 +154,21 @@ function Actions({
             >
               {active ? 'Tạm ngưng áp dụng' : 'Áp dụng trở lại'}
             </Button>
+            {onToggleMaxChild && (
+              <Button
+                role="menuitem"
+                disabled={Boolean(maxChildUnavailable)}
+                title={maxChildUnavailable}
+                variant="ghost"
+                className="h-9 w-full justify-start text-xs"
+                onClick={() => {
+                  setOpen(false)
+                  onToggleMaxChild()
+                }}
+              >
+                {isMaxChild ? 'Tắt lấy điểm max mục con' : 'Bật lấy điểm max mục con'}
+              </Button>
+            )}
             <Button
               role="menuitem"
               variant="ghost"
@@ -168,6 +193,7 @@ export function CatalogTreeView<T extends Item & { children?: T[] }>({
   onCreate,
   onEdit,
   onToggle,
+  onToggleMaxChild,
   onDelete,
 }: Props<T>) {
   const [search, setSearch] = useState('')
@@ -213,6 +239,18 @@ export function CatalogTreeView<T extends Item & { children?: T[] }>({
       setPending(null)
     }
   }
+  const runToggleMaxChild = async (item: T) => {
+    if (!onToggleMaxChild) return
+    setPending(item.id)
+    setError('')
+    try {
+      await onToggleMaxChild(item.id)
+    } catch (err) {
+      setError(catalogError(err))
+    } finally {
+      setPending(null)
+    }
+  }
   const remove = async () => {
     if (!deleting) return
     if (flattenTree(deleting.children ?? []).some((item) => item.isActive)) {
@@ -240,18 +278,25 @@ export function CatalogTreeView<T extends Item & { children?: T[] }>({
     const children = (item.children ?? []).filter(keep)
     const hasChildren = Boolean(item.children?.length)
     const opened = filtering || isOpen(item.id)
+    const displayNote = getMeaningfulCriterionNote(item.name, item.note)
     return (
       <Fragment key={item.id}>
         <tr
-          className={`border-b border-border/60 ${depth === 0 ? 'bg-muted/30' : 'hover:bg-muted/20'} ${filtering && !matches(item) ? 'text-muted-foreground' : ''}`}
+          className={`group/row border-b border-border/60 transition-colors ${
+            depth === 0
+              ? 'bg-muted/35'
+              : depth === 1
+                ? 'bg-muted/15 hover:bg-muted/25'
+                : 'hover:bg-muted/20'
+          } ${filtering && !matches(item) ? 'text-muted-foreground' : ''}`}
         >
-          <td className="px-4 py-3">
+          <td className="px-4 py-2.5">
             <div className="flex items-start gap-2" style={{ paddingLeft: `${depth * 20}px` }}>
               {hasChildren ? (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 shrink-0 p-0"
+                  className="h-7 w-7 shrink-0 p-0"
                   aria-label={`${opened ? 'Thu gọn' : 'Mở rộng'} ${item.name}`}
                   aria-expanded={opened}
                   disabled={filtering}
@@ -264,26 +309,38 @@ export function CatalogTreeView<T extends Item & { children?: T[] }>({
                   )}
                 </Button>
               ) : (
-                <span className="w-8 shrink-0" />
+                <span className="w-7 shrink-0" />
               )}
-              <div className="flex min-w-0 flex-col gap-1 py-1">
-                <p className={`text-sm ${depth === 0 ? 'font-semibold' : 'font-medium'}`}>
-                  {item.name}
-                </p>
-                {item.note && (
-                  <p className="text-xs font-normal text-muted-foreground">{item.note}</p>
+              <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className={`text-sm leading-snug ${depth === 0 ? 'font-semibold' : 'font-medium'}`}>
+                    {item.name}
+                  </p>
+                  {points && item.isMaxChild && (
+                    <Tooltip content="Mục này lấy điểm cao nhất trong các tiêu chí con (không cộng dồn)">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 cursor-pointer">
+                        <Info className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        <span>Max con</span>
+                      </span>
+                    </Tooltip>
+                  )}
+                </div>
+                {displayNote && (
+                  <p className="text-xs font-normal text-muted-foreground leading-snug">
+                    {displayNote}
+                  </p>
                 )}
               </div>
             </div>
           </td>
-          <td className="whitespace-nowrap px-4 py-3 text-right text-sm tabular-nums">
+          <td className="whitespace-nowrap px-4 py-2.5 text-right text-sm tabular-nums">
             {points
               ? `${item.maximum ?? 0} điểm`
               : item.scope === 'FACULTY'
-                ? 'Cấp Khoa / Đoàn'
-                : 'Cấp Trường'}
+                ? 'Cấp Trường CNTT&TT'
+                : 'Cấp ĐHCT'}
           </td>
-          <td className="whitespace-nowrap px-4 py-3">
+          <td className="whitespace-nowrap px-4 py-2.5">
             <span className="inline-flex items-center gap-2 text-xs">
               <span
                 className={`h-2 w-2 rounded-full ${item.isActive ? 'bg-emerald-500' : 'bg-muted-foreground'}`}
@@ -291,8 +348,8 @@ export function CatalogTreeView<T extends Item & { children?: T[] }>({
               {item.isActive ? 'Áp dụng' : 'Tạm ngưng'}
             </span>
           </td>
-          <td className="px-4 py-3">
-            <div className="flex justify-end gap-1">
+          <td className="px-4 py-2.5">
+            <div className="flex justify-end gap-1 opacity-75 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
               <Button
                 variant="ghost"
                 size="sm"
@@ -318,11 +375,18 @@ export function CatalogTreeView<T extends Item & { children?: T[] }>({
               <Actions
                 name={item.name}
                 active={item.isActive}
+                isMaxChild={item.isMaxChild}
+                maxChildUnavailable={
+                  rootPoint ? 'API hiện tại chưa hỗ trợ chỉnh sửa mục gốc ĐRL.' : undefined
+                }
                 disabled={pending !== null}
                 toggleUnavailable={
                   rootPoint ? 'API hiện tại chưa hỗ trợ đổi trạng thái mục gốc ĐRL.' : undefined
                 }
                 onToggle={() => void runToggle(item)}
+                onToggleMaxChild={
+                  points && onToggleMaxChild ? () => void runToggleMaxChild(item) : undefined
+                }
                 onDelete={() => {
                   setDeleteError('')
                   setDeleting(item)
@@ -379,13 +443,13 @@ export function CatalogTreeView<T extends Item & { children?: T[] }>({
         </Select>
         {!points && (
           <Select value={scope} onValueChange={setScope}>
-            <SelectTrigger aria-label="Phạm vi xét chọn" className="h-10 w-44">
+            <SelectTrigger aria-label="Phạm vi xét chọn" className="h-10 w-52">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Mọi phạm vi</SelectItem>
-              <SelectItem value="UNIVERSITY">Cấp Trường</SelectItem>
-              <SelectItem value="FACULTY">Cấp Khoa / Đoàn</SelectItem>
+              <SelectItem value="UNIVERSITY">Cấp ĐHCT</SelectItem>
+              <SelectItem value="FACULTY">Cấp Trường CNTT&amp;TT</SelectItem>
             </SelectContent>
           </Select>
         )}

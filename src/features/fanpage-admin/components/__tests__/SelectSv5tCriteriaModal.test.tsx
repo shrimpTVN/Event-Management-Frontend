@@ -39,7 +39,7 @@ describe('SV5T event selection', () => {
     )
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     fireEvent.keyDown(screen.getByLabelText('Cấp xét'), { key: 'ArrowDown' })
-    fireEvent.click(await screen.findByRole('option', { name: 'Cấp trường' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Cấp ĐHCT' }))
     fireEvent.click(screen.getByRole('button', { name: 'Tình nguyện tốt' }))
     const choices = screen.getAllByRole('checkbox')
     expect(choices).toHaveLength(2)

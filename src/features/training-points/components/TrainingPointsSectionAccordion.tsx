@@ -11,7 +11,10 @@ import type {
   PointCategoryGroupedTree,
   StudentSemesterPointFlattenedItem,
 } from '../types/trainingPoints.types'
-import { capTrainingPoints, computeCategoryScore } from '../utils/scoreCalculator'
+import {
+  capTrainingPoints,
+  computeSectionCategoryScores,
+} from '../utils/scoreCalculator'
 
 interface TrainingPointsSectionAccordionProps {
   section: PointCategoryNode | StudentSemesterPointGroupedTree | PointCategoryGroupedTree
@@ -181,55 +184,74 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
     return list
   }, [section, sectionRoman])
 
-  // Calculate sum of recorded points & student scores for this whole section
-  const { totalRecorded, totalSelf } = React.useMemo(() => {
-    let rec = 0
-    let self = 0
+  // Compute hierarchical recorded, self-evaluation and capped total scores across every node (respecting isMaxChild)
+  const sectionScoreMap = React.useMemo(
+    () => computeSectionCategoryScores(section, recordedMap, studentScores),
+    [section, recordedMap, studentScores]
+  )
 
-    rows.forEach((r) => {
-      if (r.isLeaf) {
-        const itemRec =
-          (r.item as any).systemPointRecord !== undefined
-            ? (r.item as any).systemPointRecord
-            : recordedMap.get(r.item.id) || 0
-        const itemSelf =
-          studentScores[r.item.id] !== undefined
-            ? studentScores[r.item.id]
-            : (r.item as any).manualPointRecord || 0
-
-        rec += itemRec
-        self += itemSelf
+  // Identify non-winning positive children inside isMaxChild parents so UI can subtly distinguish them
+  const supersededByMaxIds = React.useMemo(() => {
+    const superseded = new Set<number>()
+    const childrenByParent = new Map<number, number[]>()
+    rows.forEach((row) => {
+      const parentId = (row.item as any).parentCategoryId
+      if (parentId != null) {
+        const list = childrenByParent.get(parentId) ?? []
+        list.push(row.item.id)
+        childrenByParent.set(parentId, list)
       }
     })
+    rows.forEach((row) => {
+      if (row.isLeaf || !(row.item as any).isMaxChild) return
+      const childIds = childrenByParent.get(row.item.id) ?? []
+      let bestId: number | null = null
+      let bestTotal = 0
+      let bestSelf = -1
+      for (const childId of childIds) {
+        const childScore = sectionScoreMap.get(childId)
+        if (!childScore || childScore.total <= 0) continue
+        if (
+          bestId === null ||
+          childScore.total > bestTotal ||
+          (childScore.total === bestTotal && childScore.self > bestSelf)
+        ) {
+          bestId = childId
+          bestTotal = childScore.total
+          bestSelf = childScore.self
+        }
+      }
+      if (bestId !== null) {
+        for (const childId of childIds) {
+          const childScore = sectionScoreMap.get(childId)
+          if (childId !== bestId && childScore && childScore.total > 0) {
+            superseded.add(childId)
+          }
+        }
+      }
+    })
+    return superseded
+  }, [rows, sectionScoreMap])
 
-    return { totalRecorded: rec, totalSelf: self }
-  }, [rows, recordedMap, studentScores])
+  const rootScoreSummary = sectionScoreMap.get(section.id)
+  const hasHierarchicalNodes = rows.length > 0
 
-  // Final section score computed by BE or recursively capping at section maximum
+  const totalRecorded = hasHierarchicalNodes
+    ? (rootScoreSummary?.recorded ?? 0)
+    : ((section as any).systemPointRecord ?? 0)
+  const totalSelf = hasHierarchicalNodes
+    ? (rootScoreSummary?.self ?? 0)
+    : ((section as any).manualPointRecord ?? 0)
+
   const finalSectionScore = React.useMemo(() => {
-    // Nếu BE đã tính sẵn totalPoint và sinh viên chưa sửa đổi cục bộ
-    const beTotal = (section as any).totalPoint
-    if (
-      beTotal !== undefined &&
-      beTotal !== null &&
-      totalSelf === ((section as any).manualPointRecord || 0)
-    ) {
-      return capTrainingPoints(beTotal, section.maximum)
+    if (hasHierarchicalNodes && rootScoreSummary) {
+      return rootScoreSummary.total
     }
-
-    // Nếu có children (cấu trúc cây cũ)
-    if ((section as any).children && (section as any).children.length > 0) {
-      const computed = computeCategoryScore(section as any, recordedMap, studentScores)
-      if (computed > 0) return capTrainingPoints(computed, section.maximum)
-    }
-
-    // Nếu dùng items từ BE có chỉnh sửa điểm tự chấm ở client
-    if ('items' in section && Array.isArray((section as any).items)) {
-      return capTrainingPoints(totalRecorded + totalSelf, section.maximum)
-    }
-
-    return capTrainingPoints(aggregateScore ?? (section as any).totalPoint ?? 0, section.maximum)
-  }, [section, totalRecorded, totalSelf, aggregateScore, recordedMap, studentScores])
+    return capTrainingPoints(
+      aggregateScore ?? (section as any).totalPoint ?? totalRecorded + totalSelf,
+      section.maximum
+    )
+  }, [hasHierarchicalNodes, rootScoreSummary, aggregateScore, section, totalRecorded, totalSelf])
 
   const progressPercent =
     section.maximum > 0
@@ -307,32 +329,41 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
         <div className="min-h-0 overflow-hidden">
           <div className="w-full flex flex-col border-t border-border">
             {/* List of criterion rows */}
-            {rows.map((row) => (
-              <TrainingPointsRow
-                key={row.item.id}
-                item={row.item}
-                criteriaCode={row.code}
-                recordedPoints={
-                  (row.item as any).systemPointRecord !== undefined
-                    ? (row.item as any).systemPointRecord
-                    : recordedMap.get(row.item.id) || 0
-                }
-                recordedTransactions={recordedTxMap.get(row.item.id) || []}
-                manualTransaction={manualTxMap.get(row.item.id)}
-                selfScore={
-                  studentScores[row.item.id] !== undefined
-                    ? studentScores[row.item.id]
-                    : (row.item as any).manualPointRecord || 0
-                }
-                selfDescription={
-                  studentDescriptions[row.item.id] || selfTxDescriptionMap.get(row.item.id) || ''
-                }
-                isLeaf={row.isLeaf}
-                semesterId={semesterId}
-                onSaveSelfScore={onSaveSelfScore}
-                onDeleteSelfScore={onDeleteSelfScore}
-              />
-            ))}
+            {rows.map((row) => {
+              const rowSummary = sectionScoreMap.get(row.item.id)
+              return (
+                <TrainingPointsRow
+                  key={row.item.id}
+                  item={row.item}
+                  criteriaCode={row.code}
+                  recordedPoints={
+                    rowSummary
+                      ? rowSummary.recorded
+                      : (row.item as any).systemPointRecord !== undefined
+                        ? (row.item as any).systemPointRecord
+                        : recordedMap.get(row.item.id) || 0
+                  }
+                  recordedTransactions={recordedTxMap.get(row.item.id) || []}
+                  manualTransaction={manualTxMap.get(row.item.id)}
+                  selfScore={
+                    rowSummary
+                      ? rowSummary.self
+                      : studentScores[row.item.id] !== undefined
+                        ? studentScores[row.item.id]
+                        : (row.item as any).manualPointRecord || 0
+                  }
+                  aggregatedTotal={rowSummary?.total}
+                  supersededByMax={supersededByMaxIds.has(row.item.id)}
+                  selfDescription={
+                    studentDescriptions[row.item.id] || selfTxDescriptionMap.get(row.item.id) || ''
+                  }
+                  isLeaf={row.isLeaf}
+                  semesterId={semesterId}
+                  onSaveSelfScore={onSaveSelfScore}
+                  onDeleteSelfScore={onDeleteSelfScore}
+                />
+              )
+            })}
 
             {/* Bottom Section Total Row ("Cộng điểm mục I") */}
             <div className="student-score-footer training-points-columns flex items-stretch bg-muted/40 border-t border-border font-semibold text-xs min-h-10 tabular-nums">

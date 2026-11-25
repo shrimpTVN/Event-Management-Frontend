@@ -11,6 +11,8 @@ import {
   TrainingPointsNoticeBanner,
   TrainingPointsSummary,
   TrainingPointsTable,
+  capTrainingPoints,
+  computeSectionCategoryScores,
   formatYearLabel,
 } from '@/features/training-points'
 
@@ -252,13 +254,18 @@ export const TrainingPointsPage: React.FC = () => {
     }
   }
 
-  // The shared service caps each section before the page and sidebar sum their scores.
+  // Compute semester total consistently from hierarchical section scores (respecting isMaxChild & caps)
   const totalScore = useMemo(() => {
-    if (groupedTree && groupedTree.length > 0) {
-      return groupedTree.reduce((sum, root) => sum + (root.totalPoint || 0), 0)
-    }
-    return 0
-  }, [groupedTree])
+    if (!groupedTree || groupedTree.length === 0) return 0
+    const sum = groupedTree.reduce((acc, section) => {
+      const hasNodes = Array.isArray(section.items) && section.items.length > 0
+      const computed = hasNodes
+        ? computeSectionCategoryScores(section, new Map(), studentScores).get(section.id)?.total
+        : undefined
+      return acc + capTrainingPoints(computed ?? section.totalPoint ?? 0, section.maximum)
+    }, 0)
+    return capTrainingPoints(sum, 100)
+  }, [groupedTree, studentScores])
 
   // Hoạt động đã tham gia: lấy tổng số sự kiện đã hoàn thành từ lịch sử đăng ký của sinh viên
   const activitiesCount = useMemo(() => {

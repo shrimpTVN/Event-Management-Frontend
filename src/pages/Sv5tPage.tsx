@@ -223,8 +223,14 @@ export const Sv5tPage: React.FC = () => {
 
   // Build complete hierarchical criteria tree with all children and correct required counts
   const standards = useMemo(() => {
-    return ensureSv5tHierarchy(criteriaProgress, localCompletedMap, localNoteMap, allTransactions)
-  }, [criteriaProgress, localCompletedMap, localNoteMap, allTransactions])
+    return ensureSv5tHierarchy(
+      criteriaProgress,
+      localCompletedMap,
+      localNoteMap,
+      allTransactions,
+      appliedScope
+    )
+  }, [criteriaProgress, localCompletedMap, localNoteMap, allTransactions, appliedScope])
 
   // Count completed standards
   const completedStandardsCount = useMemo(() => {
@@ -322,6 +328,7 @@ export const Sv5tPage: React.FC = () => {
       <Sv5tRegulationModal
         isOpen={isRegulationModalOpen}
         onClose={() => setIsRegulationModalOpen(false)}
+        scope={appliedScope}
       />
     </div>
   )

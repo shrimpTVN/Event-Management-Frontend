@@ -182,3 +182,49 @@ it('counts two distinct event records for the same criterion while ignoring dupl
   expect(result[0].isCompleted).toBe(true)
   expect(result[0].isSelfEvaluated).toBe(false)
 })
+
+describe('multi-scope root resolution (UNIVERSITY vs FACULTY)', () => {
+  it('unwraps and filters by requested scope when API returns two level-0 roots', () => {
+    const multiRootResponse = {
+      criteria: [
+        {
+          criteriaId: 1,
+          name: 'Cấp ĐHCT Root',
+          scope: 'UNIVERSITY',
+          level: 0,
+          children: [
+            { criteriaId: 10, name: 'Đạo đức tốt (ĐHCT)', scope: 'UNIVERSITY', level: 1, children: [] },
+          ],
+        },
+        {
+          criteriaId: 6000,
+          name: 'Cấp CICT Root',
+          scope: 'FACULTY',
+          level: 0,
+          children: [
+            { criteriaId: 6100, name: 'Đạo đức tốt (CNTT&TT)', scope: 'FACULTY', level: 1, children: [] },
+            { criteriaId: 6200, name: 'Học tập tốt (CNTT&TT)', scope: 'FACULTY', level: 1, children: [] },
+          ],
+        },
+      ],
+    }
+
+    const uni = ensureSv5tHierarchy(multiRootResponse as any, {}, {}, [], 'UNIVERSITY')
+    expect(uni).toHaveLength(1)
+    expect(uni[0].criteriaId).toBe(10)
+
+    const faculty = ensureSv5tHierarchy(multiRootResponse as any, {}, {}, [], 'FACULTY')
+    expect(faculty).toHaveLength(2)
+    expect(faculty[0].criteriaId).toBe(6100)
+    expect(faculty[1].criteriaId).toBe(6200)
+  })
+
+  it('returns canonical CICT faculty standards when FACULTY fallback is used', () => {
+    const faculty = ensureSv5tHierarchy(undefined, {}, {}, [], 'FACULTY')
+    expect(faculty).toHaveLength(5)
+    expect(faculty.every((std) => std.scope === 'FACULTY')).toBe(true)
+    const tinhNguyen = faculty.find((s) => s.criteriaId === 6400)
+    expect(tinhNguyen?.children.find((c) => c.criteriaId === 6402)?.requiredOccurrences).toBe(2)
+    expect(tinhNguyen?.children.find((c) => c.criteriaId === 6403)?.requiredOccurrences).toBe(1)
+  })
+})

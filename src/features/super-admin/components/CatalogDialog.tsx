@@ -28,12 +28,14 @@ export function CatalogDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-background p-6 shadow-xl">
-          <div className="mb-5 flex items-start justify-between gap-4">
-            <div className="flex flex-col gap-1">
-              <Dialog.Title className="font-k2d text-xl font-bold">{title}</Dialog.Title>
-              <Dialog.Description className="text-sm text-muted-foreground">
-                {description}
-              </Dialog.Description>
+          <div className="mb-4 flex items-start justify-between gap-4 border-b border-border/70 pb-4">
+            <div className="flex min-w-0 flex-col gap-1">
+              <Dialog.Title className="font-k2d text-lg font-bold leading-snug">{title}</Dialog.Title>
+              {description && (
+                <Dialog.Description className="text-xs leading-relaxed text-muted-foreground">
+                  {description}
+                </Dialog.Description>
+              )}
             </div>
             <Button
               type="button"

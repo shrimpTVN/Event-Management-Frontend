@@ -5,6 +5,7 @@ interface Props {
   onOpenCreateModal: (parent?: SuperAdminPointCategory) => void
   onOpenEditModal: (category: SuperAdminPointCategory) => void
   onToggleActive: (id: number) => Promise<void>
+  onToggleMaxChild?: (id: number) => Promise<void>
   onDelete: (id: number) => Promise<void>
 }
 export function SuperAdminPointCategoriesView({
@@ -12,6 +13,7 @@ export function SuperAdminPointCategoriesView({
   onOpenCreateModal,
   onOpenEditModal,
   onToggleActive,
+  onToggleMaxChild,
   onDelete,
 }: Props) {
   return (
@@ -21,6 +23,7 @@ export function SuperAdminPointCategoriesView({
       onCreate={onOpenCreateModal}
       onEdit={onOpenEditModal}
       onToggle={onToggleActive}
+      onToggleMaxChild={onToggleMaxChild}
       onDelete={onDelete}
     />
   )

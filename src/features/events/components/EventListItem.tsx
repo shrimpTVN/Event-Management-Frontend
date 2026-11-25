@@ -32,7 +32,11 @@ export function EventListItem({
   const detailUrl = `/events/${event.id}`
   const from = { from: `${route.pathname}${route.search}` }
   return (
-    <article className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 gap-y-3 rounded-xl border border-border/70 bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md dark:bg-card sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-x-4 sm:p-4">
+    <article
+      data-event-id={event.id}
+      data-recommended={event.isRecommended ? 'true' : undefined}
+      className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 gap-y-3 rounded-xl border border-border/70 bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md dark:bg-card sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-x-4 sm:p-4"
+    >
       <Link
         to={detailUrl}
         state={from}

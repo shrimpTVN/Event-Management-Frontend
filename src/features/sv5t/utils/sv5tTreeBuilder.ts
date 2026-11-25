@@ -1,4 +1,8 @@
-import type { CriteriaProgressNode, StudentCriteriaProgressResponse } from '../types/sv5t.types'
+import type {
+  CriteriaProgressNode,
+  EvaluationScope,
+  StudentCriteriaProgressResponse,
+} from '../types/sv5t.types'
 
 /**
  * Canonical descriptions / requirements for each SV5T criteria ID.
@@ -278,6 +282,207 @@ export const CANONICAL_SV5T_STANDARDS: Array<{
   },
 ]
 
+export interface CanonicalSv5tDefinition {
+  criteriaId: number
+  name: string
+  note?: string | null
+  requiredChildren?: number
+  requiredOccurrences?: number
+  children?: CanonicalSv5tDefinition[]
+}
+
+/**
+ * Canonical CICT (Trường Công nghệ Thông tin và Truyền thông - ĐHCT) SV5T standards
+ * based on QĐ số 09-QĐ/ĐTN (14/03/2026), nhiệm kỳ 2025-2027.
+ */
+export const CANONICAL_FACULTY_SV5T_STANDARDS: CanonicalSv5tDefinition[] = [
+  {
+    criteriaId: 6100,
+    name: 'Tiêu chuẩn Đạo đức tốt',
+    note: 'Đạt đủ 03 tiêu chuẩn: (1.1), (1.2) và (1.3)',
+    requiredChildren: 3,
+    children: [
+      {
+        criteriaId: 6101,
+        name: 'Điểm rèn luyện trung bình cộng của HK3 năm học trước, HK1 và HK2 năm học xét đạt từ 85 điểm trở lên.',
+        note: 'SV năm nhất chỉ xét điểm HK1 và HK2 năm học xét.',
+      },
+      {
+        criteriaId: 6102,
+        name: 'Không vi phạm pháp luật và các quy chế, nội quy của nhà trường, quy định của địa phương và cộng đồng.',
+        note: null,
+      },
+      {
+        criteriaId: 6103,
+        name: 'Đạt thêm 01 trong các tiêu chí về tư tưởng, đạo đức, lối sống',
+        note: 'Đạt thêm 01 tiêu chí bên dưới (QĐ 09-QĐ/ĐTN ghi mục 1.3.1 đến 1.3.4)',
+        requiredChildren: 1,
+        children: [
+          {
+            criteriaId: 61031,
+            name: 'Tham gia cuộc thi tìm hiểu về các môn khoa học chính trị, tư tưởng Hồ Chí Minh do đơn vị Đoàn - Hội cấp cơ sở và tương đương trở lên tổ chức.',
+          },
+          {
+            criteriaId: 61032,
+            name: 'Tham gia các hoạt động giáo dục lòng yêu nước, tinh thần tự hào dân tộc (di tích lịch sử, bảo tàng, mẹ VNAH, thắp nến tri ân, ca khúc truyền thống, biên giới hải đảo...).',
+          },
+          {
+            criteriaId: 61033,
+            name: 'Tham gia hoạt động giáo dục đạo đức, lối sống văn hóa cho sinh viên.',
+          },
+          {
+            criteriaId: 61034,
+            name: 'Là thanh niên tiêu biểu trong học tập và làm theo lời Bác.',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    criteriaId: 6200,
+    name: 'Tiêu chuẩn Học tập tốt',
+    note: 'Đạt đủ 03 tiêu chí: ĐTB cộng >= 3.0, >= 12 tín chỉ/học kỳ và không nợ học phần.',
+    requiredChildren: 3,
+    children: [
+      {
+        criteriaId: 6201,
+        name: 'Điểm trung bình cộng của HK3 năm học trước, HK1 và HK2 năm học xét đạt từ 3.0 trở lên.',
+        note: 'SV năm nhất chỉ xét điểm của HK1 và HK2 trong năm học.',
+      },
+      {
+        criteriaId: 6202,
+        name: 'Số tín chỉ trong mỗi học kỳ bằng hoặc lớn hơn 12 tín chỉ.',
+        note: 'Đối với những trường hợp đặc biệt, hội đồng xét sẽ ghi nhận và xem xét.',
+      },
+      {
+        criteriaId: 6203,
+        name: 'Không bị nợ học phần.',
+        note: null,
+      },
+    ],
+  },
+  {
+    criteriaId: 6300,
+    name: 'Tiêu chuẩn Thể lực tốt',
+    note: 'Đạt 01 trong 02 tiêu chuẩn: (3.1) hoặc (3.2)',
+    requiredChildren: 1,
+    children: [
+      {
+        criteriaId: 6301,
+        name: 'Trong năm học học ít nhất 01 học phần Giáo dục thể chất (học phần có điểm rèn luyện thể lực) và đạt điểm B trở lên.',
+        note: 'SV khuyết tật, bệnh mãn tính, tai nạn được miễn TH GDTC/GDQP&AN có xác nhận Nhà trường được miễn xét.',
+      },
+      {
+        criteriaId: 6302,
+        name: 'Tham gia ít nhất 01 hoạt động rèn luyện thể lực (thể dục, thể thao, dân vũ) do đơn vị Đoàn - Hội cấp cơ sở tổ chức.',
+        note: 'SV khuyết tật, bệnh mãn tính, tai nạn được miễn TH GDTC/GDQP&AN có xác nhận Nhà trường được miễn xét.',
+      },
+    ],
+  },
+  {
+    criteriaId: 6400,
+    name: 'Tiêu chuẩn Tình nguyện tốt',
+    note: 'Đạt 01 trong 03 tiêu chí: (4.1), (4.2) hoặc (4.3)',
+    requiredChildren: 1,
+    children: [
+      {
+        criteriaId: 6401,
+        name: 'Được các cấp Đảng, Đoàn, Hội, chính quyền khen thưởng trong hoạt động tình nguyện.',
+        note: null,
+      },
+      {
+        criteriaId: 6402,
+        name: 'Tham gia ít nhất 02 ngày tình nguyện.',
+        requiredOccurrences: 2,
+      },
+      {
+        criteriaId: 6403,
+        name: 'Tham gia ít nhất 01 lần hiến máu tình nguyện.',
+        requiredOccurrences: 1,
+      },
+    ],
+  },
+  {
+    criteriaId: 6500,
+    name: 'Tiêu chuẩn Hội nhập tốt',
+    note: 'Đạt 02 trong 03 tiêu chuẩn: (5.1) Ngoại ngữ, (5.2) Tin học, (5.3) Kỹ năng hội nhập',
+    requiredChildren: 2,
+    children: [
+      {
+        criteriaId: 6501,
+        name: '(5.1) Ngoại ngữ: Đạt 01 trong 04 tiêu chí sau',
+        requiredChildren: 1,
+        children: [
+          {
+            criteriaId: 65011,
+            name: 'Được khen thưởng cuộc thi ngoại ngữ cấp Trường Công nghệ Thông tin và Truyền thông trở lên.',
+          },
+          {
+            criteriaId: 65012,
+            name: 'Đạt chứng chỉ ngoại ngữ theo bảng quy đổi chuẩn CEFR (IELTS, TOEIC, TOEFL, DELF, HSK, TOPIK, JLPT).',
+            note: 'SV năm 1-2: A2/IELTS 4.0/TOEIC 400/DELF A2/HSK 2/TOPIK 2/JLPT N5; SV năm 3+: B1/IELTS 4.5/TOEIC 450/DELF B1/HSK 3/TOPIK 3/JLPT N4. Thi trong năm học xét; khác thời gian cần thêm 01 HP/khóa NN hoặc 01 HĐ hội nhập Đoàn-Hội cơ sở+.',
+          },
+          {
+            criteriaId: 65013,
+            name: 'Đối với sinh viên năm thứ hai: Đã hoàn thành hoặc được miễn 03 học phần Ngoại ngữ căn bản.',
+            note: 'Mỗi sinh viên chỉ xét 01 lần đối với tiêu chuẩn (5.1.3) và (5.1.4).',
+          },
+          {
+            criteriaId: 65014,
+            name: 'Đối với sinh viên năm thứ nhất: Đã hoàn thành hoặc được miễn 02 học phần Ngoại ngữ căn bản trở lên.',
+            note: 'Mỗi sinh viên chỉ xét 01 lần đối với tiêu chuẩn (5.1.3) và (5.1.4).',
+          },
+        ],
+      },
+      {
+        criteriaId: 6502,
+        name: '(5.2) Tin học: Đạt 01 trong 02 tiêu chí sau',
+        requiredChildren: 1,
+        children: [
+          {
+            criteriaId: 65021,
+            name: 'Điểm trung bình cộng HK3 năm học trước, HK1 và HK2 năm học xét đạt từ 3.0 trở lên.',
+          },
+          {
+            criteriaId: 65022,
+            name: 'Được cấp giấy khen về các cuộc thi tin học do Trường Công nghệ Thông tin và Truyền thông trở lên tổ chức.',
+          },
+        ],
+      },
+      {
+        criteriaId: 6503,
+        name: '(5.3) Tham gia các hoạt động, phong trào nâng cao kỹ năng hội nhập: Đạt 01 trong 05 tiêu chí sau',
+        requiredChildren: 1,
+        children: [
+          {
+            criteriaId: 65031,
+            name: 'Tham gia hoặc trực tiếp tổ chức 02 hoạt động hội nhập do các đơn vị trực thuộc Đoàn Trường CNTT&TT, đơn vị kết nghĩa, đối tác và tương đương trở lên tổ chức.',
+            note: 'Giao lưu SV quốc tế, trao đổi SV, cuộc thi ngoại ngữ, tìm hiểu văn hóa, lịch sử, xã hội trong nước và thế giới...',
+            requiredOccurrences: 2,
+          },
+          {
+            criteriaId: 65032,
+            name: 'Được Đoàn Thanh niên, Hội Sinh viên cấp Đại học Cần Thơ trở lên khen thưởng về thành tích xuất sắc trong phong trào TN-SV năm học.',
+          },
+          {
+            criteriaId: 65033,
+            name: 'Trực tiếp tổ chức hoặc tham gia ít nhất 01 lớp tập huấn hoặc khóa học bồi dưỡng kỹ năng do Đoàn Trường CNTT&TT trở lên tổ chức.',
+            requiredOccurrences: 1,
+          },
+          {
+            criteriaId: 65034,
+            name: 'Đạt điểm B trở lên học phần về kỹ năng (Kỹ năng mềm, ĐMST & khởi nghiệp) do ĐHCT giảng dạy và tham gia 01 HĐ hội nhập cấp Trường CNTT&TT trở lên.',
+          },
+          {
+            criteriaId: 65035,
+            name: 'Đạt giải Ba trở lên cuộc thi kiến thức hội nhập hoặc học thuật bằng ngoại ngữ do Đoàn cơ sở hoặc HSV VN ĐHCT trở lên tổ chức.',
+          },
+        ],
+      },
+    ],
+  },
+]
+
 /**
  * Ensures a complete hierarchical tree for SV5T standards, populating all child criteria
  * and calculating requiredChildren, completedChildren, and completion statuses.
@@ -286,30 +491,27 @@ export function ensureSv5tHierarchy(
   criteriaProgress?: StudentCriteriaProgressResponse,
   localCompletedMap?: Record<number, boolean>,
   localNoteMap?: Record<number, string>,
-  transactions: any[] = []
+  transactions: any[] = [],
+  scope: EvaluationScope = 'UNIVERSITY'
 ): CriteriaProgressNode[] {
   function buildCanonicalNode(
-    definition: {
-      criteriaId: number
-      name: string
-      note?: string | null
-      requiredChildren?: number
-      children?: any[]
-    },
+    definition: CanonicalSv5tDefinition,
     index: number,
-    level: number
+    level: number,
+    nodeScope: EvaluationScope
   ): CriteriaProgressNode {
     const children = (definition.children || []).map((child, childIndex) =>
-      buildCanonicalNode(child, childIndex, level + 1)
+      buildCanonicalNode(child, childIndex, level + 1, nodeScope)
     )
     return {
       criteriaId: definition.criteriaId,
       name: definition.name,
-      note: definition.note ?? SV5T_CRITERIA_GUIDES[definition.criteriaId] ?? null,
-      scope: 'UNIVERSITY',
+      note: definition.note ?? (nodeScope === 'UNIVERSITY' ? SV5T_CRITERIA_GUIDES[definition.criteriaId] : null) ?? null,
+      scope: nodeScope,
       level,
       childrenOrder: index + 1,
       requiredChildren: children.length ? (definition.requiredChildren ?? 1) : null,
+      requiredOccurrences: definition.requiredOccurrences ?? 1,
       isCompleted: false,
       completedChildren: 0,
       totalChildren: children.length,
@@ -317,11 +519,21 @@ export function ensureSv5tHierarchy(
     }
   }
 
-  let sourceNodes = criteriaProgress?.criteria?.length
-    ? criteriaProgress.criteria
-    : CANONICAL_SV5T_STANDARDS.map((standard, index) => buildCanonicalNode(standard, index, 1))
-  if (sourceNodes.length === 1 && sourceNodes[0].level === 0 && sourceNodes[0].children?.length) {
-    sourceNodes = sourceNodes[0].children
+  const canonicalFallback = () => {
+    const defs =
+      scope === 'FACULTY' ? CANONICAL_FACULTY_SV5T_STANDARDS : CANONICAL_SV5T_STANDARDS
+    return defs.map((standard, index) => buildCanonicalNode(standard, index, 1, scope))
+  }
+
+  let sourceNodes: CriteriaProgressNode[] = []
+  if (criteriaProgress?.criteria?.length) {
+    const unwrapped = criteriaProgress.criteria.flatMap((node) =>
+      node.level === 0 && node.children?.length ? node.children : [node]
+    )
+    const scoped = unwrapped.filter((node) => (node.scope || 'UNIVERSITY') === scope)
+    sourceNodes = scoped.length > 0 ? scoped : canonicalFallback()
+  } else {
+    sourceNodes = canonicalFallback()
   }
 
   function applyProgress(node: CriteriaProgressNode): CriteriaProgressNode {
