@@ -1,4 +1,6 @@
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
+import { useTimeBoundary } from '@/shared/hooks/useTimeBoundary'
+import { isUpcomingRegistration, nextTimeBoundary } from '@/shared/utils/registrationEligibility'
 import { matchesPageSearch, useMobilePageSearch } from '@/shared/components/layout/MobileSubpageHeader'
 import React, { useState, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -222,11 +224,13 @@ export const EventHistoryPage: React.FC = () => {
     return list
   }, [events, appliedYear, appliedSemester])
 
+  const now = useTimeBoundary(nextTimeBoundary(events.map((event) => event.startsAt)))
+
   // Tab counts
   const counts = useMemo(() => {
     return {
       all: termFilteredList.length,
-      upcoming: termFilteredList.filter((e) => normalizeHistoryStatus(e.status) === 'UPCOMING')
+      upcoming: termFilteredList.filter((e) => isUpcomingRegistration(e, now))
         .length,
       completed: termFilteredList.filter((e) => normalizeHistoryStatus(e.status) === 'COMPLETED')
         .length,
@@ -234,13 +238,14 @@ export const EventHistoryPage: React.FC = () => {
       cancelled: termFilteredList.filter((e) => normalizeHistoryStatus(e.status) === 'CANCELLED')
         .length,
     }
-  }, [termFilteredList])
+  }, [termFilteredList, now])
 
   // Filtered event list combining status, year/semester, and diacritic-insensitive search
   const filteredEvents = useMemo(() => {
     return termFilteredList.filter((evt) => {
       // Filter by status tab
       if (activeStatus !== 'ALL') {
+        if (activeStatus === 'UPCOMING' && !isUpcomingRegistration(evt, now)) return false
         const itemStatus = normalizeHistoryStatus(evt.status)
         if (itemStatus !== activeStatus) {
           return false
@@ -259,7 +264,7 @@ export const EventHistoryPage: React.FC = () => {
 
       return true
     })
-  }, [termFilteredList, activeStatus, searchTerm])
+  }, [termFilteredList, activeStatus, searchTerm, now])
 
   // Contextual empty state message
   const emptyStateInfo = useMemo(() => {
@@ -425,9 +430,9 @@ export const EventHistoryPage: React.FC = () => {
               </h1>
 
               {compactHistory ? (
-                /* Mobile: 2 bottom sheet triggers in one row, Year wider than Semester */
-                <div className="flex md:hidden items-center gap-2.5 w-full">
-                  <div className="flex-[1.4] min-w-0">
+                /* Mobile: equally sized year and semester filters */
+                <div className="grid md:hidden grid-cols-2 items-center gap-2.5 w-full">
+                  <div className="min-w-0">
                     <MobileFilterSheet
                       title="Chọn năm học"
                       value={selectedYear}
@@ -437,7 +442,7 @@ export const EventHistoryPage: React.FC = () => {
                       accessibleLabel="Chọn năm học"
                     />
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0">
                     <MobileFilterSheet
                       title="Chọn học kỳ"
                       value={selectedSemester}

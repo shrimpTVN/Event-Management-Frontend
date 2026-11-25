@@ -83,8 +83,8 @@ export const Navbar: React.FC<{ mobileSubpage?: boolean }> = ({ mobileSubpage = 
           variant="ghost"
           size="icon"
           className="ml-auto h-11 w-11 md:hidden"
-          onClick={() => navigate('/events', { state: { focusSearch: true } })}
-          aria-label="Tìm kiếm sự kiện"
+          onClick={() => navigate('/search', { state: { focusSearch: true } })}
+          aria-label="Tìm kiếm sự kiện và fanpage"
         >
           <Search className="h-5 w-5" />
         </Button>

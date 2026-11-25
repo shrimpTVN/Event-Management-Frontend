@@ -6,6 +6,7 @@ import { profileService } from '@/features/profile/services/profileService'
 import { notificationPath, normalizeNotification } from '@/features/notifications/notificationPath'
 import { fanpageStatisticsService } from '@/features/fanpage-admin/services/fanpageStatisticsService'
 import { adminStatisticsService } from '../adminStatisticsService'
+import { superAdminService } from '../superAdminService'
 import { adminDashboard } from './fixtures/adminDashboard'
 const staff = { userId: 7, firstName: 'Lộc', lastName: 'Đoàn Tài', email: 'loc@ctu.edu.vn', gender: 'MALE', avatarUrl: 'https://cdn/avatar.png', roles: ['FANPAGE_ADMIN'], staffProfile: { staffId: 'CB7', orgName: 'CTU', title: 'Cán bộ', dateOfBirth: '1990-01-01', phoneNumber: '0123456789' } }
 beforeEach(() => vi.resetAllMocks())
@@ -38,6 +39,20 @@ it('loads the admin dashboard with exact backend DTO fields and selected filters
   vi.mocked(apiClient.get).mockResolvedValue(adminDashboard)
   expect(await adminStatisticsService.getDashboard(2026, '9')).toEqual(adminDashboard)
   expect(apiClient.get).toHaveBeenCalledExactlyOnceWith('/admin/statistics/dashboard', { params: { year: 2026, semesterId: '9' } })
+})
+
+it('sends an academic-year scope without a calendar-year cutoff', async () => {
+  vi.mocked(apiClient.get).mockResolvedValue(adminDashboard)
+  await adminStatisticsService.getDashboard('2026-2027', '9')
+  expect(apiClient.get).toHaveBeenCalledWith('/admin/statistics/dashboard', { params: { academicYear: '2026-2027', semesterId: '9' } })
+})
+
+it('loads the year catalog directly and preserves semester academicYearId', async () => {
+  vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [{ id: 7, code: '2030-2031', isActive: true }] })
+  expect(await adminStatisticsService.getAcademicYears()).toEqual([{ id: 7, code: '2030-2031', isActive: true }])
+  expect(apiClient.get).toHaveBeenLastCalledWith('/academic-years')
+  vi.mocked(apiClient.get).mockResolvedValueOnce([{ id: 91, number: 1, academicYearId: 7, academicYear: '2030-2031', status: 'ONGOING' }])
+  expect((await superAdminService.getSemesters())[0]).toMatchObject({ id: 91, academicYearId: 7, academicYear: '2030-2031' })
 })
 
 it('rejects malformed dashboards and propagates authorization errors without fabricated counts', async () => {

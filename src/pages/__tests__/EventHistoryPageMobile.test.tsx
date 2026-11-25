@@ -46,7 +46,8 @@ const mockHistoryEvents = [
     organizer: { name: 'CLB Tin học' },
     location: 'Hội trường Rùa',
     dateHappen: '15/09/2026',
-    status: 'UPCOMING',
+    status: 'REGISTERED',
+    startsAt: '2026-12-15T08:00:00+07:00',
     canCancel: true,
   },
   {
@@ -73,6 +74,7 @@ describe('EventHistoryPage on Mobile (< 768px)', () => {
   let queryClient: QueryClient
 
   beforeEach(() => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-25T08:00:00+07:00'))
     mockIsPhone = true
     queryClient = new QueryClient({
       defaultOptions: {
@@ -85,6 +87,7 @@ describe('EventHistoryPage on Mobile (< 768px)', () => {
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
+    vi.restoreAllMocks()
   })
 
   it('renders mobile status tab bar with semantic labels, counts and no duplicate title', async () => {
@@ -190,6 +193,30 @@ describe('EventHistoryPage on Mobile (< 768px)', () => {
     expect(
       screen.getByText('Chưa có sự kiện đã hủy trong học kỳ này')
     ).toBeInTheDocument()
+  })
+
+  it('only shows future REGISTERED events in the upcoming tab', async () => {
+    const base = mockHistoryEvents[0]
+    vi.spyOn(historyService, 'getMyHistory').mockResolvedValue([
+      { ...base, title: 'Đã bắt đầu', startsAt: '2026-11-25T08:00:00+07:00' },
+      { ...base, id: 'future', eventId: 201, title: 'Chưa bắt đầu' },
+      { ...base, id: 'checked', eventId: 202, title: 'Đã check-in', status: 'CHECKED_IN' },
+      { ...base, id: 'unknown', eventId: 203, title: 'Thiếu thời gian', startsAt: undefined },
+    ])
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <MobilePageProvider><EventHistoryPage /></MobilePageProvider>
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+    await waitFor(() => expect(screen.getByText('4 sự kiện')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /^Sắp diễn ra/ }))
+    expect(screen.getByText('1 sự kiện')).toBeInTheDocument()
+    expect(screen.getByText('Chưa bắt đầu')).toBeInTheDocument()
+    expect(screen.queryByText('Đã bắt đầu')).not.toBeInTheDocument()
+    expect(screen.queryByText('Đã check-in')).not.toBeInTheDocument()
+    expect(screen.queryByText('Thiếu thời gian')).not.toBeInTheDocument()
   })
 
   it('renders error state with retry button on query failure', async () => {

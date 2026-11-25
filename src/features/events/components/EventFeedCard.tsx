@@ -21,6 +21,7 @@ import {
   X,
   Tag,
   Clock,
+  Sparkles,
 } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { Event } from '../types/event.types'
@@ -384,6 +385,7 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
       <RegisterButton
         eventId={event.id}
         eventTitle={event.title}
+        dateClose={event.dateClose}
         isRegistered={isRegistered}
         registrationStatus={registrationStatus}
         disabled={false}
@@ -431,6 +433,7 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
     <RegisterButton
       eventId={event.id}
       eventTitle={event.title}
+      dateClose={event.dateClose}
       isRegistered={isRegistered}
       registrationStatus={registrationStatus}
       disabled={
@@ -510,9 +513,21 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
                   </span>
                 </Link>
               </Tooltip>
-              <span className="text-xs font-medium leading-4 text-muted-foreground">
-                {event.timeAgo || 'Vừa xong'}
-              </span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-xs font-medium leading-4 text-muted-foreground">
+                  {event.timeAgo || 'Vừa xong'}
+                </span>
+                {(event.recommendationExplain || event.isRecommended) && (
+                  <Tooltip content={event.recommendationExplain || 'Sự kiện gợi ý phù hợp với bạn'}>
+                    <span
+                      aria-label="Lý do gợi ý sự kiện"
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full text-amber-500 hover:bg-amber-500/10 transition-colors cursor-pointer"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                    </span>
+                  </Tooltip>
+                )}
+              </div>
             </div>
           </div>
 
@@ -806,9 +821,21 @@ export const EventFeedCard: React.FC<EventFeedCardProps> = ({
               </Tooltip>
               {!isPhone && <VerifiedBadge className="h-4 w-4 shrink-0" />}
             </div>
-            <span className="text-xs font-medium leading-4 text-[#4B5563] dark:text-muted-foreground">
-              {event.timeAgo || 'Vừa xong'}
-            </span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-xs font-medium leading-4 text-[#4B5563] dark:text-muted-foreground">
+                {event.timeAgo || 'Vừa xong'}
+              </span>
+              {(event.recommendationExplain || event.isRecommended) && (
+                <Tooltip content={event.recommendationExplain || 'Sự kiện gợi ý phù hợp với bạn'}>
+                  <span
+                    aria-label="Lý do gợi ý sự kiện"
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full text-amber-500 hover:bg-amber-500/10 transition-colors cursor-pointer"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                </Tooltip>
+              )}
+            </div>
           </div>
         </div>
 

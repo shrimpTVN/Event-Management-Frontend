@@ -1,3 +1,4 @@
+import { EducationFields } from '@/shared/components/EducationFields'
 import React from 'react'
 import type { StudentProfile } from '../types/profile.types'
 
@@ -92,45 +93,35 @@ export const AcademicYouthUnionCard: React.FC<AcademicYouthUnionCardProps> = ({
           )}
         </div>
 
-        {/* Row 3: Ngành học & Khoa / Trường thành viên */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium text-[#6B7280] dark:text-muted-foreground leading-5">
-              Ngành học
-            </label>
-            {isEditing ? (
-              <input
-                type="text"
-                value={`${profile.major || ''}${profile.majorCode ? ` (Mã ngành: ${profile.majorCode})` : ''}`}
-                disabled
-                className="w-full h-10 rounded-lg border border-border bg-muted/50 px-3 text-sm text-muted-foreground cursor-not-allowed select-none"
-              />
-            ) : (
-              <span className="text-base font-normal text-[#111827] dark:text-foreground leading-6">
-                {profile.major || 'Chưa cập nhật'}
-                {profile.majorCode ? ` (Mã ngành: ${profile.majorCode})` : ''}
-              </span>
-            )}
+        {isEditing && formData ? (
+          <EducationFields
+            schoolId={formData.schoolId}
+            majorId={formData.majorId}
+            onSchoolChange={(school) =>
+              onChange?.({
+                schoolId: school.id,
+                faculty: school.name,
+                majorId: undefined,
+                major: '',
+                majorCode: '',
+              })
+            }
+            onMajorChange={(major) =>
+              onChange?.({ majorId: major.id, major: major.name, majorCode: major.code })
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <span className="text-sm text-muted-foreground">Khoa / Trường</span>
+              <span>{profile.faculty || 'Chưa cập nhật'}</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-sm text-muted-foreground">Ngành học</span>
+              <span>{profile.major || 'Chưa cập nhật'}</span>
+            </div>
           </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium text-[#6B7280] dark:text-muted-foreground leading-5">
-              Khoa / Trường thành viên
-            </label>
-            {isEditing ? (
-              <input
-                type="text"
-                value={profile.faculty || ''}
-                disabled
-                className="w-full h-10 rounded-lg border border-border bg-muted/50 px-3 text-sm text-muted-foreground cursor-not-allowed select-none"
-              />
-            ) : (
-              <span className="text-base font-normal text-[#111827] dark:text-foreground leading-6">
-                {profile.faculty || 'Chưa cập nhật'}
-              </span>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )

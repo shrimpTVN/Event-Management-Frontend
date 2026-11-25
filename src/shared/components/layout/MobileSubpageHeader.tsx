@@ -16,7 +16,7 @@ export function mobileSubpageConfig(pathname: string): { title: string; search: 
     '/sv5t': ['Sinh viên 5 tốt', 'Tìm tiêu chí sinh viên 5 tốt'], '/sinh-vien-5-tot': ['Sinh viên 5 tốt', 'Tìm tiêu chí sinh viên 5 tốt'],
   }
   if (pages[path]) return { title: pages[path][0], search: 'local', placeholder: pages[path][1] }
-  if (['/events', '/events/search', '/search'].includes(path)) return { title: 'Tìm kiếm sự kiện', search: 'events', placeholder: 'Tìm kiếm sự kiện' }
+  if (['/events', '/events/search', '/search'].includes(path)) return { title: 'Tìm kiếm', search: 'events', placeholder: 'Tìm kiếm sự kiện, fanpage' }
   if (/^\/fanpages?(?:\/[^/]+)?$/.test(path)) return { title: 'Fanpage', search: 'local', placeholder: 'Tìm sự kiện của fanpage' }
   if (/^\/events\/[^/]+\/register$/.test(path)) return { title: 'Đăng ký tham gia', search: 'events', placeholder: 'Tìm kiếm sự kiện', fallback: path.replace(/\/register$/, '') }
   if (/^\/events\/[^/]+$/.test(path)) return { title: 'Chi tiết sự kiện', search: 'events', placeholder: 'Tìm kiếm sự kiện' }

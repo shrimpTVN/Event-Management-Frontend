@@ -84,8 +84,8 @@ export const TrainingPointsHeader: React.FC<TrainingPointsHeaderProps> = ({
     <div className="student-achievement-header flex flex-col gap-2 pb-1">
       {/* Mobile View (< 768px): 2 bottom sheet triggers in 1 row + subtle regulation link */}
       <div className="flex md:hidden flex-col gap-2 w-full">
-        <div className="flex items-center gap-2.5 w-full">
-          <div className="flex-[1.3] min-w-0">
+        <div className="grid grid-cols-2 items-center gap-2.5 w-full">
+          <div className="min-w-0">
             <MobileFilterSheet
               title="Chọn năm học"
               value={selectedYear}
@@ -95,7 +95,7 @@ export const TrainingPointsHeader: React.FC<TrainingPointsHeaderProps> = ({
               accessibleLabel="Năm học"
             />
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0">
             <MobileFilterSheet
               title="Chọn học kỳ"
               value={selectedSemester}

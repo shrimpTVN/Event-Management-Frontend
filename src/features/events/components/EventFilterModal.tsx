@@ -57,6 +57,7 @@ interface EventFilterModalProps {
   onApply: (values: EventFilterFormValues) => void
   events?: any[]
   hideFanpageFilter?: boolean
+  hideStatusFilter?: boolean
   options?: EventFilterOptions
 }
 
@@ -83,6 +84,7 @@ const EventFilterPanel: React.FC<EventFilterModalProps> = ({
   onApply,
   events,
   hideFanpageFilter = false,
+  hideStatusFilter = false,
   options: suppliedOptions,
 }) => {
   // A parent query refresh must not reset choices in an already-open filter.
@@ -673,29 +675,31 @@ const EventFilterPanel: React.FC<EventFilterModalProps> = ({
           {/* ============================================================ */}
           {/* 1. Trạng thái (hay dùng nhất - Không cần chip Tất cả)        */}
           {/* ============================================================ */}
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold text-foreground/80 block">
-              Trạng thái sự kiện
-            </span>
-            <div className="flex items-center gap-2 flex-wrap">
-              {STATUS_CHIPS.map((chip) => {
-                const isSelected = selectedStatuses.includes(chip.key)
-                return (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    key={chip.key}
-                    type="button"
-                    onClick={() => handleToggleStatus(chip.key)}
-                    aria-pressed={isSelected}
-                    className={getChipClass(isSelected)}
-                  >
-                    {chip.label}
-                  </Button>
-                )
-              })}
+          {!hideStatusFilter && (
+            <div className="flex flex-col pt-3.5 gap-2">
+              <span className="text-xs font-semibold text-foreground/80 block">
+                Trạng thái sự kiện
+              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                {STATUS_CHIPS.map((chip) => {
+                  const isSelected = selectedStatuses.includes(chip.key)
+                  return (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      key={chip.key}
+                      type="button"
+                      onClick={() => handleToggleStatus(chip.key)}
+                      aria-pressed={isSelected}
+                      className={getChipClass(isSelected)}
+                    >
+                      {chip.label}
+                    </Button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* ============================================================ */}
           {/* 2. Thời gian tổ chức (Chip nhanh + Xổ Date Range ngay bên dưới) */}

@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Plus, Menu, X, MessageSquare, Bell } from 'lucide-react'
 import logoSvg from '@/assets/logo.svg'
-import { useAuthStore, isStaffUser, getAccountHomePath } from '@/features/auth'
+import { useAuthStore, isStaffUser } from '@/features/auth'
 import { useFanpageUnreadNotificationCount } from '@/features/notifications'
 import { AccountNavigationPopup } from '@/shared/components/layout/AccountNavigationPopup'
 import { FanpageNotificationDropdown } from './FanpageNotificationDropdown'
@@ -34,6 +34,7 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
   currentFanpageAvatarUrl,
   availableFanpages,
   onSelectFanpage,
+  onLogoClick,
   onCreateEventClick,
   onPersonalProfileClick,
 }) => {
@@ -77,9 +78,15 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
             {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          <Tooltip content={isStaffUser(user) ? 'Về danh sách fanpage' : 'Về trang chủ'}>
+          <Tooltip content="Về trang chủ fanpage">
             <Link
-              to={getAccountHomePath(user)}
+              to={homePath}
+              onClick={(e) => {
+                if (onLogoClick) {
+                  e.preventDefault()
+                  onLogoClick()
+                }
+              }}
               className="flex items-center shrink-0 group transition-transform hover:opacity-95 cursor-pointer"
             >
               <img

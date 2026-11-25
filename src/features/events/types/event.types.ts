@@ -88,6 +88,10 @@ export interface Event {
   semester?: EventSemester | null
   criteriaId?: number
   fanpageId?: number
+  recommendationExplain?: string
+  recommendationScore?: number
+  fulfillsCriteria?: boolean
+  isRecommended?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -109,6 +113,7 @@ export interface EventFilters {
   dateHappenTo?: string
   category?: EventCategory
   status?: EventStatus
+  statuses?: EventStatus[]
   page?: number
   size?: number
   limit?: number

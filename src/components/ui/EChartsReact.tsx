@@ -1,14 +1,22 @@
 import React, { useEffect, useRef } from 'react'
 import { init, use } from 'echarts/core'
-import { BarChart, PieChart } from 'echarts/charts'
-import { AriaComponent, GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+import { BarChart, PieChart, LineChart } from 'echarts/charts'
+import {
+  AriaComponent,
+  GridComponent,
+  LegendComponent,
+  TooltipComponent,
+  TitleComponent,
+} from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { ECharts, EChartsOption } from 'echarts'
 
 use([
   BarChart,
+  LineChart,
   PieChart,
   AriaComponent,
+  TitleComponent,
   GridComponent,
   LegendComponent,
   TooltipComponent,

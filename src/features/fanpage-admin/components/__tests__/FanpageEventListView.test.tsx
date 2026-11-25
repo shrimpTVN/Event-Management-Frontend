@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { FanpageEventListView } from '../FanpageEventListView'
 import type { AdminEvent } from '../../types/fanpageAdmin.types'
+import { fanpageAdminService } from '../../services/fanpageAdminService'
 
 const renderWithQueryClient = (ui: React.ReactElement) => {
   const queryClient = new QueryClient({
@@ -81,6 +82,58 @@ const mockEvents: AdminEvent[] = [
 ]
 
 describe('FanpageEventListView Redesign', () => {
+  afterEach(() => vi.restoreAllMocks())
+  it('uses the six agreed tabs and keeps expired future events only in All', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-25T10:00:00+07:00'))
+    vi.spyOn(fanpageAdminService, 'getEventRegisteredCount').mockResolvedValue(10)
+    const base = {
+      ...mockEvents[0],
+      startsAt: '2026-11-26T08:00:00+07:00',
+      endsAt: null,
+      dateOpen: '2026-11-20T00:00:00+07:00',
+      dateClose: '2026-11-25T11:00:00+07:00',
+    }
+    renderWithQueryClient(
+      <FanpageEventListView
+        events={[
+          { ...base, id: 'open', name: 'Còn nhận đăng ký' },
+          {
+            ...base,
+            id: 'waiting',
+            name: 'Hết hạn nhưng chưa diễn ra',
+            dateClose: '2026-11-25T09:00:00+07:00',
+          },
+          {
+            ...base,
+            id: 'running',
+            name: 'Sự kiện đang diễn ra',
+            startsAt: '2026-11-25T09:00:00+07:00',
+            endsAt: '2026-11-25T11:00:00+07:00',
+          },
+          { ...base, id: 'ended', name: 'Sự kiện kết thúc', status: 'COMPLETED' },
+          { ...base, id: 'cancelled', name: 'Sự kiện bị hủy', status: 'CANCELLED' },
+          { ...base, id: 'draft', name: 'Sự kiện nháp', status: 'DRAFT' },
+        ]}
+      />
+    )
+    expect(screen.getByRole('button', { name: /Tất cả/ })).toHaveTextContent('(6)')
+    expect(screen.queryByRole('button', { name: /Sắp diễn ra|Chờ chốt/ })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Chờ diễn ra').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Đã đóng đăng ký').length).toBeGreaterThan(0)
+    for (const [tab, title] of [
+      ['Đang mở đăng ký', 'Còn nhận đăng ký'],
+      ['Đang diễn ra', 'Sự kiện đang diễn ra'],
+      ['Đã kết thúc', 'Sự kiện kết thúc'],
+      ['Đã hủy', 'Sự kiện bị hủy'],
+      ['Bản nháp', 'Sự kiện nháp'],
+    ]) {
+      const button = screen.getByRole('button', { name: new RegExp(`^${tab}`) })
+      expect(button).toHaveTextContent('(1)')
+      fireEvent.click(button)
+      expect(screen.getAllByText(title).length).toBeGreaterThan(0)
+      expect(screen.queryByText('Hết hạn nhưng chưa diễn ra')).not.toBeInTheDocument()
+    }
+  })
   it('sorts by event date and start time in both directions, keeps missing dates last and does not mutate input', () => {
     const events: AdminEvent[] = [
       {
@@ -134,7 +187,7 @@ describe('FanpageEventListView Redesign', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: /Đã kết thúc/i }))
     expect(screen.getAllByText(mockEvents[1].name).length).toBeGreaterThan(0)
-    fireEvent.click(screen.getByRole('button', { name: /Sắp diễn ra/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Đang diễn ra/i }))
     expect(screen.queryAllByText(mockEvents[1].name)).toHaveLength(0)
   })
   it('renders top layout with breadcrumb, header, and create button', () => {
@@ -149,7 +202,7 @@ describe('FanpageEventListView Redesign', () => {
 
     // Status tabs with counts
     expect(screen.getByRole('button', { name: /Tất cả/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Sắp diễn ra/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Đang diễn ra/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Đang mở đăng ký/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Đã kết thúc/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Bản nháp/i })).toBeInTheDocument()

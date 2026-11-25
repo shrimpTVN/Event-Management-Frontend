@@ -1,11 +1,12 @@
 import type { RegisteredEventItem, HistoryStats, TrendIndicator } from '../types/history.types'
 import { normalizeHistoryStatus } from '../types/history.types'
+import { isUpcomingRegistration } from '@/shared/utils/registrationEligibility'
 
 /**
  * Parses event dates from multiple potential formats (ISO string, dd/mm/yyyy, etc.)
  */
 export function parseEventDate(event: RegisteredEventItem): Date | null {
-  const rawDate = event.dateHappen || event.regDate || event.dateOpen
+  const rawDate = event.startsAt || event.dateHappen || event.regDate || event.dateOpen
   if (!rawDate) return null
 
   // Check standard parseable formats
@@ -150,7 +151,7 @@ export function calculateRealHistoryStats(
   }
 
   const totalRegistered = currentList.length
-  const upcoming = currentList.filter((e) => normalizeHistoryStatus(e.status) === 'UPCOMING').length
+  const upcoming = currentList.filter((e) => isUpcomingRegistration(e)).length
   const completed = currentList.filter((e) => normalizeHistoryStatus(e.status) === 'COMPLETED').length
   const absent = currentList.filter((e) => normalizeHistoryStatus(e.status) === 'ABSENT').length
 

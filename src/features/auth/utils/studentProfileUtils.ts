@@ -1,17 +1,3 @@
-export const CTU_FACULTIES = [
-  'Trường Công nghệ Thông tin và Truyền thông',
-  'Trường Bách Khoa',
-  'Trường Kinh tế',
-  'Trường Nông nghiệp',
-  'Trường Thủy sản',
-  'Khoa Khoa học Tự nhiên',
-  'Khoa Khoa học Xã hội và Nhân văn',
-  'Khoa Môi trường và Tài nguyên Thiên nhiên',
-  'Khoa Sư phạm',
-  'Khoa Luật',
-  'Viện Nghiên cứu và Phát triển Công nghệ sinh học',
-]
-
 export const CTU_ACADEMIC_YEARS = [
   'Khóa 51 (2025 - 2029)',
   'Khóa 50 (2024 - 2028)',

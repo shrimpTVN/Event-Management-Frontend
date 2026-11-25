@@ -1,172 +1,210 @@
-import React, { useState, useEffect } from 'react'
-import { X, CalendarRange } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { CatalogDialog } from '../CatalogDialog'
+import { adminStatisticsService } from '../../services/adminStatisticsService'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { SuperAdminSemester } from '../../types/superAdmin.types'
 
-interface SemesterModalProps {
-  semester: SuperAdminSemester | null
-  isOpen: boolean
-  onClose: () => void
-  onSave: (semesterData: Partial<SuperAdminSemester>) => void
-}
-
-export const SemesterModal: React.FC<SemesterModalProps> = ({
+export function SemesterModal({
   semester,
+  semesters = [],
   isOpen,
   onClose,
   onSave,
-}) => {
-  const [academicYear, setAcademicYear] = useState('2025-2026')
-  const [number, setNumber] = useState(1)
-  const [startDate, setStartDate] = useState('2026-01-05')
-  const [endDate, setEndDate] = useState('2026-05-30')
-  const [status, setStatus] = useState<SuperAdminSemester['status']>('UPCOMING')
-  const [isCurrent, setIsCurrent] = useState(false)
-
+}: {
+  semester: SuperAdminSemester | null
+  semesters?: SuperAdminSemester[]
+  isOpen: boolean
+  onClose: () => void
+  onSave: (data: Partial<SuperAdminSemester>) => void | Promise<void>
+}) {
+  const [yearId, setYearId] = useState('')
+  const [number, setNumber] = useState('1')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const years = useQuery({
+    queryKey: ['academic-years', 'admin-statistics'],
+    queryFn: adminStatisticsService.getAcademicYears,
+    enabled: isOpen,
+    staleTime: 60_000,
+    retry: false,
+  })
   useEffect(() => {
-    if (semester) {
-      setAcademicYear(semester.academicYear)
-      setNumber(semester.number)
-      setStartDate(semester.startDate)
-      setEndDate(semester.endDate)
-      setStatus(semester.status)
-      setIsCurrent(semester.isCurrent)
-    } else {
-      setAcademicYear('2025-2026')
-      setNumber(1)
-      setStartDate('2026-01-05')
-      setEndDate('2026-05-30')
-      setStatus('UPCOMING')
-      setIsCurrent(false)
+    if (isOpen) {
+      setYearId(semester?.academicYearId ? String(semester.academicYearId) : '')
+      setNumber(String(semester?.number || 1))
+      setStartDate(semester?.startDate || '')
+      setEndDate(semester?.endDate || '')
+      setError('')
     }
   }, [semester, isOpen])
-
-  if (!isOpen) return null
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSave({
-      id: semester ? semester.id : undefined,
-      academicYear,
-      number: Number(number),
-      startDate,
-      endDate,
-      status,
-      isCurrent,
-      isActive: true,
-    })
-    onClose()
+  const year = years.data?.find((item) => String(item.id) === yearId)
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setError('')
+    if (!year || !startDate || !endDate) {
+      setError('Vui lòng chọn năm học và nhập đủ thời gian học kỳ.')
+      return
+    }
+    if (endDate <= startDate) {
+      setError('Ngày kết thúc phải sau ngày bắt đầu.')
+      return
+    }
+    if (
+      (year.startDate && startDate < year.startDate) ||
+      (year.endDate && endDate > year.endDate)
+    ) {
+      setError('Thời gian học kỳ phải nằm trong năm học đã chọn.')
+      return
+    }
+    if (
+      semesters.some(
+        (item) =>
+          item.id !== semester?.id &&
+          item.academicYearId === year.id &&
+          item.number === Number(number)
+      )
+    ) {
+      setError('Năm học này đã có học kỳ đã chọn.')
+      return
+    }
+    if (
+      semesters.some(
+        (item) =>
+          item.id !== semester?.id &&
+          item.isActive &&
+          item.startDate <= endDate &&
+          item.endDate >= startDate
+      )
+    ) {
+      setError('Thời gian học kỳ trùng với học kỳ khác.')
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave({
+        id: semester?.id,
+        academicYearId: year.id,
+        academicYear: year.code,
+        number: Number(number),
+        startDate,
+        endDate,
+        isActive: semester?.isActive ?? true,
+      })
+      onClose()
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.message || err?.message || 'Không thể lưu học kỳ. Vui lòng thử lại.'
+      )
+    } finally {
+      setSaving(false)
+    }
   }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-card w-full max-w-lg rounded-2xl shadow-xl border border-border overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-white dark:bg-card">
-          <div className="flex items-center gap-2">
-            <CalendarRange className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-k2d font-bold text-foreground">
-              {semester ? 'Chỉnh Sửa Học Kỳ Niên Khóa' : 'Thêm Mới Học Kỳ Niên Khóa'}
-            </h3>
+    <CatalogDialog
+      open={isOpen}
+      title={semester ? 'Chỉnh sửa học kỳ' : 'Thêm học kỳ'}
+      description="Tiến trình học kỳ được xác định theo ngày bắt đầu và kết thúc."
+      onClose={onClose}
+      busy={saving}
+    >
+      <form onSubmit={submit} className="flex flex-col gap-5">
+        {years.isError ? (
+          <div role="alert" className="text-sm text-destructive">
+            Không tải được năm học.
+            <Button type="button" variant="ghost" onClick={() => void years.refetch()}>
+              Thử lại
+            </Button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">Năm học</label>
-              <input
-                type="text"
-                required
-                value={academicYear}
-                onChange={(e) => setAcademicYear(e.target.value)}
-                placeholder="VD: 2025-2026"
-                className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-[#F9FAFB] dark:bg-muted text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-hidden transition-all font-sans"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">Học kỳ</label>
-              <select
-                value={number}
-                onChange={(e) => setNumber(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-[#F9FAFB] dark:bg-muted text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-hidden transition-all font-sans cursor-pointer"
-              >
-                <option value={1}>Học kỳ 1</option>
-                <option value={2}>Học kỳ 2</option>
-                <option value={3}>Học kỳ hè / phụ</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">Ngày bắt đầu</label>
-              <input
-                type="date"
-                required
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-[#F9FAFB] dark:bg-muted text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-hidden transition-all font-sans"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">Ngày kết thúc</label>
-              <input
-                type="date"
-                required
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-[#F9FAFB] dark:bg-muted text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-hidden transition-all font-sans"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-muted-foreground block mb-1">Trạng thái tiến trình</label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as SuperAdminSemester['status'])}
-              className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-[#F9FAFB] dark:bg-muted text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-hidden transition-all font-sans cursor-pointer"
+        ) : null}
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <Label>Năm học</Label>
+            <Select
+              value={yearId}
+              onValueChange={setYearId}
+              disabled={years.isPending || years.isError}
             >
-              <option value="UPCOMING">Sắp diễn ra (UPCOMING)</option>
-              <option value="ONGOING">Đang diễn ra (ONGOING)</option>
-              <option value="COMPLETED">Đã kết thúc (COMPLETED)</option>
-            </select>
+              <SelectTrigger aria-label="Năm học của học kỳ">
+                <SelectValue placeholder="Chọn năm học" />
+              </SelectTrigger>
+              <SelectContent>
+                {years.data?.map((item) => (
+                  <SelectItem key={item.id} value={String(item.id)}>
+                    {item.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-
-          <label className="flex items-center gap-2.5 pt-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isCurrent}
-              onChange={(e) => setIsCurrent(e.target.checked)}
-              className="w-4 h-4 rounded-md text-primary focus:ring-primary border-border cursor-pointer"
+          <div className="flex flex-col gap-2">
+            <Label>Học kỳ</Label>
+            <Select value={number} onValueChange={setNumber}>
+              <SelectTrigger aria-label="Số học kỳ">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3].map((item) => (
+                  <SelectItem key={item} value={String(item)}>
+                    Học kỳ {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="semester-start">Ngày bắt đầu</Label>
+            <Input
+              id="semester-start"
+              type="date"
+              required
+              min={year?.startDate || undefined}
+              max={year?.endDate || undefined}
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
             />
-            <span className="text-sm font-medium text-foreground">
-              Đặt làm <strong>Học kỳ hiện hành</strong> của toàn trường
-            </span>
-          </label>
-
-          <div className="flex justify-end gap-2 pt-4 border-t border-border">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-card border border-border text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted transition-colors cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-primary/90 shadow-xs transition-colors cursor-pointer"
-            >
-              Lưu Thông Tin
-            </button>
           </div>
-        </form>
-      </div>
-    </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="semester-end">Ngày kết thúc</Label>
+            <Input
+              id="semester-end"
+              type="date"
+              required
+              min={startDate || year?.startDate || undefined}
+              max={year?.endDate || undefined}
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+            />
+          </div>
+        </div>
+        {!years.isPending && !years.isError && !years.data?.length && (
+          <p className="text-sm text-muted-foreground">Chưa có năm học trong danh mục.</p>
+        )}
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2 border-t border-border pt-4">
+          <Button type="button" variant="outline" disabled={saving} onClick={onClose}>
+            Hủy
+          </Button>
+          <Button type="submit" disabled={saving || !year}>
+            {saving ? 'Đang lưu…' : 'Lưu học kỳ'}
+          </Button>
+        </div>
+      </form>
+    </CatalogDialog>
   )
 }

@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAuthStore, getAccountHomePath } from '@/features/auth'
+import { useAuthStore } from '@/features/auth'
 import { fanpageService } from '@/features/fanpage/services/fanpageService'
 import { useUserFanpagesStore } from '@/features/fanpage/store/userFanpagesStore'
 import {
@@ -369,7 +369,19 @@ export const FanpageAdminPage: React.FC = () => {
       onCreateEventClick={handleCreateEventClick}
       onPersonalProfileClick={() => handleSelectTab('personal-profile')}
       onLogoClick={() => {
-        navigate(getAccountHomePath(user))
+        setSelectedEventId(null)
+        setActiveTab(null)
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('tab')
+          next.delete('eventId')
+          return next
+        })
+        const targetPath = isCurrentUserAdmin ? '/fanpage/admin' : '/fanpage/workspace'
+        navigate(
+          { pathname: targetPath },
+          { state: activeFanpageId ? { fanpageId: String(activeFanpageId) } : undefined }
+        )
       }}
       rightSidebar={
         activeTab === null ? (

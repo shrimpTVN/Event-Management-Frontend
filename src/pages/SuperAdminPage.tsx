@@ -87,7 +87,9 @@ export const SuperAdminPage: React.FC = () => {
   const [schoolMajorModalMode, setSchoolMajorModalMode] = useState<'school' | 'major'>('school')
   const [selectedSchool, setSelectedSchool] = useState<SuperAdminSchool | null>(null)
   const [selectedMajor, setSelectedMajor] = useState<SuperAdminMajor | null>(null)
-  const [currentSchoolIdForMajor, setCurrentSchoolIdForMajor] = useState<number>(1)
+  const [currentSchoolIdForMajor, setCurrentSchoolIdForMajor] = useState<number | undefined>(
+    undefined
+  )
   const [isSchoolMajorModalOpen, setIsSchoolMajorModalOpen] = useState(false)
 
   // Derived counts for alerts & badges
@@ -321,6 +323,7 @@ export const SuperAdminPage: React.FC = () => {
           startDate: semesterData.startDate || '',
           endDate: semesterData.endDate || '',
           academicYear: semesterData.academicYear || '',
+          academicYearId: semesterData.academicYearId,
         })
       } else {
         await superAdminService.createSemester({
@@ -328,6 +331,7 @@ export const SuperAdminPage: React.FC = () => {
           startDate: semesterData.startDate || '',
           endDate: semesterData.endDate || '',
           academicYear: semesterData.academicYear || '',
+          academicYearId: semesterData.academicYearId,
         })
       }
       const refreshed = await superAdminService.getSemesters()
@@ -336,7 +340,7 @@ export const SuperAdminPage: React.FC = () => {
     } catch (err) {
       console.warn('API error saving semester:', err)
       setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
-      return
+      throw err
     }
   }
 
@@ -483,37 +487,41 @@ export const SuperAdminPage: React.FC = () => {
       }
       const refreshed = await superAdminService.getSchools()
       setSchools(refreshed)
+      void queryClient.invalidateQueries({ queryKey: ['education'] })
       return
     } catch (err) {
       console.warn('API error saving school:', err)
       setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
-      return
+      throw err
     }
   }
 
   const handleSaveMajor = async (majorData: Partial<SuperAdminMajor>) => {
+    const schoolId = majorData.schoolId
+    if (!schoolId) throw new Error('Vui lòng chọn khoa/trường cho ngành học.')
     try {
       if (majorData.id) {
         await superAdminService.updateMajor(majorData.id, {
           code: majorData.code || '',
           name: majorData.name || '',
-          schoolId: currentSchoolIdForMajor,
+          schoolId,
           isActive: majorData.isActive,
         })
       } else {
         await superAdminService.createMajor({
           code: majorData.code || '',
           name: majorData.name || '',
-          schoolId: currentSchoolIdForMajor,
+          schoolId,
         })
       }
       const refreshed = await superAdminService.getSchools()
       setSchools(refreshed)
+      void queryClient.invalidateQueries({ queryKey: ['education'] })
       return
     } catch (err) {
       console.warn('API error saving major:', err)
       setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
-      return
+      throw err
     }
   }
 
@@ -696,6 +704,7 @@ export const SuperAdminPage: React.FC = () => {
       />
 
       <SemesterModal
+        semesters={semesters}
         semester={selectedSemester}
         isOpen={isSemesterModalOpen}
         onClose={() => setIsSemesterModalOpen(false)}
@@ -723,6 +732,7 @@ export const SuperAdminPage: React.FC = () => {
         school={selectedSchool}
         major={selectedMajor}
         currentSchoolId={currentSchoolIdForMajor}
+        currentSchoolName={schools.find((item) => item.id === currentSchoolIdForMajor)?.name}
         isOpen={isSchoolMajorModalOpen}
         onClose={() => setIsSchoolMajorModalOpen(false)}
         onSaveSchool={handleSaveSchool}

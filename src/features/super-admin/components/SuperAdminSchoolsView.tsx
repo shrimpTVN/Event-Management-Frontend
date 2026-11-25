@@ -1,241 +1,201 @@
-import { Tooltip } from '@/components/ui/tooltip'
-import { AdminBadge } from './AdminDetails'
-import { Input } from '@/components/ui/input'
+import { useState } from 'react'
+import { Plus, Pencil, Search, GraduationCap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import React, { useState } from 'react'
-import { School, GraduationCap, Plus, Edit2, Search, ChevronRight } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { AdminBadge } from './AdminDetails'
+import { matchesPageSearch } from '@/shared/components/layout/MobileSubpageHeader'
 import type { SuperAdminSchool, SuperAdminMajor } from '../types/superAdmin.types'
 
-interface SuperAdminSchoolsViewProps {
-  schools: SuperAdminSchool[]
-  onOpenCreateSchoolModal: () => void
-  onOpenEditSchoolModal: (school: SuperAdminSchool) => void
-  onOpenCreateMajorModal: (schoolId: number) => void
-  onOpenEditMajorModal: (major: SuperAdminMajor) => void
-}
-
-export const SuperAdminSchoolsView: React.FC<SuperAdminSchoolsViewProps> = ({
+export function SuperAdminSchoolsView({
   schools,
   onOpenCreateSchoolModal,
   onOpenEditSchoolModal,
   onOpenCreateMajorModal,
   onOpenEditMajorModal,
-}) => {
-  const [selectedSchoolId, setSelectedSchoolId] = useState<number>(schools[0]?.id || 1)
-  const [schoolSearchQuery, setSchoolSearchQuery] = useState('')
-
-  const filteredSchools = schools.filter((s) =>
-    s.name.toLowerCase().includes(schoolSearchQuery.toLowerCase())
+}: {
+  schools: SuperAdminSchool[]
+  onOpenCreateSchoolModal: () => void
+  onOpenEditSchoolModal: (school: SuperAdminSchool) => void
+  onOpenCreateMajorModal: (id: number) => void
+  onOpenEditMajorModal: (major: SuperAdminMajor) => void
+}) {
+  const [schoolId, setSchoolId] = useState<number | null>(null)
+  const [schoolSearch, setSchoolSearch] = useState('')
+  const [majorSearch, setMajorSearch] = useState('')
+  const [status, setStatus] = useState('ALL')
+  const filteredSchools = schools.filter((school) => matchesPageSearch(schoolSearch, school.name))
+  const selected = filteredSchools.find((school) => school.id === schoolId) || filteredSchools[0]
+  const majors = (selected?.majors || []).filter(
+    (major) =>
+      major.schoolId === selected?.id &&
+      matchesPageSearch(majorSearch, major.name, major.code) &&
+      (status === 'ALL' || (major.isActive !== false) === (status === 'ACTIVE'))
   )
-
-  const selectedSchool = schools.find((s) => s.id === selectedSchoolId) || schools[0]
-
   return (
-    <div className="w-full flex flex-col gap-6 text-left animate-in fade-in duration-300">
-      {/* 1. Header with Breadcrumb & Action */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-            <span>Dữ liệu danh mục</span>
-            <span>/</span>
-            <span className="text-foreground font-semibold">Khoa/Trường, ngành học</span>
-          </p>
-          <h1 className="font-k2d font-bold text-2xl text-foreground mt-1">
-            Quản lý Khoa/Trường &amp; Ngành học
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Danh mục cơ cấu tổ chức học thuật, các Trường/Khoa trực thuộc và chuyên ngành đào tạo
-            ĐHCT.
+    <div className="flex flex-col gap-5 text-left">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <p className="text-xs text-muted-foreground">Dữ liệu danh mục</p>
+          <h1 className="font-k2d text-2xl font-bold">Khoa/Trường & Ngành học</h1>
+          <p className="text-sm text-muted-foreground">
+            {schools.length} khoa/trường · Danh mục dùng trong hồ sơ sinh viên
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <Button
-            variant="ghost"
-            size="sm"
-            type="button"
-            onClick={onOpenCreateSchoolModal}
-            className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg bg-[#1B4B8A] hover:bg-[#1E40AF] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Thêm Khoa/Trường</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* 2. Master-Detail Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: List of Schools */}
-        <div className="lg:col-span-5 bg-white dark:bg-card p-5 rounded-2xl border border-[#E5E7EB] dark:border-border shadow-2xs flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-k2d font-bold text-foreground flex items-center gap-2">
-              <School className="w-4 h-4 text-primary" />
-              Đơn Vị Đào Tạo ({schools.length})
-            </h3>
-          </div>
-
+        <Button onClick={onOpenCreateSchoolModal} className="h-10 gap-2">
+          <Plus className="h-4 w-4" />
+          Thêm Khoa/Trường
+        </Button>
+      </header>
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(240px,1fr)_minmax(0,2fr)]">
+        <section className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-4">
+          <h2 className="font-heading text-base font-semibold">
+            Khoa / Trường ({filteredSchools.length})
+          </h2>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              type="text"
-              value={schoolSearchQuery}
-              onChange={(e) => setSchoolSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm Khoa/Trường..."
-              className="w-full pl-9 pr-3 h-9 text-xs rounded-xl border border-[#E5E7EB] dark:border-border bg-[#F9FAFB] dark:bg-muted focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-sans"
+              aria-label="Tìm khoa/trường"
+              placeholder="Tìm khoa/trường…"
+              value={schoolSearch}
+              onChange={(event) => setSchoolSearch(event.target.value)}
+              className="h-10 pl-9"
             />
           </div>
-
-          <div className="flex flex-col gap-2 max-h-[600px] overflow-y-auto pr-1">
-            {filteredSchools.map((s) => {
-              const isSelected = s.id === selectedSchoolId
-              return (
-                <div
-                  key={s.id}
-                  onClick={() => setSelectedSchoolId(s.id)}
-                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                    isSelected
-                      ? 'border-[#1B4B8A] bg-primary/5 dark:bg-primary/10 shadow-xs'
-                      : 'border-border/70 hover:bg-[#F9FAFB] dark:hover:bg-muted/40'
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <Tooltip content={s.name}>
-                      <p
-                        className={`text-xs leading-snug ${isSelected ? 'font-bold text-primary' : 'font-semibold text-foreground'}`}
-                      >
-                        {s.name}
-                      </p>
-                    </Tooltip>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {s.majors?.length || s.majorsCount || 0} chuyên ngành trực thuộc
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Tooltip content="Chỉnh sửa thông tin trường">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onOpenEditSchoolModal(s)
-                        }}
-                        className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted transition-colors cursor-pointer"
-                        aria-label="Chỉnh sửa thông tin trường"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </Tooltip>
-                    <ChevronRight
-                      className={`w-4 h-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Right Column: Majors of Selected School */}
-        <div className="lg:col-span-7 bg-white dark:bg-card p-6 rounded-2xl border border-[#E5E7EB] dark:border-border shadow-2xs flex flex-col gap-5">
-          {selectedSchool ? (
-            <>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-border gap-3">
-                <div>
-                  <span className="text-[11px] font-bold text-primary uppercase tracking-wider">
-                    Chi Tiết Đơn Vị
-                  </span>
-                  <h3 className="text-lg font-k2d font-bold text-foreground mt-0.5">
-                    {selectedSchool.name}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {selectedSchool.description || 'Chưa có thông tin mô tả chi tiết.'}
-                  </p>
-                </div>
+          <div className="flex max-h-80 flex-col gap-1 overflow-auto lg:max-h-[600px]">
+            {filteredSchools.map((school) => (
+              <div
+                key={school.id}
+                className={`flex items-center gap-1 rounded-lg ${selected?.id === school.id ? 'bg-primary/5' : ''}`}
+              >
                 <Button
                   variant="ghost"
-                  size="sm"
-                  type="button"
-                  onClick={() => onOpenCreateMajorModal(selectedSchool.id)}
-                  className="flex items-center gap-1.5 px-3.5 h-9 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors shrink-0 shadow-xs cursor-pointer"
+                  className="h-auto min-w-0 flex-1 flex-col items-start gap-1 whitespace-normal px-3 py-3 text-left"
+                  aria-pressed={selected?.id === school.id}
+                  onClick={() => {
+                    setSchoolId(school.id)
+                    setMajorSearch('')
+                    setStatus('ALL')
+                  }}
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Thêm Chuyên Ngành</span>
+                  <span className="text-sm font-medium">{school.name}</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {school.majors?.length ?? school.majorsCount ?? 0} ngành học
+                    {school.isActive === false ? ' · Ngừng sử dụng' : ''}
+                  </span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  aria-label={`Chỉnh sửa ${school.name}`}
+                  onClick={() => onOpenEditSchoolModal(school)}
+                >
+                  <Pencil className="h-4 w-4" />
                 </Button>
               </div>
-
-              {/* Majors Table */}
-              <div>
-                <h4 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-                  <GraduationCap className="w-4 h-4 text-muted-foreground" />
-                  Danh Sách Chuyên Ngành Đào Tạo ({selectedSchool.majors?.length || 0})
-                </h4>
-
-                {!selectedSchool.majors || selectedSchool.majors.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-8 text-center bg-[#F9FAFB] dark:bg-muted/20 rounded-xl">
-                    Chưa có ngành học nào được cấu hình cho đơn vị này.
-                  </p>
-                ) : (
-                  <div className="border border-border rounded-xl overflow-hidden shadow-2xs">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-[#F9FAFB] dark:bg-muted/40 text-[11px] font-bold uppercase text-muted-foreground border-b border-border">
-                          <th className="py-2.5 px-3">Mã Ngành</th>
-                          <th className="py-2.5 px-3">Tên Chuyên Ngành</th>
-                          <th className="py-2.5 px-3">Sinh Viên</th>
-                          <th className="py-2.5 px-3">Trạng Thái</th>
-                          <th className="py-2.5 px-3 text-right">Thao Tác</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border text-xs">
-                        {selectedSchool.majors.map((m) => (
-                          <tr
-                            key={m.id}
-                            className="hover:bg-[#F9FAFB] dark:hover:bg-muted/20 transition-colors"
-                          >
-                            <td className="py-2.5 px-3 font-mono font-semibold text-foreground">
-                              {m.code || '—'}
-                            </td>
-                            <Tooltip content={m.name}>
-                              <td className="py-2.5 px-3 font-semibold text-foreground">
-                                {m.name}
-                              </td>
-                            </Tooltip>
-                            <td className="py-2.5 px-3 text-muted-foreground">
-                              {m.studentCount == null ? '—' : `${m.studentCount} SV`}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <AdminBadge dot tone={m.isActive ? 'success' : 'neutral'}>
-                                {m.isActive ? 'Đang đào tạo' : 'Tạm ngừng'}
-                              </AdminBadge>
-                            </td>
-                            <td className="py-2.5 px-3 text-right">
-                              <Tooltip content="Chỉnh sửa ngành học">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  type="button"
-                                  onClick={() => onOpenEditMajorModal(m)}
-                                  className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
-                                  aria-label="Chỉnh sửa ngành học"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </Button>
-                              </Tooltip>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <p className="text-center text-muted-foreground py-10">
-              Vui lòng chọn một Khoa/Trường để xem chi tiết.
+            ))}
+          </div>
+          {!filteredSchools.length && (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Không có khoa/trường phù hợp.
             </p>
           )}
-        </div>
+        </section>
+        <section className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-background p-4 sm:p-5">
+          {selected ? (
+            <>
+              <header className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-col gap-2">
+                  <h2 className="font-k2d text-lg font-semibold">{selected.name}</h2>
+                  <AdminBadge dot tone={selected.isActive === false ? 'neutral' : 'success'}>
+                    {selected.isActive === false ? 'Ngừng sử dụng' : 'Đang hoạt động'}
+                  </AdminBadge>
+                </div>
+                <Button
+                  disabled={selected.isActive === false}
+                  className="h-10 gap-2"
+                  onClick={() => onOpenCreateMajorModal(selected.id)}
+                >
+                  <Plus className="h-4 w-4" />
+                  Thêm ngành
+                </Button>
+              </header>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_160px]">
+                <Input
+                  aria-label="Tìm ngành học"
+                  placeholder="Tìm tên hoặc mã ngành…"
+                  value={majorSearch}
+                  onChange={(event) => setMajorSearch(event.target.value)}
+                  className="h-10"
+                />
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger aria-label="Trạng thái ngành học">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Tất cả trạng thái</SelectItem>
+                    <SelectItem value="ACTIVE">Đang đào tạo</SelectItem>
+                    <SelectItem value="INACTIVE">Ngừng sử dụng</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">{majors.length} ngành học</p>
+              {majors.length ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-xs text-muted-foreground">
+                        <th className="px-2 py-3 font-medium">Mã ngành</th>
+                        <th className="px-2 py-3 font-medium">Tên ngành</th>
+                        <th className="px-2 py-3 font-medium">Trạng thái</th>
+                        <th className="px-2 py-3 text-right font-medium">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {majors.map((major) => (
+                        <tr key={major.id} className="border-b border-border/50">
+                          <td className="px-2 py-3 font-mono text-xs">{major.code || '—'}</td>
+                          <td className="px-2 py-3 font-medium">{major.name}</td>
+                          <td className="px-2 py-3">
+                            <AdminBadge dot tone={major.isActive === false ? 'neutral' : 'success'}>
+                              {major.isActive === false ? 'Ngừng sử dụng' : 'Đang đào tạo'}
+                            </AdminBadge>
+                          </td>
+                          <td className="px-2 py-3 text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Chỉnh sửa ngành ${major.name}`}
+                              onClick={() => onOpenEditMajorModal(major)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-10 text-sm text-muted-foreground">
+                  <GraduationCap className="h-6 w-6" />
+                  Chưa có ngành phù hợp trong khoa/trường này.
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="py-12 text-center text-sm text-muted-foreground">
+              Chọn khoa/trường để xem ngành trực thuộc.
+            </p>
+          )}
+        </section>
       </div>
     </div>
   )

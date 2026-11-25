@@ -18,11 +18,13 @@ export function EventFilterButton({
   options,
   events,
   hideFanpageFilter = false,
+  hideStatusFilter = false,
   showLabelOnMobile = false,
   className = '',
 }: FilterProps & {
   events: FilterableEvent[]
   hideFanpageFilter?: boolean
+  hideStatusFilter?: boolean
   showLabelOnMobile?: boolean
   className?: string
 }) {
@@ -57,6 +59,7 @@ export function EventFilterButton({
         onApply={onChange}
         events={events}
         hideFanpageFilter={hideFanpageFilter}
+        hideStatusFilter={hideStatusFilter}
         options={options}
       />
     </>

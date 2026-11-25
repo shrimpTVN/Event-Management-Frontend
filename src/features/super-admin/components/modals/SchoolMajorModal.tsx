@@ -1,162 +1,171 @@
-import React, { useState, useEffect } from 'react'
-import { X, School, GraduationCap } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { CatalogDialog } from '../CatalogDialog'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { SuperAdminSchool, SuperAdminMajor } from '../../types/superAdmin.types'
 
-interface SchoolMajorModalProps {
-  mode: 'school' | 'major'
-  school: SuperAdminSchool | null
-  major: SuperAdminMajor | null
-  currentSchoolId?: number
-  isOpen: boolean
-  onClose: () => void
-  onSaveSchool: (data: Partial<SuperAdminSchool>) => void
-  onSaveMajor: (data: Partial<SuperAdminMajor>) => void
-}
-
-export const SchoolMajorModal: React.FC<SchoolMajorModalProps> = ({
+export function SchoolMajorModal({
   mode,
   school,
   major,
   currentSchoolId,
+  currentSchoolName,
   isOpen,
   onClose,
   onSaveSchool,
   onSaveMajor,
-}) => {
+}: {
+  mode: 'school' | 'major'
+  school: SuperAdminSchool | null
+  major: SuperAdminMajor | null
+  currentSchoolId?: number
+  currentSchoolName?: string
+  isOpen: boolean
+  onClose: () => void
+  onSaveSchool: (data: Partial<SuperAdminSchool>) => void | Promise<void>
+  onSaveMajor: (data: Partial<SuperAdminMajor>) => void | Promise<void>
+}) {
   const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
   const [code, setCode] = useState('')
-
+  const [description, setDescription] = useState('')
+  const [active, setActive] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
   useEffect(() => {
-    if (mode === 'school') {
-      if (school) {
-        setName(school.name)
-        setDescription(school.description || '')
-      } else {
-        setName('')
-        setDescription('')
-      }
-    } else {
-      if (major) {
-        setName(major.name)
-        setCode(major.code)
-      } else {
-        setName('')
-        setCode('')
-      }
-    }
+    setName(mode === 'school' ? school?.name || '' : major?.name || '')
+    setCode(major?.code || '')
+    setDescription(school?.description || '')
+    setActive((mode === 'school' ? school?.isActive : major?.isActive) !== false)
+    setError('')
   }, [mode, school, major, isOpen])
-
-  if (!isOpen) return null
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (mode === 'school') {
-      onSaveSchool({
-        id: school ? school.id : undefined,
-        name,
-        description,
-        isActive: true,
-      })
-    } else {
-      onSaveMajor({
-        id: major ? major.id : undefined,
-        name,
-        code,
-        schoolId: currentSchoolId || 1,
-        isActive: true,
-      })
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setError('')
+    if (!name.trim() || (mode === 'major' && (!code.trim() || !currentSchoolId))) {
+      setError('Vui lòng nhập đủ thông tin và chọn khoa/trường hợp lệ.')
+      return
     }
-    onClose()
+    setSaving(true)
+    try {
+      if (mode === 'school')
+        await onSaveSchool({
+          id: school?.id,
+          name: name.trim(),
+          description: description.trim(),
+          isActive: active,
+        })
+      else
+        await onSaveMajor({
+          id: major?.id,
+          name: name.trim(),
+          code: code.trim(),
+          schoolId: currentSchoolId,
+          isActive: active,
+        })
+      onClose()
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.message || err?.message || 'Không thể lưu danh mục. Vui lòng thử lại.'
+      )
+    } finally {
+      setSaving(false)
+    }
   }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-card w-full max-w-lg rounded-2xl shadow-xl border border-border overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-white dark:bg-card">
-          <div className="flex items-center gap-2">
-            {mode === 'school' ? (
-              <School className="w-5 h-5 text-primary" />
-            ) : (
-              <GraduationCap className="w-5 h-5 text-primary" />
-            )}
-            <h3 className="text-lg font-k2d font-bold text-foreground">
-              {mode === 'school'
-                ? school
-                  ? 'Chỉnh Sửa Khoa/Trường'
-                  : 'Thêm Mới Khoa/Trường'
-                : major
-                ? 'Chỉnh Sửa Chuyên Ngành'
-                : 'Thêm Chuyên Ngành Mới'}
-            </h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+    <CatalogDialog
+      open={isOpen}
+      onClose={onClose}
+      title={
+        mode === 'school'
+          ? school
+            ? 'Chỉnh sửa Khoa/Trường'
+            : 'Thêm Khoa/Trường'
+          : major
+            ? 'Chỉnh sửa ngành học'
+            : 'Thêm ngành học'
+      }
+      busy={saving}
+    >
+      <form onSubmit={submit} className="flex flex-col gap-5">
+        {mode === 'major' && (
+          <p className="rounded-lg bg-muted/50 p-3 text-sm">
+            Khoa/Trường: <strong>{currentSchoolName || 'Chưa chọn đơn vị'}</strong>
+          </p>
+        )}
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           {mode === 'major' && (
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">Mã ngành đào tạo</label>
-              <input
-                type="text"
-                required
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="catalog-code">Mã ngành</Label>
+              <Input
+                id="catalog-code"
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="VD: 7480103"
-                className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-[#F9FAFB] dark:bg-muted text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-hidden transition-all font-sans"
+                onChange={(event) => setCode(event.target.value)}
+                required
               />
             </div>
           )}
-
-          <div>
-            <label className="text-xs font-semibold text-muted-foreground block mb-1">
-              {mode === 'school' ? 'Tên Khoa / Trường / Viện' : 'Tên Chuyên Ngành'}
-            </label>
-            <input
-              type="text"
-              required
+          <div className={`flex flex-col gap-2 ${mode === 'school' ? 'md:col-span-2' : ''}`}>
+            <Label htmlFor="catalog-name">
+              {mode === 'school' ? 'Tên Khoa/Trường' : 'Tên ngành'}
+            </Label>
+            <Input
+              id="catalog-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={mode === 'school' ? 'VD: Trường CNTT & TT' : 'VD: Kỹ thuật phần mềm'}
-              className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-[#F9FAFB] dark:bg-muted text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-hidden transition-all font-sans"
+              onChange={(event) => setName(event.target.value)}
+              required
             />
           </div>
-
           {mode === 'school' && (
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">Mô tả / Thông tin tóm tắt</label>
-              <textarea
-                rows={3}
+            <div className="flex flex-col gap-2 md:col-span-2">
+              <Label htmlFor="catalog-description">Mô tả</Label>
+              <Textarea
+                id="catalog-description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Giới thiệu đơn vị đào tạo..."
-                className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-[#F9FAFB] dark:bg-muted text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-hidden transition-all font-sans"
+                onChange={(event) => setDescription(event.target.value)}
               />
             </div>
           )}
-
-          <div className="flex justify-end gap-2 pt-4 border-t border-border">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-card border border-border text-foreground hover:bg-[#F3F4F6] dark:hover:bg-muted transition-colors cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-primary/90 shadow-xs transition-colors cursor-pointer"
-            >
-              Lưu Thay Đổi
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          {(school || major) && (
+            <div className="flex flex-col gap-2 md:col-span-2">
+              <Label>Trạng thái sử dụng</Label>
+              <Select
+                value={active ? 'ACTIVE' : 'INACTIVE'}
+                onValueChange={(value) => setActive(value === 'ACTIVE')}
+              >
+                <SelectTrigger aria-label="Trạng thái sử dụng">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACTIVE">Đang sử dụng</SelectItem>
+                  <SelectItem value="INACTIVE">Ngừng sử dụng</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2 border-t border-border pt-4">
+          <Button type="button" variant="outline" disabled={saving} onClick={onClose}>
+            Hủy
+          </Button>
+          <Button type="submit" disabled={saving || (mode === 'major' && !currentSchoolId)}>
+            {saving ? 'Đang lưu…' : 'Lưu thay đổi'}
+          </Button>
+        </div>
+      </form>
+    </CatalogDialog>
   )
 }

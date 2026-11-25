@@ -302,6 +302,7 @@ export const FanpageEventFeedCard: React.FC<FanpageEventFeedCardProps> = ({
           <RegisterButton
             eventId={post.eventId}
             eventTitle={post.title}
+            dateClose={post.dateClose}
             isRegistered={Boolean(post.isFollowingAuthor && false)}
             disabled={!post.canRegister || closeInfo?.isClosed}
             disabledReason={closeInfo?.isClosed ? 'closed' : 'unavailable'}

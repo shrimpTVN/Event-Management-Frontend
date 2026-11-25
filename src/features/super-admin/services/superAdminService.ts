@@ -118,6 +118,35 @@ export function normalizeAdminRole(user: {
 const realNumber = (value: unknown): number | null =>
   value == null || value === '' || !Number.isFinite(Number(value)) ? null : Number(value)
 const dateLabel = (value?: string) => (value ? new Date(value).toLocaleString('vi-VN') : '')
+const parseTimestamp = (value?: string | null): number | null => {
+  const result = value ? Date.parse(value) : NaN
+  return Number.isFinite(result) ? result : null
+}
+
+function resolveAdminEventStatus(event: any, now = Date.now()): AdminEventStatus {
+  if (event.isActive === false || event.status === 'HIDDEN') return 'HIDDEN'
+  if (event.status === 'DRAFT') return 'DRAFT'
+  if (event.status === 'CANCELLED') return 'CANCELLED'
+  if (event.status === 'VIOLATED') return 'VIOLATED'
+
+  const start = parseTimestamp(event.startsAt ?? event.startTime ?? event.dateHappen)
+  const candidateEnd = parseTimestamp(
+    event.endsAt ?? event.endTime ?? event.dateEnd ?? event.dateEndHappen
+  )
+  const end =
+    candidateEnd !== null && (start === null || candidateEnd > start) ? candidateEnd : null
+
+  if (['CLOSED', 'COMPLETED'].includes(event.status) || (end !== null && now >= end)) {
+    return 'COMPLETED'
+  }
+  if (
+    ['ONGOING', 'HAPPENING'].includes(event.status) ||
+    ((event.status === 'PUBLISHED' || !event.status) && start !== null && now >= start)
+  ) {
+    return 'HAPPENING'
+  }
+  return 'OPEN'
+}
 
 export function mapAdminFanpage(
   fanpage: any,
@@ -311,7 +340,8 @@ export function mapAdminEvent(
   event: any,
   categories: Map<number, string> = new Map(),
   codes: Map<number, string> = new Map(),
-  formatCriteria: (name: string, criteriaId?: number | string) => string = (name) => name
+  formatCriteria: (name: string, criteriaId?: number | string) => string = (name) => name,
+  now = Date.now()
 ): SuperAdminEvent {
   const points = Array.isArray(event.eventPoints)
     ? event.eventPoints.map((p: any) => ({
@@ -321,13 +351,7 @@ export function mapAdminEvent(
         point: Number(p.point ?? 0),
       }))
     : []
-  let status: AdminEventStatus = 'OPEN'
-  if (event.isActive === false || event.status === 'HIDDEN') status = 'HIDDEN'
-  else if (event.status === 'DRAFT') status = 'DRAFT'
-  else if (event.status === 'CANCELLED') status = 'CANCELLED'
-  else if (['CLOSED', 'COMPLETED'].includes(event.status)) status = 'COMPLETED'
-  else if (['ONGOING', 'HAPPENING'].includes(event.status)) status = 'HAPPENING'
-  else if (event.status === 'VIOLATED') status = 'VIOLATED'
+  const status = resolveAdminEventStatus(event, now)
   return {
     id: String(event.id),
     title: event.name ?? event.title ?? '',
@@ -594,9 +618,13 @@ export const superAdminService = {
     status?: string
   }) => {
     const [events, categories, criterias] = await Promise.all([
-      fetchAdminRecords('/events/admin', ['DRAFT', 'PUBLISHED', 'CLOSED', 'CANCELLED'], {
-        keyword: params?.keyword,
-      }),
+      fetchAdminRecords(
+        '/events/admin',
+        ['DRAFT', 'PUBLISHED', 'COMPLETED', 'CLOSED', 'CANCELLED'],
+        {
+          keyword: params?.keyword,
+        }
+      ),
       apiClient.get('/point-categories').catch(() => []),
       apiClient.get('/criterias').catch(() => []),
     ])
@@ -636,9 +664,12 @@ export const superAdminService = {
 
         return {
           id: s.id,
+          academicYearId: s.academicYearId ?? s.academicYear?.id,
           number: s.number,
           academicYear:
-            typeof s.academicYear === 'string' ? s.academicYear : (s.academicYear?.name ?? ''),
+            typeof s.academicYear === 'string'
+              ? s.academicYear
+              : (s.academicYear?.code ?? s.academicYear?.name ?? ''),
           startDate: s.startDate ? s.startDate.split('T')[0] : '',
           endDate: s.endDate ? s.endDate.split('T')[0] : '',
           status,
@@ -657,6 +688,7 @@ export const superAdminService = {
     startDate: string
     endDate: string
     academicYear: string
+    academicYearId?: number
   }): Promise<boolean> => {
     try {
       await apiClient.post('/semesters/admin', {
@@ -664,6 +696,7 @@ export const superAdminService = {
         startDate: payload.startDate,
         endDate: payload.endDate,
         academicYear: payload.academicYear,
+        academicYearId: payload.academicYearId,
       })
       return true
     } catch (err) {
@@ -679,6 +712,7 @@ export const superAdminService = {
       startDate: string
       endDate: string
       academicYear: string
+      academicYearId?: number
     }
   ): Promise<boolean> => {
     try {
@@ -687,6 +721,7 @@ export const superAdminService = {
         startDate: payload.startDate,
         endDate: payload.endDate,
         academicYear: payload.academicYear,
+        academicYearId: payload.academicYearId,
       })
       return true
     } catch (err) {
@@ -927,14 +962,16 @@ export const superAdminService = {
     return Promise.all(
       schools.map(async (school) => {
         const detail: any = await apiClient.get('/schools/' + school.id)
-        const majors: SuperAdminMajor[] = (detail.majors ?? []).map((major: any) => ({
-          id: major.id,
-          code: major.code ?? '',
-          name: major.name,
-          schoolId: school.id,
-          isActive: major.isActive,
-          studentCount: major.studentCount,
-        }))
+        const majors: SuperAdminMajor[] = ((detail?.data ?? detail).majors ?? []).map(
+          (major: any) => ({
+            id: major.id,
+            code: major.code ?? '',
+            name: major.name,
+            schoolId: school.id,
+            isActive: major.isActive,
+            studentCount: major.studentCount,
+          })
+        )
         return {
           id: school.id,
           name: school.name,

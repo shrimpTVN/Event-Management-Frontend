@@ -1,4 +1,6 @@
 import { canStudentSelfCheck } from '@/shared/utils/attendanceConfig'
+import { canCancelRegistration } from '@/shared/utils/registrationEligibility'
+import { useTimeBoundary } from '@/shared/hooks/useTimeBoundary'
 import { Tooltip } from '@/components/ui/tooltip'
 import { RegisteredEventBenefits } from './RegisteredEventBenefits'
 import React, { useState } from 'react'
@@ -40,6 +42,7 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
   const isPhone = useMediaQuery('(max-width: 767px)')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const normalizedStatus = normalizeHistoryStatus(event.status)
+  const isResultRecorded = event.status === 'RECORDED'
   const title = formatEventTitle(event.title || event.eventName || 'Sự kiện')
   const organizerName = event.organizer?.name || 'Ban Tổ Chức'
   const organizerAvatar = event.organizer?.avatarUrl
@@ -91,9 +94,8 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
     }
   }
 
-  const canCancel =
-    (event.canCancel ?? normalizedStatus === 'UPCOMING') &&
-    ['REGISTERED', 'UPCOMING', 'APPROVED'].includes(event.status)
+  const now = useTimeBoundary(event.dateClose)
+  const canCancel = canCancelRegistration(event, now)
   const isSelfAttendance = canStudentSelfCheck(event) && studentAttendanceStep(event.status) != null
 
   // On mobile, if self-attendance is available and secondary actions exist, show menu ⋯
@@ -142,7 +144,10 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
                   className={cn(
                     'text-xs font-semibold',
                     normalizedStatus === 'UPCOMING' && 'text-amber-600 dark:text-amber-400',
-                    normalizedStatus === 'COMPLETED' && 'text-emerald-600 dark:text-emerald-400',
+                    normalizedStatus === 'COMPLETED' &&
+                      (isResultRecorded
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400'),
                     normalizedStatus === 'ABSENT' && 'text-[#DC2626] dark:text-rose-400',
                     normalizedStatus === 'CANCELLED' && 'text-muted-foreground'
                   )}
@@ -213,10 +218,19 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
                   e.stopPropagation()
                   onOpenProofModal(event)
                 }}
-                className="w-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 px-3 py-2 rounded-lg text-xs flex items-center justify-between cursor-pointer hover:bg-emerald-100/60 dark:hover:bg-emerald-950/60 transition-colors"
+                className={cn(
+                  'w-full px-3 py-2 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors',
+                  isResultRecorded
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/60'
+                    : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100/60 dark:hover:bg-amber-950/60'
+                )}
               >
-                <span className="truncate pr-2">✓ Đã điểm danh thành công • Quyền lợi đã ghi nhận</span>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                <span className="min-w-0 pr-2">
+                  {isResultRecorded
+                    ? '✓ Đã điểm danh thành công • Quyền lợi đã ghi nhận'
+                    : 'Đã điểm danh • Quyền lợi chờ chốt kết quả'}
+                </span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
               </div>
             )}
             {normalizedStatus === 'UPCOMING' && isSelfAttendance && (
@@ -233,7 +247,11 @@ export const RegisteredEventCard: React.FC<RegisteredEventCardProps> = ({
             )}
             {normalizedStatus === 'UPCOMING' && !isSelfAttendance && (
               <div className="w-full bg-muted/40 text-muted-foreground px-3 py-2 rounded-lg text-xs flex items-center justify-between">
-                <span className="truncate">Sự kiện sẽ diễn ra vào {event.dateHappen || event.timeHappen || 'sắp tới'}</span>
+                <span className="min-w-0">
+                  {event.startsAt && Date.parse(event.startsAt) <= now
+                    ? 'Đã đến thời gian diễn ra sự kiện'
+                    : `Thời gian diễn ra: ${event.timeHappen || event.dateHappen || 'Đang cập nhật'}`}
+                </span>
               </div>
             )}
             {normalizedStatus === 'ABSENT' && (

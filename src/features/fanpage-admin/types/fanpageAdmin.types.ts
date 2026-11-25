@@ -84,6 +84,8 @@ export interface AdminEvent {
   organizerName: string
   dateStart: string
   dateHappen?: string
+  startsAt?: string | null
+  endsAt?: string | null
   dateEnd: string
   timeStart: string
   timeEnd: string

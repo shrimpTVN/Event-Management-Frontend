@@ -9,6 +9,15 @@ import {
 } from '@/shared/components/layout/MobileSubpageHeader'
 import { eventService, type Event } from '@/features/events'
 
+vi.mock('@/features/fanpage/services/fanpageSearchService', () => ({
+  fanpageSearchService: { search: vi.fn().mockResolvedValue([]) },
+}))
+
+vi.mock('@/features/events/services/eventService', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/events/services/eventService')>()),
+  eventService: { getEvents: vi.fn() },
+}))
+
 vi.mock('@/shared/hooks/useMediaQuery', () => ({ useMediaQuery: () => true }))
 vi.mock('@/features/events', async () => ({
   ...(await vi.importActual('@/features/events')),
@@ -69,6 +78,15 @@ function show(path: string) {
                 </>
               }
             />
+            <Route
+              path="/search"
+              element={
+                <>
+                  <MobileSubpageHeader />
+                  <SearchPage />
+                </>
+              }
+            />
             <Route path="/events/:id" element={<Detail />} />
           </Routes>
         </MobilePageProvider>
@@ -103,36 +121,25 @@ describe('mobile event search', () => {
     expect(screen.getByRole('searchbox')).toHaveValue('AI')
   })
 
-  it('debounces Vietnamese composition, submits immediately and clears only the keyword', async () => {
+  it('keeps Vietnamese input as a draft until submit, including when clearing', async () => {
     vi.mocked(eventService.getEvents).mockResolvedValue([event()])
     show('/events?semesterId=1')
     await screen.findByRole('heading', { name: 'Workshop AI' })
-    vi.useFakeTimers()
     const input = screen.getByRole('searchbox')
     fireEvent.compositionStart(input)
     fireEvent.change(input, { target: { value: 'Hội' } })
-    await act(async () => {
-      vi.advanceTimersByTime(500)
-    })
-    expect(screen.getByLabelText('URL')).not.toHaveTextContent('keyword=')
-    fireEvent.compositionEnd(input, { data: 'Hội' })
-    await act(async () => {
-      vi.advanceTimersByTime(349)
-    })
-    expect(screen.getByLabelText('URL')).not.toHaveTextContent('keyword=')
-    await act(async () => {
-      vi.advanceTimersByTime(1)
-    })
-    expect(screen.getByLabelText('URL').textContent).toContain('keyword=H%E1%BB%99i')
-    fireEvent.change(input, { target: { value: 'AI' } })
     fireEvent.submit(screen.getByRole('search'))
-    expect(screen.getByLabelText('URL')).toHaveTextContent('semesterId=1&keyword=AI')
-    fireEvent.click(screen.getByRole('button', { name: 'Xóa từ khóa' }))
-    expect(screen.getByLabelText('URL')).toHaveTextContent('/events?semesterId=1')
-    await act(async () => {
-      vi.advanceTimersByTime(500)
-    })
     expect(screen.getByLabelText('URL')).not.toHaveTextContent('keyword=')
+    fireEvent.compositionEnd(input)
+    expect(screen.getByLabelText('URL')).not.toHaveTextContent('keyword=')
+    fireEvent.submit(screen.getByRole('search'))
+    expect(screen.getByLabelText('URL').textContent).toContain('keyword=H%E1%BB%99i')
+    expect(screen.getByLabelText('URL')).toHaveTextContent('tab=all')
+    fireEvent.click(screen.getByRole('button', { name: 'Xóa từ khóa' }))
+    expect(screen.getByRole('searchbox')).toHaveValue('')
+    fireEvent.submit(screen.getByRole('search'))
+    expect(screen.getByLabelText('URL')).not.toHaveTextContent('keyword=')
+    expect(screen.getByLabelText('URL')).toHaveTextContent('semesterId=1')
   })
 
   it('keeps results while fetching and ignores late responses for an older keyword', async () => {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '@/shared'
-import { eventService } from '../eventService'
+import { eventService, normalizeEvent } from '../eventService'
 
 afterEach(() => vi.restoreAllMocks())
 describe('complete event feed source', () => {
@@ -36,5 +36,43 @@ describe('complete event feed source', () => {
       )
     expect(await eventService.getEvents({ size: 1 })).toHaveLength(1)
     expect(get.mock.calls.filter(([url]) => url === '/events')).toHaveLength(3)
+  })
+  it('preserves authentic backend fanpageName and loads real fanpage metadata in getEventById', async () => {
+    const rawEvent = {
+      id: 3,
+      name: 'Chiến dịch Chủ nhật Xanh',
+      fanpageId: 4,
+      fanpageName: 'Đội Công tác Xã hội - Đại học Cần Thơ',
+      isFollowFanpage: true,
+    }
+    expect(normalizeEvent(rawEvent)).toMatchObject({
+      organizerId: '4',
+      organizerName: 'Đội Công tác Xã hội - Đại học Cần Thơ',
+      fanpageName: 'Đội Công tác Xã hội - Đại học Cần Thơ',
+      isFollowed: true,
+    })
+
+    vi.spyOn(apiClient, 'get').mockImplementation(async (url) => {
+      if (url === '/events/3') return rawEvent as any
+      if (url === '/fanpages?size=100')
+        return {
+          content: [
+            {
+              id: 4,
+              name: 'Đội Công tác Xã hội - Đại học Cần Thơ',
+              orgName: 'Đội Công tác Xã hội - Đại học Cần Thơ',
+              avatarUrl: 'https://example.com/ctxh.jpg',
+            },
+          ],
+        } as any
+      return [] as any
+    })
+    const detail = await eventService.getEventById(3)
+    expect(detail).toMatchObject({
+      organizerId: '4',
+      organizerName: 'Đội Công tác Xã hội - Đại học Cần Thơ',
+      organizerAvatarUrl: 'https://example.com/ctxh.jpg',
+      isFollowed: true,
+    })
   })
 })

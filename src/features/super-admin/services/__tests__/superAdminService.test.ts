@@ -105,10 +105,44 @@ describe('superadmin API data', () => {
     ])
     expect(event.sv5tCriteriaName).toBe('Tình nguyện tốt')
   })
-  it('keeps drafts, cancellations and inactive events distinct', () => {
-    expect(mapAdminEvent({ id: 1, status: 'DRAFT' }).status).toBe('DRAFT')
-    expect(mapAdminEvent({ id: 1, status: 'CANCELLED' }).status).toBe('CANCELLED')
-    expect(mapAdminEvent({ id: 1, status: 'PUBLISHED', isActive: false }).status).toBe('HIDDEN')
+  it('keeps drafts, cancellations, ongoing, completed and inactive events distinct', () => {
+    const now = Date.parse('2026-11-25T12:30:00+07:00')
+    expect(mapAdminEvent({ id: 1, status: 'DRAFT' }, undefined, undefined, undefined, now).status).toBe('DRAFT')
+    expect(mapAdminEvent({ id: 1, status: 'CANCELLED' }, undefined, undefined, undefined, now).status).toBe('CANCELLED')
+    expect(mapAdminEvent({ id: 1, status: 'COMPLETED' }, undefined, undefined, undefined, now).status).toBe('COMPLETED')
+    expect(mapAdminEvent({ id: 1, status: 'PUBLISHED', isActive: false }, undefined, undefined, undefined, now).status).toBe('HIDDEN')
+    expect(
+      mapAdminEvent(
+        { id: 1, status: 'PUBLISHED', dateHappen: '2026-11-25T11:30:00+07:00' },
+        undefined,
+        undefined,
+        undefined,
+        now
+      ).status
+    ).toBe('HAPPENING')
+    expect(
+      mapAdminEvent(
+        { id: 1, status: 'PUBLISHED', dateHappen: '2026-11-26T08:00:00+07:00' },
+        undefined,
+        undefined,
+        undefined,
+        now
+      ).status
+    ).toBe('OPEN')
+    expect(
+      mapAdminEvent(
+        {
+          id: 1,
+          status: 'PUBLISHED',
+          dateHappen: '2026-11-25T08:00:00+07:00',
+          dateEndHappen: '2026-11-25T11:00:00+07:00',
+        },
+        undefined,
+        undefined,
+        undefined,
+        now
+      ).status
+    ).toBe('COMPLETED')
   })
   it('formats point codes and SV5T parent groups from the API hierarchy', () => {
     const { names, codes, formatCriteria } = buildAdminBenefitLookups(
@@ -178,8 +212,8 @@ describe('superadmin API data', () => {
       }
     })
     const result = await superAdminService.getEvents()
-    expect(result.content).toHaveLength(8)
-    expect(get.mock.calls.filter(([url]) => url === '/events/admin')).toHaveLength(8)
+    expect(result.content).toHaveLength(10)
+    expect(get.mock.calls.filter(([url]) => url === '/events/admin')).toHaveLength(10)
     expect(result.content.every((event) => event.registeredCount === null)).toBe(true)
   })
   it('passes backend role names when changing a role', async () => {
