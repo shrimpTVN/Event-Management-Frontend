@@ -69,7 +69,7 @@ it.each(['Lưu', 'Xóa'])(
     expect(api.store).not.toHaveBeenCalled()
   }
 )
-it('persists the evaluation only after the server accepts it', async () => {
+it('refetches server progress after saving without persisting local evaluation', async () => {
   let resolve!: () => void
   api.save.mockImplementation(
     () =>
@@ -84,8 +84,6 @@ it('persists the evaluation only after the server accepts it', async () => {
   await waitFor(() => expect(resolve).toBeTypeOf('function'))
   resolve()
   await screen.findByText('Đã lưu')
-  expect(api.store).toHaveBeenCalledWith(1, 1, {
-    completedMap: { 402: true },
-    noteMap: { 402: 'Minh chứng' },
-  })
+  expect(api.store).not.toHaveBeenCalled()
+  expect(client.getQueryData(['student-criteria-progress', 1, 1, 'UNIVERSITY'])).toBeDefined()
 })

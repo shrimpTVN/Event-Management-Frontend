@@ -6,6 +6,7 @@ vi.mock('@/shared', () => ({
   apiClient: {
     get: vi.fn(),
     post: vi.fn(),
+    patch: vi.fn(),
     delete: vi.fn(),
   },
 }))
@@ -18,13 +19,19 @@ describe('sv5tService', () => {
   it('preserves root level and accumulated counts from the progress API', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({
       academicYearId: 7,
+      scope: "UNIVERSITY",
+      isEligible: false, completedMainCriteria: 0, totalMainCriteria: 1, completionPercentage: 0,
       criterias: [
         {
           id: 1,
+          isCompleted: false, isLeaf: false, isSystemRecorded: false, isSystemCompleted: false, isSelfEvaluated: false,
+          requiredOccurrences: 1, completedOccurrences: 0, completedChildrenCount: 0, totalChildren: 1, completionPercentage: 0,
           level: 0,
           children: [
             {
               id: 20,
+              isLeaf: true, isSystemRecorded: true, isSystemCompleted: false, isSelfEvaluated: false,
+              completedOccurrences: 1, completedChildrenCount: 0, totalChildren: 0, completionPercentage: 50, children: [],
               level: 2,
               isCompleted: false,
               requiredOccurrences: 2,
@@ -68,23 +75,21 @@ describe('sv5tService', () => {
     })
   })
 
-  it('deletes manual transactions when student sets completed: false to uncomplete criterion', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue([
-      { id: 101, criteriaId: 12, completionSource: 'MANUAL' },
-      { id: 102, criteriaId: 12, completionSource: 'EVENT_CHECKOUT' },
-    ])
+  it('deletes only the selected manual record when unchecking', async () => {
     vi.mocked(apiClient.delete).mockResolvedValue({})
-
     await sv5tService.toggleManualCriteriaProgress(12, {
-      academicYearId: 2,
-      completed: false,
+      academicYearId: 2, completed: false, transactionId: 101,
     })
-
-    expect(apiClient.get).toHaveBeenCalledWith(
-      '/criteria-transactions/me/criterias/12/academic-years/2'
-    )
     expect(apiClient.delete).toHaveBeenCalledWith('/criteria-transactions/me/101')
-    expect(apiClient.delete).not.toHaveBeenCalledWith('/criteria-transactions/me/102')
+    expect(apiClient.get).not.toHaveBeenCalled()
+  })
+  it('patches only the note of an existing manual record', async () => {
+    vi.mocked(apiClient.patch).mockResolvedValue({})
+    await sv5tService.toggleManualCriteriaProgress(12, {
+      academicYearId: 2, completed: true, transactionId: 101, note: 'Updated reason',
+    })
+    expect(apiClient.patch).toHaveBeenCalledWith('/criteria-transactions/me/101', { note: 'Updated reason' })
+    expect(apiClient.post).not.toHaveBeenCalled()
   })
 })
 
@@ -134,4 +139,16 @@ it('does not conceal a failed per-criterion history request', async () => {
     .mockResolvedValueOnce({ criteria: [{ criteriaId: 402 }] })
     .mockRejectedValueOnce(new Error('History unavailable'))
   await expect(sv5tService.getAllCriteriaTransactions(7)).rejects.toThrow('History unavailable')
+})
+
+it('passes FACULTY to BE without renaming it', async () => {
+  vi.mocked(apiClient.get).mockResolvedValue({academicYearId: 7, scope: 'FACULTY', criterias: [], completedMainCriteria: 0, totalMainCriteria: 0, completionPercentage: 0, isEligible: false})
+  await sv5tService.getStudentCriteriaProgress(7, 'FACULTY')
+  expect(apiClient.get).toHaveBeenLastCalledWith('/criteria-progress/me/academic-years/7?scope=FACULTY')
+})
+it('rejects incomplete progress contracts and propagates request errors', async () => {
+  vi.mocked(apiClient.get).mockResolvedValue({criterias: []})
+  await expect(sv5tService.getStudentCriteriaProgress(7)).rejects.toThrow()
+  vi.mocked(apiClient.get).mockRejectedValue(new Error('offline'))
+  await expect(sv5tService.getStudentCriteriaProgress(7)).rejects.toThrow('offline')
 })

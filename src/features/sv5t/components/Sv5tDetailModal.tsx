@@ -22,18 +22,6 @@ function formatDate(value?: string | null) {
   if (!value || Number.isNaN(Date.parse(value))) return 'Chưa có thông tin'
   return new Date(value).toLocaleDateString('vi-VN')
 }
-function isGenericText(value?: string | null) {
-  return (
-    !value ||
-    [
-      'sinh viên tự đánh giá tiêu chuẩn',
-      'sinh viên tự đánh giá đạt tiêu chuẩn',
-      'sinh viên tự đánh giá đạt',
-      'sinh viên tự đánh giá',
-      'tự đánh giá',
-    ].includes(value.trim().toLowerCase())
-  )
-}
 const isSystemTransaction = (tx: CriteriaTransaction) =>
   tx.completionSource === 'EVENT_CHECKOUT' || tx.completionSource === 'SYSTEM' || tx.eventId != null
 
@@ -90,43 +78,28 @@ export function Sv5tDetailModal({
         tx.eventId != null ? String(other.eventId) === String(tx.eventId) : other.id === tx.id
       ) === index
   )
-  const manual = sorted.find((tx) => tx.completionSource === 'MANUAL')
-  const selfEvaluated =
-    typeof node.isSelfEvaluated === 'boolean'
-      ? node.isSelfEvaluated
-      : Boolean(manual || node.completionSource === 'MANUAL')
-  const systemRecorded = Boolean(
-    node.isSystemRecorded ||
-    systemRecords.length ||
-    node.completionSource === 'EVENT_CHECKOUT' ||
-    node.completionSource === 'SYSTEM'
-  )
-  const isParent = node.children.length > 0
-  const required = Math.max(
-    1,
-    isParent ? (node.requiredChildren ?? node.children.length) : (node.requiredOccurrences ?? 1)
-  )
-  const recorded = isParent
-    ? node.completedChildren
-    : Math.max(node.recordedOccurrences || 0, activities.length)
+  const selfEvaluated = node.isSelfEvaluated
+  const manualRecords = sorted.filter((transaction) => transaction.completionSource === 'MANUAL')
+  const displayedManualRecords: CriteriaTransaction[] = manualRecords.length
+    ? manualRecords
+    : selfEvaluated && node.manualTransactionId != null
+      ? [{ id: node.manualTransactionId, note: node.selfEvaluationNote }]
+      : []
+  const systemRecorded = node.isSystemRecorded
+  const isParent = !node.isLeaf
+  const required = (isParent ? node.requiredChildren : node.requiredOccurrences) ?? 0
+  const recorded = (isParent ? node.completedChildren : node.recordedOccurrences) ?? 0
   const unit = isParent ? 'tiêu chí' : 'lần'
   const passed = Boolean(node.isCompleted)
-  const manualNote = selfEvaluated
-    ? !isGenericText(node.selfEvaluationNote)
-      ? node.selfEvaluationNote
-      : !isGenericText(manual?.note)
-        ? manual?.note
-        : null
-    : null
-  const deleteManual = async () => {
-    if (!manual || !onDeleteManualTransaction || isDeleting) return
+  const deleteManual = async (transactionId: number) => {
+    if (!onDeleteManualTransaction || isDeleting) return
     if (!window.confirm('Bạn có chắc chắn muốn xóa bản ghi tự đánh giá tiêu chuẩn này không?'))
       return
     setIsDeleting(true)
     setDeleteError(false)
     try {
-      await onDeleteManualTransaction(Number(manual.id), node.criteriaId)
-      onClose()
+      await onDeleteManualTransaction(transactionId, node.criteriaId)
+      setReload((value) => value + 1)
     } catch {
       setDeleteError(true)
     } finally {
@@ -193,7 +166,7 @@ export function Sv5tDetailModal({
                 >
                   <div
                     className={`h-full rounded-full ${passed ? 'bg-emerald-600' : 'bg-primary'}`}
-                    style={{ width: `${Math.min(100, (recorded / required) * 100)}%` }}
+                    style={{ width: `${node.completionPercentage ?? 0}%` }}
                   />
                 </div>
               )}
@@ -206,11 +179,6 @@ export function Sv5tDetailModal({
                   <p className="text-xs leading-relaxed text-muted-foreground">{node.note}</p>
                 )}
               </div>
-              {selfEvaluated && !systemRecorded && (
-                <p className="text-xs text-muted-foreground">
-                  Theo tự đánh giá của bạn · Chưa phải kết quả chính thức
-                </p>
-              )}
             </section>
             <section
               className="flex flex-col gap-3 border-t border-border pt-5"
@@ -297,58 +265,74 @@ export function Sv5tDetailModal({
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold">Sinh viên tự đánh giá</h3>
                 <span className="text-xs text-muted-foreground">
-                  {selfEvaluated ? 'Tự đánh giá đạt' : 'Chưa đánh giá'}
+                  {selfEvaluated ? (passed ? 'Đạt' : 'Chưa đạt') : 'Chưa đánh giá'}
                 </span>
               </div>
-              {selfEvaluated && (
-                <>
-                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                    {manualNote || 'Chưa có ghi chú tự đánh giá'}
-                  </p>
-                  {manual?.createdAt && (
-                    <p className="text-xs text-muted-foreground">
-                      Cập nhật: {formatDate(manual.createdAt)}
-                    </p>
-                  )}
-                </>
-              )}
               {deleteError && (
                 <p role="alert" className="text-sm text-destructive">
                   Chưa xóa được tự đánh giá. Vui lòng thử lại.
                 </p>
               )}
-              <div className="flex flex-wrap items-center gap-2">
-                {onOpenSelfEvaluation && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isDeleting}
-                    onClick={() =>
-                      selfEvaluated
-                        ? onOpenSelfEvaluation(
-                            manualNote || '',
-                            true,
-                            manual ? Number(manual.id) : undefined
-                          )
-                        : onOpenSelfEvaluation('', false)
-                    }
-                  >
-                    {selfEvaluated ? 'Chỉnh sửa tự chấm' : 'Tự đánh giá'}
-                  </Button>
-                )}
-                {selfEvaluated && manual && onDeleteManualTransaction && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={isDeleting}
-                    onClick={() => void deleteManual()}
-                    className="gap-1.5 text-muted-foreground"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    {isDeleting ? 'Đang xóa...' : 'Xóa tự chấm'}
-                  </Button>
-                )}
-              </div>
+              {displayedManualRecords.length > 0 ? (
+                <ul className="flex flex-col divide-y divide-border">
+                  {displayedManualRecords.map((transaction) => (
+                    <li
+                      key={transaction.id}
+                      className="flex flex-col items-start gap-3 py-4 first:pt-0"
+                    >
+                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                        {transaction.note || 'Chưa có ghi chú tự đánh giá'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Ngày ghi nhận {formatDate(transaction.createdAt)}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {onOpenSelfEvaluation && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isDeleting}
+                            onClick={() =>
+                              onOpenSelfEvaluation(
+                                transaction.note ?? '',
+                                true,
+                                Number(transaction.id)
+                              )
+                            }
+                          >
+                            Chỉnh sửa tự chấm
+                          </Button>
+                        )}
+                        {onDeleteManualTransaction && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={isDeleting}
+                            onClick={() => void deleteManual(Number(transaction.id))}
+                            className="gap-1.5 text-muted-foreground"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Xóa tự chấm
+                          </Button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                !isLoading &&
+                !loadError && <p className="text-sm text-muted-foreground">Chưa có ghi nhận tay.</p>
+              )}
+              {onOpenSelfEvaluation && node.isLeaf && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isDeleting}
+                  onClick={() => onOpenSelfEvaluation('', Boolean(selfEvaluated))}
+                >
+                  {selfEvaluated ? 'Thêm ghi nhận tay' : 'Tự đánh giá'}
+                </Button>
+              )}
             </section>
           </div>
         </Dialog.Content>

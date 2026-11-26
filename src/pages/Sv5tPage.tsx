@@ -12,9 +12,6 @@ import {
   Sv5tSummary,
   Sv5tTable,
   Sv5tRegulationModal,
-  ensureSv5tHierarchy,
-  getStoredEvaluations,
-  setStoredEvaluations,
   type EvaluationScope,
 } from '@/features/sv5t'
 
@@ -64,94 +61,25 @@ export const Sv5tPage: React.FC = () => {
     isError: progressError,
     refetch: refetchProgress,
   } = useQuery({
-    queryKey: ['student-criteria-progress', appliedYearId],
-    queryFn: () => sv5tService.getStudentCriteriaProgress(appliedYearId),
+    queryKey: ['student-criteria-progress', userKey, appliedYearId, appliedScope],
+    queryFn: () => sv5tService.getStudentCriteriaProgress(appliedYearId, appliedScope),
     enabled: Boolean(appliedYearId),
     staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   })
-
-  // 2b. Fetch All Student Criteria Transactions for appliedYearId
-  const {
-    data: allTransactions = [],
-    isError: transactionsError,
-    refetch: refetchTransactions,
-  } = useQuery({
-    queryKey: ['student-criteria-transactions-all', appliedYearId],
-    queryFn: () => sv5tService.getAllCriteriaTransactions(appliedYearId),
-    enabled: Boolean(appliedYearId),
-    staleTime: 0,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-  })
-
-  // Local state for optimistic update and persistence of self-evaluation
-  const [localCompletedMap, setLocalCompletedMap] = useState<Record<number, boolean>>(() => {
-    return getStoredEvaluations(userKey, appliedYearId).completedMap
-  })
-  const [localNoteMap, setLocalNoteMap] = useState<Record<number, string>>(() => {
-    return getStoredEvaluations(userKey, appliedYearId).noteMap
-  })
-
-  // Synchronize local state from localStorage when academic year or user changes
-  useEffect(() => {
-    if (appliedYearId) {
-      const stored = getStoredEvaluations(userKey, appliedYearId)
-      setLocalCompletedMap(stored.completedMap)
-      setLocalNoteMap(stored.noteMap)
-    } else {
-      setLocalCompletedMap({})
-      setLocalNoteMap({})
-    }
-  }, [appliedYearId, userKey])
-
-  // Synchronize local state with real DB criteria progress when data arrives from backend
-  useEffect(() => {
-    if (criteriaProgress?.criteria?.length && appliedYearId) {
-      const dbManualMap: Record<number, boolean> = {}
-      const dbNoteMap: Record<number, string> = {}
-
-      const traverse = (node: any) => {
-        if (node.isSelfEvaluated || node.completionSource === 'MANUAL') {
-          dbManualMap[node.criteriaId] = true
-          if (node.selfEvaluationNote || node.note) {
-            dbNoteMap[node.criteriaId] = node.selfEvaluationNote || node.note
-          }
-        }
-        if (Array.isArray(node.children)) {
-          node.children.forEach(traverse)
-        }
-      }
-      criteriaProgress.criteria.forEach(traverse)
-
-      if (Object.keys(dbManualMap).length > 0) {
-        setLocalCompletedMap((prev) => {
-          const next = { ...prev, ...dbManualMap }
-          setStoredEvaluations(userKey, appliedYearId, {
-            completedMap: next,
-            noteMap: { ...localNoteMap, ...dbNoteMap },
-          })
-          return next
-        })
-        setLocalNoteMap((prev) => ({ ...prev, ...dbNoteMap }))
-      }
-    }
-  }, [criteriaProgress, appliedYearId, userKey])
 
   // 3. Mutation to update self-evaluation / progress
   const progressMutation = useMutation({
-    mutationFn: (payload: { criteriaId: number; completed: boolean; note: string }) =>
+    mutationFn: (payload: { criteriaId: number; completed: boolean; note: string; transactionId?: number }) =>
       sv5tService.toggleManualCriteriaProgress(payload.criteriaId, {
         academicYearId: appliedYearId || selectedYearId || academicYears[0]?.id || 1,
         completed: payload.completed,
         note: payload.note,
+        transactionId: payload.transactionId,
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['student-criteria-progress', appliedYearId] })
-      queryClient.invalidateQueries({
-        queryKey: ['student-criteria-transactions-all', appliedYearId],
-      })
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['student-criteria-progress'] })
     },
   })
 
@@ -159,45 +87,17 @@ export const Sv5tPage: React.FC = () => {
   const deleteProgressMutation = useMutation({
     mutationFn: (criteriaTransactionId: number) =>
       sv5tService.deleteCriteriaTransaction(criteriaTransactionId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['student-criteria-progress', appliedYearId] })
-      queryClient.invalidateQueries({
-        queryKey: ['student-criteria-transactions-all', appliedYearId],
-      })
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['student-criteria-progress'] })
     },
   })
 
-  const handleSaveProgress = async (criteriaId: number, completed: boolean, note: string) => {
-    const finalNote = completed ? note : ''
-    const updatedCompletedMap = { ...localCompletedMap, [criteriaId]: completed }
-    const updatedNoteMap = { ...localNoteMap }
-    if (completed && finalNote) {
-      updatedNoteMap[criteriaId] = finalNote
-    } else {
-      delete updatedNoteMap[criteriaId]
-    }
-
-    await progressMutation.mutateAsync({ criteriaId, completed, note: finalNote })
-    setLocalCompletedMap(updatedCompletedMap)
-    setLocalNoteMap(updatedNoteMap)
-    setStoredEvaluations(userKey, appliedYearId, {
-      completedMap: updatedCompletedMap,
-      noteMap: updatedNoteMap,
-    })
+  const handleSaveProgress = async (criteriaId: number, completed: boolean, note: string, transactionId?: number) => {
+    await progressMutation.mutateAsync({ criteriaId, completed, note: completed ? note : '', transactionId })
   }
 
-  const handleDeleteProgress = async (criteriaTransactionId: number, criteriaId: number) => {
-    const updatedCompletedMap = { ...localCompletedMap, [criteriaId]: false }
-    const updatedNoteMap = { ...localNoteMap }
-    delete updatedNoteMap[criteriaId]
-
+  const handleDeleteProgress = async (criteriaTransactionId: number, _criteriaId: number) => {
     await deleteProgressMutation.mutateAsync(criteriaTransactionId)
-    setLocalCompletedMap(updatedCompletedMap)
-    setLocalNoteMap(updatedNoteMap)
-    setStoredEvaluations(userKey, appliedYearId, {
-      completedMap: updatedCompletedMap,
-      noteMap: updatedNoteMap,
-    })
   }
 
   // Handle clicking "Tìm" button on desktop
@@ -221,21 +121,8 @@ export const Sv5tPage: React.FC = () => {
     }
   }
 
-  // Build complete hierarchical criteria tree with all children and correct required counts
-  const standards = useMemo(() => {
-    return ensureSv5tHierarchy(
-      criteriaProgress,
-      localCompletedMap,
-      localNoteMap,
-      allTransactions,
-      appliedScope
-    )
-  }, [criteriaProgress, localCompletedMap, localNoteMap, allTransactions, appliedScope])
-
-  // Count completed standards
-  const completedStandardsCount = useMemo(() => {
-    return standards.filter((s) => s.isCompleted).length
-  }, [standards])
+  const standards = progressError ? [] : (criteriaProgress?.criteria ?? [])
+  const completedStandardsCount = criteriaProgress?.completedMainCriteria ?? 0
 
   // Academic year label
   const academicYearLabel = useMemo(() => {
@@ -277,7 +164,9 @@ export const Sv5tPage: React.FC = () => {
               <Sv5tSummary
                 academicYearLabel={academicYearLabel}
                 completedStandardsCount={completedStandardsCount}
-                totalStandardsCount={standards.length || 5}
+                totalStandardsCount={criteriaProgress?.totalMainCriteria ?? 0}
+                completionPercentage={criteriaProgress?.completionPercentage ?? 0}
+                isEligible={criteriaProgress?.isEligible ?? false}
                 scope={appliedScope}
                 isLoading={isLoading}
                 unavailable={progressError || !appliedYearId}
@@ -302,22 +191,14 @@ export const Sv5tPage: React.FC = () => {
                   </Button>
                 </div>
               )}
-              {transactionsError && (
-                <div role="alert" className="flex items-center gap-3 text-sm text-muted-foreground">
-                  Chưa tải được lịch sử ghi nhận SV5T.
-                  <Button variant="outline" size="sm" onClick={() => void refetchTransactions()}>
-                    Thử lại
-                  </Button>
-                </div>
-              )}
 
               <Sv5tTable
                 standards={standards}
-                academicYearId={appliedYearId || 2}
+                academicYearId={appliedYearId}
                 onSaveProgress={handleSaveProgress}
                 onDeleteProgress={handleDeleteProgress}
                 isLoading={isLoading}
-                resetKey={`${appliedYearId}-${appliedScope}`}
+                resetKey={`${userKey}-${appliedYearId}-${appliedScope}`}
               />
             </div>
           </div>

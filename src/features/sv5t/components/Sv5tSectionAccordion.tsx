@@ -10,7 +10,7 @@ interface Sv5tSectionAccordionProps {
   standard: CriteriaProgressNode
   standardIndex: number // 1, 2, 3, 4, 5
   academicYearId?: number
-  onSaveProgress: (criteriaId: number, completed: boolean, note: string) => Promise<void> | void
+  onSaveProgress: (criteriaId: number, completed: boolean, note: string, transactionId?: number) => Promise<void> | void
   onDeleteProgress?: (criteriaTransactionId: number, criteriaId: number) => Promise<void> | void
   defaultExpanded?: boolean
   onToggleExpand?: (isExpanded: boolean) => void
@@ -63,7 +63,7 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
           list.push({
             node: subChild,
             code: `${childCode}.${subIdx + 1}`,
-            isLeaf: true,
+            isLeaf: subChild.isLeaf ?? false,
           })
         })
       } else {
@@ -71,7 +71,7 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
         list.push({
           node: child,
           code: childCode,
-          isLeaf: true,
+          isLeaf: child.isLeaf ?? false,
         })
       }
     })
@@ -82,8 +82,7 @@ export const Sv5tSectionAccordion: React.FC<Sv5tSectionAccordionProps> = ({
   // Required criteria to pass this standard (from backend or default)
   const requiredCount = standard.requiredChildren ?? standard.children.length
   const completedDirect = standard.completedChildren
-  const progress =
-    requiredCount > 0 ? Math.min(100, Math.max(0, (completedDirect / requiredCount) * 100)) : 0
+  const progress = standard.completionPercentage ?? 0
 
   return (
     <div

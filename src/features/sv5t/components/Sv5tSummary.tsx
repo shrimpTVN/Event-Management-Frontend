@@ -7,6 +7,8 @@ interface Sv5tSummaryProps {
   academicYearLabel: string
   completedStandardsCount: number
   totalStandardsCount?: number
+  completionPercentage?: number
+  isEligible?: boolean
   scope: EvaluationScope
   unavailable?: boolean
   isLoading?: boolean
@@ -15,13 +17,14 @@ interface Sv5tSummaryProps {
 export const Sv5tSummary: React.FC<Sv5tSummaryProps> = ({
   academicYearLabel,
   completedStandardsCount,
-  totalStandardsCount = 5,
+  totalStandardsCount = 0,
+  completionPercentage = 0,
+  isEligible = false,
   scope,
   isLoading = false,
   unavailable = false,
 }) => {
   const isMobile = useMediaQuery('(max-width: 767px)')
-  const isEligible = completedStandardsCount >= totalStandardsCount
 
   if (isLoading) {
     return (
@@ -85,10 +88,7 @@ export const Sv5tSummary: React.FC<Sv5tSummaryProps> = ({
               width: `${
                 unavailable
                   ? 0
-                  : Math.min(
-                      100,
-                      Math.max(0, (completedStandardsCount / totalStandardsCount) * 100)
-                    )
+                  : completionPercentage
               }%`,
             }}
           />
