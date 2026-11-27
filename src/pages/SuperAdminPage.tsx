@@ -192,18 +192,12 @@ export const SuperAdminPage: React.FC = () => {
 
   const schoolsQuery = useQuery({
     queryKey: ['super-admin', 'schools'],
-    queryFn: () => superAdminService.getSchoolsSummary(),
+    queryFn: () => superAdminService.getSchoolsWithMajors(),
     enabled: activeTab === 'schools',
   })
 
   const schools = schoolsQuery.data ?? []
   const effectiveSchoolId = selectedSchoolId ?? schools[0]?.id ?? null
-
-  const schoolDetailQuery = useQuery({
-    queryKey: ['super-admin', 'school-detail', effectiveSchoolId],
-    queryFn: () => superAdminService.getSchoolDetail(effectiveSchoolId!),
-    enabled: activeTab === 'schools' && Boolean(effectiveSchoolId),
-  })
 
   const semesters = semestersQuery.data ?? []
   const pendingFanpages: SuperAdminFanpage[] = pendingFanpagesQuery.data?.content ?? []
@@ -582,7 +576,6 @@ export const SuperAdminPage: React.FC = () => {
         })
       }
       await queryClient.invalidateQueries({ queryKey: ['super-admin', 'schools'] })
-      await queryClient.invalidateQueries({ queryKey: ['super-admin', 'school-detail'] })
       void queryClient.invalidateQueries({ queryKey: ['education'] })
       return
     } catch (err) {
@@ -612,7 +605,6 @@ export const SuperAdminPage: React.FC = () => {
         })
       }
       await queryClient.invalidateQueries({ queryKey: ['super-admin', 'schools'] })
-      await queryClient.invalidateQueries({ queryKey: ['super-admin', 'school-detail', schoolId] })
       void queryClient.invalidateQueries({ queryKey: ['education'] })
       return
     } catch (err) {
@@ -817,8 +809,6 @@ export const SuperAdminPage: React.FC = () => {
               onOpenEditMajorModal={handleOpenEditMajorModal}
               selectedSchoolId={effectiveSchoolId}
               onSelectSchool={setSelectedSchoolId}
-              selectedSchoolDetail={schoolDetailQuery.data ?? null}
-              isLoadingDetail={schoolDetailQuery.isLoading}
             />
           )}
         </>

@@ -82,39 +82,44 @@ export function SuperAdminSchoolsView({
             />
           </div>
           <div className="flex max-h-80 flex-col gap-1 overflow-auto lg:max-h-[600px]">
-            {filteredSchools.map((school) => (
-              <div
-                key={school.id}
-                className={`flex items-center gap-1 rounded-lg ${selected?.id === school.id ? 'bg-primary/5' : ''}`}
-              >
-                <Button
-                  variant="ghost"
-                  className="h-auto min-w-0 flex-1 flex-col items-start gap-1 whitespace-normal px-3 py-3 text-left"
-                  aria-pressed={selected?.id === school.id}
-                  onClick={() => {
-                    setInternalSchoolId(school.id)
-                    onSelectSchool?.(school.id)
-                    setMajorSearch('')
-                    setStatus('ALL')
-                  }}
+            {filteredSchools.map((school) => {
+              const activeMajorsCount = (school.majors ?? []).filter(
+                (major) => major.isActive !== false
+              ).length
+              return (
+                <div
+                  key={school.id}
+                  className={`flex items-center gap-1 rounded-lg ${selected?.id === school.id ? 'bg-primary/5' : ''}`}
                 >
-                  <span className="text-sm font-medium">{school.name}</span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {school.majors?.length ?? school.majorsCount ?? 0} ngành học
-                    {school.isActive === false ? ' · Ngừng sử dụng' : ''}
-                  </span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 shrink-0"
-                  aria-label={`Chỉnh sửa ${school.name}`}
-                  onClick={() => onOpenEditSchoolModal(school)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+                  <Button
+                    variant="ghost"
+                    className="h-auto min-w-0 flex-1 flex-col items-start gap-1 whitespace-normal px-3 py-3 text-left"
+                    aria-pressed={selected?.id === school.id}
+                    onClick={() => {
+                      setInternalSchoolId(school.id)
+                      onSelectSchool?.(school.id)
+                      setMajorSearch('')
+                      setStatus('ALL')
+                    }}
+                  >
+                    <span className="text-sm font-medium">{school.name}</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {activeMajorsCount} ngành đang hoạt động
+                      {school.isActive === false ? ' · Ngừng sử dụng' : ''}
+                    </span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    aria-label={`Chỉnh sửa ${school.name}`}
+                    onClick={() => onOpenEditSchoolModal(school)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </div>
+              )
+            })}
           </div>
           {!filteredSchools.length && (
             <p className="py-6 text-center text-sm text-muted-foreground">

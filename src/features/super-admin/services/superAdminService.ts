@@ -1112,6 +1112,33 @@ export const superAdminService = {
   // 8. SCHOOLS & MAJORS
   // ==========================================
   /**
+   * Fetches all schools together with their nested majors in 1 request for the Super Admin catalog view.
+   */
+  getSchoolsWithMajors: async (): Promise<SuperAdminSchool[]> => {
+    const schools = await fetchAllPages('/schools/with-majors')
+    return schools.map((school: any) => {
+      const majors: SuperAdminMajor[] = Array.isArray(school.majors)
+        ? school.majors.map((major: any) => ({
+            id: major.id,
+            code: major.code ?? '',
+            name: major.name,
+            schoolId: school.id,
+            isActive: major.isActive !== false,
+            studentCount: major.studentCount,
+          }))
+        : []
+      return {
+        id: school.id,
+        name: school.name,
+        description: school.description,
+        isActive: school.isActive !== false,
+        majorsCount: majors.length,
+        majors,
+      }
+    })
+  },
+
+  /**
    * Fetches school summary list in 1 paginated request without N+1 detail lookups.
    */
   getSchoolsSummary: async (): Promise<SuperAdminSchool[]> => {

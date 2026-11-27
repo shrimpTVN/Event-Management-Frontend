@@ -39,6 +39,7 @@ vi.mock('@/features/super-admin', async (importOriginal) => {
       getPointCategories: vi.fn(),
       getCriterias: vi.fn(),
       getSchools: vi.fn(),
+      getSchoolsWithMajors: vi.fn(),
       getSchoolsSummary: vi.fn(),
       getSchoolDetail: vi.fn(),
     },
@@ -83,6 +84,27 @@ describe('SuperAdminPage tab-scoped queries and server pagination (F08)', () => 
       page: params?.page ?? 0,
       size: 20,
     }))
+    vi.mocked(superAdminService.getSchoolsWithMajors).mockResolvedValue([
+      {
+        id: 1,
+        name: 'Trường CNTT&TT',
+        description: '',
+        isActive: true,
+        majorsCount: 2,
+        majors: [
+          { id: 10, code: 'CNTT', name: 'Công nghệ thông tin', schoolId: 1, isActive: true },
+          { id: 11, code: 'KTPM', name: 'Kỹ thuật phần mềm', schoolId: 1, isActive: false },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Khoa Kinh tế',
+        description: '',
+        isActive: true,
+        majorsCount: 1,
+        majors: [{ id: 20, code: 'QTKD', name: 'Quản trị kinh doanh', schoolId: 2, isActive: false }],
+      },
+    ])
     vi.mocked(superAdminService.getSchoolsSummary).mockResolvedValue([
       { id: 1, name: 'Trường CNTT&TT', description: '', isActive: true, majorsCount: 2, majors: [] },
       { id: 2, name: 'Khoa Kinh tế', description: '', isActive: true, majorsCount: 1, majors: [] },
@@ -116,6 +138,7 @@ describe('SuperAdminPage tab-scoped queries and server pagination (F08)', () => 
     expect(superAdminService.getFanpages).not.toHaveBeenCalled()
     expect(superAdminService.getEvents).not.toHaveBeenCalled()
     expect(superAdminService.getSchools).not.toHaveBeenCalled()
+    expect(superAdminService.getSchoolsWithMajors).not.toHaveBeenCalled()
     expect(superAdminService.getSchoolsSummary).not.toHaveBeenCalled()
     expect(superAdminService.getPointCategories).not.toHaveBeenCalled()
     expect(superAdminService.getCriterias).not.toHaveBeenCalled()
@@ -174,20 +197,24 @@ describe('SuperAdminPage tab-scoped queries and server pagination (F08)', () => 
     })
   })
 
-  it('lazily fetches detail for only the selected school instead of N+1 for every school', async () => {
+  it('fetches schools with nested majors in one request and shows active major counts and statuses', async () => {
     renderPage()
     await screen.findByTestId('admin-dashboard')
 
     fireEvent.click(screen.getByRole('button', { name: 'Khoa / Trường' }))
-    expect(await screen.findByText('Ngành của 1')).toBeInTheDocument()
-    expect(superAdminService.getSchoolsSummary).toHaveBeenCalledTimes(1)
-    expect(superAdminService.getSchoolDetail).toHaveBeenCalledTimes(1)
-    expect(superAdminService.getSchoolDetail).toHaveBeenCalledWith(1)
+    expect(await screen.findByText('Công nghệ thông tin')).toBeInTheDocument()
+    expect(screen.getByText('1 ngành đang hoạt động')).toBeInTheDocument()
+    expect(screen.getByText('0 ngành đang hoạt động')).toBeInTheDocument()
+    expect(screen.getByText('Đang đào tạo')).toBeInTheDocument()
+    expect(screen.getByText('Ngừng sử dụng')).toBeInTheDocument()
+
+    expect(superAdminService.getSchoolsWithMajors).toHaveBeenCalledTimes(1)
+    expect(superAdminService.getSchoolDetail).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByText('Khoa Kinh tế').closest('button')!)
     await waitFor(() => {
-      expect(screen.getByText('Ngành của 2')).toBeInTheDocument()
+      expect(screen.getByText('Quản trị kinh doanh')).toBeInTheDocument()
     })
-    expect(superAdminService.getSchoolDetail).toHaveBeenCalledWith(2)
+    expect(superAdminService.getSchoolDetail).not.toHaveBeenCalled()
   })
 })
