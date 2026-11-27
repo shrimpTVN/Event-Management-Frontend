@@ -114,4 +114,48 @@ describe('real personal profile data', () => {
     ).rejects.toThrow('Vui lòng chọn')
     expect(apiClient.put).not.toHaveBeenCalled()
   })
+  it('maps UserInfoResponseDto containing nested studentProfile and fanpageAdminProfile', async () => {
+    const userInfoDto = {
+      userId: 5,
+      email: 'dual@student.ctu.edu.vn',
+      roles: ['STUDENT', 'FANPAGE_ADMIN'],
+      firstName: 'Lộc',
+      lastName: 'Đoàn Tài',
+      gender: 'MALE',
+      isActive: true,
+      avatarUrl: 'https://cdn.example.com/avatar.png',
+      studentProfile: {
+        studentId: 'B2303827',
+        kNumber: 49,
+        schoolName: 'Trường CNTT&TT',
+        majorName: 'Kỹ thuật phần mềm',
+        majorCode: '7480103',
+        schoolId: 2,
+        majorId: 20,
+      },
+      fanpageAdminProfile: {
+        staffId: 'CB-99',
+        orgName: 'CLB AI',
+        title: 'Chủ nhiệm',
+        phoneNumber: '0901234567',
+      },
+    }
+    vi.mocked(apiClient.get).mockResolvedValueOnce(userInfoDto)
+    const mapped = await profileService.getMyProfile()
+    expect(mapped).toMatchObject({
+      id: '5',
+      fullName: 'Đoàn Tài Lộc',
+      studentId: 'B2303827',
+      cohort: 'K49',
+      faculty: 'Trường CNTT&TT',
+      major: 'Kỹ thuật phần mềm',
+      schoolId: 2,
+      majorId: 20,
+      staffId: 'CB-99',
+      orgName: 'CLB AI',
+      title: 'Chủ nhiệm',
+      phoneNumber: '0901234567',
+      roles: ['STUDENT', 'FANPAGE_ADMIN'],
+    })
+  })
 })

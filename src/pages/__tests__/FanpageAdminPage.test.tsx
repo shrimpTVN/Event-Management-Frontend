@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AppProviders } from '@/app/providers'
 import { fanpageAdminService } from '@/features/fanpage-admin'
+import { fanpageAdminService as memberService } from '@/features/fanpage-admin/services/fanpageAdminService'
 import { FanpageAdminPage } from '../FanpageAdminPage'
 
 const mockAvailableFanpages = [
@@ -110,5 +111,78 @@ describe('FanpageAdminPage', () => {
 
     expect(await screen.findByText('Không tải được danh sách Fanpage')).toBeInTheDocument()
     expect(screen.queryByText('Chưa có Fanpage được chỉ định')).not.toBeInTheDocument()
+  })
+
+  it('keeps the selected fanpage when navigation state is replaced by a tab search param', async () => {
+    const getMembers = vi.spyOn(memberService, 'getFanpageMembers').mockResolvedValue([])
+    vi.spyOn(memberService, 'getFanpageInvitations').mockResolvedValue([])
+    vi.mocked(fanpageAdminService.getAvailableFanpages).mockResolvedValue([
+      { ...mockAvailableFanpages[0], id: '101', name: 'CLB Trí tuệ nhân tạo', fullName: 'CLB Trí tuệ nhân tạo' },
+      { ...mockAvailableFanpages[0], id: '103', name: 'Đoàn Thanh niên', fullName: 'Đoàn Thanh niên' },
+    ])
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const LocationSearch = () => {
+      const location = useLocation()
+      return <output data-testid="location-search">{location.search}</output>
+    }
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[{ pathname: '/fanpage/workspace', state: { fanpageId: '103' } }]}>
+          <LocationSearch />
+          <FanpageAdminPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Thành viên' }))
+    await waitFor(() => expect(screen.getByTestId('location-search')).toHaveTextContent('fanpageId=103'))
+    expect(screen.getByTestId('location-search')).toHaveTextContent('tab=members')
+    await waitFor(() => expect(getMembers).toHaveBeenCalledWith('103'))
+    expect(getMembers).not.toHaveBeenCalledWith('101')
+  })
+
+  it('clears eventId query param when switching from event-detail to another tab', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const LocationSearch = () => {
+      const location = useLocation()
+      return <output data-testid="location-search">{location.search}</output>
+    }
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/fanpage/admin?fanpageId=10&tab=event-detail&eventId=10']}>
+          <LocationSearch />
+          <FanpageAdminPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    expect(screen.getByTestId('location-search')).toHaveTextContent('eventId=10')
+    fireEvent.click(await screen.findByRole('button', { name: 'Thành viên' }))
+    await waitFor(() => {
+      expect(screen.getByTestId('location-search')).toHaveTextContent('tab=members')
+      expect(screen.getByTestId('location-search')).not.toHaveTextContent('eventId=')
+    })
+  })
+
+  it('uses totalElements metadata for eventsCount when present on raw fanpage events', async () => {
+    const eventsWithTotal: any = [...mockRawEvents]
+    Object.defineProperty(eventsWithTotal, '__totalElements', {
+      value: 142,
+      enumerable: false,
+    })
+    vi.mocked(fanpageAdminService.getFanpageEventsRaw).mockResolvedValueOnce(eventsWithTotal)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/fanpage/admin']}>
+          <FanpageAdminPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('142')).toBeInTheDocument()
   })
 })

@@ -5,7 +5,11 @@ import { ArrowLeft, Loader2, CalendarDays } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fanpageService } from '@/features/fanpage'
 import { useAuthStore } from '@/features/auth'
-import { apiClient } from '@/shared'
+import {
+  followedFanpagesQueryKey,
+  fetchFollowedFanpages,
+} from '@/shared/services/followedFanpages'
+import { userRegistrationsQueryOptions } from '@/shared/services/userRegistrations'
 import {
   EventFeedCard,
   StudentLeftSidebar,
@@ -20,7 +24,7 @@ export const EventDetailPage: React.FC = () => {
   const location = useLocation()
   const queryClient = useQueryClient()
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
 
   const handleGoBack = () => {
     const from = (location.state as { from?: string } | undefined)?.from
@@ -43,19 +47,10 @@ export const EventDetailPage: React.FC = () => {
     enabled: Boolean(id),
   })
 
-  // Fetch followed fanpages and stored events to match HomePage follow/save state
-  const { data: followedFanpages = [] } = useQuery<any[]>({
-    queryKey: ['fanpages', 'sidebar', isAuthenticated],
-    queryFn: async () => {
-      if (!isAuthenticated) return []
-      try {
-        const res: any = await apiClient.get('/fanpages/following', { params: { size: 50 } })
-        const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
-        return Array.isArray(list) ? list : []
-      } catch {
-        return []
-      }
-    },
+  // Fetch followed fanpages using shared normalized query key & shape across Home/Detail/Sidebar
+  const { data: followedFanpages = [] } = useQuery({
+    queryKey: followedFanpagesQueryKey(isAuthenticated),
+    queryFn: () => (isAuthenticated ? fetchFollowedFanpages() : Promise.resolve([])),
     enabled: isAuthenticated,
   })
 
@@ -88,54 +83,28 @@ export const EventDetailPage: React.FC = () => {
     )
   }, [event, storedEvents])
 
-  // Fetch registrations to determine registration state accurately
-  const { data: userRegistrations = [] } = useQuery<any[]>({
-    queryKey: ['registrations', 'me', isAuthenticated],
-    queryFn: async () => {
-      if (!isAuthenticated) return []
-      try {
-        const [historyRes, upcomingRes] = await Promise.allSettled([
-          apiClient.get('/registrations/me/history', { params: { size: 100 } }),
-          apiClient.get('/registrations/me/upcoming'),
-        ])
-        const historyVal = historyRes.status === 'fulfilled' ? (historyRes.value as any) : null
-        const upcomingVal = upcomingRes.status === 'fulfilled' ? (upcomingRes.value as any) : null
+  // Fetch registrations using shared user-scoped query (loads all pages, rejects on source failure)
+  const { data: registeredStatusMap = {} } = useQuery(
+    userRegistrationsQueryOptions(isAuthenticated, user?.id)
+  )
 
-        const historyList =
-          historyVal?.content || historyVal?.data?.content || historyVal?.data || []
-        const upcomingList =
-          upcomingVal?.content || upcomingVal?.data?.content || upcomingVal?.data || []
+  const currentRegStatus = useMemo(() => {
+    if (!id || !isAuthenticated) return undefined
+    return registeredStatusMap[String(id)]
+  }, [registeredStatusMap, id, isAuthenticated])
 
-        return [
-          ...(Array.isArray(historyList) ? historyList : []),
-          ...(Array.isArray(upcomingList) ? upcomingList : []),
-        ]
-      } catch {
-        return []
-      }
-    },
-    enabled: isAuthenticated,
-  })
-
-  const currentRegistration = useMemo(() => {
-    if (!id || !isAuthenticated) return null
-    return (
-      userRegistrations.find(
-        (r: any) =>
-          String(r.eventId || r.id) === String(id) &&
-          String(r.status || '').toUpperCase() !== 'CANCELLED'
-      ) || null
-    )
-  }, [userRegistrations, id, isAuthenticated])
-
-  const isEventRegistered = Boolean(currentRegistration)
-  const currentRegStatus = currentRegistration?.status
-    ? String(currentRegistration.status).toUpperCase()
-    : undefined
+  const isEventRegistered = Boolean(currentRegStatus)
 
   const handleRegister = (_eventId: string) => {
     queryClient.setQueryData(['events', id], (old: Event | undefined) =>
       old ? { ...old, isRegistered: true, registeredCount: (old.registeredCount || 0) + 1 } : old
+    )
+    queryClient.setQueriesData<Record<string, string>>(
+      { queryKey: ['registrations', 'me'] },
+      (old) => ({
+        ...(old && !Array.isArray(old) ? old : {}),
+        ...(id ? { [String(id)]: 'REGISTERED' } : {}),
+      })
     )
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
@@ -152,6 +121,15 @@ export const EventDetailPage: React.FC = () => {
             registeredCount: Math.max(0, (old.registeredCount || 1) - 1),
           }
         : old
+    )
+    queryClient.setQueriesData<Record<string, string>>(
+      { queryKey: ['registrations', 'me'] },
+      (old) => {
+        if (!old || Array.isArray(old) || !id) return old
+        const next = { ...old }
+        delete next[String(id)]
+        return next
+      }
     )
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })

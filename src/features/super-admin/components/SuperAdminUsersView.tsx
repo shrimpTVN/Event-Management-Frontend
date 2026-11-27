@@ -1,7 +1,7 @@
 import { Tooltip } from '@/components/ui/tooltip'
 import { AdminActionMenu } from './AdminActionMenu'
 import { getUserDisplayRole, isValidUserId } from '../services/superAdminService'
-import { UserPermissionBadges, UserStatusBadge } from './AdminDetails'
+import { UserPermissionBadges, UserStatusBadge, AdminPaginationBar } from './AdminDetails'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import React, { useState, useMemo } from 'react'
@@ -13,12 +13,22 @@ interface SuperAdminUsersViewProps {
   users: SuperAdminUser[]
   onSelectUser: (user: SuperAdminUser) => void
   onToggleStatus: (userId: string) => void
+  page?: number
+  totalPages?: number
+  totalElements?: number
+  onPageChange?: (page: number) => void
+  onActiveFilterChange?: (isActive: boolean) => void
 }
 
 export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
   users,
   onSelectUser,
   onToggleStatus,
+  page = 0,
+  totalPages = 1,
+  totalElements,
+  onPageChange,
+  onActiveFilterChange,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'ALL' | UserRole | UserStatus>('ALL')
@@ -89,7 +99,7 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-muted/40 dark:bg-muted/40 text-muted-foreground border border-border dark:border-border">
-            Tổng {users.length} tài khoản
+            Tổng {totalElements ?? users.length} tài khoản
           </span>
         </div>
       </div>
@@ -106,7 +116,10 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                 size="sm"
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id)
+                  onActiveFilterChange?.(tab.id !== 'LOCKED')
+                }}
                 className={cn(
                   'h-auto rounded-b-none px-4 sm:px-5 py-2.5 text-xs sm:text-sm transition-all duration-150 cursor-pointer whitespace-nowrap select-none flex items-center gap-1.5',
                   isActive
@@ -465,6 +478,15 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
               </div>
             </div>
           </div>
+
+          {onPageChange && (
+            <AdminPaginationBar
+              page={page}
+              totalPages={totalPages}
+              totalElements={totalElements ?? users.length}
+              onPageChange={onPageChange}
+            />
+          )}
         </div>
       </div>
     </div>

@@ -50,7 +50,7 @@ function renderHome() {
     pointCategories: [],
   })
   client.setQueryData(
-    ['events', 'feed'],
+    ['events', 'feed', 'PUBLISHED'],
     [
       event,
       {
@@ -147,7 +147,7 @@ describe('student home event views', () => {
       pointCategories: [],
     })
     client.setQueryData(
-      ['events', 'feed'],
+      ['events', 'feed', 'PUBLISHED'],
       [
         {
           ...event,
@@ -243,7 +243,7 @@ describe('student home event views', () => {
       recommendationScore: 95,
       isRecommended: true,
     }
-    client.setQueryData(['events', 'feed'], [regularEvent, recommendedEventA])
+    client.setQueryData(['events', 'feed', 'PUBLISHED'], [regularEvent, recommendedEventA])
     client.setQueryData(['events', 'recommendations', true], [recommendedEventA])
 
     render(
@@ -393,7 +393,7 @@ describe('student home event views', () => {
       isRecommended: true,
       isViewed: true,
     }
-    client.setQueryData(['events', 'feed'], [unseenRecommended, viewedRecommended])
+    client.setQueryData(['events', 'feed', 'PUBLISHED'], [unseenRecommended, viewedRecommended])
     client.setQueryData(
       ['events', 'recommendations', true],
       [unseenRecommended, viewedRecommended]

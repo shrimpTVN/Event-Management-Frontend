@@ -110,48 +110,59 @@ export const StaffFanpageHub: React.FC = () => {
     }
   }
 
-  const { data: invitations = [] } = useQuery<FanpageInvitation[]>({
+  const {
+    data: invitations = [],
+    isError: isInvitationsError,
+    refetch: refetchInvitations,
+  } = useQuery<FanpageInvitation[]>({
     queryKey: ['staff-fanpage-invitations'],
     queryFn: async () => {
-      try {
-        const res: any = await apiClient.get('/fanpages/fanpage-admin/invitations')
-        const list = Array.isArray(res) ? res : res?.data || []
-        return list.map((inv: any) => ({
-          ...inv,
-          avatarUrl: inv.avatarUrl,
-        }))
-      } catch {
-        return []
-      }
+      const res: any = await apiClient.get('/fanpages/fanpage-admin/invitations')
+      const list = Array.isArray(res) ? res : res?.data || []
+      return list.map((inv: any) => ({
+        ...inv,
+        avatarUrl: inv.avatarUrl,
+      }))
     },
   })
 
-  const { data: apiFanpages = [] } = useQuery<JoinedFanpage[]>({
+  const {
+    data: apiFanpages = [],
+    isLoading: isLoadingFanpages,
+    isError: isFanpagesError,
+    refetch: refetchFanpages,
+  } = useQuery<JoinedFanpage[]>({
     queryKey: ['staff-my-fanpages', user?.id],
     queryFn: async () => {
+      let res: any
       try {
-        const res: any = await apiClient.get('/fanpages/my-fanpages')
-        const list = Array.isArray(res) ? res : res?.data || []
-        return list.map((fp: any) => {
-          const id = String(fp.fanpageId ?? fp.id ?? '')
-          const name = fp.fanpageName ?? fp.name ?? ''
-          const orgName = fp.fanpageOrgName ?? fp.orgName ?? fp.parentOrg ?? ''
-          const avatarUrl = fp.fanpageAvatarUrl ?? fp.avatarUrl ?? ''
-          const role = fp.role ?? fp.memberRole ?? (fp.isAdmin === false ? 'MEMBER' : 'ADMIN')
-
-          return {
-            id,
-            name,
-            orgName,
-            role,
-            followersCount: fp.followersCount || fp.followerCount || 0,
-            eventsCount: fp.eventsCount || fp.eventCount || 0,
-            avatarUrl,
-          }
-        })
-      } catch {
-        return []
+        res = await apiClient.get('/fanpages/my-fanpages')
+      } catch (primaryErr: any) {
+        const status = primaryErr?.response?.status
+        if (status === 404 || status === 405) {
+          res = await apiClient.get('/fanpages/fanpage-admin/my-fanpages')
+        } else {
+          throw primaryErr
+        }
       }
+      const list = Array.isArray(res) ? res : res?.data || []
+      return list.map((fp: any) => {
+        const id = String(fp.fanpageId ?? fp.id ?? '')
+        const name = fp.fanpageName ?? fp.name ?? ''
+        const orgName = fp.fanpageOrgName ?? fp.orgName ?? fp.parentOrg ?? ''
+        const avatarUrl = fp.fanpageAvatarUrl ?? fp.avatarUrl ?? ''
+        const role = fp.role ?? fp.memberRole ?? (fp.isAdmin === false ? 'MEMBER' : 'ADMIN')
+
+        return {
+          id,
+          name,
+          orgName,
+          role,
+          followersCount: fp.followersCount || fp.followerCount || 0,
+          eventsCount: fp.eventsCount || fp.eventCount || 0,
+          avatarUrl,
+        }
+      })
     },
   })
 
@@ -257,6 +268,24 @@ export const StaffFanpageHub: React.FC = () => {
           </div>
 
           {/* LỜI MỜI THAM GIA (Chỉ hiển thị khi có lời mời đang chờ - PENDING) */}
+          {isInvitationsError && (
+            <div
+              role="alert"
+              className="rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 flex items-center justify-between gap-3 text-xs text-destructive"
+            >
+              <span>Không tải được danh sách lời mời tham gia fanpage.</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void refetchInvitations()}
+                className="h-7 px-2.5 text-xs bg-background text-foreground"
+              >
+                Thử lại
+              </Button>
+            </div>
+          )}
+
           {pendingInvitations.length > 0 && (
             <div className="rounded-2xl border border-amber-200/90 dark:border-amber-900/50 bg-gradient-to-r from-amber-50/80 via-orange-50/40 to-transparent dark:from-amber-950/25 dark:via-orange-950/15 dark:to-transparent p-5 flex flex-col gap-3.5">
               <div className="flex items-center gap-2">
@@ -333,7 +362,31 @@ export const StaffFanpageHub: React.FC = () => {
               </h2>
             </div>
 
-            {fanpagesList.length === 0 ? (
+            {isLoadingFanpages ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                Đang tải danh sách fanpage...
+              </div>
+            ) : isFanpagesError ? (
+              <div
+                role="alert"
+                className="p-8 sm:p-10 rounded-2xl border border-destructive/25 bg-destructive/5 text-center flex flex-col items-center justify-center gap-3"
+              >
+                <h3 className="font-k2d font-bold text-base sm:text-lg text-destructive">
+                  Không tải được danh sách fanpage
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground max-w-md">
+                  Đã xảy ra lỗi khi kết nối máy chủ. Vui lòng thử lại để kiểm tra quyền quản trị
+                  fanpage của bạn.
+                </p>
+                <Button
+                  type="button"
+                  onClick={() => void refetchFanpages()}
+                  className="mt-1 px-4 py-2 text-xs font-semibold"
+                >
+                  Thử lại
+                </Button>
+              </div>
+            ) : fanpagesList.length === 0 ? (
               <div className="p-8 sm:p-12 rounded-2xl border border-dashed border-[#D1D5DB] dark:border-border bg-[#F9FAFB]/70 dark:bg-card/50 text-center flex flex-col items-center justify-center gap-4">
                 <div className="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#1B4B8A] dark:text-primary flex items-center justify-center shadow-2xs">
                   <Building2 className="h-8 w-8 stroke-[1.75]" />

@@ -30,7 +30,7 @@ export const RegistrationPage: React.FC = () => {
               <span>Quay lại thông tin sự kiện</span>
             </Link>
 
-            <RegistrationForm eventId={id || 'evt-1'} />
+            <RegistrationForm eventId={id || ''} />
           </div>
         </main>
       </div>

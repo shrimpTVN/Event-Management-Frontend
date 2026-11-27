@@ -19,19 +19,32 @@ export function SuperAdminSchoolsView({
   onOpenEditSchoolModal,
   onOpenCreateMajorModal,
   onOpenEditMajorModal,
+  selectedSchoolId,
+  onSelectSchool,
+  selectedSchoolDetail,
+  isLoadingDetail = false,
 }: {
   schools: SuperAdminSchool[]
   onOpenCreateSchoolModal: () => void
   onOpenEditSchoolModal: (school: SuperAdminSchool) => void
   onOpenCreateMajorModal: (id: number) => void
   onOpenEditMajorModal: (major: SuperAdminMajor) => void
+  selectedSchoolId?: number | null
+  onSelectSchool?: (schoolId: number) => void
+  selectedSchoolDetail?: SuperAdminSchool | null
+  isLoadingDetail?: boolean
 }) {
-  const [schoolId, setSchoolId] = useState<number | null>(null)
+  const [internalSchoolId, setInternalSchoolId] = useState<number | null>(null)
+  const schoolId = selectedSchoolId ?? internalSchoolId
   const [schoolSearch, setSchoolSearch] = useState('')
   const [majorSearch, setMajorSearch] = useState('')
   const [status, setStatus] = useState('ALL')
   const filteredSchools = schools.filter((school) => matchesPageSearch(schoolSearch, school.name))
-  const selected = filteredSchools.find((school) => school.id === schoolId) || filteredSchools[0]
+  const baseSelected = filteredSchools.find((school) => school.id === schoolId) || filteredSchools[0]
+  const selected =
+    baseSelected && selectedSchoolDetail && selectedSchoolDetail.id === baseSelected.id
+      ? { ...baseSelected, ...selectedSchoolDetail }
+      : baseSelected
   const majors = (selected?.majors || []).filter(
     (major) =>
       major.schoolId === selected?.id &&
@@ -79,7 +92,8 @@ export function SuperAdminSchoolsView({
                   className="h-auto min-w-0 flex-1 flex-col items-start gap-1 whitespace-normal px-3 py-3 text-left"
                   aria-pressed={selected?.id === school.id}
                   onClick={() => {
-                    setSchoolId(school.id)
+                    setInternalSchoolId(school.id)
+                    onSelectSchool?.(school.id)
                     setMajorSearch('')
                     setStatus('ALL')
                   }}
@@ -146,7 +160,9 @@ export function SuperAdminSchoolsView({
                   </SelectContent>
                 </Select>
               </div>
-              <p className="text-xs text-muted-foreground">{majors.length} ngành học</p>
+              <p className="text-xs text-muted-foreground">
+                {isLoadingDetail ? 'Đang tải danh sách ngành học...' : `${majors.length} ngành học`}
+              </p>
               {majors.length ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">

@@ -27,6 +27,35 @@ export const EMPTY_ACTIVITY_STATS: FanpageActivityStats = {
   pendingCommentsCount: 0,
 }
 
+export function formatUpcomingEventReminder(raw: any): UpcomingEventReminder | null {
+  if (!raw || typeof raw !== 'object' || raw.id == null) return null
+  const title = String(raw.title ?? raw.name ?? '').trim()
+  if (!title) return null
+
+  const registrationsCount = Number(raw.registrationsCount ?? raw.registeredCount ?? 0)
+  const rawDate = raw.dateHappen ?? raw.startTime ?? raw.startsAt
+  const parsed = rawDate ? new Date(rawDate) : null
+  const hasValidDate = Boolean(parsed && !Number.isNaN(parsed.getTime()))
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const monthText = raw.monthText || (hasValidDate ? `TH${parsed!.getMonth() + 1}` : '')
+  const dayText = raw.dayText || (hasValidDate ? pad(parsed!.getDate()) : '')
+  const dateText =
+    raw.dateText ||
+    (hasValidDate
+      ? `${pad(parsed!.getDate())}/${pad(parsed!.getMonth() + 1)}/${parsed!.getFullYear()} · ${pad(parsed!.getHours())}:${pad(parsed!.getMinutes())}`
+      : '')
+
+  return {
+    id: String(raw.id),
+    title,
+    monthText,
+    dayText,
+    registrationsCount: Number.isFinite(registrationsCount) ? registrationsCount : 0,
+    dateText,
+  }
+}
+
 const CTU_CRITERIA_CODE_MAP: Record<number, string> = {
   10: 'mục I.a',
   11: 'mục I.b',
@@ -231,23 +260,57 @@ export const fanpageAdminService = {
     if (!fanpageId) return null
     try {
       const res: any = await apiClient.get(`/fanpages/${fanpageId}/upcoming-reminder`)
-      return res || null
+      return formatUpcomingEventReminder(res)
     } catch {
       return null
     }
   },
 
   /**
-   * Fetches raw event list once for both feed posts and admin event table
+   * Fetches all raw events across pages once for feed posts, admin event table, and accurate total count
    */
-  getFanpageEventsRaw: async (fanpageId?: string | number): Promise<any[]> => {
+  getFanpageEventsRaw: async (
+    fanpageId?: string | number
+  ): Promise<any[] & { __totalElements?: number }> => {
     if (!fanpageId) return []
-    try {
-      const res: any = await apiClient.get(`/events/fanpage/${fanpageId}?size=100`)
-      return res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
-    } catch {
-      return []
+    const all: any[] = []
+    let page = 0
+    let totalElements: number | undefined
+
+    while (true) {
+      const res: any = await apiClient.get(`/events/fanpage/${fanpageId}`, {
+        params: { page, size: 100 },
+      })
+      const data = res?.data ?? res
+      const rows = Array.isArray(res)
+        ? res
+        : res?.content || res?.data?.content || (Array.isArray(data) ? data : [])
+      if (totalElements === undefined) {
+        const rawTotal = res?.totalElements ?? data?.totalElements
+        if (typeof rawTotal === 'number') totalElements = rawTotal
+      }
+      if (!Array.isArray(rows)) break
+      all.push(...rows)
+
+      const totalPages =
+        typeof res?.totalPages === 'number'
+          ? res.totalPages
+          : typeof data?.totalPages === 'number'
+            ? data.totalPages
+            : undefined
+      const isLast = typeof res?.last === 'boolean' ? res.last : data?.last
+      const hasMore = totalPages !== undefined ? page + 1 < totalPages : isLast === false
+      if (Array.isArray(res) || Array.isArray(data) || !hasMore || rows.length === 0) break
+      page += 1
     }
+
+    if (typeof totalElements === 'number') {
+      Object.defineProperty(all, '__totalElements', {
+        value: totalElements,
+        enumerable: false,
+      })
+    }
+    return all
   },
 
   mapEventsToFeedPosts: (list: any[], fanpageId?: string | number): FanpageFeedPost[] => {

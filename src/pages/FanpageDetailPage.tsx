@@ -3,7 +3,7 @@ import { matchesPageSearch, useMobilePageSearch } from '@/shared/components/layo
 import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/features/auth'
-import { apiClient } from '@/shared'
+import { userRegistrationsQueryOptions } from '@/shared/services/userRegistrations'
 import {
   FanpagePublicHeader,
   FanpageAboutCard,
@@ -32,61 +32,39 @@ export const FanpageDetailPage: React.FC = () => {
   const fanpageId = id || '1'
   const queryClient = useQueryClient()
 
-  const { data: fanpage, isLoading: isLoadingFanpage } = useQuery({
+  const {
+    data: fanpage,
+    isLoading: isLoadingFanpage,
+    isError: isFanpageError,
+    error: fanpageError,
+    refetch: refetchFanpage,
+  } = useQuery({
     queryKey: ['fanpage', fanpageId],
     queryFn: () => fanpageService.getFanpageById(fanpageId),
     enabled: Boolean(fanpageId),
   })
 
-  const { data: events = [], isLoading: isLoadingEvents } = useQuery({
+  const {
+    data: events = [],
+    isLoading: isLoadingEvents,
+    isError: isEventsError,
+    refetch: refetchEvents,
+  } = useQuery({
     queryKey: ['fanpage', fanpageId, 'events'],
     queryFn: () => fanpageService.getEventsByFanpage(fanpageId),
     enabled: Boolean(fanpageId),
   })
 
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
 
-  // Fetch registered events for the user to accurately mark isRegistered and registrationStatus state
-  const { data: userRegistrations = [] } = useQuery<any[]>({
-    queryKey: ['registrations', 'me', isAuthenticated],
-    queryFn: async () => {
-      if (!isAuthenticated) return []
-      try {
-        const [historyRes, upcomingRes] = await Promise.allSettled([
-          apiClient.get('/registrations/me/history', { params: { size: 100 } }),
-          apiClient.get('/registrations/me/upcoming'),
-        ])
-        const historyVal = historyRes.status === 'fulfilled' ? (historyRes.value as any) : null
-        const upcomingVal = upcomingRes.status === 'fulfilled' ? (upcomingRes.value as any) : null
+  // Fetch registered events using shared user-scoped query (loads all pages, rejects on source failure)
+  const { data: registeredStatusMap = {} } = useQuery(
+    userRegistrationsQueryOptions(isAuthenticated, user?.id)
+  )
 
-        const historyList =
-          historyVal?.content || historyVal?.data?.content || historyVal?.data || []
-        const upcomingList =
-          upcomingVal?.content || upcomingVal?.data?.content || upcomingVal?.data || []
-
-        return [
-          ...(Array.isArray(historyList) ? historyList : []),
-          ...(Array.isArray(upcomingList) ? upcomingList : []),
-        ]
-      } catch {
-        return []
-      }
-    },
-    enabled: isAuthenticated,
-  })
-
-  // Map eventId -> registration status (REGISTERED, CHECKED_IN, COMPLETED...)
   const registeredEventMap = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const r of userRegistrations) {
-      const eid = String(r.eventId || r.id)
-      const st = String(r.status || 'REGISTERED').toUpperCase()
-      if (st !== 'CANCELLED') {
-        map.set(eid, st)
-      }
-    }
-    return map
-  }, [userRegistrations])
+    return new Map<string, string>(Object.entries(registeredStatusMap))
+  }, [registeredStatusMap])
 
   const eventsWithRegisteredState = useMemo(() => {
     return events.map((event) => {
@@ -138,10 +116,13 @@ export const FanpageDetailPage: React.FC = () => {
           : e
       )
     )
-    queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) => [
-      ...(Array.isArray(old) ? old : []),
-      { eventId: Number(eventId), status: 'REGISTERED' },
-    ])
+    queryClient.setQueriesData<Record<string, string>>(
+      { queryKey: ['registrations', 'me'] },
+      (old) => ({
+        ...(old && !Array.isArray(old) ? old : {}),
+        [String(eventId)]: 'REGISTERED',
+      })
+    )
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
     showToast('Đăng ký tham gia sự kiện thành công!', 'success')
@@ -159,10 +140,14 @@ export const FanpageDetailPage: React.FC = () => {
           : e
       )
     )
-    queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) =>
-      (Array.isArray(old) ? old : []).filter(
-        (r: any) => String(r.eventId || r.id) !== String(eventId)
-      )
+    queryClient.setQueriesData<Record<string, string>>(
+      { queryKey: ['registrations', 'me'] },
+      (old) => {
+        if (!old || Array.isArray(old)) return old
+        const next = { ...old }
+        delete next[String(eventId)]
+        return next
+      }
     )
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
@@ -426,6 +411,27 @@ export const FanpageDetailPage: React.FC = () => {
                           </div>
                         ))}
                       </div>
+                    ) : isEventsError ? (
+                      <div
+                        role="alert"
+                        className="w-full bg-white dark:bg-card border border-destructive/30 rounded-xl p-8 sm:p-10 text-center flex flex-col items-center justify-center gap-3"
+                      >
+                        <AlertCircle className="h-7 w-7 text-destructive" />
+                        <h3 className="font-heading font-semibold text-sm text-foreground">
+                          Không thể tải danh sách sự kiện
+                        </h3>
+                        <p className="text-xs text-muted-foreground max-w-sm">
+                          Đã xảy ra lỗi khi tải sự kiện của fanpage. Vui lòng thử lại.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => void refetchEvents()}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span>Thử lại</span>
+                        </button>
+                      </div>
                     ) : filteredEvents.length > 0 ? (
                       <div className="student-post-feed flex flex-col gap-2">
                         {filteredEvents.map((event) => (
@@ -476,6 +482,29 @@ export const FanpageDetailPage: React.FC = () => {
                 {/* Bottom spacer for generous breathing room when scrolled to the end */}
                 <div className="h-28 sm:h-36 w-full shrink-0" aria-hidden="true" />
               </>
+            ) : isFanpageError &&
+              (fanpageError as { response?: { status?: number } } | null)?.response?.status !==
+                404 ? (
+              <div
+                role="alert"
+                className="w-full rounded-2xl border border-destructive/30 bg-card p-12 text-center flex flex-col items-center justify-center gap-3"
+              >
+                <AlertCircle className="h-8 w-8 text-destructive" />
+                <h3 className="font-semibold text-foreground text-base">
+                  Không thể tải thông tin Fanpage
+                </h3>
+                <p className="text-xs text-muted-foreground max-w-sm">
+                  Đã xảy ra lỗi kết nối máy chủ. Vui lòng thử lại.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void refetchFanpage()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Thử lại</span>
+                </button>
+              </div>
             ) : (
               <div className="w-full rounded-2xl border border-dashed border-border bg-card p-12 text-center flex flex-col items-center justify-center gap-2">
                 <h3 className="font-semibold text-foreground text-base">

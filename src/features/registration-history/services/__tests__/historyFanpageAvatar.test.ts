@@ -61,4 +61,41 @@ describe('history fanpage avatars', () => {
     })
     expect((await historyService.getMyHistory())[0].organizer?.avatarUrl).toBeUndefined()
   })
+
+  it('fetches all pages beyond 100 history records and propagates API failures', async () => {
+    get.mockImplementation(async (url: string, config?: any) => {
+      if (url === '/registrations/me/history') {
+        const page = config?.params?.page ?? 0
+        if (page === 0) {
+          return {
+            content: Array.from({ length: 100 }, (_, i) => ({
+              id: `reg-${i + 1}`,
+              eventInfo: { id: i + 1, name: `Sự kiện ${i + 1}`, fanpageAvatarUrl: '/ok.png' },
+            })),
+            totalPages: 2,
+          } as any
+        }
+        return {
+          content: [
+            {
+              id: 'reg-101',
+              eventInfo: { id: 101, name: 'Sự kiện trang 2', fanpageAvatarUrl: '/ok.png' },
+            },
+          ],
+          totalPages: 2,
+        } as any
+      }
+      return [] as any
+    })
+
+    const allEvents = await historyService.getMyHistory()
+    expect(allEvents).toHaveLength(101)
+    expect(allEvents[100].title).toBe('Sự kiện trang 2')
+
+    get.mockImplementation(async (url: string) => {
+      if (url === '/registrations/me/history') throw new Error('Network failure')
+      return [] as any
+    })
+    await expect(historyService.getMyHistory()).rejects.toThrow('Network failure')
+  })
 })

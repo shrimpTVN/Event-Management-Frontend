@@ -10,9 +10,11 @@ import {
   Calendar,
   AlertCircle,
   Loader2,
+  RotateCcw,
 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import { apiClient } from '@/shared'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { eventService, type Event } from '@/features/events'
+import { profileService } from '@/features/profile'
 import { registrationService } from '../services/registrationService'
 
 interface RegistrationFormProps {
@@ -21,32 +23,39 @@ interface RegistrationFormProps {
 }
 
 export const RegistrationForm: React.FC<RegistrationFormProps> = ({ eventId, onSubmitSuccess }) => {
+  const queryClient = useQueryClient()
   const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [committed, setCommitted] = useState(true)
 
-  // 1. Fetch current student profile
+  // 1. Fetch current student profile via profileService (supports UserInfoResponseDto)
   const { data: profile } = useQuery<any>({
     queryKey: ['student', 'profile', 'me'],
-    queryFn: async () => {
-      const res: any = await apiClient.get('/users/me/profile')
-      return res?.data || res
-    },
+    queryFn: () => profileService.getMyProfile(),
   })
 
-  // 2. Fetch target event info
-  const { data: event, isLoading: isLoadingEvent } = useQuery<any>({
+  // 2. Fetch target event info using the same normalized shape and cache key as EventDetailPage
+  const {
+    data: event,
+    isLoading: isLoadingEvent,
+    isError: isEventError,
+    refetch: refetchEvent,
+  } = useQuery<Event>({
     queryKey: ['events', eventId],
-    queryFn: async () => {
-      const res: any = await apiClient.get(`/events/${eventId}`)
-      return res?.data || res
-    },
+    queryFn: () => eventService.getEventById(eventId),
     enabled: Boolean(eventId),
   })
 
+  const isEventValid = Boolean(event?.id && (event?.title || (event as any)?.name))
+  const canSubmit = Boolean(eventId) && !isLoadingEvent && !isEventError && isEventValid
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!canSubmit) {
+      setErrorMessage('Không có thông tin sự kiện hợp lệ để gửi đăng ký.')
+      return
+    }
     if (!committed) {
       setErrorMessage('Vui lòng xác nhận cam kết tham gia sự kiện.')
       return
@@ -59,6 +68,25 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ eventId, onS
         fullName: profile?.fullName || profile?.name || 'Chưa cập nhật',
         email: profile?.email || 'Chưa cập nhật',
       })
+      queryClient.setQueryData<Event>(['events', eventId], (old) =>
+        old
+          ? {
+              ...old,
+              isRegistered: true,
+              registrationStatus: 'REGISTERED',
+              registeredCount: (old.registeredCount || 0) + 1,
+            }
+          : old
+      )
+      queryClient.setQueriesData<Record<string, string>>(
+        { queryKey: ['registrations', 'me'] },
+        (old) => ({
+          ...(old && !Array.isArray(old) ? old : {}),
+          [String(eventId)]: 'REGISTERED',
+        })
+      )
+      void queryClient.invalidateQueries({ queryKey: ['registrations'] })
+      void queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
       setSubmitted(true)
       onSubmitSuccess?.()
     } catch (err: any) {
@@ -122,26 +150,59 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ eventId, onS
       )}
 
       {/* Event Overview Box */}
-      <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-2">
-        <span className="text-[11px] font-semibold text-primary uppercase tracking-wide">
-          Sự kiện đăng ký
-        </span>
-        <h3 className="font-semibold text-sm text-foreground">
-          {isLoadingEvent ? 'Đang tải thông tin...' : event?.name || event?.title || 'Sự kiện CTU'}
-        </h3>
-        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground pt-1">
-          <span className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5 text-primary" />
-            {event?.dateHappen
-              ? new Date(event.dateHappen).toLocaleDateString('vi-VN')
-              : 'Tháng 10/2026'}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Award className="h-3.5 w-3.5 text-amber-500" />
-            {event?.pointsReward || '+3 - 5 điểm rèn luyện'}
-          </span>
+      {!eventId || isEventError || (!isLoadingEvent && !isEventValid) ? (
+        <div
+          role="alert"
+          className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive space-y-2"
+        >
+          <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>
+              {!eventId
+                ? 'Không xác định được sự kiện cần đăng ký.'
+                : 'Không tải được thông tin sự kiện hợp lệ.'}
+            </span>
+          </div>
+          <p className="text-xs text-destructive/90">
+            Vui lòng thử tải lại thông tin sự kiện trước khi xác nhận đăng ký.
+          </p>
+          {eventId && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void refetchEvent()}
+              className="inline-flex items-center gap-1.5 text-xs bg-background text-foreground"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Thử lại</span>
+            </Button>
+          )}
         </div>
-      </div>
+      ) : (
+        <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-2">
+          <span className="text-[11px] font-semibold text-primary uppercase tracking-wide">
+            Sự kiện đăng ký
+          </span>
+          <h3 className="font-semibold text-sm text-foreground">
+            {isLoadingEvent
+              ? 'Đang tải thông tin...'
+              : event?.title || (event as any)?.name || '—'}
+          </h3>
+          <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground pt-1">
+            <span className="flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              {event?.dateHappen || event?.startTime
+                ? new Date(event.dateHappen || event.startTime).toLocaleDateString('vi-VN')
+                : '—'}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Award className="h-3.5 w-3.5 text-amber-500" />
+              {event?.pointsReward || 'Theo quy định sự kiện'}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Student Profile Info Card */}
       <div className="space-y-3">
@@ -199,7 +260,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ eventId, onS
 
         <Button
           type="submit"
-          disabled={isSubmitting || !committed}
+          disabled={isSubmitting || !committed || !canSubmit}
           className="student-registration-submit w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all shadow cursor-pointer"
         >
           {isSubmitting ? (

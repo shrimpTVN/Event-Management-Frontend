@@ -45,7 +45,7 @@ describe('StudentLeftSidebar Unread Indicator', () => {
       if (url.includes('/fanpages/following')) {
         return {
           content: [
-            { id: 1, name: 'CLB Tin Học', avatarUrl: '' },
+            { id: 1, orgName: 'CLB Tin Học', avatarUrl: '' },
             { id: 2, name: 'CLB Tiếng Anh', avatarUrl: '' },
           ],
         }
@@ -106,6 +106,31 @@ describe('StudentLeftSidebar Unread Indicator', () => {
 
     expect(await screen.findByText('CLB Tin Học')).toBeInTheDocument()
     expect(screen.queryByText('Có sự kiện mới')).not.toBeInTheDocument()
+    expect(eventService.getEvents).toHaveBeenCalledWith({ statuses: ['PUBLISHED'] })
+  })
+
+  it('shows error state and never falls back to /fanpages when authenticated /fanpages/following fails', async () => {
+    vi.mocked(eventService.getEvents).mockResolvedValue([])
+    vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
+      if (url.includes('/fanpages/following')) {
+        throw new Error('500')
+      }
+      if (url === '/fanpages') {
+        return { content: [{ id: 99, name: 'Fanpage Chưa Theo Dõi', avatarUrl: '' }] }
+      }
+      return []
+    })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/']}>
+          <StudentLeftSidebar />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('Không tải được danh sách trang theo dõi')).toBeInTheDocument()
+    expect(screen.queryByText('Fanpage Chưa Theo Dõi')).not.toBeInTheDocument()
   })
 
   it('keeps the original group order and shows four fanpages on phones until expanded', () => {

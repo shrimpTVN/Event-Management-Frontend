@@ -72,8 +72,9 @@ export const fanpageService = {
       const items =
         res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
       return items.map(normalizeEvent)
-    } catch {
-      try {
+    } catch (primaryErr: any) {
+      const status = primaryErr?.response?.status
+      if (status === 404 || status === 405) {
         const resFallback: any = await apiClient.get(`/events?fanpageId=${id}&size=100`)
         const itemsFallback =
           resFallback?.content ||
@@ -81,9 +82,8 @@ export const fanpageService = {
           resFallback?.data ||
           (Array.isArray(resFallback) ? resFallback : [])
         return itemsFallback.map(normalizeEvent)
-      } catch {
-        return []
       }
+      throw primaryErr
     }
   },
 

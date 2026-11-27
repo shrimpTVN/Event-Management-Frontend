@@ -13,10 +13,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
 import { useAuthStore } from '@/features/auth'
-import { apiClient } from '@/shared'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fanpageService } from '@/features/fanpage'
 import { isEventMatchingRegistrationStatus } from '@/features/events/services/eventService'
+import {
+  followedFanpagesQueryKey,
+  fetchFollowedFanpages,
+} from '@/shared/services/followedFanpages'
+import { userRegistrationsQueryOptions } from '@/shared/services/userRegistrations'
 import {
   StudentLeftSidebar,
   StudentRightSidebar,
@@ -69,8 +73,13 @@ export const HomePage: React.FC = () => {
   const scrollContainerRef = useRef<HTMLElement | null>(null)
   const feedListRef = useRef<HTMLDivElement | null>(null)
 
-  const { data: events = [], isLoading } = useQuery({
-    queryKey: ['events', 'feed'],
+  const {
+    data: events = [],
+    isLoading,
+    isError: isFeedError,
+    refetch: refetchFeed,
+  } = useQuery({
+    queryKey: ['events', 'feed', 'PUBLISHED'],
     queryFn: () => eventService.getEvents({ statuses: ['PUBLISHED'] }),
   })
 
@@ -102,19 +111,10 @@ export const HomePage: React.FC = () => {
     return map
   }, [recommendedEvents])
 
-  // Fetch followed fanpages for the user to accurately mark follow state
-  const { data: followedFanpages = [] } = useQuery<any[]>({
-    queryKey: ['fanpages', 'sidebar', isAuthenticated],
-    queryFn: async () => {
-      if (!isAuthenticated) return []
-      try {
-        const res: any = await apiClient.get('/fanpages/following', { params: { size: 50 } })
-        const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
-        return list
-      } catch {
-        return []
-      }
-    },
+  // Fetch followed fanpages using shared normalized query key & shape across Home/Detail/Sidebar
+  const { data: followedFanpages = [] } = useQuery({
+    queryKey: followedFanpagesQueryKey(isAuthenticated),
+    queryFn: () => (isAuthenticated ? fetchFollowedFanpages() : Promise.resolve([])),
     enabled: isAuthenticated,
   })
 
@@ -140,48 +140,14 @@ export const HomePage: React.FC = () => {
     return new Set(storedEvents.map((e) => String(e.id)))
   }, [storedEvents])
 
-  // Fetch registered events for the user to accurately mark isRegistered and registrationStatus state
-  const { data: userRegistrations = [] } = useQuery<any[]>({
-    queryKey: ['registrations', 'me', isAuthenticated],
-    queryFn: async () => {
-      if (!isAuthenticated) return []
-      try {
-        const [historyRes, upcomingRes] = await Promise.allSettled([
-          apiClient.get('/registrations/me/history', { params: { size: 100 } }),
-          apiClient.get('/registrations/me/upcoming'),
-        ])
-        const historyVal = historyRes.status === 'fulfilled' ? (historyRes.value as any) : null
-        const upcomingVal = upcomingRes.status === 'fulfilled' ? (upcomingRes.value as any) : null
-
-        const historyList =
-          historyVal?.content || historyVal?.data?.content || historyVal?.data || []
-        const upcomingList =
-          upcomingVal?.content || upcomingVal?.data?.content || upcomingVal?.data || []
-
-        const combined = [
-          ...(Array.isArray(historyList) ? historyList : []),
-          ...(Array.isArray(upcomingList) ? upcomingList : []),
-        ]
-        return combined
-      } catch {
-        return []
-      }
-    },
-    enabled: isAuthenticated,
-  })
+  // Fetch registered events using shared user-scoped query (loads all pages, rejects on source failure)
+  const { data: registeredStatusMap = {} } = useQuery(
+    userRegistrationsQueryOptions(isAuthenticated, user?.id)
+  )
 
   const registeredEventMap = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const r of userRegistrations) {
-      const eid = String(r.eventId || r.id)
-      const status = String(r.status || 'REGISTERED').toUpperCase()
-      // Bất kỳ trạng thái nào ngoài CANCELLED đều có nghĩa là sinh viên đã đăng ký sự kiện này
-      if (status !== 'CANCELLED') {
-        map.set(eid, status)
-      }
-    }
-    return map
-  }, [userRegistrations])
+    return new Map<string, string>(Object.entries(registeredStatusMap))
+  }, [registeredStatusMap])
 
   const eventsWithFollowState = useMemo(() => {
     return events.map((evt) => {
@@ -367,7 +333,7 @@ export const HomePage: React.FC = () => {
   }, [isAuthenticated, viewUserKey, token, queryClient])
 
   const handleRegister = (eventId: string) => {
-    queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
+    queryClient.setQueryData(['events', 'feed', 'PUBLISHED'], (old: Event[] = []) =>
       old.map((evt) =>
         String(evt.id) === String(eventId)
           ? {
@@ -378,10 +344,13 @@ export const HomePage: React.FC = () => {
           : evt
       )
     )
-    queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) => [
-      ...(Array.isArray(old) ? old : []),
-      { eventId: Number(eventId), status: 'REGISTERED' },
-    ])
+    queryClient.setQueriesData<Record<string, string>>(
+      { queryKey: ['registrations', 'me'] },
+      (old) => ({
+        ...(old && !Array.isArray(old) ? old : {}),
+        [String(eventId)]: 'REGISTERED',
+      })
+    )
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['events', 'recommendations'] })
     queryClient.invalidateQueries({ queryKey: ['registrations'] })
@@ -390,7 +359,7 @@ export const HomePage: React.FC = () => {
   }
 
   const handleCancelRegister = (eventId: string) => {
-    queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
+    queryClient.setQueryData(['events', 'feed', 'PUBLISHED'], (old: Event[] = []) =>
       old.map((evt) =>
         String(evt.id) === String(eventId)
           ? {
@@ -401,10 +370,14 @@ export const HomePage: React.FC = () => {
           : evt
       )
     )
-    queryClient.setQueryData(['registrations', 'me', isAuthenticated], (old: any[] = []) =>
-      (Array.isArray(old) ? old : []).filter(
-        (r: any) => String(r.eventId || r.id) !== String(eventId)
-      )
+    queryClient.setQueriesData<Record<string, string>>(
+      { queryKey: ['registrations', 'me'] },
+      (old) => {
+        if (!old || Array.isArray(old)) return old
+        const next = { ...old }
+        delete next[String(eventId)]
+        return next
+      }
     )
     queryClient.invalidateQueries({ queryKey: ['events'], refetchType: 'none' })
     queryClient.invalidateQueries({ queryKey: ['events', 'recommendations'] })
@@ -417,7 +390,7 @@ export const HomePage: React.FC = () => {
     const isCurrentlySaved = storedEventIds.has(String(eventId))
     const nextSavedState = !isCurrentlySaved
 
-    queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
+    queryClient.setQueryData(['events', 'feed', 'PUBLISHED'], (old: Event[] = []) =>
       old.map((evt) =>
         String(evt.id) === String(eventId) ? { ...evt, isSaved: nextSavedState } : evt
       )
@@ -443,7 +416,7 @@ export const HomePage: React.FC = () => {
     const isCurrentlyFollowed = followedFanpageIds.has(String(organizerId))
     const nextState = !isCurrentlyFollowed
 
-    queryClient.setQueryData(['events', 'feed'], (old: Event[] = []) =>
+    queryClient.setQueryData(['events', 'feed', 'PUBLISHED'], (old: Event[] = []) =>
       old.map((evt) => (evt.organizerId === organizerId ? { ...evt, isFollowed: nextState } : evt))
     )
 
@@ -615,6 +588,27 @@ export const HomePage: React.FC = () => {
                       <Skeleton className="h-52 bg-muted rounded-xl w-full" />
                     </div>
                   ))}
+                </div>
+              ) : isFeedError ? (
+                <div
+                  role="alert"
+                  className="rounded-2xl border border-destructive/30 bg-card p-8 sm:p-10 text-center flex flex-col items-center justify-center gap-3"
+                >
+                  <h3 className="font-semibold text-foreground text-base">
+                    Không thể tải danh sách sự kiện
+                  </h3>
+                  <p className="text-xs text-muted-foreground max-w-sm">
+                    Đã xảy ra lỗi khi kết nối đến máy chủ. Vui lòng thử lại.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void refetchFeed()}
+                    className="mt-1"
+                  >
+                    Thử lại
+                  </Button>
                 </div>
               ) : searchedEvents.length > 0 ? (
                 searchedEvents.map((event) => (

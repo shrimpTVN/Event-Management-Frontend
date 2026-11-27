@@ -11,13 +11,15 @@ export interface FanpageSearchItem {
 async function loadPages(
   path: string,
   keyword?: string,
-  size?: number
+  size?: number,
+  signal?: AbortSignal
 ): Promise<FanpageSearchItem[]> {
   const items: FanpageSearchItem[] = []
   let page = 0
   while (true) {
     const response: any = await apiClient.get(path, {
       params: { keyword: keyword || undefined, page, size: size || 100 },
+      signal,
     })
     const data = response?.data || response
     const rows = Array.isArray(data) ? data : data?.content || []
@@ -39,6 +41,8 @@ async function loadPages(
 }
 
 export const fanpageSearchService = {
-  search: (keyword: string, size?: number) => loadPages('/fanpages', keyword, size),
-  following: () => loadPages('/fanpages/following'),
+  search: (keyword: string, size?: number, signal?: AbortSignal) =>
+    loadPages('/fanpages', keyword, size, signal),
+  following: (signal?: AbortSignal) =>
+    loadPages('/fanpages/following', undefined, undefined, signal),
 }

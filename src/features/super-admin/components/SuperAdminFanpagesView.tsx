@@ -1,6 +1,6 @@
 import { Tooltip } from '@/components/ui/tooltip'
 import { AdminActionMenu } from './AdminActionMenu'
-import { FanpageStatusBadge } from './AdminDetails'
+import { FanpageStatusBadge, AdminPaginationBar } from './AdminDetails'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import React, { useState, useMemo } from 'react'
@@ -26,6 +26,14 @@ interface SuperAdminFanpagesViewProps {
   onSelectFanpage: (fanpage: SuperAdminFanpage) => void
   onApproveFanpage: (fanpageId: string) => void
   onToggleLockFanpage: (fanpageId: string) => void
+  page?: number
+  totalPages?: number
+  totalElements?: number
+  onPageChange?: (page: number) => void
+  statusFilter?: 'ALL' | FanpageStatus
+  onStatusFilterChange?: (status: 'ALL' | FanpageStatus) => void
+  searchQuery?: string
+  onSearchChange?: (keyword: string) => void
 }
 
 export const SuperAdminFanpagesView: React.FC<SuperAdminFanpagesViewProps> = ({
@@ -33,9 +41,27 @@ export const SuperAdminFanpagesView: React.FC<SuperAdminFanpagesViewProps> = ({
   onSelectFanpage,
   onApproveFanpage,
   onToggleLockFanpage,
+  page = 0,
+  totalPages = 1,
+  totalElements,
+  onPageChange,
+  statusFilter: controlledStatusFilter,
+  onStatusFilterChange,
+  searchQuery: controlledSearchQuery,
+  onSearchChange,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'ALL' | FanpageStatus>('ALL')
+  const [internalSearchQuery, setInternalSearchQuery] = useState('')
+  const [internalStatusFilter, setInternalStatusFilter] = useState<'ALL' | FanpageStatus>('ALL')
+  const searchQuery = controlledSearchQuery ?? internalSearchQuery
+  const statusFilter = controlledStatusFilter ?? internalStatusFilter
+  const setSearchQuery = (val: string) => {
+    setInternalSearchQuery(val)
+    onSearchChange?.(val)
+  }
+  const setStatusFilter = (val: 'ALL' | FanpageStatus) => {
+    setInternalStatusFilter(val)
+    onStatusFilterChange?.(val)
+  }
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null)
   const [copiedFanpageId, setCopiedFanpageId] = useState<string | null>(null)
   const [actionMenuAnchor, setActionMenuAnchor] = useState<HTMLButtonElement | null>(null)
@@ -104,7 +130,7 @@ export const SuperAdminFanpagesView: React.FC<SuperAdminFanpagesViewProps> = ({
             </span>
           )}
           <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-muted/40 dark:bg-muted/40 text-muted-foreground border border-border dark:border-border">
-            Tổng {fanpages.length} tổ chức
+            Tổng {totalElements ?? fanpages.length} tổ chức
           </span>
         </div>
       </div>
@@ -472,6 +498,15 @@ export const SuperAdminFanpagesView: React.FC<SuperAdminFanpagesViewProps> = ({
               </div>
             </div>
           </div>
+
+          {onPageChange && (
+            <AdminPaginationBar
+              page={page}
+              totalPages={totalPages}
+              totalElements={totalElements ?? fanpages.length}
+              onPageChange={onPageChange}
+            />
+          )}
         </div>
       </div>
     </div>

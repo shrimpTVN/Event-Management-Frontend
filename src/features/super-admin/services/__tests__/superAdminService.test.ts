@@ -400,33 +400,56 @@ it('only adds or removes ADMIN while retaining original roles and profile identi
   expect(() => getSuperAdminRoles(unknown, false)).toThrow('Chưa xác định')
 })
 
-it('lists memberships of the requested user and reports partial results honestly', async () => {
-  get.mockImplementation(async (url, config) => {
-    if (url === '/fanpages/admin') {
-      const params = config?.params as any
-      return {
-        content:
-          params.status === 'ACTIVE' && params.isActive
-            ? [
-                { id: 7, orgName: 'Tên đầy đủ' },
-                { id: 8, name: 'Trang khác' },
-                { id: 9, name: 'Không tải được' },
-              ]
-            : [],
-        last: true,
-      }
-    }
-    if (url === '/fanpages/7/members')
-      return [
-        { userId: 1, role: 'MEMBER' },
-        { userId: 2, role: 'ADMIN' },
-      ]
-    if (url === '/fanpages/8/members') return [{ userId: 2, role: 'ADMIN' }]
-    throw new Error('offline')
-  })
+it('fetches fanpages of a user via single backend endpoint without N+1 member scans', async () => {
+  get.mockResolvedValueOnce([
+    {
+      fanpageId: 7,
+      fanpageOrgName: 'Tên đầy đủ',
+      fanpageName: 'tên-gốc',
+      fanpageAvatarUrl: 'https://cdn/fp.png',
+      role: 'MEMBER',
+    },
+  ])
   expect(await superAdminService.getUserFanpages('1')).toEqual({
-    items: [{ id: '7', name: 'Tên đầy đủ', role: 'MEMBER', avatarUrl: undefined }],
-    incomplete: true,
+    items: [
+      { id: '7', name: 'Tên đầy đủ', role: 'MEMBER', avatarUrl: 'https://cdn/fp.png' },
+    ],
+    incomplete: false,
+  })
+  expect(get).toHaveBeenCalledExactlyOnceWith('/users/admin/1/fanpages')
+})
+
+it('maps batched followerCount, eventsCount, and representative info in getFanpagesPage without N+1 calls', async () => {
+  get.mockResolvedValueOnce({
+    content: [
+      {
+        id: 12,
+        orgName: 'Đoàn Khoa CNTT',
+        status: 'ACTIVE',
+        followerCount: 250,
+        eventsCount: 9,
+        representativeUserId: 401,
+        representativeName: 'Nguyễn Minh',
+        representativeEmail: 'minh@ctu.edu.vn',
+        representativeCode: 'CB401',
+        representativePhone: '0901234567',
+      },
+    ],
+    totalElements: 1,
+    totalPages: 1,
+  })
+
+  const page = await superAdminService.getFanpagesPage({ page: 0, size: 20 })
+  expect(get).toHaveBeenCalledTimes(1)
+  expect(page.content[0]).toMatchObject({
+    id: '12',
+    name: 'Đoàn Khoa CNTT',
+    followersCount: 250,
+    eventsCount: 9,
+    representativeName: 'Nguyễn Minh',
+    representativeEmail: 'minh@ctu.edu.vn',
+    representativeCode: 'CB401',
+    representativePhone: '0901234567',
   })
 })
 
@@ -440,6 +463,7 @@ it('matches membership by email when the users API omits the account ID', async 
         last: true,
       }
     }
+    if (url === '/users/admin/99/fanpages') return []
     if (url === '/fanpages/7/members')
       return [{ userId: 20, email: 'organizer@ctu.edu.vn', role: 'ADMIN' }]
     throw new Error('Unexpected endpoint')
@@ -467,6 +491,7 @@ it('recovers a missing user ID from a matching real fanpage membership', async (
         content: params.status === 'ACTIVE' && params.isActive ? [{ id: 7 }] : [],
         last: true,
       }
+    if (url === '/users/admin/99/fanpages') return []
     if (url === '/fanpages/7/members')
       return [{ userId: 20, email: 'organizer@ctu.edu.vn', role: 'ADMIN' }]
     throw new Error('Unexpected endpoint')

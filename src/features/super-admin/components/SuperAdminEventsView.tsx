@@ -1,7 +1,7 @@
 import { Tooltip } from '@/components/ui/tooltip'
 import { AdminActionMenu } from './AdminActionMenu'
 import { EventBenefitsModal } from './modals/EventBenefitsModal'
-import { EventStatusBadge } from './AdminDetails'
+import { EventStatusBadge, AdminPaginationBar } from './AdminDetails'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import React, { useState, useMemo } from 'react'
@@ -23,16 +23,42 @@ interface SuperAdminEventsViewProps {
   events: SuperAdminEvent[]
   onSelectEvent: (event: SuperAdminEvent) => void
   onToggleHideEvent: (eventId: string, reason?: string) => void
+  page?: number
+  totalPages?: number
+  totalElements?: number
+  onPageChange?: (page: number) => void
+  statusFilter?: 'ALL' | AdminEventStatus
+  onStatusFilterChange?: (status: 'ALL' | AdminEventStatus) => void
+  searchQuery?: string
+  onSearchChange?: (keyword: string) => void
 }
 
 export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
   events,
   onSelectEvent,
   onToggleHideEvent,
+  page = 0,
+  totalPages = 1,
+  totalElements,
+  onPageChange,
+  statusFilter: controlledStatusFilter,
+  onStatusFilterChange,
+  searchQuery: controlledSearchQuery,
+  onSearchChange,
 }) => {
   const [benefitsEvent, setBenefitsEvent] = useState<SuperAdminEvent | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'ALL' | AdminEventStatus>('ALL')
+  const [internalSearchQuery, setInternalSearchQuery] = useState('')
+  const [internalStatusFilter, setInternalStatusFilter] = useState<'ALL' | AdminEventStatus>('ALL')
+  const searchQuery = controlledSearchQuery ?? internalSearchQuery
+  const statusFilter = controlledStatusFilter ?? internalStatusFilter
+  const setSearchQuery = (val: string) => {
+    setInternalSearchQuery(val)
+    onSearchChange?.(val)
+  }
+  const setStatusFilter = (val: 'ALL' | AdminEventStatus) => {
+    setInternalStatusFilter(val)
+    onStatusFilterChange?.(val)
+  }
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null)
   const [actionMenuAnchor, setActionMenuAnchor] = useState<HTMLButtonElement | null>(null)
 
@@ -108,7 +134,7 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
             </span>
           )}
           <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-muted/40 dark:bg-muted/40 text-muted-foreground border border-border dark:border-border">
-            Tổng {events.length} sự kiện
+            Tổng {totalElements ?? events.length} sự kiện
           </span>
         </div>
       </div>
@@ -399,6 +425,15 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
               </div>
             </div>
           </div>
+
+          {onPageChange && (
+            <AdminPaginationBar
+              page={page}
+              totalPages={totalPages}
+              totalElements={totalElements ?? events.length}
+              onPageChange={onPageChange}
+            />
+          )}
         </div>
       </div>
     </div>

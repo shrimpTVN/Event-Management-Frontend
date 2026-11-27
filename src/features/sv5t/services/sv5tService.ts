@@ -30,12 +30,9 @@ export const sv5tService = {
    * Lấy danh sách các năm học
    */
   async getAcademicYears(): Promise<AcademicYearOption[]> {
-    try {
-      const res = await apiClient.get<unknown, AcademicYearOption[]>('/academic-years')
-      return Array.isArray(res) ? res : []
-    } catch {
-      return []
-    }
+    const res: any = await apiClient.get<unknown, AcademicYearOption[]>('/academic-years')
+    const list = Array.isArray(res) ? res : res?.data || []
+    return Array.isArray(list) ? list : []
   },
 
   /**

@@ -181,9 +181,15 @@ export const FanpageAdminPage: React.FC = () => {
     enabled: hasFanpage && isHomeTab,
   })
 
+  const rawEventsTotal = (rawFanpageEvents as { __totalElements?: number }).__totalElements
   const enrichedFanpage: FanpageSummary = {
     ...currentFanpage,
-    eventsCount: adminEvents.length > 0 ? adminEvents.length : currentFanpage.eventsCount,
+    eventsCount:
+      typeof rawEventsTotal === 'number'
+        ? rawEventsTotal
+        : adminEvents.length > 0
+          ? adminEvents.length
+          : currentFanpage.eventsCount,
     followersCount: followerCount > 0 ? followerCount : (currentFanpage.followersCount || 0),
   }
 
@@ -226,6 +232,10 @@ export const FanpageAdminPage: React.FC = () => {
 
   const handleSelectTab = (tab: AdminNavTab) => {
     const nextTab = activeTab === tab ? null : tab
+    const keepsEventId = nextTab === 'event-detail' || nextTab === 'create-event'
+    if (!keepsEventId) {
+      setSelectedEventId(null)
+    }
     setActiveTab(nextTab)
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
@@ -233,6 +243,9 @@ export const FanpageAdminPage: React.FC = () => {
         next.set('tab', nextTab)
       } else {
         next.delete('tab')
+      }
+      if (!keepsEventId) {
+        next.delete('eventId')
       }
       return next
     })
@@ -296,10 +309,12 @@ export const FanpageAdminPage: React.FC = () => {
   }
 
   const handleEditProfileClick = () => {
+    setSelectedEventId(null)
     setActiveTab('profile')
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
       next.set('tab', 'profile')
+      next.delete('eventId')
       return next
     })
   }

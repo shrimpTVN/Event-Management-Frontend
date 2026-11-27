@@ -1,0 +1,161 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { SuperAdminPage } from '../SuperAdminPage'
+import { superAdminService } from '@/features/super-admin'
+
+vi.mock('@/features/super-admin/components/AdminStatisticsDashboard', () => ({
+  AdminStatisticsDashboard: ({ semesters }: any) => (
+    <div data-testid="admin-dashboard">Dashboard ({semesters.length} semesters)</div>
+  ),
+}))
+
+vi.mock('@/features/super-admin', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/super-admin')>()
+  return {
+    ...actual,
+    SuperAdminLayout: ({ children, onSelectTab }: any) => (
+      <div>
+        <nav>
+          <button type="button" onClick={() => onSelectTab('overview')}>Tổng quan</button>
+          <button type="button" onClick={() => onSelectTab('users')}>Người dùng</button>
+          <button type="button" onClick={() => onSelectTab('fanpages')}>Fanpage</button>
+          <button type="button" onClick={() => onSelectTab('events')}>Sự kiện</button>
+          <button type="button" onClick={() => onSelectTab('schools')}>Khoa / Trường</button>
+        </nav>
+        {children}
+      </div>
+    ),
+    superAdminService: {
+      ...actual.superAdminService,
+      getUsers: vi.fn(),
+      getUsersPage: vi.fn(),
+      getFanpages: vi.fn(),
+      getFanpagesPage: vi.fn(),
+      getEvents: vi.fn(),
+      getEventsPage: vi.fn(),
+      getSemesters: vi.fn(),
+      getPointCategories: vi.fn(),
+      getCriterias: vi.fn(),
+      getSchools: vi.fn(),
+      getSchoolsSummary: vi.fn(),
+      getSchoolDetail: vi.fn(),
+    },
+  }
+})
+
+describe('SuperAdminPage tab-scoped queries and server pagination (F08)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(superAdminService.getSemesters).mockResolvedValue([])
+    vi.mocked(superAdminService.getFanpagesPage).mockResolvedValue({
+      content: [],
+      totalElements: 0,
+      totalPages: 1,
+      page: 0,
+      size: 20,
+    })
+    vi.mocked(superAdminService.getEventsPage).mockResolvedValue({
+      content: [],
+      totalElements: 0,
+      totalPages: 1,
+      page: 0,
+      size: 20,
+    })
+    vi.mocked(superAdminService.getUsersPage).mockImplementation(async (params) => ({
+      content: [
+        {
+          id: String((params?.page ?? 0) * 20 + 1),
+          name: `Sinh viên trang ${(params?.page ?? 0) + 1}`,
+          code: 'B230001',
+          email: `sv${params?.page ?? 0}@student.ctu.edu.vn`,
+          role: 'STUDENT',
+          status: 'ACTIVE',
+          createdAt: '',
+          eventsParticipatedCount: null,
+          schoolName: 'CNTT',
+          majorName: 'KTPM',
+        },
+      ],
+      totalElements: 35,
+      totalPages: 2,
+      page: params?.page ?? 0,
+      size: 20,
+    }))
+    vi.mocked(superAdminService.getSchoolsSummary).mockResolvedValue([
+      { id: 1, name: 'Trường CNTT&TT', description: '', isActive: true, majorsCount: 2, majors: [] },
+      { id: 2, name: 'Khoa Kinh tế', description: '', isActive: true, majorsCount: 1, majors: [] },
+    ])
+    vi.mocked(superAdminService.getSchoolDetail).mockImplementation(async (id) => ({
+      id,
+      name: id === 1 ? 'Trường CNTT&TT' : 'Khoa Kinh tế',
+      isActive: true,
+      majorsCount: 1,
+      majors: [{ id: id * 10, code: `M${id}`, name: `Ngành của ${id}`, schoolId: id, isActive: true }],
+    }))
+  })
+
+  const renderPage = () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    return render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <SuperAdminPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+  }
+
+  it('does not fetch users, schools, point-categories, criterias, or full lists when opened on overview', async () => {
+    renderPage()
+
+    expect(await screen.findByTestId('admin-dashboard')).toBeInTheDocument()
+    expect(superAdminService.getUsers).not.toHaveBeenCalled()
+    expect(superAdminService.getUsersPage).not.toHaveBeenCalled()
+    expect(superAdminService.getFanpages).not.toHaveBeenCalled()
+    expect(superAdminService.getEvents).not.toHaveBeenCalled()
+    expect(superAdminService.getSchools).not.toHaveBeenCalled()
+    expect(superAdminService.getSchoolsSummary).not.toHaveBeenCalled()
+    expect(superAdminService.getPointCategories).not.toHaveBeenCalled()
+    expect(superAdminService.getCriterias).not.toHaveBeenCalled()
+  })
+
+  it('fetches paginated users only when switching to users tab and supports page 2', async () => {
+    renderPage()
+    await screen.findByTestId('admin-dashboard')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Người dùng' }))
+    expect(await screen.findByText('Sinh viên trang 1')).toBeInTheDocument()
+    expect(superAdminService.getUsersPage).toHaveBeenCalledWith({
+      page: 0,
+      size: 20,
+      isActive: true,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trang sau' }))
+    expect(await screen.findByText('Sinh viên trang 2')).toBeInTheDocument()
+    expect(superAdminService.getUsersPage).toHaveBeenCalledWith({
+      page: 1,
+      size: 20,
+      isActive: true,
+    })
+  })
+
+  it('lazily fetches detail for only the selected school instead of N+1 for every school', async () => {
+    renderPage()
+    await screen.findByTestId('admin-dashboard')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Khoa / Trường' }))
+    expect(await screen.findByText('Ngành của 1')).toBeInTheDocument()
+    expect(superAdminService.getSchoolsSummary).toHaveBeenCalledTimes(1)
+    expect(superAdminService.getSchoolDetail).toHaveBeenCalledTimes(1)
+    expect(superAdminService.getSchoolDetail).toHaveBeenCalledWith(1)
+
+    fireEvent.click(screen.getByText('Khoa Kinh tế').closest('button')!)
+    await waitFor(() => {
+      expect(screen.getByText('Ngành của 2')).toBeInTheDocument()
+    })
+    expect(superAdminService.getSchoolDetail).toHaveBeenCalledWith(2)
+  })
+})

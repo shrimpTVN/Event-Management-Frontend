@@ -302,4 +302,42 @@ describe('AccountNavigationPopup', () => {
     expect(screen.getByText('Đoàn Tài Lộc')).toBeInTheDocument()
     expect(screen.getByText('MSSV: B2300000')).toBeInTheDocument()
   })
+
+  it('preserves userFanpagesStore and shows retry alert when getAvailableFanpages fails', async () => {
+    const { useUserFanpagesStore } = await import('@/features/fanpage/store/userFanpagesStore')
+    const { fanpageAdminService } = await import('@/features/fanpage-admin')
+    useUserFanpagesStore.getState().setMyFanpages([
+      { id: '99', name: 'CLB Đã Lưu', role: 'Quản trị viên' },
+    ])
+    const spy = vi
+      .spyOn(fanpageAdminService, 'getAvailableFanpages')
+      .mockRejectedValue(new Error('Network error'))
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/']}>
+          <AccountNavigationPopup
+            isOpen={true}
+            onClose={vi.fn()}
+            onLogout={vi.fn()}
+            user={{
+              id: 'err-student',
+              email: 'err@student.ctu.edu.vn',
+              name: 'Sinh viên lỗi',
+              role: RoleEnum.STUDENT,
+              createdAt: '2026-01-01',
+            }}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('Không tải được danh sách fanpage.')).toBeInTheDocument()
+    expect(useUserFanpagesStore.getState().myFanpages).toEqual([
+      { id: '99', name: 'CLB Đã Lưu', role: 'Quản trị viên' },
+    ])
+
+    spy.mockRestore()
+  })
 })

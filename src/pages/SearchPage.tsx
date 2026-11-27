@@ -23,7 +23,7 @@ import {
   type EventFilterFormValues,
 } from '@/features/events'
 import { useAuthStore } from '@/features/auth'
-import { apiClient } from '@/shared'
+import { userRegistrationsQueryOptions } from '@/shared/services/userRegistrations'
 import { Search } from 'lucide-react'
 import { fanpageSearchService } from '@/features/fanpage/services/fanpageSearchService'
 import {
@@ -136,6 +136,7 @@ export const SearchPage: React.FC = () => {
     staleTime: 30_000,
   })
   const fanpages = pagesQuery.data || []
+  const isPartialEvents = Boolean((rawEvents as { __failedStatuses?: string[] })?.__failedStatuses?.length)
 
   // Fetch followed fanpages to maintain follow state on cards
   const {
@@ -148,47 +149,14 @@ export const SearchPage: React.FC = () => {
     enabled: isAuthenticated,
   })
 
-  // Fetch registered events for the user to accurately determine registration and attendance state
-  const { data: userRegistrations = [] } = useQuery<any[]>({
-    queryKey: ['registrations', 'me', isAuthenticated],
-    queryFn: async () => {
-      if (!isAuthenticated) return []
-      try {
-        const [historyRes, upcomingRes] = await Promise.allSettled([
-          apiClient.get('/registrations/me/history', { params: { size: 100 } }),
-          apiClient.get('/registrations/me/upcoming'),
-        ])
-        const historyVal = historyRes.status === 'fulfilled' ? (historyRes.value as any) : null
-        const upcomingVal = upcomingRes.status === 'fulfilled' ? (upcomingRes.value as any) : null
+  // Fetch registered events using shared user-scoped query (loads all pages, rejects on source failure)
+  const { data: registeredStatusMap = {} } = useQuery(
+    userRegistrationsQueryOptions(isAuthenticated, user?.id)
+  )
 
-        const historyList =
-          historyVal?.content || historyVal?.data?.content || historyVal?.data || []
-        const upcomingList =
-          upcomingVal?.content || upcomingVal?.data?.content || upcomingVal?.data || []
-
-        return [
-          ...(Array.isArray(historyList) ? historyList : []),
-          ...(Array.isArray(upcomingList) ? upcomingList : []),
-        ]
-      } catch {
-        return []
-      }
-    },
-    enabled: isAuthenticated,
-  })
-
-  // Map eventId -> registration status (REGISTERED, CHECKED_IN, COMPLETED...)
   const registeredEventMap = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const r of userRegistrations) {
-      const eid = String(r.eventId || r.id)
-      const st = String(r.status || 'REGISTERED').toUpperCase()
-      if (st !== 'CANCELLED') {
-        map.set(eid, st)
-      }
-    }
-    return map
-  }, [userRegistrations])
+    return new Map<string, string>(Object.entries(registeredStatusMap))
+  }, [registeredStatusMap])
 
   const followedFanpageIds = useMemo(() => {
     return new Set(followedFanpages.map((fp: any) => String(fp.id)))
@@ -499,6 +467,24 @@ export const SearchPage: React.FC = () => {
                         Xem tất cả sự kiện
                       </Button>
                     )}
+                  </div>
+                )}
+                {!isError && isPartialEvents && (
+                  <div
+                    role="alert"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-800 dark:text-amber-200"
+                  >
+                    <span>
+                      Một số trạng thái sự kiện không tải được. Kết quả hiển thị có thể chưa đầy đủ.
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void refetch()}
+                      className="h-7 px-2.5 text-xs bg-background text-foreground"
+                    >
+                      Thử lại
+                    </Button>
                   </div>
                 )}
                 {isError ? (

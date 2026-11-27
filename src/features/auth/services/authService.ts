@@ -52,11 +52,27 @@ async function formatAuthUser(response: any, fallbackEmail: string): Promise<Aut
     const profileRes: any = await apiClient.get('/users/me/profile')
     const pData = profileRes?.data || profileRes
     if (pData) {
-      if (pData.studentId) user.studentId = pData.studentId
+      const studentProfile =
+        pData.studentProfile && typeof pData.studentProfile === 'object'
+          ? pData.studentProfile
+          : pData.studentId
+            ? pData
+            : null
+      if (pData.userId && (!user.id || user.id === 'usr-1')) {
+        user.id = String(pData.userId)
+      }
+      if (Array.isArray(pData.roles) && pData.roles.length > 0) {
+        user.roles = pData.roles
+      }
+      if (studentProfile?.studentId) user.studentId = studentProfile.studentId
       const realName = `${pData.lastName || ''} ${pData.firstName || ''}`.trim()
       if (realName) user.name = realName
       if (pData.avatarUrl) user.avatarUrl = pData.avatarUrl
-      user.isProfileComplete = true
+      if (normalizedRole === RoleEnum.STUDENT) {
+        user.isProfileComplete = Boolean(studentProfile?.studentId)
+      } else {
+        user.isProfileComplete = true
+      }
     }
   } catch {
     if (normalizedRole === RoleEnum.STUDENT) {
