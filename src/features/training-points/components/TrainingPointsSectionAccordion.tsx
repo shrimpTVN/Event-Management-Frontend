@@ -63,8 +63,11 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
     codes.set(item.id, code)
     return { item, code }
   })
-  const totalRecorded = server.systemPointRecord ?? 0
-  const totalSelf = server.manualPointRecord ?? 0
+  const sectionIsLeaf = items.length === 0
+  const displaySource = (points: number, maximum: number, isLeaf: boolean) =>
+    isLeaf ? points : Math.min(points, maximum)
+  const totalRecorded = displaySource(server.systemPointRecord ?? 0, section.maximum, sectionIsLeaf)
+  const totalSelf = displaySource(server.manualPointRecord ?? 0, section.maximum, sectionIsLeaf)
   const finalSectionScore = Math.min(section.maximum, server.totalPoint ?? 0)
   const progressPercent = server.completionPercentage ?? 0
   const isMaximumReached = server.isAtMaximum ?? false
@@ -144,8 +147,16 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
                 key={row.item.id}
                 item={row.item}
                 criteriaCode={row.code}
-                recordedPoints={row.item.systemPointRecord ?? 0}
-                selfScore={row.item.manualPointRecord ?? 0}
+                recordedPoints={displaySource(
+                  row.item.systemPointRecord ?? 0,
+                  row.item.maximum,
+                  row.item.isLeaf
+                )}
+                selfScore={displaySource(
+                  row.item.manualPointRecord ?? 0,
+                  row.item.maximum,
+                  row.item.isLeaf
+                )}
                 isLeaf={row.item.isLeaf}
                 semesterId={semesterId}
                 supersededByMax={row.item.contributesToParent === false}
