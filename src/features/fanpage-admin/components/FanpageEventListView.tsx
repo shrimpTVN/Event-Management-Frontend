@@ -14,7 +14,7 @@ import {
   ArrowUp,
   ArrowUpDown,
 } from 'lucide-react'
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/shared/utils/cn'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -29,7 +29,7 @@ import type { AdminEvent } from '../types/fanpageAdmin.types'
 import { adminEventState, adminEventTiming, adminRegistrationLabel } from '../utils/adminEventState'
 import { useTimeBoundary } from '@/shared/hooks/useTimeBoundary'
 import { nextTimeBoundary } from '@/shared/utils/registrationEligibility'
-import { MOCK_ADMIN_EVENTS, fanpageAdminService } from '../services/fanpageAdminService'
+import { MOCK_ADMIN_EVENTS } from '../services/fanpageAdminService'
 
 // Định dạng thời gian: "04/11/2026 · 07:00" (không hiển thị "07:00 - 07:00" khi giờ bắt đầu và kết thúc giống nhau)
 function formatEventTime(dateStart: string, timeStart: string, timeEnd: string): string {
@@ -81,24 +81,14 @@ export const FanpageEventListView: React.FC<FanpageEventListViewProps> = ({
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [drawerFilterValues, setDrawerFilterValues] = useState<EventFilterFormValues>({})
 
-  // Fetch số lượng đăng ký thực tế cho từng sự kiện
-  const registeredCountQueries = useQueries({
-    queries: events.map((evt) => ({
-      queryKey: ['event-registered-count', evt.fanpageId, evt.id],
-      queryFn: () => fanpageAdminService.getEventRegisteredCount(evt.fanpageId, evt.id),
-      staleTime: 30_000,
-      retry: 1,
-    })),
-  })
-
+  // Sử dụng trực tiếp registeredCount từ BE (GET /events/fanpage/{id} đã loại trừ CANCELLED qua EventResponseEnricher)
   const registeredCountMap = useMemo(() => {
     const map: Record<string, number> = {}
-    events.forEach((evt, idx) => {
-      const count = registeredCountQueries[idx]?.data
-      map[evt.id] = typeof count === 'number' ? count : (evt.registeredCount ?? 0)
+    events.forEach((evt) => {
+      map[evt.id] = evt.registeredCount ?? 0
     })
     return map
-  }, [events, registeredCountQueries])
+  }, [events])
 
   const validEvents = useMemo(() => events, [events])
   const now = useTimeBoundary(

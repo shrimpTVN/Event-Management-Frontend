@@ -364,11 +364,13 @@ export const StaffFanpageHub: React.FC = () => {
                   return (
                     <Link
                       key={fp.id}
-                      to={
-                        getFanpageRoleBadge(fp.role).label === 'Quản trị viên'
-                          ? '/fanpage/admin'
-                          : '/fanpage/workspace'
-                      }
+                      to={{
+                        pathname:
+                          getFanpageRoleBadge(fp.role).label === 'Quản trị viên'
+                            ? '/fanpage/admin'
+                            : '/fanpage/workspace',
+                        search: `?fanpageId=${encodeURIComponent(String(fp.id))}`,
+                      }}
                       state={{ fanpageId: fp.id }}
                       aria-label={`Vào quản lý ${fp.name}`}
                       className="group relative p-4 sm:p-5 rounded-xl border border-border bg-white dark:bg-card hover:border-primary hover:bg-primary/5 transition-colors duration-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"

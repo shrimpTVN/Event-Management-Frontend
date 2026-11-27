@@ -36,7 +36,7 @@ export function useAttendanceDraft(event: AdminEvent) {
     queryKey,
     queryFn: () => fanpageAdminService.getEventAttendees(event.fanpageId || '1', event.id),
     refetchOnWindowFocus: true,
-    refetchInterval: 15_000,
+    refetchInterval: event.status === 'PUBLISHED' ? 30_000 : false,
   })
   const source = query.data ?? []
   const [draftState, setDraftState] = useState<{ key: string; stages: Record<string, Stage> }>({
