@@ -453,6 +453,30 @@ it('maps batched followerCount, eventsCount, and representative info in getFanpa
   })
 })
 
+it('sends server-side role/keyword/statuses/adminTab filters for users, fanpages, and events', async () => {
+  get.mockResolvedValue({ content: [], totalElements: 0, totalPages: 1 })
+
+  await superAdminService.getUsersPage({ page: 0, size: 20, role: 'STAFF', keyword: 'ngoc' })
+  expect(get).toHaveBeenCalledWith('/users/admin', {
+    params: { page: 0, size: 20, role: 'FANPAGE_ADMIN', keyword: 'ngoc' },
+  })
+
+  await superAdminService.getUsersPage({ page: 0, size: 20, role: 'LOCKED' })
+  expect(get).toHaveBeenCalledWith('/users/admin', {
+    params: { page: 0, size: 20, isActive: false },
+  })
+
+  await superAdminService.getFanpagesPage({ page: 0, size: 20, status: 'LOCKED' })
+  expect(get).toHaveBeenCalledWith('/fanpages/admin', {
+    params: { page: 0, size: 20, statuses: 'BANNED,REJECTED' },
+  })
+
+  await superAdminService.getEventsPage({ page: 0, size: 20, status: 'HAPPENING', keyword: 'ai' })
+  expect(get).toHaveBeenCalledWith('/events/admin', {
+    params: { page: 0, size: 20, adminTab: 'HAPPENING', keyword: 'ai' },
+  })
+})
+
 it('matches membership by email when the users API omits the account ID', async () => {
   get.mockImplementation(async (url, config) => {
     if (url === '/fanpages/admin') {

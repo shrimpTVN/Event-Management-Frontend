@@ -2,6 +2,8 @@ import { apiClient } from '@/shared'
 import { createSv5tLabelFormatter } from '@/shared/utils/sv5tLabels'
 import type {
   SuperAdminUser,
+  UserRole,
+  UserStatus,
   UserSystemRole,
   UserFanpageMembership,
   SuperAdminFanpage,
@@ -482,24 +484,45 @@ export const superAdminService = {
   },
 
   /**
-   * Server-paginated single-page user query (2 requests total, no N+1 fanpage member scans).
+   * Server-paginated single-page user query with server-side role/keyword/isActive filtering.
    */
   getUsersPage: async (params?: {
     page?: number
     size?: number
     isActive?: boolean
+    role?: 'ALL' | UserRole | UserStatus
+    keyword?: string
   }) => {
     const page = params?.page ?? 0
     const size = params?.size ?? 20
-    const isActive = params?.isActive ?? true
-    const [usersRes, profilesRes]: [any, any] = await Promise.all([
-      apiClient.get('/users/admin', { params: { page, size, isActive } }),
-      apiClient.get('/users/admin/profiles', { params: { page, size, isActive } }).catch(() => ({ content: [] })),
-    ])
+    const roleMap: Record<string, string> = {
+      STUDENT: 'STUDENT',
+      STAFF: 'FANPAGE_ADMIN',
+      SUPERADMIN: 'ADMIN',
+    }
+    const roleParam =
+      params?.role && params.role !== 'ALL' && params.role !== 'LOCKED'
+        ? roleMap[params.role]
+        : undefined
+    const isActive =
+      params?.role === 'LOCKED'
+        ? false
+        : typeof params?.isActive === 'boolean'
+          ? params.isActive
+          : undefined
+    const keyword = params?.keyword?.trim() || undefined
+
+    const usersRes: any = await apiClient.get('/users/admin', {
+      params: {
+        page,
+        size,
+        ...(typeof isActive === 'boolean' ? { isActive } : {}),
+        ...(roleParam ? { role: roleParam } : {}),
+        ...(keyword ? { keyword } : {}),
+      },
+    })
     const users = Array.isArray(usersRes) ? usersRes : usersRes?.content || []
-    const profiles = Array.isArray(profilesRes) ? profilesRes : profilesRes?.content || []
-    const byEmail = new Map<string, any>(profiles.map((profile: any) => [profile.email, profile]))
-    const content = users.map((u: any) => mapAdminUser(u, byEmail.get(u.email)))
+    const content = users.map((u: any) => mapAdminUser(u))
     const totalElements =
       typeof usersRes?.totalElements === 'number' ? usersRes.totalElements : content.length
     const totalPages =
@@ -606,17 +629,17 @@ export const superAdminService = {
   }) => {
     const page = params?.page ?? 0
     const size = params?.size ?? 20
-    const beStatus =
+    const statusFilterParams =
       params?.status && params.status !== 'ALL'
         ? params.status === 'LOCKED'
-          ? 'BANNED'
-          : params.status
-        : undefined
+          ? { statuses: 'BANNED,REJECTED' }
+          : { status: params.status }
+        : {}
     const res: any = await apiClient.get('/fanpages/admin', {
       params: {
         page,
         size,
-        ...(beStatus ? { status: beStatus } : {}),
+        ...statusFilterParams,
         ...(params?.keyword ? { keyword: params.keyword } : {}),
         ...(typeof params?.isActive === 'boolean' ? { isActive: params.isActive } : {}),
       },
@@ -743,24 +766,15 @@ export const superAdminService = {
   }) => {
     const page = params?.page ?? 0
     const size = params?.size ?? 20
-    const statusMap: Record<string, { status?: string; isActive?: boolean }> = {
-      OPEN: { status: 'PUBLISHED', isActive: true },
-      HAPPENING: { status: 'PUBLISHED', isActive: true },
-      COMPLETED: { status: 'COMPLETED' },
-      DRAFT: { status: 'DRAFT' },
-      CANCELLED: { status: 'CANCELLED' },
-      VIOLATED: { status: 'VIOLATED' },
-      HIDDEN: { isActive: false },
-    }
-    const mappedFilter =
-      params?.status && params.status !== 'ALL' ? statusMap[params.status] ?? { status: params.status } : {}
+    const adminTab =
+      params?.status && params.status !== 'ALL' ? params.status : undefined
     const [eventsRes, categories, criterias]: [any, any, any] = await Promise.all([
       apiClient.get('/events/admin', {
         params: {
           page,
           size,
           ...(params?.keyword ? { keyword: params.keyword } : {}),
-          ...mappedFilter,
+          ...(adminTab ? { adminTab } : {}),
         },
       }),
       apiClient.get('/point-categories').catch(() => []),

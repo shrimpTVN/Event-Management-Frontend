@@ -29,6 +29,7 @@ interface SuperAdminFanpagesViewProps {
   page?: number
   totalPages?: number
   totalElements?: number
+  pendingCount?: number
   onPageChange?: (page: number) => void
   statusFilter?: 'ALL' | FanpageStatus
   onStatusFilterChange?: (status: 'ALL' | FanpageStatus) => void
@@ -44,6 +45,7 @@ export const SuperAdminFanpagesView: React.FC<SuperAdminFanpagesViewProps> = ({
   page = 0,
   totalPages = 1,
   totalElements,
+  pendingCount: pendingCountProp,
   onPageChange,
   statusFilter: controlledStatusFilter,
   onStatusFilterChange,
@@ -54,6 +56,7 @@ export const SuperAdminFanpagesView: React.FC<SuperAdminFanpagesViewProps> = ({
   const [internalStatusFilter, setInternalStatusFilter] = useState<'ALL' | FanpageStatus>('ALL')
   const searchQuery = controlledSearchQuery ?? internalSearchQuery
   const statusFilter = controlledStatusFilter ?? internalStatusFilter
+  const isServerFiltered = Boolean(onStatusFilterChange || onSearchChange)
   const setSearchQuery = (val: string) => {
     setInternalSearchQuery(val)
     onSearchChange?.(val)
@@ -76,14 +79,11 @@ export const SuperAdminFanpagesView: React.FC<SuperAdminFanpagesViewProps> = ({
     }, 2000)
   }
 
-  const totalCount = fanpages.length
-  const pendingCount = fanpages.filter((f) => f.status === 'PENDING').length
-  const activeCount = fanpages.filter((f) => f.status === 'ACTIVE').length
-  const lockedCount = fanpages.filter(
-    (f) => f.status === 'LOCKED' || f.status === 'REJECTED'
-  ).length
+  const pendingCount =
+    pendingCountProp ?? fanpages.filter((f) => f.status === 'PENDING').length
 
   const filteredFanpages = useMemo(() => {
+    if (isServerFiltered) return fanpages
     return fanpages.filter((f) => {
       const matchSearch =
         f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -94,13 +94,13 @@ export const SuperAdminFanpagesView: React.FC<SuperAdminFanpagesViewProps> = ({
 
       return matchSearch && matchTab
     })
-  }, [fanpages, searchQuery, statusFilter])
+  }, [fanpages, searchQuery, statusFilter, isServerFiltered])
 
   const tabs = [
-    { id: 'ALL' as const, label: 'Tất cả câu lạc bộ', count: totalCount },
-    { id: 'PENDING' as const, label: 'Chờ phê duyệt', count: pendingCount },
-    { id: 'ACTIVE' as const, label: 'Đang hoạt động', count: activeCount },
-    { id: 'LOCKED' as const, label: 'Bị khóa / Từ chối', count: lockedCount },
+    { id: 'ALL' as const, label: 'Tất cả câu lạc bộ' },
+    { id: 'PENDING' as const, label: 'Chờ phê duyệt' },
+    { id: 'ACTIVE' as const, label: 'Đang hoạt động' },
+    { id: 'LOCKED' as const, label: 'Bị khóa / Từ chối' },
   ]
 
   return (
@@ -156,14 +156,6 @@ export const SuperAdminFanpagesView: React.FC<SuperAdminFanpagesViewProps> = ({
                 )}
               >
                 <span>{tab.label}</span>
-                <span
-                  className={cn(
-                    'text-xs font-normal',
-                    isActive ? 'text-foreground/80' : 'text-muted-foreground/70'
-                  )}
-                >
-                  ({tab.count})
-                </span>
               </Button>
             )
           })}
@@ -201,8 +193,9 @@ export const SuperAdminFanpagesView: React.FC<SuperAdminFanpagesViewProps> = ({
             </div>
 
             <div className="text-xs text-muted-foreground font-normal">
-              {filteredFanpages.length} fanpage{' '}
-              {statusFilter !== 'ALL' ? 'trong mục này' : 'tổng cộng'}
+              {totalElements !== undefined
+                ? `Hiển thị ${filteredFanpages.length} / ${totalElements} fanpage`
+                : `${filteredFanpages.length} fanpage ${statusFilter !== 'ALL' ? 'trong mục này' : 'tổng cộng'}`}
             </div>
           </div>
 

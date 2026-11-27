@@ -29,6 +29,8 @@ import {
 import type {
   SuperAdminNavTab,
   SuperAdminUser,
+  UserRole,
+  UserStatus,
   UserSystemRole,
   SuperAdminFanpage,
   FanpageStatus,
@@ -52,7 +54,9 @@ export const SuperAdminPage: React.FC = () => {
 
   // Server pagination & tab filter states
   const [usersPage, setUsersPage] = useState(0)
-  const [usersIsActive, setUsersIsActive] = useState(true)
+  const [usersTab, setUsersTab] = useState<'ALL' | UserRole | UserStatus>('ALL')
+  const [usersSearch, setUsersSearch] = useState('')
+  const [debouncedUsersSearch, setDebouncedUsersSearch] = useState('')
 
   const [fanpagesPage, setFanpagesPage] = useState(0)
   const [fanpagesStatus, setFanpagesStatus] = useState<'ALL' | FanpageStatus>('ALL')
@@ -65,6 +69,14 @@ export const SuperAdminPage: React.FC = () => {
   const [debouncedEventsSearch, setDebouncedEventsSearch] = useState('')
 
   const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedUsersSearch(usersSearch.trim())
+      setUsersPage(0)
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [usersSearch])
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedFanpagesSearch(fanpagesSearch.trim()), 250)
@@ -130,12 +142,14 @@ export const SuperAdminPage: React.FC = () => {
   })
 
   const usersQuery = useQuery({
-    queryKey: ['super-admin', 'users', usersPage, usersIsActive],
+    queryKey: ['super-admin', 'users', usersPage, usersTab, debouncedUsersSearch],
     queryFn: () =>
       superAdminService.getUsersPage({
         page: usersPage,
         size: PAGE_SIZE,
-        isActive: usersIsActive,
+        role: usersTab,
+        ...(usersTab === 'LOCKED' ? { isActive: false } : {}),
+        ...(debouncedUsersSearch ? { keyword: debouncedUsersSearch } : {}),
       }),
     enabled: activeTab === 'users',
   })
@@ -707,10 +721,13 @@ export const SuperAdminPage: React.FC = () => {
               totalPages={usersQuery.data?.totalPages ?? 1}
               totalElements={usersQuery.data?.totalElements ?? users.length}
               onPageChange={setUsersPage}
-              onActiveFilterChange={(nextActive) => {
-                setUsersIsActive(nextActive)
+              roleFilter={usersTab}
+              onRoleFilterChange={(nextTab) => {
+                setUsersTab(nextTab)
                 setUsersPage(0)
               }}
+              searchQuery={usersSearch}
+              onSearchChange={setUsersSearch}
             />
           )}
 
@@ -723,6 +740,7 @@ export const SuperAdminPage: React.FC = () => {
               page={fanpagesPage}
               totalPages={fanpagesQuery.data?.totalPages ?? 1}
               totalElements={fanpagesQuery.data?.totalElements ?? fanpages.length}
+              pendingCount={pendingFanpagesQuery.data?.totalElements}
               onPageChange={setFanpagesPage}
               statusFilter={fanpagesStatus}
               onStatusFilterChange={(nextStatus) => {
@@ -745,6 +763,7 @@ export const SuperAdminPage: React.FC = () => {
               page={eventsPage}
               totalPages={eventsQuery.data?.totalPages ?? 1}
               totalElements={eventsQuery.data?.totalElements ?? events.length}
+              violatedCount={violatedEventsQuery.data?.totalElements}
               onPageChange={setEventsPage}
               statusFilter={eventsStatus}
               onStatusFilterChange={(nextStatus) => {

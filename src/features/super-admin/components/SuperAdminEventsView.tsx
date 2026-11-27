@@ -26,6 +26,7 @@ interface SuperAdminEventsViewProps {
   page?: number
   totalPages?: number
   totalElements?: number
+  violatedCount?: number
   onPageChange?: (page: number) => void
   statusFilter?: 'ALL' | AdminEventStatus
   onStatusFilterChange?: (status: 'ALL' | AdminEventStatus) => void
@@ -40,6 +41,7 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
   page = 0,
   totalPages = 1,
   totalElements,
+  violatedCount: violatedCountProp,
   onPageChange,
   statusFilter: controlledStatusFilter,
   onStatusFilterChange,
@@ -51,6 +53,7 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
   const [internalStatusFilter, setInternalStatusFilter] = useState<'ALL' | AdminEventStatus>('ALL')
   const searchQuery = controlledSearchQuery ?? internalSearchQuery
   const statusFilter = controlledStatusFilter ?? internalStatusFilter
+  const isServerFiltered = Boolean(onStatusFilterChange || onSearchChange)
   const setSearchQuery = (val: string) => {
     setInternalSearchQuery(val)
     onSearchChange?.(val)
@@ -62,15 +65,12 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null)
   const [actionMenuAnchor, setActionMenuAnchor] = useState<HTMLButtonElement | null>(null)
 
-  const totalCount = events.length
-  const openCount = events.filter((e) => e.status === 'OPEN').length
-  const happeningCount = events.filter((e) => e.status === 'HAPPENING').length
-  const completedCount = events.filter((e) => e.status === 'COMPLETED').length
-  const violatedCount = events.filter(
-    (e) => e.status === 'VIOLATED' || e.status === 'HIDDEN'
-  ).length
+  const violatedCount =
+    violatedCountProp ??
+    events.filter((e) => e.status === 'VIOLATED' || e.status === 'HIDDEN').length
 
   const filteredEvents = useMemo(() => {
+    if (isServerFiltered) return events
     return events.filter((evt) => {
       const matchSearch =
         evt.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -86,24 +86,16 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
 
       return matchSearch && matchTab
     })
-  }, [events, searchQuery, statusFilter])
+  }, [events, searchQuery, statusFilter, isServerFiltered])
 
   const tabs = [
-    { id: 'ALL' as const, label: 'Tất cả sự kiện', count: totalCount },
-    { id: 'OPEN' as const, label: 'Đang mở đăng ký', count: openCount },
-    { id: 'HAPPENING' as const, label: 'Đang diễn ra', count: happeningCount },
-    { id: 'COMPLETED' as const, label: 'Đã đóng', count: completedCount },
-    {
-      id: 'DRAFT' as const,
-      label: 'Bản nháp',
-      count: events.filter((e) => e.status === 'DRAFT').length,
-    },
-    {
-      id: 'CANCELLED' as const,
-      label: 'Đã hủy',
-      count: events.filter((e) => e.status === 'CANCELLED').length,
-    },
-    { id: 'VIOLATED' as const, label: 'Vi phạm / Ẩn', count: violatedCount },
+    { id: 'ALL' as const, label: 'Tất cả sự kiện' },
+    { id: 'OPEN' as const, label: 'Đang mở đăng ký' },
+    { id: 'HAPPENING' as const, label: 'Đang diễn ra' },
+    { id: 'COMPLETED' as const, label: 'Đã đóng' },
+    { id: 'DRAFT' as const, label: 'Bản nháp' },
+    { id: 'CANCELLED' as const, label: 'Đã hủy' },
+    { id: 'VIOLATED' as const, label: 'Vi phạm / Ẩn' },
   ]
 
   return (
@@ -160,14 +152,6 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
                 )}
               >
                 <span>{tab.label}</span>
-                <span
-                  className={cn(
-                    'text-xs font-normal',
-                    isActive ? 'text-foreground/80' : 'text-muted-foreground/70'
-                  )}
-                >
-                  ({tab.count})
-                </span>
               </Button>
             )
           })}
@@ -205,8 +189,9 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
             </div>
 
             <div className="text-xs text-muted-foreground font-normal">
-              {filteredEvents.length} sự kiện{' '}
-              {statusFilter !== 'ALL' ? 'trong mục này' : 'tổng cộng'}
+              {totalElements !== undefined
+                ? `Hiển thị ${filteredEvents.length} / ${totalElements} sự kiện`
+                : `${filteredEvents.length} sự kiện ${statusFilter !== 'ALL' ? 'trong mục này' : 'tổng cộng'}`}
             </div>
           </div>
 

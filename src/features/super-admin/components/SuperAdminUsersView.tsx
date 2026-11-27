@@ -18,6 +18,10 @@ interface SuperAdminUsersViewProps {
   totalElements?: number
   onPageChange?: (page: number) => void
   onActiveFilterChange?: (isActive: boolean) => void
+  roleFilter?: 'ALL' | UserRole | UserStatus
+  onRoleFilterChange?: (tab: 'ALL' | UserRole | UserStatus) => void
+  searchQuery?: string
+  onSearchChange?: (keyword: string) => void
 }
 
 export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
@@ -29,9 +33,20 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
   totalElements,
   onPageChange,
   onActiveFilterChange,
+  roleFilter: controlledRoleFilter,
+  onRoleFilterChange,
+  searchQuery: controlledSearchQuery,
+  onSearchChange,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [activeTab, setActiveTab] = useState<'ALL' | UserRole | UserStatus>('ALL')
+  const [internalSearchQuery, setInternalSearchQuery] = useState('')
+  const [internalActiveTab, setInternalActiveTab] = useState<'ALL' | UserRole | UserStatus>('ALL')
+  const searchQuery = controlledSearchQuery ?? internalSearchQuery
+  const activeTab = controlledRoleFilter ?? internalActiveTab
+  const isServerFiltered = Boolean(onRoleFilterChange || onSearchChange)
+  const setSearchQuery = (val: string) => {
+    setInternalSearchQuery(val)
+    onSearchChange?.(val)
+  }
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null)
   const [copiedUserId, setCopiedUserId] = useState<string | null>(null)
   const [actionMenuAnchor, setActionMenuAnchor] = useState<HTMLButtonElement | null>(null)
@@ -46,13 +61,8 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
     }, 2000)
   }
 
-  const totalCount = users.length
-  const studentCount = users.filter((u) => getUserDisplayRole(u) === 'STUDENT').length
-  const staffCount = users.filter((u) => getUserDisplayRole(u) === 'STAFF').length
-  const adminCount = users.filter((u) => getUserDisplayRole(u) === 'SUPERADMIN').length
-  const lockedCount = users.filter((u) => u.status === 'LOCKED').length
-
   const filteredUsers = useMemo(() => {
+    if (isServerFiltered) return users
     return users.filter((u) => {
       const matchSearch =
         u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -70,14 +80,14 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
 
       return matchSearch && matchTab
     })
-  }, [users, searchQuery, activeTab])
+  }, [users, searchQuery, activeTab, isServerFiltered])
 
   const tabs = [
-    { id: 'ALL' as const, label: 'Tất cả tài khoản', count: totalCount },
-    { id: 'STUDENT' as const, label: 'Sinh viên', count: studentCount },
-    { id: 'STAFF' as const, label: 'Cán bộ', count: staffCount },
-    { id: 'SUPERADMIN' as const, label: 'Super admin', count: adminCount },
-    { id: 'LOCKED' as const, label: 'Bị khóa', count: lockedCount },
+    { id: 'ALL' as const, label: 'Tất cả tài khoản' },
+    { id: 'STUDENT' as const, label: 'Sinh viên' },
+    { id: 'STAFF' as const, label: 'Cán bộ' },
+    { id: 'SUPERADMIN' as const, label: 'Super admin' },
+    { id: 'LOCKED' as const, label: 'Bị khóa' },
   ]
 
   return (
@@ -117,7 +127,8 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => {
-                  setActiveTab(tab.id)
+                  setInternalActiveTab(tab.id)
+                  onRoleFilterChange?.(tab.id)
                   onActiveFilterChange?.(tab.id !== 'LOCKED')
                 }}
                 className={cn(
@@ -128,14 +139,6 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                 )}
               >
                 <span>{tab.label}</span>
-                <span
-                  className={cn(
-                    'text-xs font-normal',
-                    isActive ? 'text-foreground/80' : 'text-muted-foreground/70'
-                  )}
-                >
-                  ({tab.count})
-                </span>
               </Button>
             )
           })}
@@ -173,7 +176,9 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
             </div>
 
             <div className="text-xs text-muted-foreground font-normal">
-              {filteredUsers.length} tài khoản {activeTab !== 'ALL' ? 'trong mục này' : 'tổng cộng'}
+              {totalElements !== undefined
+                ? `Hiển thị ${filteredUsers.length} / ${totalElements} tài khoản`
+                : `${filteredUsers.length} tài khoản ${activeTab !== 'ALL' ? 'trong mục này' : 'tổng cộng'}`}
             </div>
           </div>
 

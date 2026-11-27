@@ -130,7 +130,7 @@ describe('SuperAdminPage tab-scoped queries and server pagination (F08)', () => 
     expect(superAdminService.getUsersPage).toHaveBeenCalledWith({
       page: 0,
       size: 20,
-      isActive: true,
+      role: 'ALL',
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Trang sau' }))
@@ -138,7 +138,39 @@ describe('SuperAdminPage tab-scoped queries and server pagination (F08)', () => 
     expect(superAdminService.getUsersPage).toHaveBeenCalledWith({
       page: 1,
       size: 20,
-      isActive: true,
+      role: 'ALL',
+    })
+
+    // Switching role tab triggers server-side filter and resets page to 0 without local tab counts
+    expect(screen.queryByText(/\(35\)|\(1\)/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Cán bộ' }))
+    await waitFor(() => {
+      expect(superAdminService.getUsersPage).toHaveBeenCalledWith({
+        page: 0,
+        size: 20,
+        role: 'STAFF',
+      })
+    })
+  })
+
+  it('triggers server-side filters for fanpage and event tabs without per-tab counts', async () => {
+    renderPage()
+    await screen.findByTestId('admin-dashboard')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fanpage' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Bị khóa / Từ chối' }))
+    await waitFor(() => {
+      expect(superAdminService.getFanpagesPage).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 0, size: 20, status: 'LOCKED' })
+      )
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sự kiện' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Đang diễn ra' }))
+    await waitFor(() => {
+      expect(superAdminService.getEventsPage).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 0, size: 20, status: 'HAPPENING' })
+      )
     })
   })
 
