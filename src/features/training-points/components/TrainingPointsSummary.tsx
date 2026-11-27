@@ -1,11 +1,11 @@
 import React from 'react'
-import { classifyScore } from '../types/trainingPoints.types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
 
 interface TrainingPointsSummaryProps {
   semesterLabel: string
   academicYearLabel: string
+  classificationLabel?: string
   totalScore: number
   maxScore?: number
   activitiesCount?: number
@@ -17,13 +17,24 @@ export const TrainingPointsSummary: React.FC<TrainingPointsSummaryProps> = ({
   semesterLabel,
   academicYearLabel,
   totalScore,
+  classificationLabel = 'Chưa có dữ liệu',
   maxScore = 100,
   activitiesCount = 0,
   isLoading = false,
   unavailable = false,
 }) => {
   const isMobile = useMediaQuery('(max-width: 767px)')
-  const classification = classifyScore(totalScore)
+  const tones: Record<string, string> = {
+    'Xuất sắc': 'text-emerald-600',
+    Tốt: 'text-blue-600',
+    'Trung Bình': 'text-amber-600',
+    Yếu: 'text-orange-600',
+    Kém: 'text-rose-600',
+  }
+  const classification = {
+    label: classificationLabel,
+    color: tones[classificationLabel] ?? 'text-primary',
+  }
 
   if (isLoading) {
     return (

@@ -44,6 +44,7 @@ const cases = [
           id: 1,
           name: 'Trách nhiệm với cộng đồng',
           maximum: 20,
+          totalPoint: 20,
           note: null,
           level: 0,
           childrenOrder: 1,

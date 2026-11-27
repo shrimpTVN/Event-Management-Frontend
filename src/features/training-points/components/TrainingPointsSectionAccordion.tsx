@@ -11,19 +11,20 @@ import type {
   PointCategoryGroupedTree,
   StudentSemesterPointFlattenedItem,
 } from '../types/trainingPoints.types'
-import {
-  capTrainingPoints,
-  computeSectionCategoryScores,
-} from '../utils/scoreCalculator'
 
 interface TrainingPointsSectionAccordionProps {
   section: PointCategoryNode | StudentSemesterPointGroupedTree | PointCategoryGroupedTree
-  sectionRoman: string // 'I', 'II', 'III', 'IV', 'V'
+  sectionRoman: string
   transactions?: PointTransaction[]
-  studentScores: Record<number, number>
+  studentScores?: Record<number, number>
   studentDescriptions?: Record<number, string>
   semesterId?: number
-  onSaveSelfScore: (categoryId: number, score: number, description?: string) => Promise<void> | void
+  onSaveSelfScore: (
+    categoryId: number,
+    score: number,
+    description?: string,
+    transactionId?: number
+  ) => Promise<void> | void
   onDeleteSelfScore?: (transactionId: number, categoryId: number) => Promise<void> | void
   defaultExpanded?: boolean
   onToggleExpand?: (isExpanded: boolean) => void
@@ -33,231 +34,40 @@ interface TrainingPointsSectionAccordionProps {
 export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccordionProps> = ({
   section,
   sectionRoman,
-  transactions = [],
-  studentScores,
-  studentDescriptions = {},
   semesterId,
   onSaveSelfScore,
   onDeleteSelfScore,
   defaultExpanded = false,
   onToggleExpand,
-  aggregateScore,
 }) => {
   const isMobile = useMediaQuery('(max-width: 767px)')
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const sectionRef = React.useRef<HTMLDivElement>(null)
   const contentId = React.useId()
-
   const handleToggle = () => {
-    const nextState = !isExpanded
-    setIsExpanded(nextState)
-    onToggleExpand?.(nextState)
-    if (!nextState && sectionRef.current) {
-      const rect = sectionRef.current.getBoundingClientRect()
-      if (rect.top < 60) {
-        sectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      }
-    }
+    setIsExpanded(!isExpanded)
+    onToggleExpand?.(!isExpanded)
   }
-
-  // Map of categoryId -> recorded points from events/system
-  const recordedMap = React.useMemo(() => {
-    const map = new Map<number, number>()
-    transactions.forEach((tx) => {
-      if (tx.type !== 'MANUAL') {
-        const cur = map.get(tx.pointCategoryId) || 0
-        map.set(tx.pointCategoryId, cur + tx.points)
-      }
-    })
-    return map
-  }, [transactions])
-
-  // Map of categoryId -> recorded event/system transactions
-  const recordedTxMap = React.useMemo(() => {
-    const map = new Map<number, PointTransaction[]>()
-    transactions.forEach((tx) => {
-      if (tx.type !== 'MANUAL') {
-        const list = map.get(tx.pointCategoryId) || []
-        list.push(tx)
-        map.set(tx.pointCategoryId, list)
-      }
-    })
-    return map
-  }, [transactions])
-
-  // Map of categoryId -> manual self-evaluation description from transactions
-  const selfTxDescriptionMap = React.useMemo(() => {
-    const map = new Map<number, string>()
-    transactions.forEach((tx) => {
-      if (tx.type === 'MANUAL' && tx.description) {
-        map.set(tx.pointCategoryId, tx.description)
-      }
-    })
-    return map
-  }, [transactions])
-
-  // Map of categoryId -> manual transaction
-  const manualTxMap = React.useMemo(() => {
-    const map = new Map<number, PointTransaction>()
-    transactions.forEach((tx) => {
-      if (tx.type === 'MANUAL') {
-        map.set(tx.pointCategoryId, tx)
-      }
-    })
-    return map
-  }, [transactions])
-
-  // Flatten rows to render in sequence with generated codes like I.a, I.a.1, I.a.2.1
-  const rows = React.useMemo(() => {
-    // 1. ƯU TIÊN: Dùng mảng items đã được Backend phân cấp và trải phẳng DFS sẵn
-    if (
-      'items' in section &&
-      Array.isArray((section as any).items) &&
-      (section as any).items.length > 0
-    ) {
-      const items: StudentSemesterPointFlattenedItem[] = (section as any).items
-      const list: Array<{
-        item: StudentSemesterPointFlattenedItem
-        code: string
-        isLeaf: boolean
-      }> = []
-
-      const codeMap = new Map<number, string>()
-      const childCountMap = new Map<number, number>()
-      let level1Index = 0
-
-      items.forEach((item) => {
-        let code: string
-        if (item.level === 1 || !item.parentCategoryId || item.parentCategoryId === section.id) {
-          code = `${sectionRoman}.${String.fromCharCode(97 + level1Index)}`
-          level1Index++
-        } else {
-          const parentCode = codeMap.get(item.parentCategoryId) || sectionRoman
-          const siblingCount = (childCountMap.get(item.parentCategoryId) || 0) + 1
-          childCountMap.set(item.parentCategoryId, siblingCount)
-          code = `${parentCode}.${siblingCount}`
-        }
-        codeMap.set(item.id, code)
-
-        list.push({
-          item,
-          code,
-          isLeaf: item.isLeaf,
-        })
-      })
-
-      return list
-    }
-
-    // 2. FALLBACK: Cấu trúc cây đệ quy truyền thống qua children
-    const list: Array<{
-      item: any
-      code: string
-      isLeaf: boolean
-    }> = []
-
-    function traverse(node: any, parentCode: string, depth: number) {
-      if (!node.children || node.children.length === 0) {
-        list.push({ item: node, code: parentCode, isLeaf: true })
-        return
-      }
-
-      // Group header
-      list.push({ item: node, code: parentCode, isLeaf: false })
-
-      node.children.forEach((child: any, idx: number) => {
-        const childCode =
-          depth === 1
-            ? `${parentCode}.${String.fromCharCode(97 + idx)}`
-            : `${parentCode}.${idx + 1}`
-        traverse(child, childCode, depth + 1)
-      })
-    }
-
-    if ((section as any).children) {
-      ;(section as any).children.forEach((child: any, idx: number) => {
-        const char = String.fromCharCode(97 + idx)
-        traverse(child, `${sectionRoman}.${char}`, 2)
-      })
-    }
-
-    return list
-  }, [section, sectionRoman])
-
-  // Compute hierarchical recorded, self-evaluation and capped total scores across every node (respecting isMaxChild)
-  const sectionScoreMap = React.useMemo(
-    () => computeSectionCategoryScores(section, recordedMap, studentScores),
-    [section, recordedMap, studentScores]
-  )
-
-  // Identify non-winning positive children inside isMaxChild parents so UI can subtly distinguish them
-  const supersededByMaxIds = React.useMemo(() => {
-    const superseded = new Set<number>()
-    const childrenByParent = new Map<number, number[]>()
-    rows.forEach((row) => {
-      const parentId = (row.item as any).parentCategoryId
-      if (parentId != null) {
-        const list = childrenByParent.get(parentId) ?? []
-        list.push(row.item.id)
-        childrenByParent.set(parentId, list)
-      }
-    })
-    rows.forEach((row) => {
-      if (row.isLeaf || !(row.item as any).isMaxChild) return
-      const childIds = childrenByParent.get(row.item.id) ?? []
-      let bestId: number | null = null
-      let bestTotal = 0
-      let bestSelf = -1
-      for (const childId of childIds) {
-        const childScore = sectionScoreMap.get(childId)
-        if (!childScore || childScore.total <= 0) continue
-        if (
-          bestId === null ||
-          childScore.total > bestTotal ||
-          (childScore.total === bestTotal && childScore.self > bestSelf)
-        ) {
-          bestId = childId
-          bestTotal = childScore.total
-          bestSelf = childScore.self
-        }
-      }
-      if (bestId !== null) {
-        for (const childId of childIds) {
-          const childScore = sectionScoreMap.get(childId)
-          if (childId !== bestId && childScore && childScore.total > 0) {
-            superseded.add(childId)
-          }
-        }
-      }
-    })
-    return superseded
-  }, [rows, sectionScoreMap])
-
-  const rootScoreSummary = sectionScoreMap.get(section.id)
-  const hasHierarchicalNodes = rows.length > 0
-
-  const totalRecorded = hasHierarchicalNodes
-    ? (rootScoreSummary?.recorded ?? 0)
-    : ((section as any).systemPointRecord ?? 0)
-  const totalSelf = hasHierarchicalNodes
-    ? (rootScoreSummary?.self ?? 0)
-    : ((section as any).manualPointRecord ?? 0)
-
-  const finalSectionScore = React.useMemo(() => {
-    if (hasHierarchicalNodes && rootScoreSummary) {
-      return rootScoreSummary.total
-    }
-    return capTrainingPoints(
-      aggregateScore ?? (section as any).totalPoint ?? totalRecorded + totalSelf,
-      section.maximum
-    )
-  }, [hasHierarchicalNodes, rootScoreSummary, aggregateScore, section, totalRecorded, totalSelf])
-
-  const progressPercent =
-    section.maximum > 0
-      ? Math.max(0, Math.min(100, (finalSectionScore / section.maximum) * 100))
-      : 0
-  const isMaximumReached = section.maximum > 0 && finalSectionScore >= section.maximum
+  const server = section as StudentSemesterPointGroupedTree
+  const items = server.items ?? []
+  const codes = new Map<number, string>()
+  const childCounts = new Map<number, number>()
+  const rows = items.map((item: StudentSemesterPointFlattenedItem) => {
+    const parent = item.parentCategoryId ?? section.id
+    const index = (childCounts.get(parent) ?? 0) + 1
+    childCounts.set(parent, index)
+    const code =
+      parent === section.id
+        ? `${sectionRoman}.${String.fromCharCode(96 + index)}`
+        : `${codes.get(parent) ?? sectionRoman}.${index}`
+    codes.set(item.id, code)
+    return { item, code }
+  })
+  const totalRecorded = server.systemPointRecord ?? 0
+  const totalSelf = server.manualPointRecord ?? 0
+  const finalSectionScore = Math.min(section.maximum, server.totalPoint ?? 0)
+  const progressPercent = server.completionPercentage ?? 0
+  const isMaximumReached = server.isAtMaximum ?? false
 
   return (
     <div
@@ -329,41 +139,20 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
         <div className="min-h-0 overflow-hidden">
           <div className="w-full flex flex-col border-t border-border">
             {/* List of criterion rows */}
-            {rows.map((row) => {
-              const rowSummary = sectionScoreMap.get(row.item.id)
-              return (
-                <TrainingPointsRow
-                  key={row.item.id}
-                  item={row.item}
-                  criteriaCode={row.code}
-                  recordedPoints={
-                    rowSummary
-                      ? rowSummary.recorded
-                      : (row.item as any).systemPointRecord !== undefined
-                        ? (row.item as any).systemPointRecord
-                        : recordedMap.get(row.item.id) || 0
-                  }
-                  recordedTransactions={recordedTxMap.get(row.item.id) || []}
-                  manualTransaction={manualTxMap.get(row.item.id)}
-                  selfScore={
-                    rowSummary
-                      ? rowSummary.self
-                      : studentScores[row.item.id] !== undefined
-                        ? studentScores[row.item.id]
-                        : (row.item as any).manualPointRecord || 0
-                  }
-                  aggregatedTotal={rowSummary?.total}
-                  supersededByMax={supersededByMaxIds.has(row.item.id)}
-                  selfDescription={
-                    studentDescriptions[row.item.id] || selfTxDescriptionMap.get(row.item.id) || ''
-                  }
-                  isLeaf={row.isLeaf}
-                  semesterId={semesterId}
-                  onSaveSelfScore={onSaveSelfScore}
-                  onDeleteSelfScore={onDeleteSelfScore}
-                />
-              )
-            })}
+            {rows.map((row) => (
+              <TrainingPointsRow
+                key={row.item.id}
+                item={row.item}
+                criteriaCode={row.code}
+                recordedPoints={row.item.systemPointRecord ?? 0}
+                selfScore={row.item.manualPointRecord ?? 0}
+                isLeaf={row.item.isLeaf}
+                semesterId={semesterId}
+                supersededByMax={row.item.contributesToParent === false}
+                onSaveSelfScore={onSaveSelfScore}
+                onDeleteSelfScore={onDeleteSelfScore}
+              />
+            ))}
 
             {/* Bottom Section Total Row ("Cộng điểm mục I") */}
             <div className="student-score-footer training-points-columns flex items-stretch bg-muted/40 border-t border-border font-semibold text-xs min-h-10 tabular-nums">
@@ -381,11 +170,7 @@ export const TrainingPointsSectionAccordion: React.FC<TrainingPointsSectionAccor
               {/* Dữ liệu ghi nhận (112px) */}
               <div className="w-28 min-w-[112px] max-w-[112px] px-1 flex items-center justify-center border-r border-border text-foreground text-center shrink-0">
                 <span className="student-score-label">Điểm hệ thống</span>
-                {totalRecorded > 0
-                  ? totalRecorded
-                  : finalSectionScore > 0 && totalSelf === 0
-                    ? finalSectionScore
-                    : 0}
+                {totalRecorded}
               </div>
 
               {/* SV đánh giá (112px) */}

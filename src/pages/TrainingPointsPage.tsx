@@ -1,8 +1,8 @@
+import { useAuthStore } from '@/features/auth'
 import { Button } from '@/components/ui/button'
 import React, { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { StudentLeftSidebar } from '@/features/events'
-import { historyService, normalizeHistoryStatus } from '@/features/registration-history'
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
 import { useScrollActivity } from '@/shared/hooks/useScrollActivity'
 import {
@@ -11,13 +11,12 @@ import {
   TrainingPointsNoticeBanner,
   TrainingPointsSummary,
   TrainingPointsTable,
-  capTrainingPoints,
-  computeSectionCategoryScores,
   formatYearLabel,
 } from '@/features/training-points'
 
 export const TrainingPointsPage: React.FC = () => {
   const queryClient = useQueryClient()
+  const userKey = useAuthStore((state) => state.user?.id ?? state.user?.email ?? 'current')
   const isMobile = useMediaQuery('(max-width: 767px)')
   const handleScroll = useScrollActivity()
 
@@ -45,9 +44,7 @@ export const TrainingPointsPage: React.FC = () => {
   const getSemestersForYear = (yearCode: string) => {
     if (!yearCode) return []
     const cleanYear = yearCode.replace(/\s+/g, '')
-    const matchedYear = academicYears.find(
-      (y) => (y.code || '').replace(/\s+/g, '') === cleanYear
-    )
+    const matchedYear = academicYears.find((y) => (y.code || '').replace(/\s+/g, '') === cleanYear)
 
     return semesters.filter((s) => {
       if (matchedYear && s.academicYearId != null) {
@@ -147,132 +144,80 @@ export const TrainingPointsPage: React.FC = () => {
     isError: treeError,
     refetch: refetchTree,
   } = useQuery({
-    queryKey: ['student-semester-points-tree', currentSemesterId],
+    queryKey: ['student-semester-points-tree', userKey, currentSemesterId],
     queryFn: () => trainingPointsService.getSemesterPointGroupedTree(currentSemesterId!),
     enabled: Boolean(currentSemesterId),
     staleTime: 0,
     refetchOnMount: 'always',
   })
 
-  // 4. Fallback to standard point categories grouped tree if student has no tree records yet
-  const { data: fallbackCategories = [] } = useQuery({
-    queryKey: ['point-categories-grouped-tree'],
-    queryFn: () => trainingPointsService.getPointCategoriesGroupedTree(),
-    enabled: groupedTree.length === 0,
+  const {
+    data: summary,
+    isLoading: isLoadingSummary,
+    isError: summaryError,
+    refetch: refetchSummary,
+  } = useQuery({
+    queryKey: ['student-semester-point-summary', userKey, currentSemesterId],
+    queryFn: () => trainingPointsService.getSemesterPointSummary(currentSemesterId!),
+    enabled: Boolean(currentSemesterId),
+    staleTime: 0,
   })
+  const sections = treeError ? [] : groupedTree
+  const refreshPoints = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['student-semester-points-tree'] }),
+      queryClient.invalidateQueries({ queryKey: ['student-semester-point-summary'] }),
+      queryClient.invalidateQueries({ queryKey: ['point-transactions'] }),
+    ])
+  }
 
-  // Normalize sections: prefer groupedTree, fallback to categories
-  const sections = useMemo(() => {
-    if (groupedTree && groupedTree.length > 0) return groupedTree
-    if (fallbackCategories && fallbackCategories.length > 0) return fallbackCategories
-    return []
-  }, [groupedTree, fallbackCategories])
-
-  // 5. Fetch Registration History to get completed events count
-  const { data: historyEvents = [] } = useQuery({
-    queryKey: ['registrations', 'history'],
-    queryFn: () => historyService.getMyHistory(),
-  })
-
-  // Track student self-evaluated scores and descriptions in local state
-  const [studentScores, setStudentScores] = useState<Record<number, number>>({})
-  const [studentDescriptions, setStudentDescriptions] = useState<Record<number, string>>({})
-
-  useEffect(() => {
-    setStudentScores({})
-    setStudentDescriptions({})
-  }, [currentSemesterId])
-
-  // Mutation to save self evaluation
   const selfEvalMutation = useMutation({
-    mutationFn: (payload: { categoryId: number; score: number; description?: string }) =>
-      trainingPointsService.saveSelfEvaluation({
-        semesterId: currentSemesterId!,
-        pointCategoryId: payload.categoryId,
-        points: payload.score,
-        description: payload.description || 'Sinh viên tự đánh giá',
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['student-semester-points-tree', currentSemesterId],
-      })
-      queryClient.invalidateQueries({ queryKey: ['student-semester-points', currentSemesterId] })
-      queryClient.invalidateQueries({ queryKey: ['point-transactions', currentSemesterId] })
-    },
+    mutationFn: (payload: {
+      categoryId: number
+      score: number
+      description?: string
+      transactionId?: number
+      semesterId: number
+    }) =>
+      payload.transactionId
+        ? trainingPointsService.updatePointTransaction(
+            payload.transactionId,
+            payload.score,
+            payload.description
+          )
+        : trainingPointsService.saveSelfEvaluation({
+            semesterId: payload.semesterId,
+            pointCategoryId: payload.categoryId,
+            points: payload.score,
+            description: payload.description,
+          }),
+    onSettled: refreshPoints,
   })
-
-  // Mutation to delete self evaluation
   const deleteSelfEvalMutation = useMutation({
-    mutationFn: (transactionId: number) =>
-      trainingPointsService.deletePointTransaction(transactionId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['student-semester-points-tree', currentSemesterId],
-      })
-      queryClient.invalidateQueries({ queryKey: ['student-semester-points', currentSemesterId] })
-      queryClient.invalidateQueries({ queryKey: ['point-transactions', currentSemesterId] })
-    },
+    mutationFn: (id: number) => trainingPointsService.deletePointTransaction(id),
+    onSettled: refreshPoints,
   })
-
-  const handleSaveSelfScore = async (categoryId: number, score: number, description?: string) => {
-    await selfEvalMutation.mutateAsync({ categoryId, score, description })
-    // Update local values only after saving successfully.
-    setStudentScores((prev) => ({ ...prev, [categoryId]: score }))
-    if (description !== undefined) {
-      setStudentDescriptions((prev) => ({ ...prev, [categoryId]: description }))
-    }
+  const handleSaveSelfScore = async (
+    categoryId: number,
+    score: number,
+    description?: string,
+    transactionId?: number
+  ) => {
+    if (!currentSemesterId) throw new Error('Vui lòng chọn học kỳ')
+    await selfEvalMutation.mutateAsync({
+      categoryId,
+      score,
+      description,
+      transactionId,
+      semesterId: currentSemesterId,
+    })
   }
-
-  const handleDeleteSelfScore = async (transactionId: number, categoryId: number) => {
-    let targetTxId = transactionId
-    if (!targetTxId || targetTxId <= 0) {
-      try {
-        const txs = await trainingPointsService.getPointTransactionsByCategory(
-          currentSemesterId!,
-          categoryId
-        )
-        const manual = txs.find((t) => t.type === 'MANUAL')
-        if (manual) targetTxId = manual.id
-      } catch (err) {
-        console.warn('Could not find manual transaction to delete:', err)
-      }
-    }
-
-    if (targetTxId && targetTxId > 0) {
-      await deleteSelfEvalMutation.mutateAsync(targetTxId)
-      // Clear local values only after deletion succeeds.
-      setStudentScores((prev) => {
-        const next = { ...prev }
-        delete next[categoryId]
-        return next
-      })
-      setStudentDescriptions((prev) => {
-        const next = { ...prev }
-        delete next[categoryId]
-        return next
-      })
-    }
+  const handleDeleteSelfScore = async (transactionId: number, _categoryId: number) => {
+    await deleteSelfEvalMutation.mutateAsync(transactionId)
   }
-
-  // Compute semester total consistently from hierarchical section scores (respecting isMaxChild & caps)
-  const totalScore = useMemo(() => {
-    if (!groupedTree || groupedTree.length === 0) return 0
-    const sum = groupedTree.reduce((acc, section) => {
-      const hasNodes = Array.isArray(section.items) && section.items.length > 0
-      const computed = hasNodes
-        ? computeSectionCategoryScores(section, new Map(), studentScores).get(section.id)?.total
-        : undefined
-      return acc + capTrainingPoints(computed ?? section.totalPoint ?? 0, section.maximum)
-    }, 0)
-    return capTrainingPoints(sum, 100)
-  }, [groupedTree, studentScores])
-
-  // Hoạt động đã tham gia: lấy tổng số sự kiện đã hoàn thành từ lịch sử đăng ký của sinh viên
-  const activitiesCount = useMemo(() => {
-    return historyEvents.filter((e) => normalizeHistoryStatus(e.status) === 'COMPLETED').length
-  }, [historyEvents])
-
-  const isLoading = isLoadingTree && fallbackCategories.length === 0
+  const totalScore = summary ? Math.min(summary.maximum, summary.totalPoint) : 0
+  const activitiesCount = summary?.activitiesCount ?? 0
+  const isLoading = isLoadingTree || isLoadingSummary
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-muted/40 font-sans">
@@ -305,10 +250,12 @@ export const TrainingPointsPage: React.FC = () => {
             {/* 2. Summary Overview Card (Mobile order: 2, Desktop order: 3) */}
             <div className="shrink-0 order-2 md:order-3">
               <TrainingPointsSummary
-                unavailable={treeError || !currentSemesterId}
+                unavailable={treeError || summaryError || !currentSemesterId}
                 semesterLabel={`HK${appliedSemester || '1'}`}
                 academicYearLabel={formatYearLabel(appliedYear)}
                 totalScore={totalScore}
+                classificationLabel={summary?.classificationLabel}
+                maxScore={summary?.maximum ?? 100}
                 activitiesCount={activitiesCount}
                 isLoading={isLoading}
               />
@@ -321,13 +268,20 @@ export const TrainingPointsPage: React.FC = () => {
 
             {/* 4. Detailed Evaluation Table (Order: 4) */}
             <div className="shrink-0 order-4 flex flex-col gap-3">
-              {treeError && (
+              {(treeError || summaryError) && (
                 <div
                   role="alert"
                   className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-3 text-sm"
                 >
                   <p>Không tải được điểm rèn luyện.</p>
-                  <Button variant="outline" size="sm" onClick={() => void refetchTree()}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      void refetchTree()
+                      void refetchSummary()
+                    }}
+                  >
                     Thử lại
                   </Button>
                 </div>
@@ -339,13 +293,11 @@ export const TrainingPointsPage: React.FC = () => {
               )}
               <TrainingPointsTable
                 sections={sections}
-                studentScores={studentScores}
-                studentDescriptions={studentDescriptions}
                 semesterId={currentSemesterId}
                 onSaveSelfScore={handleSaveSelfScore}
                 onDeleteSelfScore={handleDeleteSelfScore}
                 isLoading={isLoading}
-                resetKey={`${appliedYear}-${appliedSemester}-${currentSemesterId}`}
+                resetKey={`${userKey}-${appliedYear}-${appliedSemester}-${currentSemesterId}`}
               />
             </div>
           </div>

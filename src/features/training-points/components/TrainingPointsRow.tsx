@@ -14,7 +14,7 @@ import type {
   StudentSemesterPointFlattenedItem,
 } from '../types/trainingPoints.types'
 import { trainingPointsService } from '../services/trainingPointsService'
-import { capTrainingPoints } from '../utils/scoreCalculator'
+import { useAuthStore } from '@/features/auth'
 
 interface TrainingPointsRowProps {
   item: PointCategoryNode | StudentSemesterPointFlattenedItem
@@ -28,7 +28,12 @@ interface TrainingPointsRowProps {
   selfDescription?: string
   isLeaf: boolean
   semesterId?: number
-  onSaveSelfScore: (categoryId: number, score: number, description?: string) => Promise<void> | void
+  onSaveSelfScore: (
+    categoryId: number,
+    score: number,
+    description?: string,
+    transactionId?: number
+  ) => Promise<void> | void
   onDeleteSelfScore?: (transactionId: number, categoryId: number) => Promise<void> | void
 }
 
@@ -37,9 +42,7 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
   criteriaCode,
   recordedPoints,
   recordedTransactions,
-  manualTransaction,
   selfScore,
-  aggregatedTotal,
   supersededByMax = false,
   selfDescription = '',
   isLeaf,
@@ -47,6 +50,12 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
   onSaveSelfScore,
   onDeleteSelfScore,
 }) => {
+  const userKey = useAuthStore((state) => state.user?.id ?? state.user?.email ?? 'current')
+  const [editingTransaction, setEditingTransaction] = useState<PointTransaction | null>(null)
+  const openNewEvaluation = () => {
+    setEditingTransaction(null)
+    setIsSelfModalOpen(true)
+  }
   const isMobile = useMediaQuery('(max-width: 767px)')
   const [isSelfModalOpen, setIsSelfModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
@@ -57,7 +66,7 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
     isError,
     refetch,
   } = useQuery({
-    queryKey: ['point-transactions', semesterId, item.id],
+    queryKey: ['point-transactions', userKey, semesterId, item.id],
     queryFn: () => trainingPointsService.getPointTransactionsByCategory(semesterId!, item.id),
     enabled: (isDetailModalOpen || isSelfModalOpen) && isLeaf && Boolean(semesterId),
     staleTime: 0,
@@ -65,9 +74,8 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
   const effectiveRecordedTxs = (
     lazyTransactions.length ? lazyTransactions : recordedTransactions || []
   ).filter((tx) => tx.type !== 'MANUAL')
-  const effectiveManualTx = lazyTransactions.find((tx) => tx.type === 'MANUAL') || manualTransaction
-
-  const effectiveDescription = selfDescription || effectiveManualTx?.description || ''
+  const manualTransactions = lazyTransactions.filter((transaction) => transaction.type === 'MANUAL')
+  const effectiveDescription = selfDescription || ''
 
   // Row background and indent styling based on hierarchy level
   const isSectionSubGroup = !isLeaf && item.level <= 1
@@ -75,13 +83,9 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
   const indentClass = item.level >= 3 ? 'pl-6' : item.level === 2 ? 'pl-3.5' : ''
   const meaningfulNote = getMeaningfulCriterionNote(item.name, item.note)
 
-  // Total for this criterion: use pre-aggregated hierarchical score when supplied (for parents with isMaxChild),
-  // otherwise cap recorded + self at maximum.
-  const rowTotal =
-    aggregatedTotal !== undefined
-      ? aggregatedTotal
-      : capTrainingPoints(recordedPoints + selfScore, item.maximum)
-  const isMaxReached = item.maximum > 0 && rowTotal >= item.maximum && !supersededByMax
+  const serverNode = item as StudentSemesterPointFlattenedItem
+  const rowTotal = Math.min(item.maximum, serverNode.totalPoint ?? 0)
+  const isMaxReached = serverNode.isAtMaximum ?? false
   const isMaxChildGroup = !isLeaf && Boolean(item.isMaxChild)
   const maxChildExplanation = isMaxChildGroup
     ? 'Mục này lấy điểm cao nhất trong các tiêu chí con (không cộng dồn)'
@@ -100,7 +104,7 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
           recorded={`${recordedPoints} điểm`}
           evaluation={`${selfScore} điểm`}
           evaluated={Boolean(selfScore || effectiveDescription)}
-          onEvaluate={() => setIsSelfModalOpen(true)}
+          onEvaluate={openNewEvaluation}
           onDetail={() => setIsDetailModalOpen(true)}
         />
       ) : (
@@ -171,7 +175,7 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
                   variant="ghost"
                   size="sm"
                   type="button"
-                  onClick={() => setIsSelfModalOpen(true)}
+                  onClick={openNewEvaluation}
                   className="group relative flex w-full items-center justify-center px-7 py-1 rounded-md border border-transparent hover:border-border hover:bg-muted/60 transition-colors cursor-pointer"
                 >
                   <span
@@ -182,7 +186,9 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
                     {selfScore}
                     <Pencil
                       className={`absolute left-full ml-1.5 h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-opacity ${
-                        selfScore > 0 ? 'opacity-75 group-hover/row:opacity-100' : 'opacity-40 group-hover/row:opacity-100'
+                        selfScore > 0
+                          ? 'opacity-75 group-hover/row:opacity-100'
+                          : 'opacity-40 group-hover/row:opacity-100'
                       }`}
                     />
                   </span>
@@ -228,7 +234,9 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
                     size="icon"
                     aria-label="Chi tiết điểm và minh chứng"
                     className={`absolute left-full h-8 w-6 p-0 shrink-0 text-primary hover:bg-primary/10 transition-opacity ${
-                      rowTotal > 0 ? 'opacity-85 group-hover/row:opacity-100' : 'opacity-35 group-hover/row:opacity-100'
+                      rowTotal > 0
+                        ? 'opacity-85 group-hover/row:opacity-100'
+                        : 'opacity-35 group-hover/row:opacity-100'
                     }`}
                   >
                     <Eye className="h-3.5 w-3.5" />
@@ -258,12 +266,12 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
           criterionName={item.name}
           criteriaCode={criteriaCode}
           maxPoints={item.maximum}
-          currentScore={selfScore}
-          currentDescription={effectiveDescription}
-          onSave={(points, desc) => onSaveSelfScore(item.id, points, desc)}
+          currentScore={editingTransaction?.points ?? 0}
+          currentDescription={editingTransaction?.description ?? ''}
+          onSave={(points, desc) => onSaveSelfScore(item.id, points, desc, editingTransaction?.id)}
           onDelete={
-            effectiveManualTx && onDeleteSelfScore
-              ? () => onDeleteSelfScore(effectiveManualTx.id, item.id)
+            editingTransaction && onDeleteSelfScore
+              ? () => onDeleteSelfScore(editingTransaction.id, item.id)
               : undefined
           }
         />
@@ -284,13 +292,24 @@ export const TrainingPointsRow: React.FC<TrainingPointsRowProps> = ({
           isLoading={isFetching}
           loadError={isError}
           onRetry={() => void refetch()}
+          isAtMaximum={serverNode.isAtMaximum}
+          completionPercentage={serverNode.completionPercentage}
+          manualTransactions={manualTransactions}
           onOpenSelfEvaluation={() => {
+            setIsDetailModalOpen(false)
+            openNewEvaluation()
+          }}
+          onEditManualTransaction={(transaction) => {
+            setEditingTransaction(transaction)
             setIsDetailModalOpen(false)
             setIsSelfModalOpen(true)
           }}
-          onDeleteSelfEvaluation={
-            effectiveManualTx && onDeleteSelfScore
-              ? () => onDeleteSelfScore(effectiveManualTx.id, item.id)
+          onDeleteManualTransaction={
+            onDeleteSelfScore
+              ? async (transaction) => {
+                  await onDeleteSelfScore(transaction.id, item.id)
+                  await refetch()
+                }
               : undefined
           }
         />

@@ -67,7 +67,7 @@ it('caps an over-limit backend section in its heading and footer, including afte
   expect(footer().lastElementChild).toHaveTextContent(/^Tổng20$/)
 
   view.rerender(<TrainingPointsSectionAccordion {...props} studentScores={{ 51: 0 }} />)
-  expect(screen.getByText('19/20 điểm')).toBeInTheDocument()
-  expect(footer().lastElementChild).toHaveTextContent(/^Tổng19$/)
+  expect(screen.getByText('20/20 điểm')).toBeInTheDocument()
+  expect(footer().lastElementChild).toHaveTextContent(/^Tổng20$/)
   expect(section.totalPoint).toBe(24)
 })

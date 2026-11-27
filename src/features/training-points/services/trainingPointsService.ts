@@ -1,7 +1,7 @@
 import { apiClient } from '@/shared'
-import { capTrainingPoints } from '../utils/scoreCalculator'
 import type {
   AcademicYear,
+  StudentSemesterPointSummary,
   Semester,
   PointCategory,
   PointCategoryNode,
@@ -13,6 +13,27 @@ import type {
 } from '../types/trainingPoints.types'
 
 export const trainingPointsService = {
+  async getSemesterPointSummary(semesterId: number): Promise<StudentSemesterPointSummary> {
+    const result = await apiClient.get<unknown, StudentSemesterPointSummary>(
+      `/student-semester-points/me/semesters/${semesterId}/summary`
+    )
+    if (
+      !result ||
+      !Number.isFinite(result.totalPoint) ||
+      result.totalPoint < 0 ||
+      !Number.isFinite(result.maximum) ||
+      result.maximum < 0 ||
+      typeof result.classificationLabel !== 'string' ||
+      !Number.isFinite(result.pointsNeeded) ||
+      !Number.isFinite(result.activitiesCount)
+    ) {
+      throw new Error('Dữ liệu tổng kết điểm không hợp lệ')
+    }
+    return result
+  },
+  async updatePointTransaction(id: number, points: number, description?: string): Promise<void> {
+    await apiClient.patch(`/point-transactions/me/${id}`, { points, description })
+  },
   /**
    * [API MỚI] Lấy toàn bộ cây điểm rèn luyện gom nhóm sẵn theo học kỳ
    * Endpoint: GET /student-semester-points/grouped-tree/{semesterId}
@@ -23,16 +44,26 @@ export const trainingPointsService = {
     const res = await apiClient.get<unknown, StudentSemesterPointGroupedTree[]>(
       `/student-semester-points/grouped-tree/${semesterId}`
     )
-    return Array.isArray(res)
-      ? res.map((section) => ({
-          ...section,
-          totalPoint: capTrainingPoints(section.totalPoint, section.maximum),
-          items: section.items.map((item) => ({
-            ...item,
-            totalPoint: capTrainingPoints(item.totalPoint, item.maximum),
-          })),
-        }))
-      : []
+    if (!Array.isArray(res)) throw new Error('Dữ liệu điểm học kỳ không hợp lệ')
+    for (const section of res) {
+      if (!Array.isArray(section.items)) throw new Error('Dữ liệu cây điểm không hợp lệ')
+      for (const node of [section, ...section.items]) {
+        if (
+          !Number.isFinite(node.totalPoint) ||
+          node.totalPoint < 0 ||
+          !Number.isFinite(node.maximum) ||
+          node.maximum < 0 ||
+          typeof node.isAtMaximum !== 'boolean' ||
+          !Number.isFinite(node.completionPercentage) ||
+          node.completionPercentage! < 0 ||
+          node.completionPercentage! > 100 ||
+          typeof node.contributesToParent !== 'boolean'
+        ) {
+          throw new Error('Dữ liệu điểm của tiêu chí không hợp lệ')
+        }
+      }
+    }
+    return res
   },
 
   /**

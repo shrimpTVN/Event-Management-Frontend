@@ -6,6 +6,7 @@ vi.mock('@/shared', () => ({
   apiClient: {
     get: vi.fn(),
     post: vi.fn(),
+    patch: vi.fn(),
     delete: vi.fn(),
   },
 }))
@@ -47,6 +48,13 @@ describe('trainingPointsService', () => {
         items: [],
       },
     ]
+    mockTree.forEach((node) =>
+      Object.assign(node, {
+        isAtMaximum: false,
+        completionPercentage: 90,
+        contributesToParent: true,
+      })
+    )
     vi.mocked(apiClient.get).mockResolvedValue(mockTree)
 
     const result = await trainingPointsService.getSemesterPointGroupedTree(2)
@@ -72,7 +80,7 @@ describe('trainingPointsService', () => {
     expect(result).toEqual(mockCategories)
   })
 
-  it('caps the shared page/sidebar totals and child totals without changing recorded evidence', async () => {
+  it('preserves raw server totals for both page and sidebar', async () => {
     const raw = [
       {
         id: 5,
@@ -93,15 +101,29 @@ describe('trainingPointsService', () => {
         items: [],
       },
     ]
+    raw.forEach((node) => {
+      Object.assign(node, {
+        isAtMaximum: false,
+        completionPercentage: 0,
+        contributesToParent: true,
+      })
+      node.items.forEach((item) =>
+        Object.assign(item, {
+          isAtMaximum: false,
+          completionPercentage: 0,
+          contributesToParent: true,
+        })
+      )
+    })
     vi.mocked(apiClient.get).mockResolvedValue(raw)
     const result = await trainingPointsService.getSemesterPointGroupedTree(1)
-    expect(result[0].totalPoint).toBe(20)
+    expect(result[0].totalPoint).toBe(24)
     expect(result[0].items[0]).toMatchObject({
-      totalPoint: 12,
+      totalPoint: 22,
       systemPointRecord: 19,
       manualPointRecord: 3,
     })
-    expect(result.reduce((sum, section) => sum + section.totalPoint, 0)).toBe(24)
+    expect(result.reduce((sum, section) => sum + section.totalPoint, 0)).toBe(28)
     expect(raw[0].totalPoint).toBe(24)
     expect(raw[0].items[0].totalPoint).toBe(22)
     expect(apiClient.post).not.toHaveBeenCalled()
@@ -115,4 +137,17 @@ describe('evidence API errors', () => {
       'offline'
     )
   })
+})
+
+it('patches the selected manual transaction instead of adding another', async () => {
+  vi.mocked(apiClient.patch).mockResolvedValue({})
+  await trainingPointsService.updatePointTransaction(42, 5, 'edited')
+  expect(apiClient.patch).toHaveBeenCalledWith('/point-transactions/me/42', {
+    points: 5,
+    description: 'edited',
+  })
+})
+it('rejects an incomplete tree contract', async () => {
+  vi.mocked(apiClient.get).mockResolvedValue([{ maximum: 10, totalPoint: 5, items: [] }])
+  await expect(trainingPointsService.getSemesterPointGroupedTree(9)).rejects.toThrow()
 })

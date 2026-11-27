@@ -1,6 +1,9 @@
 import React from 'react'
 import { Button } from '@/components/ui/button'
-import { matchesPageSearchTree, useMobilePageSearch } from '@/shared/components/layout/MobileSubpageHeader'
+import {
+  matchesPageSearchTree,
+  useMobilePageSearch,
+} from '@/shared/components/layout/MobileSubpageHeader'
 import { TrainingPointsSectionAccordion } from './TrainingPointsSectionAccordion'
 import { Skeleton } from '@/components/ui/skeleton'
 import type {
@@ -13,10 +16,15 @@ import type {
 interface TrainingPointsTableProps {
   sections: (PointCategoryNode | StudentSemesterPointGroupedTree | PointCategoryGroupedTree)[]
   transactions?: PointTransaction[]
-  studentScores: Record<number, number>
+  studentScores?: Record<number, number>
   studentDescriptions?: Record<number, string>
   semesterId?: number
-  onSaveSelfScore: (categoryId: number, score: number, description?: string) => Promise<void> | void
+  onSaveSelfScore: (
+    categoryId: number,
+    score: number,
+    description?: string,
+    transactionId?: number
+  ) => Promise<void> | void
   onDeleteSelfScore?: (transactionId: number, categoryId: number) => Promise<void> | void
   isLoading?: boolean
   resetKey?: string | number
@@ -162,7 +170,10 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
         <div className="student-score-content w-full min-w-[826px] flex flex-col">
           {/* Section Accordions (Mục I đến V) */}
           {query.trim() && !sections.some((section) => matchesPageSearchTree(query, section)) && (
-            <div role="status" className="p-6 text-center rounded-xl bg-card border border-border flex flex-col items-center gap-3">
+            <div
+              role="status"
+              className="p-6 text-center rounded-xl bg-card border border-border flex flex-col items-center gap-3"
+            >
               <p className="text-sm text-muted-foreground">
                 Không tìm thấy tiêu chí nào phù hợp với từ khóa &ldquo;{query}&rdquo;.
               </p>
@@ -178,22 +189,25 @@ export const TrainingPointsTable: React.FC<TrainingPointsTableProps> = ({
               )}
             </div>
           )}
-          {sections.map((section, idx) => matchesPageSearchTree(query, section) && (
-            <TrainingPointsSectionAccordion
-              key={`${section.id}-${resetKey ?? ''}-${query}`}
-              section={section}
-              sectionRoman={ROMAN_NUMERALS[idx] || String(idx + 1)}
-              transactions={transactions}
-              studentScores={studentScores}
-              studentDescriptions={studentDescriptions}
-              semesterId={semesterId}
-              onSaveSelfScore={onSaveSelfScore}
-              onDeleteSelfScore={onDeleteSelfScore}
-              defaultExpanded={Boolean(query.trim())}
-              onToggleExpand={(expanded) => handleToggleSection(section.id, expanded)}
-              aggregateScore={aggregateScores?.[section.id]}
-            />
-          ))}
+          {sections.map(
+            (section, idx) =>
+              matchesPageSearchTree(query, section) && (
+                <TrainingPointsSectionAccordion
+                  key={`${section.id}-${resetKey ?? ''}-${query}`}
+                  section={section}
+                  sectionRoman={ROMAN_NUMERALS[idx] || String(idx + 1)}
+                  transactions={transactions}
+                  studentScores={studentScores}
+                  studentDescriptions={studentDescriptions}
+                  semesterId={semesterId}
+                  onSaveSelfScore={onSaveSelfScore}
+                  onDeleteSelfScore={onDeleteSelfScore}
+                  defaultExpanded={Boolean(query.trim())}
+                  onToggleExpand={(expanded) => handleToggleSection(section.id, expanded)}
+                  aggregateScore={aggregateScores?.[section.id]}
+                />
+              )
+          )}
         </div>
       </div>
     </div>

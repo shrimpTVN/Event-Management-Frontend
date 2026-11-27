@@ -8,7 +8,7 @@ import type { StudentSemesterPointGroupedTree } from '../../types/trainingPoints
 afterEach(cleanup)
 
 describe('TrainingPoints isMaxChild rendering', () => {
-  it('renders parent max-child scores on III.b.1 and aggregates self=13, total=16 in section footer', () => {
+  it('renders backend totals and max-child selection without recomputing', () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
@@ -86,6 +86,7 @@ describe('TrainingPoints isMaxChild rendering', () => {
         },
         {
           id: 3111,
+          contributesToParent: false,
           name: 'Cấp Bộ môn/Khoa, Chi đoàn, Chi hội',
           note: null,
           maximum: 3,
@@ -100,6 +101,7 @@ describe('TrainingPoints isMaxChild rendering', () => {
         },
         {
           id: 3112,
+          contributesToParent: true,
           name: 'Cấp ĐHCT; Đơn vị đào tạo và tương đương',
           note: null,
           maximum: 5,
@@ -155,7 +157,7 @@ describe('TrainingPoints isMaxChild rendering', () => {
       </QueryClientProvider>
     )
 
-    expect(screen.getByText('16/20 điểm')).toBeInTheDocument()
+    expect(screen.getByText('19/20 điểm')).toBeInTheDocument()
     expect(screen.queryByText('Lấy max mục con')).not.toBeInTheDocument()
     expect(screen.queryByText('Mã tiêu chí: III.b.1')).not.toBeInTheDocument()
     const infoTrigger = screen.getByLabelText('Giải thích cách tính điểm mục con')
@@ -167,7 +169,7 @@ describe('TrainingPoints isMaxChild rendering', () => {
     // Hàng III.b.1 là hàng cha có isMaxChild=true -> hiển thị điểm gộp 5 và không có nút sửa trực tiếp
     const row311 = screen.getByText('III.b.1').closest('.student-score-row') as HTMLElement
     expect(row311).toBeTruthy()
-    expect(row311).toHaveTextContent('5')
+    expect(row311).toHaveTextContent('8')
     expect(row311.querySelectorAll('button')).toHaveLength(0)
 
     // Hàng con không thắng (III.b.1.1 = 3) được đánh dấu không cộng dồn
@@ -180,8 +182,8 @@ describe('TrainingPoints isMaxChild rendering', () => {
     const footer = screen.getByText('Cộng điểm mục III').parentElement!
     expect(footer.children[1]).toHaveTextContent(/20$/)
     expect(footer.children[2]).toHaveTextContent(/3$/)
-    expect(footer.children[3]).toHaveTextContent(/13$/)
-    expect(footer.children[4]).toHaveTextContent(/16$/)
+    expect(footer.children[3]).toHaveTextContent(/16$/)
+    expect(footer.children[4]).toHaveTextContent(/19$/)
   })
 
   it('hides duplicate notes matching title while keeping rule notes in TrainingPointsTable', () => {
@@ -251,11 +253,7 @@ describe('TrainingPoints isMaxChild rendering', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <TrainingPointsTable
-          sections={sections}
-          studentScores={{}}
-          onSaveSelfScore={vi.fn()}
-        />
+        <TrainingPointsTable sections={sections} studentScores={{}} onSaveSelfScore={vi.fn()} />
       </QueryClientProvider>
     )
 

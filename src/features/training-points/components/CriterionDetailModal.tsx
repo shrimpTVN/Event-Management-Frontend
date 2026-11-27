@@ -13,6 +13,11 @@ interface CriterionDetailModalProps {
   recordedTransactions: PointTransaction[]
   selfScore: number
   selfDescription?: string
+  isAtMaximum?: boolean
+  completionPercentage?: number
+  manualTransactions?: PointTransaction[]
+  onEditManualTransaction?: (transaction: PointTransaction) => void
+  onDeleteManualTransaction?: (transaction: PointTransaction) => Promise<void> | void
   totalPoints: number
   isLoading?: boolean
   loadError?: boolean
@@ -39,28 +44,30 @@ export function CriterionDetailModal({
   maxPoints,
   recordedTransactions,
   selfScore,
-  selfDescription,
   totalPoints,
   isLoading = false,
   loadError = false,
   onRetry,
   onOpenSelfEvaluation,
-  onDeleteSelfEvaluation,
+  isAtMaximum = false,
+  completionPercentage = 0,
+  manualTransactions = [],
+  onEditManualTransaction,
+  onDeleteManualTransaction,
 }: CriterionDetailModalProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(false)
   const records = [...recordedTransactions].sort(
     (a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0) || b.id - a.id
   )
-  const atMaximum = maxPoints > 0 && totalPoints >= maxPoints
-  const progress = maxPoints > 0 ? Math.min(100, Math.max(0, (totalPoints / maxPoints) * 100)) : 0
-  const handleDelete = async () => {
-    if (!onDeleteSelfEvaluation || !window.confirm('Xóa bản tự đánh giá này?')) return
+  const atMaximum = isAtMaximum
+  const progress = completionPercentage
+  const handleDelete = async (transaction: PointTransaction) => {
+    if (!onDeleteManualTransaction || !window.confirm('Xóa bản tự đánh giá này?')) return
     setIsDeleting(true)
     setDeleteError(false)
     try {
-      await onDeleteSelfEvaluation()
-      onClose()
+      await onDeleteManualTransaction(transaction)
     } catch {
       setDeleteError(true)
     } finally {
@@ -202,33 +209,49 @@ export function CriterionDetailModal({
                 <h3 className="text-sm font-semibold">Sinh viên tự đánh giá</h3>
                 <span className="font-k2d font-semibold">{selfScore} điểm</span>
               </div>
-              <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
-                {selfDescription || (selfScore > 0 ? 'Chưa có ghi chú.' : 'Chưa tự đánh giá.')}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {onOpenSelfEvaluation && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onOpenSelfEvaluation}
-                    disabled={isDeleting}
-                  >
-                    {selfScore > 0 || selfDescription ? 'Chỉnh sửa tự đánh giá' : 'Tự đánh giá'}
-                  </Button>
-                )}
-                {onDeleteSelfEvaluation && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleDelete}
-                    disabled={isDeleting}
-                    className="text-destructive"
-                  >
-                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                    {isDeleting ? 'Đang xóa...' : 'Xóa tự đánh giá'}
-                  </Button>
-                )}
-              </div>
+              {manualTransactions.map((transaction) => (
+                <div
+                  key={transaction.id}
+                  className="flex flex-col gap-2 border-b border-border py-3"
+                >
+                  <p className="text-sm">
+                    {transaction.points} điểm · {transaction.description || 'Chưa có ghi chú'}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {onEditManualTransaction && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isDeleting}
+                        onClick={() => onEditManualTransaction(transaction)}
+                      >
+                        Sửa ghi nhận #{transaction.id}
+                      </Button>
+                    )}
+                    {onDeleteManualTransaction && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={isDeleting}
+                        onClick={() => void handleDelete(transaction)}
+                      >
+                        <Trash2 className="mr-1 h-3.5 w-3.5" />
+                        Xóa ghi nhận #{transaction.id}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {onOpenSelfEvaluation && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isDeleting}
+                  onClick={onOpenSelfEvaluation}
+                >
+                  Thêm ghi nhận điểm tay
+                </Button>
+              )}
               {deleteError && (
                 <p role="alert" className="text-sm text-destructive">
                   Không xóa được tự đánh giá. Vui lòng thử lại.
