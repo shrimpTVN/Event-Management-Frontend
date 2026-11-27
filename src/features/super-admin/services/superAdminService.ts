@@ -129,7 +129,6 @@ function resolveAdminEventStatus(event: any, now = Date.now()): AdminEventStatus
   if (event.isActive === false || event.status === 'HIDDEN') return 'HIDDEN'
   if (event.status === 'DRAFT') return 'DRAFT'
   if (event.status === 'CANCELLED') return 'CANCELLED'
-  if (event.status === 'VIOLATED') return 'VIOLATED'
 
   const start = parseTimestamp(event.startsAt ?? event.startTime ?? event.dateHappen)
   const candidateEnd = parseTimestamp(
@@ -376,7 +375,6 @@ export function mapAdminEvent(
     status,
     bannerUrl: event.bannerUrl,
     violationReason: event.violationReason,
-    reportCount: realNumber(event.reportCount) ?? undefined,
   }
 }
 
@@ -793,6 +791,23 @@ export const superAdminService = {
         ? eventsRes.totalPages
         : Math.max(1, Math.ceil(totalElements / size))
     return { content, totalElements, totalPages, page, size }
+  },
+
+  updateEventVisibility: async (
+    id: string | number,
+    hidden: boolean,
+    reason?: string
+  ): Promise<boolean> => {
+    try {
+      await apiClient.patch(`/events/admin/${id}/visibility`, {
+        hidden,
+        reason: hidden ? reason?.trim() || null : null,
+      })
+      return true
+    } catch (err) {
+      console.error('Failed to update event visibility:', err)
+      throw err
+    }
   },
 
   deleteEvent: async (id: string | number): Promise<boolean> => {

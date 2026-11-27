@@ -97,6 +97,7 @@ export const SuperAdminPage: React.FC = () => {
 
   const [selectedEvent, setSelectedEvent] = useState<SuperAdminEvent | null>(null)
   const [isEventModalOpen, setIsEventModalOpen] = useState(false)
+  const [eventModalHideMode, setEventModalHideMode] = useState(false)
 
   const [selectedSemester, setSelectedSemester] = useState<SuperAdminSemester | null>(null)
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false)
@@ -133,12 +134,6 @@ export const SuperAdminPage: React.FC = () => {
     queryKey: ['super-admin', 'pending-fanpages'],
     queryFn: () => superAdminService.getFanpagesPage({ page: 0, size: PAGE_SIZE, status: 'PENDING' }),
     enabled: activeTab === 'overview' || activeTab === 'fanpages',
-  })
-
-  const violatedEventsQuery = useQuery({
-    queryKey: ['super-admin', 'violated-events'],
-    queryFn: () => superAdminService.getEventsPage({ page: 0, size: PAGE_SIZE, status: 'VIOLATED' }),
-    enabled: activeTab === 'overview' || activeTab === 'events',
   })
 
   const usersQuery = useQuery({
@@ -201,7 +196,6 @@ export const SuperAdminPage: React.FC = () => {
 
   const semesters = semestersQuery.data ?? []
   const pendingFanpages: SuperAdminFanpage[] = pendingFanpagesQuery.data?.content ?? []
-  const violatedEvents: SuperAdminEvent[] = violatedEventsQuery.data?.content ?? []
   const users: SuperAdminUser[] = usersQuery.data?.content ?? []
   const fanpages: SuperAdminFanpage[] = fanpagesQuery.data?.content ?? []
   const events: SuperAdminEvent[] = eventsQuery.data?.content ?? []
@@ -248,7 +242,6 @@ export const SuperAdminPage: React.FC = () => {
     void activeQuery.refetch()
     if (activeTab === 'overview') {
       void pendingFanpagesQuery.refetch()
-      void violatedEventsQuery.refetch()
     }
   }
 
@@ -372,14 +365,46 @@ export const SuperAdminPage: React.FC = () => {
 
   // --- Handlers: Events ---
   const handleOpenEventModeration = (event: SuperAdminEvent) => {
+    setEventModalHideMode(false)
     setSelectedEvent(event)
     setIsEventModalOpen(true)
   }
 
-  const handleToggleHideEvent = async (eventId: string, reason?: string) => {
-    void eventId
-    void reason
-    setMutationError('API hiện chưa hỗ trợ superadmin ẩn hoặc khôi phục sự kiện.')
+  const handleRequestHideEvent = (event: SuperAdminEvent) => {
+    setEventModalHideMode(true)
+    setSelectedEvent(event)
+    setIsEventModalOpen(true)
+  }
+
+  const handleToggleHideEvent = async (eventId: string, reason?: string): Promise<boolean> => {
+    const target =
+      events.find((e) => e.id === eventId) ??
+      (selectedEvent?.id === eventId ? selectedEvent : undefined)
+    const willHide = target ? target.status !== 'HIDDEN' : Boolean(reason?.trim())
+    try {
+      setMutationError(null)
+      await superAdminService.updateEventVisibility(eventId, willHide, reason)
+      void queryClient.invalidateQueries({ queryKey: ['super-admin', 'events'] })
+      void queryClient.invalidateQueries({ queryKey: ['super-admin', 'global-search'] })
+      void queryClient.invalidateQueries({ queryKey: ['admin-statistics-dashboard'] })
+    } catch (err) {
+      console.warn('API error updating event visibility:', err)
+      setMutationError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      return false
+    }
+
+    if (selectedEvent?.id === eventId) {
+      setSelectedEvent((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: willHide ? 'HIDDEN' : 'OPEN',
+              violationReason: willHide ? reason?.trim() : undefined,
+            }
+          : null
+      )
+    }
+    return true
   }
 
   // --- Handlers: Semesters ---
@@ -422,10 +447,6 @@ export const SuperAdminPage: React.FC = () => {
     }
   }
 
-  const handleSetCurrentSemester = async (_semesterId: number) => {
-    setMutationError('Chưa thể thay đổi học kỳ hiện hành từ trang này.')
-  }
-
   // --- Handlers: Point Categories ---
   const handleOpenCreatePointCategory = (parent?: SuperAdminPointCategory) => {
     setSelectedPointCategory(null)
@@ -442,6 +463,7 @@ export const SuperAdminPage: React.FC = () => {
   }
 
   const handleSavePointCategory = async (catData: Partial<SuperAdminPointCategory>) => {
+    setMutationError(null)
     if (catData.id) {
       await superAdminService.updatePointCategory(catData.id, catData)
     } else {
@@ -460,6 +482,7 @@ export const SuperAdminPage: React.FC = () => {
   }
 
   const handleTogglePointCategoryActive = async (categoryId: number) => {
+    setMutationError(null)
     const target = flattenTree(pointCategories).find((item) => item.id === categoryId)
     if (!target) throw new Error('Không tìm thấy tiêu chí.')
     await superAdminService.updatePointCategory(categoryId, {
@@ -470,6 +493,7 @@ export const SuperAdminPage: React.FC = () => {
   }
 
   const handleTogglePointCategoryMaxChild = async (categoryId: number) => {
+    setMutationError(null)
     const target = flattenTree(pointCategories).find((item) => item.id === categoryId)
     if (!target) throw new Error('Không tìm thấy tiêu chí.')
     await superAdminService.updatePointCategory(categoryId, {
@@ -480,6 +504,7 @@ export const SuperAdminPage: React.FC = () => {
   }
 
   const handleDeletePointCategory = async (id: number) => {
+    setMutationError(null)
     await superAdminService.deletePointCategory(id)
     await queryClient.invalidateQueries({ queryKey: ['super-admin', 'point-categories'] })
   }
@@ -500,6 +525,7 @@ export const SuperAdminPage: React.FC = () => {
   }
 
   const handleSaveSv5tCriteria = async (critData: Partial<SuperAdminSv5tCriteria>) => {
+    setMutationError(null)
     if (critData.id) {
       await superAdminService.updateCriteria(critData.id, critData)
     } else {
@@ -518,11 +544,13 @@ export const SuperAdminPage: React.FC = () => {
   }
 
   const handleToggleSv5tCriteriaActive = async (criteriaId: number) => {
+    setMutationError(null)
     await superAdminService.toggleCriteriaStatus(criteriaId)
     await queryClient.invalidateQueries({ queryKey: ['super-admin', 'sv5t-criterias'] })
   }
 
   const handleDeleteSv5tCriteria = async (id: number) => {
+    setMutationError(null)
     const target = flattenTree(sv5tCriterias).find((item) => item.id === id)
     // Both endpoints soft-delete; changing status preserves the existing parent relation.
     if (target?.isActive) await superAdminService.toggleCriteriaStatus(id)
@@ -622,9 +650,23 @@ export const SuperAdminPage: React.FC = () => {
         setActiveTab(tab)
       }}
       pendingFanpagesCount={pendingFanpagesQuery.data?.totalElements ?? pendingFanpages.length}
-      violatedEventsCount={violatedEventsQuery.data?.totalElements ?? violatedEvents.length}
       searchQuery={globalSearchQuery}
       onSearchChange={setGlobalSearchQuery}
+      onSelectUserResult={(user) => {
+        setActiveTab('users')
+        setGlobalSearchQuery('')
+        handleOpenUserDetail(user)
+      }}
+      onSelectFanpageResult={(fanpage) => {
+        setActiveTab('fanpages')
+        setGlobalSearchQuery('')
+        handleOpenFanpageReview(fanpage)
+      }}
+      onSelectEventResult={(event) => {
+        setActiveTab('events')
+        setGlobalSearchQuery('')
+        handleOpenEventModeration(event)
+      }}
     >
       {!isLoading && loadError && (
         <div
@@ -697,10 +739,8 @@ export const SuperAdminPage: React.FC = () => {
             <AdminStatisticsDashboard
               semesters={semesters}
               pendingFanpages={pendingFanpages}
-              violatedEvents={violatedEvents}
               onNavigateTab={setActiveTab}
               onReviewFanpage={handleOpenFanpageReview}
-              onModerateEvent={handleOpenEventModeration}
             />
           )}
 
@@ -752,10 +792,10 @@ export const SuperAdminPage: React.FC = () => {
               events={events}
               onSelectEvent={handleOpenEventModeration}
               onToggleHideEvent={handleToggleHideEvent}
+              onRequestHideEvent={handleRequestHideEvent}
               page={eventsPage}
               totalPages={eventsQuery.data?.totalPages ?? 1}
               totalElements={eventsQuery.data?.totalElements ?? events.length}
-              violatedCount={violatedEventsQuery.data?.totalElements}
               onPageChange={setEventsPage}
               statusFilter={eventsStatus}
               onStatusFilterChange={(nextStatus) => {
@@ -775,7 +815,6 @@ export const SuperAdminPage: React.FC = () => {
               semesters={semesters}
               onOpenCreateModal={handleOpenCreateSemester}
               onOpenEditModal={handleOpenEditSemester}
-              onSetCurrentSemester={handleSetCurrentSemester}
             />
           )}
 
@@ -835,7 +874,11 @@ export const SuperAdminPage: React.FC = () => {
       <EventModerationModal
         event={selectedEvent}
         isOpen={isEventModalOpen}
-        onClose={() => setIsEventModalOpen(false)}
+        initialHiding={eventModalHideMode}
+        onClose={() => {
+          setIsEventModalOpen(false)
+          setEventModalHideMode(false)
+        }}
         onToggleHideEvent={handleToggleHideEvent}
       />
 

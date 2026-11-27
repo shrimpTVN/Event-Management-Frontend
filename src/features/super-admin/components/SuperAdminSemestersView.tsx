@@ -23,7 +23,6 @@ export function SuperAdminSemestersView({
   semesters: SuperAdminSemester[]
   onOpenCreateModal: () => void
   onOpenEditModal: (semester: SuperAdminSemester) => void
-  onSetCurrentSemester?: (id: number) => void
 }) {
   const [yearId, setYearId] = useState('ALL')
   const years = useQuery({

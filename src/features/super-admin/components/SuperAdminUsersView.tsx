@@ -17,7 +17,6 @@ interface SuperAdminUsersViewProps {
   totalPages?: number
   totalElements?: number
   onPageChange?: (page: number) => void
-  onActiveFilterChange?: (isActive: boolean) => void
   roleFilter?: 'ALL' | UserRole | UserStatus
   onRoleFilterChange?: (tab: 'ALL' | UserRole | UserStatus) => void
   searchQuery?: string
@@ -32,7 +31,6 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
   totalPages = 1,
   totalElements,
   onPageChange,
-  onActiveFilterChange,
   roleFilter: controlledRoleFilter,
   onRoleFilterChange,
   searchQuery: controlledSearchQuery,
@@ -129,7 +127,6 @@ export const SuperAdminUsersView: React.FC<SuperAdminUsersViewProps> = ({
                 onClick={() => {
                   setInternalActiveTab(tab.id)
                   onRoleFilterChange?.(tab.id)
-                  onActiveFilterChange?.(tab.id !== 'LOCKED')
                 }}
                 className={cn(
                   'h-auto rounded-b-none px-4 sm:px-5 py-2.5 text-xs sm:text-sm transition-all duration-150 cursor-pointer whitespace-nowrap select-none flex items-center gap-1.5',

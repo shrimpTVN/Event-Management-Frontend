@@ -287,3 +287,82 @@ it('does not display undefined IDs or allow mutations while an ID is unavailable
     spy.mockRestore()
   }
 })
+
+it('requires a reason when hiding an event and renders HIDDEN badge without reportCount', async () => {
+  const onToggleHide = vi.fn().mockResolvedValue(true)
+  const onClose = vi.fn()
+  render(
+    <EventModerationModal
+      event={mapAdminEvent({
+        id: 55,
+        name: 'Sự kiện cần kiểm tra',
+        fanpageName: 'CLB AI',
+        status: 'PUBLISHED',
+      })}
+      isOpen
+      initialHiding
+      onClose={onClose}
+      onToggleHideEvent={onToggleHide}
+    />
+  )
+  const confirm = screen.getByRole('button', { name: 'Xác nhận ẩn sự kiện' })
+  expect(confirm).toBeDisabled()
+
+  fireEvent.change(screen.getByLabelText(/Lý do ẩn/), { target: { value: '  Sai quy định  ' } })
+  expect(confirm).toBeEnabled()
+  fireEvent.click(confirm)
+
+  await vi.waitFor(() => {
+    expect(onToggleHide).toHaveBeenCalledWith('55', 'Sai quy định')
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  cleanup()
+  render(
+    <EventModerationModal
+      event={mapAdminEvent({
+        id: 56,
+        name: 'Sự kiện đã ẩn',
+        fanpageName: 'CLB AI',
+        isActive: false,
+        violationReason: 'Thông tin sai lệch',
+      })}
+      isOpen
+      onClose={vi.fn()}
+      onToggleHideEvent={vi.fn()}
+    />
+  )
+  expect(screen.getByText('Sự kiện đang bị ẩn')).toBeInTheDocument()
+  expect(screen.getByText('Thông tin sai lệch')).toBeInTheDocument()
+  expect(screen.queryByText(/lượt báo cáo/)).not.toBeInTheDocument()
+})
+
+it('uses preloaded followersCount and displays rejectionReason in FanpageReviewModal without calling extra follower endpoint', () => {
+  vi.mocked(apiClient.get).mockClear()
+  const fp = mapAdminFanpage(
+    {
+      id: 33,
+      orgName: 'CLB Test',
+      status: 'REJECTED',
+      isActive: false,
+      eventsCount: 3,
+      rejectionReason: 'Thiếu văn bản ủy quyền',
+    },
+    undefined,
+    undefined,
+    245
+  )
+  render(
+    <FanpageReviewModal
+      fanpage={fp}
+      isOpen
+      onClose={vi.fn()}
+      onApprove={vi.fn()}
+      onReject={vi.fn()}
+      onToggleLock={vi.fn()}
+    />
+  )
+  expect(screen.getByText('Thiếu văn bản ủy quyền')).toBeInTheDocument()
+  expect(screen.getByText('245')).toBeInTheDocument()
+  expect(apiClient.get).not.toHaveBeenCalled()
+})

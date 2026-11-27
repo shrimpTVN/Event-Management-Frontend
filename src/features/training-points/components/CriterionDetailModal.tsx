@@ -225,7 +225,7 @@ export function CriterionDetailModal({
                         disabled={isDeleting}
                         onClick={() => onEditManualTransaction(transaction)}
                       >
-                        Sửa ghi nhận #{transaction.id}
+                        Sửa ghi nhận
                       </Button>
                     )}
                     {onDeleteManualTransaction && (
@@ -236,7 +236,7 @@ export function CriterionDetailModal({
                         onClick={() => void handleDelete(transaction)}
                       >
                         <Trash2 className="mr-1 h-3.5 w-3.5" />
-                        Xóa ghi nhận #{transaction.id}
+                        Xóa ghi nhận
                       </Button>
                     )}
                   </div>

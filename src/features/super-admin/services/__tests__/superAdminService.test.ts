@@ -531,3 +531,40 @@ it('does not submit account mutations with missing or fabricated IDs', async () 
   )
   expect(apiClient.patch).not.toHaveBeenCalled()
 })
+
+it('calls PATCH /events/admin/{id}/visibility for hiding and restoring events', async () => {
+  vi.mocked(apiClient.patch).mockResolvedValue({})
+
+  await superAdminService.updateEventVisibility('55', true, '  Nội dung không phù hợp  ')
+  expect(apiClient.patch).toHaveBeenCalledWith('/events/admin/55/visibility', {
+    hidden: true,
+    reason: 'Nội dung không phù hợp',
+  })
+
+  await superAdminService.updateEventVisibility('55', false)
+  expect(apiClient.patch).toHaveBeenLastCalledWith('/events/admin/55/visibility', {
+    hidden: false,
+    reason: null,
+  })
+})
+
+it('maps rejectionReason on fanpage pages and HIDDEN status on inactive events without reportCount', async () => {
+  get.mockResolvedValue({
+    content: [{ id: 8, orgName: 'CLB B', status: 'REJECTED', isActive: false, rejectionReason: 'Thiếu dấu mộc' }],
+    totalElements: 1,
+    totalPages: 1,
+  })
+  const fpPage = await superAdminService.getFanpagesPage({ page: 0, size: 20 })
+  expect(fpPage.content[0].rejectionReason).toBe('Thiếu dấu mộc')
+
+  const hiddenEvt = mapAdminEvent({
+    id: 9,
+    name: 'Sự kiện bị ẩn',
+    isActive: false,
+    violationReason: 'Vi phạm nội quy',
+    reportCount: 4,
+  })
+  expect(hiddenEvt.status).toBe('HIDDEN')
+  expect(hiddenEvt.violationReason).toBe('Vi phạm nội quy')
+  expect('reportCount' in hiddenEvt).toBe(false)
+})

@@ -44,10 +44,8 @@ function show(semesters?: SuperAdminSemester[]) {
             ]
           }
           pendingFanpages={[]}
-          violatedEvents={[]}
           onNavigateTab={vi.fn()}
           onReviewFanpage={vi.fn()}
-          onModerateEvent={vi.fn()}
         />
       </QueryClientProvider>
     </MemoryRouter>

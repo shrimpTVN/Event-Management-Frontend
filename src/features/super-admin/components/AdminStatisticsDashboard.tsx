@@ -15,7 +15,6 @@ import {
 import { adminStatisticsService } from '../services/adminStatisticsService'
 import type {
   SuperAdminFanpage,
-  SuperAdminEvent,
   SuperAdminSemester,
   SuperAdminNavTab,
 } from '../types/superAdmin.types'
@@ -92,17 +91,13 @@ function horizontal(labels: string[], values: number[]): EChartsOption {
 export function AdminStatisticsDashboard({
   semesters,
   pendingFanpages,
-  violatedEvents,
   onNavigateTab,
   onReviewFanpage,
-  onModerateEvent,
 }: {
   semesters: SuperAdminSemester[]
   pendingFanpages: SuperAdminFanpage[]
-  violatedEvents: SuperAdminEvent[]
   onNavigateTab: (tab: SuperAdminNavTab) => void
   onReviewFanpage: (fanpage: SuperAdminFanpage) => void
-  onModerateEvent: (event: SuperAdminEvent) => void
 }) {
   const current = new Date()
   const currentYear = current.getFullYear()
@@ -698,62 +693,35 @@ export function AdminStatisticsDashboard({
           </Panel>
         </>
       )}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2 sm:gap-6">
-        <Panel
-          title={`Fanpage chờ duyệt (${data?.overview.fanpages.pendingFanpages ?? pendingFanpages.length})`}
-        >
-          <div className="flex flex-col gap-2">
-            {pendingFanpages.length ? (
-              pendingFanpages.slice(0, 5).map((item) => (
-                <Button
-                  key={item.id}
-                  variant="ghost"
-                  className="h-auto justify-start whitespace-normal py-2 text-left"
-                  onClick={() => onReviewFanpage(item)}
-                >
-                  {item.name}
-                </Button>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Không có hồ sơ trong danh sách cần xử lý.
-              </p>
-            )}
-            <Button
-              variant="outline"
-              className="self-start"
-              onClick={() => onNavigateTab('fanpages')}
-            >
-              Quản lý fanpage
-            </Button>
-          </div>
-        </Panel>
-        <Panel title={`Sự kiện cần xem xét (${violatedEvents.length})`}>
-          <div className="flex flex-col gap-2">
-            {violatedEvents.length ? (
-              violatedEvents.slice(0, 5).map((item) => (
-                <Button
-                  key={item.id}
-                  variant="ghost"
-                  className="h-auto justify-start whitespace-normal py-2 text-left"
-                  onClick={() => onModerateEvent(item)}
-                >
-                  {item.title}
-                </Button>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">Không có sự kiện cần xem xét.</p>
-            )}
-            <Button
-              variant="outline"
-              className="self-start"
-              onClick={() => onNavigateTab('events')}
-            >
-              Quản lý sự kiện
-            </Button>
-          </div>
-        </Panel>
-      </div>
+      <Panel
+        title={`Fanpage chờ duyệt (${data?.overview.fanpages.pendingFanpages ?? pendingFanpages.length})`}
+      >
+        <div className="flex flex-col gap-2">
+          {pendingFanpages.length ? (
+            pendingFanpages.slice(0, 5).map((item) => (
+              <Button
+                key={item.id}
+                variant="ghost"
+                className="h-auto justify-start whitespace-normal py-2 text-left"
+                onClick={() => onReviewFanpage(item)}
+              >
+                {item.name}
+              </Button>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Không có hồ sơ trong danh sách cần xử lý.
+            </p>
+          )}
+          <Button
+            variant="outline"
+            className="self-start"
+            onClick={() => onNavigateTab('fanpages')}
+          >
+            Quản lý fanpage
+          </Button>
+        </div>
+      </Panel>
     </div>
   )
 }

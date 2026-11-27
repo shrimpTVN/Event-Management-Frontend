@@ -18,14 +18,12 @@ interface SuperAdminSidebarProps {
   activeTab: SuperAdminNavTab
   onSelectTab: (tab: SuperAdminNavTab) => void
   pendingFanpagesCount?: number
-  violatedEventsCount?: number
 }
 
 export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
   activeTab,
   onSelectTab,
-  pendingFanpagesCount = 2,
-  violatedEventsCount = 1,
+  pendingFanpagesCount = 0,
 }) => {
   const mainNavItems = [
     {
@@ -49,8 +47,6 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
       id: 'events' as SuperAdminNavTab,
       label: 'Sự kiện',
       icon: Calendar,
-      badge: violatedEventsCount > 0 ? `${violatedEventsCount} vi phạm` : undefined,
-      badgeColor: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300',
     },
   ]
 

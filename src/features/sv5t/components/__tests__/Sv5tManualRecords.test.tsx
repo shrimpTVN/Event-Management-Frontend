@@ -68,7 +68,7 @@ it('renders each manual record once with its own date and edit/delete controls',
   expect(within(section).getAllByRole('button', { name: 'Xóa tự chấm' })).toHaveLength(2)
   expect(screen.getByText('Ngày ghi nhận 26/11/2026')).toBeInTheDocument()
   expect(screen.getByText('Ngày ghi nhận 25/11/2026')).toBeInTheDocument()
-  expect(screen.queryByText(/Sửa ghi nhận #/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/Sửa ghi nhận /)).not.toBeInTheDocument()
   expect(screen.queryByText('Tự đánh giá đạt')).not.toBeInTheDocument()
   expect(screen.getByText('Chưa đạt tiêu chí')).toBeInTheDocument()
   const first = within(section).getAllByRole('listitem')[0]

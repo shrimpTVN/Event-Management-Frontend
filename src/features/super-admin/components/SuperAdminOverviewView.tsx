@@ -5,15 +5,12 @@ import {
   Flag,
   Calendar,
   Ticket,
-  AlertTriangle,
   Clock,
   ChevronRight,
-  ShieldAlert,
 } from 'lucide-react'
 import type {
   SuperAdminOverviewStats,
   SuperAdminFanpage,
-  SuperAdminEvent,
   FanpageRankItem,
   SuperAdminNavTab,
 } from '../types/superAdmin.types'
@@ -21,23 +18,19 @@ import type {
 interface SuperAdminOverviewViewProps {
   stats: SuperAdminOverviewStats
   pendingFanpages: SuperAdminFanpage[]
-  violatedEvents: SuperAdminEvent[]
   ranksByEvents: FanpageRankItem[]
   ranksByParticipants: FanpageRankItem[]
   onNavigateTab: (tab: SuperAdminNavTab) => void
   onReviewFanpage: (fanpage: SuperAdminFanpage) => void
-  onModerateEvent: (event: SuperAdminEvent) => void
 }
 
 export const SuperAdminOverviewView: React.FC<SuperAdminOverviewViewProps> = ({
   stats,
   pendingFanpages,
-  violatedEvents,
   ranksByEvents,
   ranksByParticipants,
   onNavigateTab,
   onReviewFanpage,
-  onModerateEvent,
 }) => {
   return (
     <div className="w-full space-y-6 text-left animate-in fade-in duration-300">
@@ -139,116 +132,61 @@ export const SuperAdminOverviewView: React.FC<SuperAdminOverviewViewProps> = ({
         </div>
       </div>
 
-      {/* 4. Action Queues: Pending Approvals & Violation Reports */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pending Fanpage Approvals */}
-        <div className="bg-white dark:bg-card p-6 rounded-2xl border border-border shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-amber-500" />
-              <h3 className="text-base font-k2d font-bold text-foreground">
-                Yêu cầu phê duyệt đang chờ ({pendingFanpages.length})
-              </h3>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigateTab('fanpages')}
-              className="text-xs font-semibold text-primary hover:underline flex items-center gap-0.5 cursor-pointer"
-            >
-              Xem tất cả <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+      {/* 4. Action Queue: Pending Fanpage Approvals */}
+      <div className="bg-white dark:bg-card p-6 rounded-2xl border border-border shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-amber-500" />
+            <h3 className="text-base font-k2d font-bold text-foreground">
+              Yêu cầu phê duyệt đang chờ ({pendingFanpages.length})
+            </h3>
           </div>
-
-          {pendingFanpages.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-              Hiện không có đơn đăng ký Fanpage nào đang chờ duyệt.
-            </p>
-          ) : (
-            <div className="divide-y divide-border">
-              {pendingFanpages.map((fp) => (
-                <div key={fp.id} className="py-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <img
-                      src={
-                        fp.avatarUrl ||
-                        'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&q=80'
-                      }
-                      alt={fp.name}
-                      className="w-10 h-10 rounded-xl object-cover border border-border shrink-0"
-                    />
-                    <div className="truncate">
-                      <Tooltip content={fp.name}>
-                        <p className="text-sm font-bold text-foreground truncate">{fp.name}</p>
-                      </Tooltip>
-                      <p className="text-xs text-muted-foreground truncate">
-                        Đại diện: {fp.representativeName} • {fp.schoolName}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onReviewFanpage(fp)}
-                    className="shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition-colors shadow-xs cursor-pointer"
-                  >
-                    Kiểm duyệt
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => onNavigateTab('fanpages')}
+            className="text-xs font-semibold text-primary hover:underline flex items-center gap-0.5 cursor-pointer"
+          >
+            Xem tất cả <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        {/* Violation Reports */}
-        <div className="bg-white dark:bg-card p-6 rounded-2xl border border-border shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-red-500" />
-              <h3 className="text-base font-k2d font-bold text-foreground">
-                Báo cáo vi phạm ({violatedEvents.length})
-              </h3>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigateTab('events')}
-              className="text-xs font-semibold text-primary hover:underline flex items-center gap-0.5 cursor-pointer"
-            >
-              Xem tất cả <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {violatedEvents.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-              Không có sự kiện nào bị báo cáo vi phạm nội quy.
-            </p>
-          ) : (
-            <div className="divide-y divide-border">
-              {violatedEvents.map((evt) => (
-                <div key={evt.id} className="py-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 flex items-center justify-center shrink-0">
-                      <AlertTriangle className="w-5 h-5" />
-                    </div>
-                    <div className="truncate">
-                      <Tooltip content={evt.title}>
-                        <p className="text-sm font-bold text-foreground truncate">{evt.title}</p>
-                      </Tooltip>
-                      <p className="text-xs text-red-600 truncate font-medium">
-                        {evt.violationReason || 'Nhiều sinh viên phản ánh vi phạm quy chế'}
-                      </p>
-                    </div>
+        {pendingFanpages.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">
+            Hiện không có đơn đăng ký Fanpage nào đang chờ duyệt.
+          </p>
+        ) : (
+          <div className="divide-y divide-border">
+            {pendingFanpages.map((fp) => (
+              <div key={fp.id} className="py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <img
+                    src={
+                      fp.avatarUrl ||
+                      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&q=80'
+                    }
+                    alt={fp.name}
+                    className="w-10 h-10 rounded-xl object-cover border border-border shrink-0"
+                  />
+                  <div className="truncate">
+                    <Tooltip content={fp.name}>
+                      <p className="text-sm font-bold text-foreground truncate">{fp.name}</p>
+                    </Tooltip>
+                    <p className="text-xs text-muted-foreground truncate">
+                      Đại diện: {fp.representativeName} • {fp.schoolName}
+                    </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onModerateEvent(evt)}
-                    className="shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-800 transition-colors cursor-pointer"
-                  >
-                    Xử lý
-                  </button>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                <button
+                  type="button"
+                  onClick={() => onReviewFanpage(fp)}
+                  className="shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition-colors shadow-xs cursor-pointer"
+                >
+                  Kiểm duyệt
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 5. Fanpage Rankings */}

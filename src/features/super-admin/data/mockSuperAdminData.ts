@@ -274,9 +274,8 @@ export const MOCK_EVENTS: SuperAdminEvent[] = [
     trainingPoint: 0,
     trainingPointCategoryName: 'Khác',
     createdAt: '2026-03-01',
-    status: 'VIOLATED',
+    status: 'HIDDEN',
     violationReason: 'Có dấu hiệu quảng bá mô hình đa cấp tiền mã hóa không được phép tại môi trường sư phạm.',
-    reportCount: 12,
     bannerUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=800&q=80',
   },
 ]

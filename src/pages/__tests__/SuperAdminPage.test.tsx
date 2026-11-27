@@ -189,10 +189,22 @@ describe('SuperAdminPage tab-scoped queries and server pagination (F08)', () => 
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Sự kiện' }))
+    expect(superAdminService.getEventsPage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'HIDDEN' })
+    )
+    expect(screen.queryByText(/sự kiện đã ẩn/)).not.toBeInTheDocument()
+
     fireEvent.click(await screen.findByRole('button', { name: 'Đang diễn ra' }))
     await waitFor(() => {
       expect(superAdminService.getEventsPage).toHaveBeenCalledWith(
         expect.objectContaining({ page: 0, size: 20, status: 'HAPPENING' })
+      )
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Đã ẩn' }))
+    await waitFor(() => {
+      expect(superAdminService.getEventsPage).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 0, size: 20, status: 'HIDDEN' })
       )
     })
   })

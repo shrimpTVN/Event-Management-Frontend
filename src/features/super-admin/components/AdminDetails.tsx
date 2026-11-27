@@ -80,7 +80,6 @@ export function EventStatusBadge({ status }: { status: AdminEventStatus }) {
     OPEN: 'Đang mở',
     HAPPENING: 'Đang diễn ra',
     COMPLETED: 'Đã đóng',
-    VIOLATED: 'Vi phạm',
     HIDDEN: 'Đã ẩn',
     DRAFT: 'Bản nháp',
     CANCELLED: 'Đã hủy',
@@ -93,7 +92,7 @@ export function EventStatusBadge({ status }: { status: AdminEventStatus }) {
           ? 'success'
           : status === 'HAPPENING'
             ? 'primary'
-            : ['VIOLATED', 'HIDDEN', 'CANCELLED'].includes(status)
+            : ['HIDDEN', 'CANCELLED'].includes(status)
               ? 'danger'
               : 'neutral'
       }

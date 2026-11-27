@@ -23,10 +23,10 @@ interface SuperAdminEventsViewProps {
   events: SuperAdminEvent[]
   onSelectEvent: (event: SuperAdminEvent) => void
   onToggleHideEvent: (eventId: string, reason?: string) => void
+  onRequestHideEvent?: (event: SuperAdminEvent) => void
   page?: number
   totalPages?: number
   totalElements?: number
-  violatedCount?: number
   onPageChange?: (page: number) => void
   statusFilter?: 'ALL' | AdminEventStatus
   onStatusFilterChange?: (status: 'ALL' | AdminEventStatus) => void
@@ -38,10 +38,10 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
   events,
   onSelectEvent,
   onToggleHideEvent,
+  onRequestHideEvent,
   page = 0,
   totalPages = 1,
   totalElements,
-  violatedCount: violatedCountProp,
   onPageChange,
   statusFilter: controlledStatusFilter,
   onStatusFilterChange,
@@ -65,10 +65,6 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null)
   const [actionMenuAnchor, setActionMenuAnchor] = useState<HTMLButtonElement | null>(null)
 
-  const violatedCount =
-    violatedCountProp ??
-    events.filter((e) => e.status === 'VIOLATED' || e.status === 'HIDDEN').length
-
   const filteredEvents = useMemo(() => {
     if (isServerFiltered) return events
     return events.filter((evt) => {
@@ -77,12 +73,7 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
         evt.fanpageName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         evt.location.toLowerCase().includes(searchQuery.toLowerCase())
 
-      const matchTab =
-        statusFilter === 'ALL'
-          ? true
-          : statusFilter === 'VIOLATED'
-            ? evt.status === 'VIOLATED' || evt.status === 'HIDDEN'
-            : evt.status === statusFilter
+      const matchTab = statusFilter === 'ALL' ? true : evt.status === statusFilter
 
       return matchSearch && matchTab
     })
@@ -95,7 +86,7 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
     { id: 'COMPLETED' as const, label: 'Đã đóng' },
     { id: 'DRAFT' as const, label: 'Bản nháp' },
     { id: 'CANCELLED' as const, label: 'Đã hủy' },
-    { id: 'VIOLATED' as const, label: 'Vi phạm / Ẩn' },
+    { id: 'HIDDEN' as const, label: 'Đã ẩn' },
   ]
 
   return (
@@ -113,18 +104,11 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
             Kiểm duyệt &amp; Giám sát sự kiện
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Theo dõi tiến độ, kiểm duyệt nội dung và xử lý báo cáo vi phạm sự kiện trên toàn hệ
-            thống ĐHCT.
+            Theo dõi tiến độ, kiểm duyệt nội dung và quản lý sự kiện đã ẩn trên toàn hệ thống ĐHCT.
           </p>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          {violatedCount > 0 && (
-            <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-500 " />
-              <span>{violatedCount} sự kiện vi phạm / ẩn</span>
-            </span>
-          )}
           <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-muted/40 dark:bg-muted/40 text-muted-foreground border border-border dark:border-border">
             Tổng {totalElements ?? events.length} sự kiện
           </span>
@@ -216,7 +200,7 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
                   </div>
                 ) : (
                   filteredEvents.map((evt) => {
-                    const isViolated = evt.status === 'VIOLATED' || evt.status === 'HIDDEN'
+                    const isHidden = evt.status === 'HIDDEN'
 
                     return (
                       <div
@@ -377,16 +361,22 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
                                     type="button"
                                     onClick={() => {
                                       setOpenActionMenuId(null)
-                                      onToggleHideEvent(evt.id)
+                                      if (isHidden) {
+                                        onToggleHideEvent(evt.id)
+                                      } else if (onRequestHideEvent) {
+                                        onRequestHideEvent(evt)
+                                      } else {
+                                        onSelectEvent(evt)
+                                      }
                                     }}
                                     className={cn(
                                       'w-full flex items-center justify-start gap-2.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer',
-                                      isViolated
+                                      isHidden
                                         ? 'text-muted-foreground hover:bg-muted/40 dark:hover:bg-muted/40'
                                         : 'text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30'
                                     )}
                                   >
-                                    {isViolated ? (
+                                    {isHidden ? (
                                       <>
                                         <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                                         <span>Khôi phục / Bỏ ẩn</span>

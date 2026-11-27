@@ -1,5 +1,10 @@
 import React, { useState } from 'react'
-import type { SuperAdminNavTab } from '../types/superAdmin.types'
+import type {
+  SuperAdminNavTab,
+  SuperAdminUser,
+  SuperAdminFanpage,
+  SuperAdminEvent,
+} from '../types/superAdmin.types'
 import { SuperAdminTopNav } from './SuperAdminTopNav'
 import { SuperAdminSidebar } from './SuperAdminSidebar'
 
@@ -7,19 +12,23 @@ interface SuperAdminLayoutProps {
   activeTab: SuperAdminNavTab
   onSelectTab: (tab: SuperAdminNavTab) => void
   pendingFanpagesCount?: number
-  violatedEventsCount?: number
   searchQuery?: string
   onSearchChange?: (q: string) => void
+  onSelectUserResult?: (user: SuperAdminUser) => void
+  onSelectFanpageResult?: (fanpage: SuperAdminFanpage) => void
+  onSelectEventResult?: (event: SuperAdminEvent) => void
   children: React.ReactNode
 }
 
 export const SuperAdminLayout: React.FC<SuperAdminLayoutProps> = ({
   activeTab,
   onSelectTab,
-  pendingFanpagesCount = 2,
-  violatedEventsCount = 1,
+  pendingFanpagesCount = 0,
   searchQuery = '',
   onSearchChange,
+  onSelectUserResult,
+  onSelectFanpageResult,
+  onSelectEventResult,
   children,
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -32,7 +41,9 @@ export const SuperAdminLayout: React.FC<SuperAdminLayoutProps> = ({
         isSidebarOpen={isSidebarOpen}
         searchQuery={searchQuery}
         onSearchChange={onSearchChange}
-        unreadNotificationsCount={pendingFanpagesCount + violatedEventsCount}
+        onSelectUserResult={onSelectUserResult}
+        onSelectFanpageResult={onSelectFanpageResult}
+        onSelectEventResult={onSelectEventResult}
       />
 
       {/* 2. Admin Workspace */}
@@ -43,7 +54,6 @@ export const SuperAdminLayout: React.FC<SuperAdminLayoutProps> = ({
             activeTab={activeTab}
             onSelectTab={onSelectTab}
             pendingFanpagesCount={pendingFanpagesCount}
-            violatedEventsCount={violatedEventsCount}
           />
         </div>
 
@@ -65,7 +75,6 @@ export const SuperAdminLayout: React.FC<SuperAdminLayoutProps> = ({
                   setIsSidebarOpen(false)
                 }}
                 pendingFanpagesCount={pendingFanpagesCount}
-                violatedEventsCount={violatedEventsCount}
               />
             </div>
           </div>

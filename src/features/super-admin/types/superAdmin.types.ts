@@ -76,7 +76,7 @@ export interface SuperAdminFanpage {
 }
 
 export type AdminEventStatus =
-  'OPEN' | 'HAPPENING' | 'COMPLETED' | 'VIOLATED' | 'HIDDEN' | 'DRAFT' | 'CANCELLED'
+  'OPEN' | 'HAPPENING' | 'COMPLETED' | 'HIDDEN' | 'DRAFT' | 'CANCELLED'
 
 export interface SuperAdminEvent {
   id: string
@@ -96,7 +96,6 @@ export interface SuperAdminEvent {
   status: AdminEventStatus
   bannerUrl?: string
   violationReason?: string
-  reportCount?: number
 }
 
 export type SemesterStatus = 'UPCOMING' | 'ONGOING' | 'COMPLETED'
