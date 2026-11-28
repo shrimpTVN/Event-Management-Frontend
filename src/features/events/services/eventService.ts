@@ -645,19 +645,41 @@ export function formatRecommendationExplain(item: any, normalizedEvent: Event): 
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
+export interface EventFeedArray extends Array<Event> {
+  __failedStatuses?: string[]
+}
+
+export interface EventFeedResult {
+  events: EventFeedArray
+  partialError: boolean
+  failedStatuses: string[]
+}
+
+export const eventFeedQueryKey = (statuses: string[] = ['PUBLISHED']) =>
+  ['events', 'feed', ...statuses] as const
+
 export const eventService = {
   /**
    * Fetches public active event list with optional keyword, status, and category filters.
-   * Connects to GET /events.
+   * Connects to GET /events. Rejects when all requested status calls fail.
    */
-  async getEvents(filters?: EventFilters): Promise<Event[]> {
+  async getEvents(filters?: EventFilters): Promise<EventFeedArray> {
+    const result = await eventService.getEventsWithStatus(filters)
+    return result.events
+  },
+
+  /**
+   * Fetches public active event list with explicit partial-failure metadata so callers
+   * can distinguish full failure (rejected), partial failure, and empty 200 results.
+   */
+  async getEventsWithStatus(filters?: EventFilters): Promise<EventFeedResult> {
     const cachePromise = loadFanpagesCache().catch(() => {})
 
     // When status is specifically requested, query Backend directly with that status
     if (filters?.status && (filters.status as any) !== 'ALL') {
       const params = buildEventFilterParams(filters)
       const [res]: [any, unknown] = await Promise.all([
-        apiClient.get('/events', { params }),
+        apiClient.get('/events', { params, signal: filters?.signal }),
         cachePromise,
       ])
 
@@ -672,7 +694,11 @@ export const eventService = {
         rawList = res.data.content
       }
 
-      return rawList.map(normalizeEvent)
+      return {
+        events: rawList.map(normalizeEvent),
+        partialError: false,
+        failedStatuses: [],
+      }
     }
 
     // Public feeds need the full dataset before applying hierarchical local filters.
@@ -688,6 +714,7 @@ export const eventService = {
     const fetchStatus = async (status: string) => {
       const first: any = await apiClient.get('/events', {
         params: { ...params, status, size: params.size ?? 100, page: params.page ?? 0 },
+        signal: filters?.signal,
       })
       const list = [...readList(first)]
       if (!explicitPage) {
@@ -695,6 +722,7 @@ export const eventService = {
         for (let page = 1; page < totalPages; page++) {
           const next = await apiClient.get('/events', {
             params: { ...params, status, size: 100, page },
+            signal: filters?.signal,
           })
           list.push(...readList(next))
         }
@@ -709,16 +737,44 @@ export const eventService = {
       statusesToFetch.map(fetchStatus)
     )
     await cachePromise
+
+    const failedStatuses: string[] = []
+    let firstRejection: unknown = null
     const eventMap = new Map<string, any>()
-    responses.forEach((response) => {
-      if (response.status === 'fulfilled')
+    responses.forEach((response, index) => {
+      if (response.status === 'fulfilled') {
         response.value.forEach((item) => {
           if (item?.id != null) eventMap.set(String(item.id), item)
         })
+      } else {
+        failedStatuses.push(statusesToFetch[index])
+        if (firstRejection === null) {
+          firstRejection = response.reason
+        }
+      }
     })
-    const result = [...eventMap.values()].map(normalizeEvent)
+
+    if (failedStatuses.length === statusesToFetch.length && statusesToFetch.length > 0) {
+      throw firstRejection instanceof Error
+        ? firstRejection
+        : new Error('Không thể tải danh sách sự kiện')
+    }
+
+    const normalized = [...eventMap.values()].map(normalizeEvent)
     const limit = filters?.size ?? filters?.limit
-    return limit !== undefined ? result.slice(0, limit) : result
+    const events: EventFeedArray = limit !== undefined ? normalized.slice(0, limit) : normalized
+    if (failedStatuses.length > 0) {
+      Object.defineProperty(events, '__failedStatuses', {
+        value: failedStatuses,
+        enumerable: false,
+      })
+    }
+
+    return {
+      events,
+      partialError: failedStatuses.length > 0,
+      failedStatuses,
+    }
   },
 
   /**
@@ -726,7 +782,7 @@ export const eventService = {
    */
   async getEventsPaginated(filters?: EventFilters): Promise<PageResponse<Event>> {
     const params = buildEventFilterParams(filters)
-    const res: any = await apiClient.get('/events', { params })
+    const res: any = await apiClient.get('/events', { params, signal: filters?.signal })
 
     if (res && Array.isArray(res.content)) {
       return {

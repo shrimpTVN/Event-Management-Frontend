@@ -3,7 +3,11 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Home, Bookmark, Clock, ClipboardList, Hand, ChevronDown, ChevronUp } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { apiClient } from '@/shared'
+import {
+  followedFanpagesQueryKey,
+  fetchFollowedFanpages,
+  fetchPublicSidebarFanpages,
+} from '@/shared/services/followedFanpages'
 import { useAuthStore } from '@/features/auth'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -64,10 +68,10 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
     }
   }, [currentPath])
 
-  // Fetch all published events to check for newly posted activities per fanpage
+  // Fetch published events using the same cache key/filter as HomePage
   const { data: allEvents = [] } = useQuery<Event[]>({
-    queryKey: ['events', 'feed'],
-    queryFn: () => eventService.getEvents(),
+    queryKey: ['events', 'feed', 'PUBLISHED'],
+    queryFn: () => eventService.getEvents({ statuses: ['PUBLISHED'] }),
     staleTime: 60 * 1000,
   })
 
@@ -115,42 +119,18 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
     setVisitedTimes((prev) => ({ ...prev, [orgId]: Date.now() }))
   }
 
-  // Fetch fanpages from backend if not provided as prop (following when authenticated)
-  const { data: apiFanpages, isLoading } = useQuery<FollowedOrg[]>({
-    queryKey: ['fanpages', 'sidebar', isAuthenticated],
-    queryFn: async () => {
-      if (isAuthenticated) {
-        try {
-          const res: any = await apiClient.get('/fanpages/following', { params: { size: 50 } })
-          const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
-          if (Array.isArray(list) && list.length > 0) {
-            return list.map((fp: any) => ({
-              id: String(fp.id),
-              name: fp.orgName || fp.fullName || fp.name,
-              avatarUrl:
-                fp.avatarUrl ||
-                (String(fp.id) === '1'
-                  ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
-                  : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'),
-            }))
-          }
-          return []
-        } catch {
-          // If following endpoint fails, fallback to general fanpages
-        }
-      }
-      const res: any = await apiClient.get('/fanpages', { params: { size: 50 } })
-      const list = res?.content || res?.data || (Array.isArray(res) ? res : [])
-      return list.map((fp: any) => ({
-        id: String(fp.id),
-        name: fp.orgName || fp.fullName || fp.name,
-        avatarUrl:
-          fp.avatarUrl ||
-          (String(fp.id) === '1'
-            ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
-            : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'),
-      }))
-    },
+  // Fetch fanpages from backend if not provided as prop.
+  // Authenticated users strictly read /fanpages/following (never fallback to public /fanpages on error).
+  const {
+    data: apiFanpages,
+    isLoading,
+    isError: isSidebarError,
+    refetch: refetchSidebarFanpages,
+  } = useQuery<FollowedOrg[]>({
+    queryKey: isAuthenticated
+      ? followedFanpagesQueryKey(true)
+      : ['fanpages', 'public-sidebar'],
+    queryFn: () => (isAuthenticated ? fetchFollowedFanpages() : fetchPublicSidebarFanpages()),
     enabled: !followedOrgs,
   })
 
@@ -202,6 +182,20 @@ export const StudentLeftSidebar: React.FC<StudentLeftSidebarProps> = ({
                 <Skeleton className="h-3.5 w-3/4 rounded" />
               </div>
             ))}
+          </div>
+        ) : isSidebarError && !followedOrgs ? (
+          <div
+            role="alert"
+            className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-3 text-center space-y-1.5"
+          >
+            <p className="text-xs text-destructive">Không tải được danh sách trang theo dõi</p>
+            <button
+              type="button"
+              onClick={() => void refetchSidebarFanpages()}
+              className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+            >
+              Tải lại danh sách
+            </button>
           </div>
         ) : orgsToDisplay.length > 0 ? (
           <div className="flex flex-col gap-1.5">

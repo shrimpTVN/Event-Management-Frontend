@@ -3,6 +3,13 @@ export interface PointCategory {
   name: string
   note: string | null
   maximum: number
+  totalPoint?: number
+  systemPointRecord?: number
+  manualPointRecord?: number
+  isAtMaximum?: boolean
+  completionPercentage?: number
+  selectedChildId?: number | null
+  contributesToParent?: boolean
   dateApply?: string
   level: number
   childrenOrder: number
@@ -36,6 +43,10 @@ export interface StudentSemesterPointFlattenedItem {
   systemPointRecord: number
   manualPointRecord: number
   finalizedAt?: string | null
+  isAtMaximum?: boolean
+  completionPercentage?: number
+  selectedChildId?: number | null
+  contributesToParent?: boolean
 }
 
 /**
@@ -58,6 +69,10 @@ export interface StudentSemesterPointGroupedTree {
   systemPointRecord: number
   manualPointRecord: number
   finalizedAt?: string | null
+  isAtMaximum?: boolean
+  completionPercentage?: number
+  selectedChildId?: number | null
+  contributesToParent?: boolean
   items: StudentSemesterPointFlattenedItem[]
 }
 
@@ -146,20 +161,12 @@ export interface SaveSelfEvaluationPayload {
   description?: string
 }
 
-/**
- * Xếp loại điểm rèn luyện theo quy chế ĐH Cần Thơ:
- * - Xuất sắc: 90 - 100
- * - Tốt: 80 - 89
- * - Khá: 65 - 79
- * - Trung bình: 50 - 64
- * - Yếu: 35 - 49
- * - Kém: < 35
- */
-export function classifyScore(score: number): { label: string; color: string } {
-  if (score >= 90) return { label: 'Xuất sắc', color: 'text-emerald-600' }
-  if (score >= 80) return { label: 'Tốt', color: 'text-blue-600' }
-  if (score >= 65) return { label: 'Trung Bình', color: 'text-amber-600' } // Trong Figma thiết kế hiển thị Trung Bình cho 65 điểm
-  if (score >= 50) return { label: 'Trung Bình', color: 'text-amber-600' }
-  if (score >= 35) return { label: 'Yếu', color: 'text-orange-600' }
-  return { label: 'Kém', color: 'text-rose-600' }
+export interface StudentSemesterPointSummary {
+  semesterId: number
+  totalPoint: number
+  maximum: number
+  classificationLabel: string
+  nextClassificationLabel: string | null
+  pointsNeeded: number
+  activitiesCount: number
 }

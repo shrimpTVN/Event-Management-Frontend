@@ -486,6 +486,37 @@ apiRouter.post('/auth/logout', (_req, res) => {
   return res.json(successEnvelope(null, 'Đăng xuất thành công'))
 })
 
+apiRouter.post('/auth/login/google', (req, res) => {
+  const { idToken } = req.body || {}
+  if (typeof idToken !== 'string' || !idToken.startsWith('mock-google-token-')) {
+    return res.status(400).json(errorEnvelope('Invalid Google credential', 'AUTH.005'))
+  }
+
+  const user = getDb().get('users').find({ id: 1 }).value()
+  if (!user) {
+    return res.status(500).json(errorEnvelope('Mock Google account is unavailable', '004'))
+  }
+
+  const token = `mock-jwt-token-${user.id}-${Date.now()}`
+  res.cookie('ddd_jwt', token, { httpOnly: true, maxAge: 86400000, sameSite: 'lax', path: '/' })
+  res.cookie('ddd_refresh', `mock-refresh-${user.id}-${Date.now()}`, {
+    httpOnly: true,
+    maxAge: 604800000,
+    sameSite: 'lax',
+    path: '/',
+  })
+
+  const role = `ROLE_${resolveUserRole(user.id)}`
+  return res.json(successEnvelope({
+    userId: user.id,
+    email: user.email,
+    role,
+    roles: [role],
+    user: buildUserProfileDto(user.id),
+    tokens: { accessToken: token },
+  }, 'Google auth success'))
+})
+
 apiRouter.post('/auth/google', (req, res) => {
   const token = 'mock-google-jwt-' + Date.now()
   res.cookie('ddd_jwt', token, { httpOnly: true, maxAge: 86400000, sameSite: 'lax', path: '/' })

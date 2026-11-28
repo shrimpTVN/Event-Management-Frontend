@@ -17,11 +17,13 @@ interface CriteriaItem {
   name: string
   current: number
   max: number
+  completionPercentage?: number
   isCompleted?: boolean
 }
 
 export const StudentRightSidebar: React.FC = () => {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
+  const userKey = user?.id ?? user?.email ?? 'current'
 
   // 1. Fetch active semester & academic years
   const { data: semestersList, isLoading: isSemestersLoading } = useQuery<any[]>({
@@ -36,21 +38,28 @@ export const StudentRightSidebar: React.FC = () => {
 
   const activeSemester = useMemo(() => {
     if (!semestersList || !Array.isArray(semestersList) || semestersList.length === 0) return null
-    return semestersList.find((s: any) => s.status === 'ONGOING' || s.status === 'ACTIVE') || semestersList[0]
+    return (
+      semestersList.find((s: any) => s.status === 'ONGOING' || s.status === 'ACTIVE') ||
+      semestersList[0]
+    )
   }, [semestersList])
 
-  const activeSemesterId = activeSemester?.id || 1
+  const activeSemesterId = activeSemester?.id
 
   // 2. Fetch training semester points dynamically based on active semester using grouped tree API
-  const { data: semesterPointsTree, isLoading: isSemesterPointsLoading } = useQuery<StudentSemesterPointGroupedTree[]>({
-    queryKey: ['student-semester-points-tree', activeSemesterId],
-    queryFn: () => trainingPointsService.getSemesterPointGroupedTree(activeSemesterId),
+  const {
+    data: semesterPointsTree,
+    isLoading: isSemesterPointsLoading,
+    isError: treeError,
+  } = useQuery<StudentSemesterPointGroupedTree[]>({
+    queryKey: ['student-semester-points-tree', userKey, activeSemesterId],
+    queryFn: () => trainingPointsService.getSemesterPointGroupedTree(activeSemesterId!),
     enabled: Boolean(activeSemesterId) && isAuthenticated,
   })
 
   // 3. Fetch registered events to render calendar dots strictly for events the student has actually registered for
   const { data: registeredEvents = [] } = useQuery<RegisteredEventItem[]>({
-    queryKey: ['registrations', 'history'],
+    queryKey: ['registrations', 'history', userKey],
     queryFn: () => historyService.getMyHistory(),
     enabled: isAuthenticated,
   })
@@ -68,50 +77,30 @@ export const StudentRightSidebar: React.FC = () => {
     return `HK${semNum} NH ${formattedYear}`
   }, [semestersList, activeSemester, academicYears])
 
-  // The shared training-points service caps section totals for both this sidebar and the detail page.
-  const { criteriaList, currentScore, classification, pointsNeeded } = useMemo(() => {
-    const list: CriteriaItem[] = (semesterPointsTree || []).map((root) => {
-      const current = root.totalPoint || 0
-      const max = root.maximum || 20
-      return {
-        id: String(root.id),
-        name: root.name,
-        current,
-        max,
-        isCompleted: current >= max,
-      }
-    })
-
-    const total = list.reduce((acc, item) => acc + item.current, 0)
-
-    let rank = 'Yếu'
-    let needed = 50 - total
-    if (total >= 90) {
-      rank = 'Xuất sắc'
-      needed = 0
-    } else if (total >= 80) {
-      rank = 'Tốt'
-      needed = 90 - total
-    } else if (total >= 65) {
-      rank = 'Khá'
-      needed = 80 - total
-    } else if (total >= 50) {
-      rank = 'Trung Bình'
-      needed = 65 - total
-    }
-
-    return {
-      criteriaList: list,
-      currentScore: total,
-      classification: rank,
-      pointsNeeded: Math.max(0, needed),
-    }
-  }, [semesterPointsTree])
-
-  const maxScore = 100
+  const {
+    data: summary,
+    isLoading: summaryLoading,
+    isError: summaryError,
+  } = useQuery({
+    queryKey: ['student-semester-point-summary', userKey, activeSemesterId],
+    queryFn: () => trainingPointsService.getSemesterPointSummary(activeSemesterId!),
+    enabled: Boolean(activeSemesterId) && isAuthenticated,
+  })
+  const criteriaList: CriteriaItem[] = (semesterPointsTree ?? []).map((root) => ({
+    id: String(root.id),
+    name: root.name,
+    current: Math.min(root.maximum, root.totalPoint),
+    max: root.maximum,
+    isCompleted: root.isAtMaximum,
+    completionPercentage: root.completionPercentage,
+  }))
+  const currentScore = summary ? Math.min(summary.maximum, summary.totalPoint) : 0
+  const classification = summary?.classificationLabel ?? 'Chưa có dữ liệu'
+  const pointsNeeded = summary?.pointsNeeded ?? 0
+  const maxScore = summary?.maximum ?? 100
 
   const isPointsLoading =
-    isAuthenticated && (isSemestersLoading || isSemesterPointsLoading)
+    isAuthenticated && (isSemestersLoading || isSemesterPointsLoading || summaryLoading)
 
   return (
     <aside className="w-full flex flex-col gap-6 text-sm">
@@ -141,6 +130,12 @@ export const StudentRightSidebar: React.FC = () => {
               ))}
             </div>
           </div>
+        ) : summaryError || treeError ? (
+          <p role="alert" className="text-sm text-muted-foreground">
+            Không tải được điểm rèn luyện.
+          </p>
+        ) : !summary || !activeSemesterId ? (
+          <p className="text-sm text-muted-foreground">Chưa có dữ liệu điểm rèn luyện.</p>
         ) : (
           <>
             <div className="flex items-center justify-center gap-1.5 text-[#111827] dark:text-foreground font-semibold text-xs tracking-wide text-center">
@@ -158,7 +153,9 @@ export const StudentRightSidebar: React.FC = () => {
               />
 
               <div className="flex-1 flex flex-col items-center justify-center text-center">
-                <span className="text-[15px] font-normal text-black dark:text-foreground">Xếp loại:</span>
+                <span className="text-[15px] font-normal text-black dark:text-foreground">
+                  Xếp loại:
+                </span>
                 <span className="font-k2d font-bold text-[18px] text-black dark:text-foreground tracking-tight">
                   {classification}
                 </span>
@@ -167,7 +164,8 @@ export const StudentRightSidebar: React.FC = () => {
 
             {pointsNeeded > 0 ? (
               <p className="text-[9px] text-[#6B7280] text-center font-medium">
-                Cần thêm <span className="font-semibold text-[#285FA4]">{pointsNeeded} điểm</span> để nâng hạng tiếp theo
+                Cần thêm <span className="font-semibold text-[#285FA4]">{pointsNeeded} điểm</span>{' '}
+                để nâng hạng tiếp theo
               </p>
             ) : (
               <p className="text-[9px] text-emerald-600 text-center font-medium">
@@ -178,7 +176,7 @@ export const StudentRightSidebar: React.FC = () => {
             {/* Breakdown by criteria */}
             <div className="flex flex-col gap-2 pt-1">
               {criteriaList.map((item, idx) => {
-                const pct = Math.min(100, Math.round((item.current / item.max) * 100))
+                const pct = item.completionPercentage ?? 0
                 const isLast = idx === criteriaList.length - 1
                 return (
                   <div
@@ -193,7 +191,9 @@ export const StudentRightSidebar: React.FC = () => {
                       </span>
                       <span className="flex items-center gap-1 font-semibold text-[9.5px] text-black dark:text-foreground">
                         {item.current}/{item.max}
-                        {item.isCompleted && <Check className="h-3 w-3 text-[#3B8858] stroke-[3]" />}
+                        {item.isCompleted && (
+                          <Check className="h-3 w-3 text-[#3B8858] stroke-[3]" />
+                        )}
                       </span>
                     </div>
                     {/* Progress bar track */}

@@ -16,8 +16,8 @@ it('caps an over-limit backend section in its heading and footer, including afte
     isActive: true,
     childrenOrder: 5,
     totalPoint: 24,
-    systemPointRecord: 19,
-    manualPointRecord: 5,
+    systemPointRecord: 25,
+    manualPointRecord: 24,
     items: [
       {
         id: 50,
@@ -60,6 +60,8 @@ it('caps an over-limit backend section in its heading and footer, including afte
   expect(screen.getByText('20/20 điểm')).toBeInTheDocument()
   const footer = () => screen.getByText('Cộng điểm mục V').parentElement!
   expect(footer().lastElementChild).toHaveTextContent(/^Tổng20$/)
+  expect(footer().children[2]).toHaveTextContent(/^Điểm hệ thống20$/)
+  expect(footer().children[3]).toHaveTextContent(/^Tự đánh giá20$/)
   expect(screen.queryByText('24/20 điểm')).not.toBeInTheDocument()
 
   view.rerender(<TrainingPointsSectionAccordion {...props} studentScores={{ 51: 4 }} />)
@@ -67,7 +69,7 @@ it('caps an over-limit backend section in its heading and footer, including afte
   expect(footer().lastElementChild).toHaveTextContent(/^Tổng20$/)
 
   view.rerender(<TrainingPointsSectionAccordion {...props} studentScores={{ 51: 0 }} />)
-  expect(screen.getByText('19/20 điểm')).toBeInTheDocument()
-  expect(footer().lastElementChild).toHaveTextContent(/^Tổng19$/)
+  expect(screen.getByText('20/20 điểm')).toBeInTheDocument()
+  expect(footer().lastElementChild).toHaveTextContent(/^Tổng20$/)
   expect(section.totalPoint).toBe(24)
 })

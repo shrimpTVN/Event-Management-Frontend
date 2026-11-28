@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { registerQueryCacheClearer } from '@/shared/services/authRefresh'
 import { useAuthStore } from '../authStore'
 import { RoleEnum, type User } from '../../types/auth.types'
 
@@ -55,5 +56,23 @@ describe('authStore', () => {
     const state = useAuthStore.getState()
     expect(state.user?.name).toBe('Alex Updated')
     expect(state.user?.email).toBe('student@example.com')
+  })
+
+  it('clears registered query cache on clearAuth and user switch', () => {
+    const clearSpy = vi.fn()
+    const unregister = registerQueryCacheClearer(clearSpy)
+
+    try {
+      useAuthStore.getState().setAuth(mockUser, 'tok-1')
+      expect(clearSpy).not.toHaveBeenCalled()
+
+      useAuthStore.getState().setAuth({ ...mockUser, id: 'usr-999', email: 'other@example.com' }, 'tok-2')
+      expect(clearSpy).toHaveBeenCalledTimes(1)
+
+      useAuthStore.getState().clearAuth()
+      expect(clearSpy).toHaveBeenCalledTimes(2)
+    } finally {
+      unregister()
+    }
   })
 })

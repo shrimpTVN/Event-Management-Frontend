@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { EyeOff, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -14,28 +15,62 @@ import type { SuperAdminEvent } from '../../types/superAdmin.types'
 interface EventModerationModalProps {
   event: SuperAdminEvent | null
   isOpen: boolean
+  initialHiding?: boolean
   onClose: () => void
-  onToggleHideEvent: (eventId: string, reason?: string) => void
+  onToggleHideEvent: (eventId: string, reason?: string) => void | Promise<boolean | void>
 }
 
 export function EventModerationModal({
   event,
   isOpen,
+  initialHiding = false,
   onClose,
   onToggleHideEvent,
 }: EventModerationModalProps) {
   const [reason, setReason] = useState('')
-  const [isHiding, setIsHiding] = useState(false)
+  const [isHiding, setIsHiding] = useState(initialHiding)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
   useEffect(() => {
     setReason('')
-    setIsHiding(false)
-  }, [event?.id, isOpen])
+    setIsHiding(initialHiding)
+    setIsSubmitting(false)
+    setError('')
+  }, [event?.id, isOpen, initialHiding])
   if (!event) return null
-  const restricted = event.status === 'VIOLATED' || event.status === 'HIDDEN'
-  const confirmHide = () => {
-    onToggleHideEvent(event.id, reason.trim() || 'Vi phạm điều khoản cộng đồng và nội quy ĐHCT')
-    setIsHiding(false)
-    setReason('')
+  const restricted = event.status === 'HIDDEN'
+  const confirmHide = async () => {
+    const trimmedReason = reason.trim()
+    if (!trimmedReason || isSubmitting) return
+    setIsSubmitting(true)
+    setError('')
+    try {
+      const ok = await onToggleHideEvent(event.id, trimmedReason)
+      if (ok !== false) {
+        setIsHiding(false)
+        setReason('')
+        onClose()
+      }
+    } catch (err: any) {
+      setError(resolveApiErrorMessage(err, 'Không thể ẩn sự kiện. Vui lòng thử lại.'))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+  const handleRestore = async () => {
+    if (isSubmitting) return
+    setIsSubmitting(true)
+    setError('')
+    try {
+      const ok = await onToggleHideEvent(event.id)
+      if (ok !== false) {
+        onClose()
+      }
+    } catch (err: any) {
+      setError(resolveApiErrorMessage(err, 'Không thể khôi phục sự kiện. Vui lòng thử lại.'))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
   return (
     <AdminDetailSheet
@@ -46,28 +81,44 @@ export function EventModerationModal({
       footer={
         isHiding ? (
           <>
-            <Button variant="outline" onClick={() => setIsHiding(false)}>
+            <Button
+              variant="outline"
+              disabled={isSubmitting}
+              onClick={() => {
+                setIsHiding(false)
+                setError('')
+              }}
+            >
               Hủy
             </Button>
-            <Button variant="destructive" onClick={confirmHide}>
-              Xác nhận ẩn sự kiện
+            <Button
+              variant="destructive"
+              disabled={!reason.trim() || isSubmitting}
+              onClick={() => void confirmHide()}
+            >
+              {isSubmitting ? 'Đang lưu…' : 'Xác nhận ẩn sự kiện'}
             </Button>
           </>
         ) : (
           <>
             <Button
               variant="outline"
+              disabled={isSubmitting}
               className={restricted ? 'mr-auto' : 'mr-auto text-red-700 dark:text-red-300'}
-              onClick={() => (restricted ? onToggleHideEvent(event.id) : setIsHiding(true))}
+              onClick={() => (restricted ? void handleRestore() : setIsHiding(true))}
             >
               {restricted ? (
                 <RotateCcw className="mr-2 h-4 w-4" />
               ) : (
                 <EyeOff className="mr-2 h-4 w-4" />
               )}
-              {restricted ? 'Khôi phục sự kiện' : 'Ẩn sự kiện'}
+              {isSubmitting
+                ? 'Đang xử lý…'
+                : restricted
+                  ? 'Khôi phục sự kiện'
+                  : 'Ẩn sự kiện'}
             </Button>
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" disabled={isSubmitting} onClick={onClose}>
               Đóng
             </Button>
           </>
@@ -89,15 +140,12 @@ export function EventModerationModal({
       </div>
       {restricted && (
         <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
-          <p className="font-semibold">
-            {event.status === 'HIDDEN' ? 'Sự kiện đang bị ẩn' : 'Báo cáo vi phạm'}
-          </p>
+          <p className="font-semibold">Sự kiện đang bị ẩn</p>
           {event.violationReason && (
             <p className="whitespace-pre-wrap break-words leading-relaxed">
               {event.violationReason}
             </p>
           )}
-          {Boolean(event.reportCount) && <p>{event.reportCount} lượt báo cáo</p>}
         </div>
       )}
       <AdminDetailSection title="Thông tin tổ chức">
@@ -140,7 +188,9 @@ export function EventModerationModal({
       {isHiding && (
         <AdminDetailSection title="Ẩn sự kiện">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="event-hide-reason">Lý do ẩn</Label>
+            <Label htmlFor="event-hide-reason">
+              Lý do ẩn <span className="text-red-700">*</span>
+            </Label>
             <Textarea
               id="event-hide-reason"
               autoFocus
@@ -152,6 +202,11 @@ export function EventModerationModal({
             />
           </div>
         </AdminDetailSection>
+      )}
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
       )}
     </AdminDetailSheet>
   )

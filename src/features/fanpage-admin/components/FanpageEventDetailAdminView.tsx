@@ -1,4 +1,5 @@
 import * as Dialog from '@radix-ui/react-dialog'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import {
   isAttendanceComplete,
   isAttendanceStarted,
@@ -159,9 +160,7 @@ export const FanpageEventDetailAdminView: React.FC<FanpageEventDetailAdminViewPr
         link.remove()
       }
     } catch (error) {
-      setExportError(
-        error instanceof Error ? error.message : 'Không xuất được CSV. Vui lòng thử lại.'
-      )
+      setExportError(resolveApiErrorMessage(error, 'Không xuất được CSV. Vui lòng thử lại.'))
     } finally {
       if (url) URL.revokeObjectURL(url)
       exportLock.current = false

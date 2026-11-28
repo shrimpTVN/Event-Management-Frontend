@@ -15,6 +15,7 @@ import { apiClient } from '@/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/features/auth'
 import { canCancelRegistration } from '@/shared/utils/registrationEligibility'
+import { getApiErrorCode, resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { useTimeBoundary } from '@/shared/hooks/useTimeBoundary'
 
 export interface RegisterButtonProps {
@@ -68,9 +69,11 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
   const [errorModal, setErrorModal] = useState<{
     isOpen: boolean
     message: string
+    requiresProfile?: boolean
   }>({
     isOpen: false,
     message: '',
+    requiresProfile: false,
   })
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties | null>(null)
@@ -200,34 +203,28 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
       onRegisterSuccess?.()
     } catch (err: any) {
       console.error('Registration failed:', err)
-      const rawMsg = (err?.response?.data?.message || err?.message || '').toString()
-      let serverMsg =
-        'Đã có lỗi xảy ra trong quá trình đăng ký sự kiện. Vui lòng thử lại sau hoặc liên hệ Ban tổ chức.'
+      const code = getApiErrorCode(err)
+      const rawMsg = (err?.response?.data?.message || '').toString().toLowerCase()
 
-      // Nếu hệ thống yêu cầu thông tin sinh viên trước khi đăng ký
-      if (
-        rawMsg.toLowerCase().includes('profile') ||
-        rawMsg.toLowerCase().includes('student profile') ||
-        rawMsg.toLowerCase().includes('thông tin cá nhân') ||
-        rawMsg.toLowerCase().includes('hồ sơ')
-      ) {
+      if (code === 'USER.001' || rawMsg.includes('student profile')) {
         useAuthStore.getState().updateUser({ isProfileComplete: false })
         setShowProfilePrompt(true)
         return
       }
 
-      if (rawMsg.includes('had registered') || rawMsg.includes('already registered')) {
-        serverMsg = 'Bạn đã đăng ký tham gia sự kiện này rồi!'
+      if (code === 'EVENT.006' || rawMsg.includes('had registered') || rawMsg.includes('already registered')) {
         setIsRegistered(true)
-      } else if (rawMsg.includes('not open yet') || rawMsg.includes('already closed')) {
-        serverMsg = 'Sự kiện hiện chưa mở đăng ký hoặc đã hết thời hạn đăng ký!'
-      } else if (rawMsg) {
-        serverMsg = rawMsg
       }
+
+      const serverMsg = resolveApiErrorMessage(
+        err,
+        'Đã có lỗi xảy ra trong quá trình đăng ký sự kiện. Vui lòng thử lại sau hoặc liên hệ Ban tổ chức.'
+      )
 
       setErrorModal({
         isOpen: true,
         message: serverMsg,
+        requiresProfile: false,
       })
     } finally {
       setIsLoading(false)
@@ -257,16 +254,13 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
       onCancelSuccess?.()
     } catch (err: any) {
       console.error('Cancel registration failed:', err)
-      const rawMsg = err?.response?.data?.message || err?.message || ''
-      let serverMsg = 'Không thể hủy đăng ký sự kiện. Vui lòng thử lại sau!'
-      if (rawMsg.includes('after event close')) {
-        serverMsg = 'Không thể hủy đăng ký sau khi sự kiện đã đóng hạn!'
-      } else if (rawMsg) {
-        serverMsg = rawMsg
-      }
       setErrorModal({
         isOpen: true,
-        message: serverMsg,
+        message: resolveApiErrorMessage(
+          err,
+          'Không thể hủy đăng ký sự kiện. Vui lòng thử lại sau!'
+        ),
+        requiresProfile: false,
       })
     } finally {
       setIsLoading(false)
@@ -509,9 +503,7 @@ export const RegisterButton: React.FC<RegisterButtonProps> = ({
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border/60">
-                {(errorModal.message.toLowerCase().includes('profile') ||
-                  errorModal.message.toLowerCase().includes('thông tin') ||
-                  errorModal.message.toLowerCase().includes('hồ sơ')) && (
+                {errorModal.requiresProfile && (
                   <Button
                     variant="ghost"
                     type="button"

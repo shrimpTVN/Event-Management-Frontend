@@ -1,7 +1,7 @@
 import { Tooltip } from '@/components/ui/tooltip'
 import { AdminActionMenu } from './AdminActionMenu'
 import { EventBenefitsModal } from './modals/EventBenefitsModal'
-import { EventStatusBadge } from './AdminDetails'
+import { EventStatusBadge, AdminPaginationBar } from './AdminDetails'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import React, { useState, useMemo } from 'react'
@@ -23,61 +23,70 @@ interface SuperAdminEventsViewProps {
   events: SuperAdminEvent[]
   onSelectEvent: (event: SuperAdminEvent) => void
   onToggleHideEvent: (eventId: string, reason?: string) => void
+  onRequestHideEvent?: (event: SuperAdminEvent) => void
+  page?: number
+  totalPages?: number
+  totalElements?: number
+  onPageChange?: (page: number) => void
+  statusFilter?: 'ALL' | AdminEventStatus
+  onStatusFilterChange?: (status: 'ALL' | AdminEventStatus) => void
+  searchQuery?: string
+  onSearchChange?: (keyword: string) => void
 }
 
 export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
   events,
   onSelectEvent,
   onToggleHideEvent,
+  onRequestHideEvent,
+  page = 0,
+  totalPages = 1,
+  totalElements,
+  onPageChange,
+  statusFilter: controlledStatusFilter,
+  onStatusFilterChange,
+  searchQuery: controlledSearchQuery,
+  onSearchChange,
 }) => {
   const [benefitsEvent, setBenefitsEvent] = useState<SuperAdminEvent | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'ALL' | AdminEventStatus>('ALL')
+  const [internalSearchQuery, setInternalSearchQuery] = useState('')
+  const [internalStatusFilter, setInternalStatusFilter] = useState<'ALL' | AdminEventStatus>('ALL')
+  const searchQuery = controlledSearchQuery ?? internalSearchQuery
+  const statusFilter = controlledStatusFilter ?? internalStatusFilter
+  const isServerFiltered = Boolean(onStatusFilterChange || onSearchChange)
+  const setSearchQuery = (val: string) => {
+    setInternalSearchQuery(val)
+    onSearchChange?.(val)
+  }
+  const setStatusFilter = (val: 'ALL' | AdminEventStatus) => {
+    setInternalStatusFilter(val)
+    onStatusFilterChange?.(val)
+  }
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null)
   const [actionMenuAnchor, setActionMenuAnchor] = useState<HTMLButtonElement | null>(null)
 
-  const totalCount = events.length
-  const openCount = events.filter((e) => e.status === 'OPEN').length
-  const happeningCount = events.filter((e) => e.status === 'HAPPENING').length
-  const completedCount = events.filter((e) => e.status === 'COMPLETED').length
-  const violatedCount = events.filter(
-    (e) => e.status === 'VIOLATED' || e.status === 'HIDDEN'
-  ).length
-
   const filteredEvents = useMemo(() => {
+    if (isServerFiltered) return events
     return events.filter((evt) => {
       const matchSearch =
         evt.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         evt.fanpageName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         evt.location.toLowerCase().includes(searchQuery.toLowerCase())
 
-      const matchTab =
-        statusFilter === 'ALL'
-          ? true
-          : statusFilter === 'VIOLATED'
-            ? evt.status === 'VIOLATED' || evt.status === 'HIDDEN'
-            : evt.status === statusFilter
+      const matchTab = statusFilter === 'ALL' ? true : evt.status === statusFilter
 
       return matchSearch && matchTab
     })
-  }, [events, searchQuery, statusFilter])
+  }, [events, searchQuery, statusFilter, isServerFiltered])
 
   const tabs = [
-    { id: 'ALL' as const, label: 'Tất cả sự kiện', count: totalCount },
-    { id: 'OPEN' as const, label: 'Đang mở đăng ký', count: openCount },
-    { id: 'HAPPENING' as const, label: 'Đang diễn ra', count: happeningCount },
-    { id: 'COMPLETED' as const, label: 'Đã đóng', count: completedCount },
-    {
-      id: 'DRAFT' as const,
-      label: 'Bản nháp',
-      count: events.filter((e) => e.status === 'DRAFT').length,
-    },
-    {
-      id: 'CANCELLED' as const,
-      label: 'Đã hủy',
-      count: events.filter((e) => e.status === 'CANCELLED').length,
-    },
-    { id: 'VIOLATED' as const, label: 'Vi phạm / Ẩn', count: violatedCount },
+    { id: 'ALL' as const, label: 'Tất cả sự kiện' },
+    { id: 'OPEN' as const, label: 'Đang mở đăng ký' },
+    { id: 'HAPPENING' as const, label: 'Đang diễn ra' },
+    { id: 'COMPLETED' as const, label: 'Đã đóng' },
+    { id: 'DRAFT' as const, label: 'Bản nháp' },
+    { id: 'CANCELLED' as const, label: 'Đã hủy' },
+    { id: 'HIDDEN' as const, label: 'Đã ẩn' },
   ]
 
   return (
@@ -95,20 +104,13 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
             Kiểm duyệt &amp; Giám sát sự kiện
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Theo dõi tiến độ, kiểm duyệt nội dung và xử lý báo cáo vi phạm sự kiện trên toàn hệ
-            thống ĐHCT.
+            Theo dõi tiến độ, kiểm duyệt nội dung và quản lý sự kiện đã ẩn trên toàn hệ thống ĐHCT.
           </p>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          {violatedCount > 0 && (
-            <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-500 " />
-              <span>{violatedCount} sự kiện vi phạm / ẩn</span>
-            </span>
-          )}
           <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-muted/40 dark:bg-muted/40 text-muted-foreground border border-border dark:border-border">
-            Tổng {events.length} sự kiện
+            Tổng {totalElements ?? events.length} sự kiện
           </span>
         </div>
       </div>
@@ -134,14 +136,6 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
                 )}
               >
                 <span>{tab.label}</span>
-                <span
-                  className={cn(
-                    'text-xs font-normal',
-                    isActive ? 'text-foreground/80' : 'text-muted-foreground/70'
-                  )}
-                >
-                  ({tab.count})
-                </span>
               </Button>
             )
           })}
@@ -179,8 +173,9 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
             </div>
 
             <div className="text-xs text-muted-foreground font-normal">
-              {filteredEvents.length} sự kiện{' '}
-              {statusFilter !== 'ALL' ? 'trong mục này' : 'tổng cộng'}
+              {totalElements !== undefined
+                ? `Hiển thị ${filteredEvents.length} / ${totalElements} sự kiện`
+                : `${filteredEvents.length} sự kiện ${statusFilter !== 'ALL' ? 'trong mục này' : 'tổng cộng'}`}
             </div>
           </div>
 
@@ -205,7 +200,7 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
                   </div>
                 ) : (
                   filteredEvents.map((evt) => {
-                    const isViolated = evt.status === 'VIOLATED' || evt.status === 'HIDDEN'
+                    const isHidden = evt.status === 'HIDDEN'
 
                     return (
                       <div
@@ -366,16 +361,22 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
                                     type="button"
                                     onClick={() => {
                                       setOpenActionMenuId(null)
-                                      onToggleHideEvent(evt.id)
+                                      if (isHidden) {
+                                        onToggleHideEvent(evt.id)
+                                      } else if (onRequestHideEvent) {
+                                        onRequestHideEvent(evt)
+                                      } else {
+                                        onSelectEvent(evt)
+                                      }
                                     }}
                                     className={cn(
                                       'w-full flex items-center justify-start gap-2.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer',
-                                      isViolated
+                                      isHidden
                                         ? 'text-muted-foreground hover:bg-muted/40 dark:hover:bg-muted/40'
                                         : 'text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30'
                                     )}
                                   >
-                                    {isViolated ? (
+                                    {isHidden ? (
                                       <>
                                         <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                                         <span>Khôi phục / Bỏ ẩn</span>
@@ -399,6 +400,15 @@ export const SuperAdminEventsView: React.FC<SuperAdminEventsViewProps> = ({
               </div>
             </div>
           </div>
+
+          {onPageChange && (
+            <AdminPaginationBar
+              page={page}
+              totalPages={totalPages}
+              totalElements={totalElements ?? events.length}
+              onPageChange={onPageChange}
+            />
+          )}
         </div>
       </div>
     </div>

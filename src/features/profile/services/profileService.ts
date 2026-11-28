@@ -2,8 +2,23 @@ import { apiClient } from '@/shared'
 import { educationCatalogService } from '@/shared/services/educationCatalogService'
 import type { StudentProfile } from '../types/profile.types'
 
-export function mapBackendProfileToStudentProfile(dto: any): StudentProfile {
-  if (!dto) return dto
+export function mapBackendProfileToStudentProfile(rawDto: any): StudentProfile {
+  if (!rawDto) return rawDto
+  const studentPart =
+    rawDto.studentProfile && typeof rawDto.studentProfile === 'object'
+      ? rawDto.studentProfile
+      : {}
+  const staffPart =
+    rawDto.fanpageAdminProfile && typeof rawDto.fanpageAdminProfile === 'object'
+      ? rawDto.fanpageAdminProfile
+      : rawDto.staffProfile && typeof rawDto.staffProfile === 'object'
+        ? rawDto.staffProfile
+        : {}
+  const dto = {
+    ...rawDto,
+    ...staffPart,
+    ...studentPart,
+  }
   const firstName = dto.firstName || ''
   const lastName = dto.lastName || ''
   const fullName = `${lastName} ${firstName}`.trim() || dto.fullName || ''
@@ -20,7 +35,7 @@ export function mapBackendProfileToStudentProfile(dto: any): StudentProfile {
   const cohort = kNum ? `K${kNum}` : dto.cohort || ''
 
   return {
-    id: String(dto.id || dto.studentId || ''),
+    id: String(rawDto.id || rawDto.userId || dto.studentId || ''),
     fullName,
     firstName,
     lastName,

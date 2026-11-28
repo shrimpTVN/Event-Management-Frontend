@@ -1,4 +1,5 @@
 import { Tooltip } from '@/components/ui/tooltip'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -27,11 +28,14 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DateSortButton } from './DateSortButton'
 import { sortByDate, type DateSortDirection } from '../utils/dateSort'
-import { useAuthStore } from '@/store/authStore'
+import { useAuthStore } from '@/features/auth'
 import { useUserFanpagesStore } from '@/features/fanpage/store/userFanpagesStore'
 import { apiClient } from '@/shared'
 import type { FanpageMember, FanpageInvitation, FanpageSummary } from '../types/fanpageAdmin.types'
-import { MOCK_FANPAGE_MEMBERS, fanpageAdminService } from '../services/fanpageAdminService'
+import { fanpageAdminService } from '../services/fanpageAdminService'
+
+const EMPTY_MEMBERS: FanpageMember[] = []
+const EMPTY_INVITATIONS: FanpageInvitation[] = []
 
 interface FanpageMembersViewProps {
   currentFanpage?: FanpageSummary
@@ -220,17 +224,24 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
   const loggedInUser = useAuthStore((s) => s.user)
 
   // Fetch real members from backend/mock
-  const { data: serverMembers = [], isLoading: isLoadingMembers } = useQuery<FanpageMember[]>({
+  const {
+    data: serverMembers = EMPTY_MEMBERS,
+    isLoading: isLoadingMembers,
+    isError: isMembersError,
+    refetch: refetchMembers,
+  } = useQuery<FanpageMember[]>({
     queryKey: ['fanpage-members', targetFpId],
     queryFn: () => fanpageAdminService.getFanpageMembers(targetFpId),
-    enabled: Boolean(targetFpId),
+    enabled: Boolean(targetFpId) && !propMembers,
   })
+
+  const members = propMembers ?? serverMembers
 
   // Xác định người dùng hiện tại có phải là Quản trị viên của Fanpage hay không
   const isCurrentUserAdmin = Boolean(
     currentFanpage?.role === 'Quản trị viên' ||
     currentFanpage?.role === 'ADMIN' ||
-    serverMembers.some(
+    members.some(
       (m) =>
         (m.role === 'ADMIN' || m.title === 'Quản trị viên') &&
         ((loggedInUser?.id && String(m.userId) === String(loggedInUser.id)) ||
@@ -242,7 +253,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
 
   // Fetch real invitations from backend (CHỈ DÀNH CHO QUẢN TRỊ VIÊN)
   // Lưu ý: Backend cấm sinh viên/cộng tác viên gọi API /fanpage-member-invitations/fanpage/{id} (trả về 401 AuthException)
-  const { data: serverInvitations = [], isLoading: isLoadingInvitations } = useQuery<
+  const { data: invitations = EMPTY_INVITATIONS, isLoading: isLoadingInvitations } = useQuery<
     FanpageInvitation[]
   >({
     queryKey: ['fanpage-invitations', targetFpId],
@@ -250,14 +261,17 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
     enabled: Boolean(targetFpId) && isCurrentUserAdmin,
   })
 
-  const [members, setMembers] = useState<FanpageMember[]>(
-    serverMembers.length > 0
-      ? serverMembers
-      : propMembers && propMembers.length > 0
-        ? propMembers
-        : MOCK_FANPAGE_MEMBERS
-  )
-  const [invitations, setInvitations] = useState<FanpageInvitation[]>(serverInvitations)
+  const setMembers = (updater: (prev: FanpageMember[]) => FanpageMember[]) => {
+    queryClient.setQueryData<FanpageMember[]>(['fanpage-members', targetFpId], (prev) =>
+      updater(prev ?? EMPTY_MEMBERS)
+    )
+  }
+
+  const setInvitations = (updater: (prev: FanpageInvitation[]) => FanpageInvitation[]) => {
+    queryClient.setQueryData<FanpageInvitation[]>(['fanpage-invitations', targetFpId], (prev) =>
+      updater(prev ?? EMPTY_INVITATIONS)
+    )
+  }
   const [activeTab, setActiveTab] = useState<'MEMBERS' | 'INVITATIONS'>('MEMBERS')
   const [searchTerm, setSearchTerm] = useState('')
   const [joinedDateSort, setJoinedDateSort] = useState<DateSortDirection>(null)
@@ -344,20 +358,6 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       clearTimeout(timer)
     }
   }, [inviteEmail])
-
-  useEffect(() => {
-    if (serverMembers.length > 0) {
-      setMembers(serverMembers)
-    } else if (propMembers && propMembers.length > 0) {
-      setMembers(propMembers)
-    }
-  }, [serverMembers, propMembers])
-
-  useEffect(() => {
-    if (serverInvitations) {
-      setInvitations(serverInvitations)
-    }
-  }, [serverInvitations])
 
   // Handle click outside for dropdowns & email suggestions
   useEffect(() => {
@@ -526,8 +526,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       showFeedback('success', `Đã gửi lời mời tham gia tới ${cleanEmail} thành công!`)
     } catch (err: any) {
       console.warn('Backend invite-member call error', err)
-      const msg = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi gửi lời mời'
-      showFeedback('error', msg)
+      showFeedback('error', resolveApiErrorMessage(err, 'Có lỗi xảy ra khi gửi lời mời'))
     } finally {
       setIsSendingInvite(false)
     }
@@ -568,9 +567,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       )
     } catch (err: any) {
       console.error('Failed to appoint fanpage admin', err)
-      const msg =
-        err?.response?.data?.message || err?.message || 'Không thể chuyển quyền Quản trị viên!'
-      showFeedback('error', msg)
+      showFeedback('error', resolveApiErrorMessage(err, 'Không thể chuyển quyền Quản trị viên!'))
     }
 
     setTransferTarget(null)
@@ -697,8 +694,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       showFeedback('success', `Đã gửi lại lời mời tham gia tới email ${email}.`)
     } catch (err: any) {
       console.error('Error resending invite', err)
-      const msg = err?.response?.data?.message || `Không thể gửi lại lời mời tới ${email}.`
-      showFeedback('error', msg)
+      showFeedback('error', resolveApiErrorMessage(err, `Không thể gửi lại lời mời tới ${email}.`))
     }
   }
 
@@ -968,7 +964,24 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
 
                   {/* Danh sách các card thành viên bo tròn cách nhau (gap-2.5) */}
                   <div className="flex flex-col gap-2.5 mt-1">
-                    {isLoadingMembers && members.length === 0 ? (
+                    {isMembersError ? (
+                      <div
+                        role="alert"
+                        className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-white dark:bg-card p-6 text-center text-sm"
+                      >
+                        <p className="text-destructive font-medium">
+                          Không tải được danh sách thành viên.
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void refetchMembers()}
+                        >
+                          Thử lại
+                        </Button>
+                      </div>
+                    ) : isLoadingMembers && members.length === 0 ? (
                       <div className="flex flex-col gap-2.5 animate-pulse">
                         {[1, 2, 3, 4].map((i) => (
                           <div

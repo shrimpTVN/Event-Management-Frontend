@@ -36,6 +36,11 @@ export function FanpageReviewModal({
   const [isLoadingFollowers, setIsLoadingFollowers] = useState(false)
   useEffect(() => {
     if (!isOpen || !fanpage) return
+    if (fanpage.followersCount != null && fanpage.followersCount > 0) {
+      setFollowerCount(fanpage.followersCount)
+      setIsLoadingFollowers(false)
+      return
+    }
     let active = true
     setIsLoadingFollowers(true)
     setFollowerCount(null)
@@ -48,7 +53,7 @@ export function FanpageReviewModal({
     return () => {
       active = false
     }
-  }, [fanpage?.id, isOpen])
+  }, [fanpage?.id, fanpage?.followersCount, isOpen])
   useEffect(() => {
     setReason('')
     setIsRejecting(false)

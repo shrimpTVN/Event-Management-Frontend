@@ -33,9 +33,12 @@ export function FanpageNotificationDropdown({
   const navigate = useNavigate()
   const [filter, setFilter] = useState<'ALL' | 'UNREAD'>('ALL')
   const handleScroll = useScrollActivity()
-  const { data: unreadCount = 0 } = useFanpageUnreadNotificationCount(fanpageId)
+  const { data: unreadCount = 0 } = useFanpageUnreadNotificationCount(
+    isOpen ? fanpageId : undefined,
+    isOpen
+  )
   const query = useFanpageNotifications(
-    fanpageId,
+    isOpen ? fanpageId : undefined,
     0,
     30,
     filter === 'UNREAD' ? 'UNREAD' : undefined

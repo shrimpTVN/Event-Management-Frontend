@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { fanpageAdminService } from '../services/fanpageAdminService'
 import type { AdminEvent, EventRegistrationItem } from '../types/fanpageAdmin.types'
 import {
@@ -36,7 +37,7 @@ export function useAttendanceDraft(event: AdminEvent) {
     queryKey,
     queryFn: () => fanpageAdminService.getEventAttendees(event.fanpageId || '1', event.id),
     refetchOnWindowFocus: true,
-    refetchInterval: 15_000,
+    refetchInterval: event.status === 'PUBLISHED' ? 30_000 : false,
   })
   const source = query.data ?? []
   const [draftState, setDraftState] = useState<{ key: string; stages: Record<string, Stage> }>({
@@ -272,7 +273,7 @@ export function useAttendanceDraft(event: AdminEvent) {
         queryClient.invalidateQueries({ queryKey: ['point-transactions'] }),
       ])
     } catch (error) {
-      const detail = error instanceof Error ? error.message : 'Không thể cập nhật điểm danh.'
+      const detail = resolveApiErrorMessage(error, 'Không thể cập nhật điểm danh.')
       setNotice({
         type: 'error',
         message:
@@ -353,10 +354,7 @@ export function useAttendanceDraft(event: AdminEvent) {
     } catch (error) {
       setNotice({
         type: 'error',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Không lưu được điểm danh thay. Vui lòng thử lại.',
+        message: resolveApiErrorMessage(error, 'Không lưu được điểm danh thay. Vui lòng thử lại.'),
       })
       await queryClient.invalidateQueries({ queryKey })
       return false
@@ -389,7 +387,7 @@ export function useAttendanceDraft(event: AdminEvent) {
     } catch (error) {
       setNotice({
         type: 'error',
-        message: error instanceof Error ? error.message : 'Không kết thúc được sự kiện.',
+        message: resolveApiErrorMessage(error, 'Không kết thúc được sự kiện.'),
       })
       return false
     } finally {

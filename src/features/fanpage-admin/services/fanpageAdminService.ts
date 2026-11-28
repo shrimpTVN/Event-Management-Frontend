@@ -27,6 +27,35 @@ export const EMPTY_ACTIVITY_STATS: FanpageActivityStats = {
   pendingCommentsCount: 0,
 }
 
+export function formatUpcomingEventReminder(raw: any): UpcomingEventReminder | null {
+  if (!raw || typeof raw !== 'object' || raw.id == null) return null
+  const title = String(raw.title ?? raw.name ?? '').trim()
+  if (!title) return null
+
+  const registrationsCount = Number(raw.registrationsCount ?? raw.registeredCount ?? 0)
+  const rawDate = raw.dateHappen ?? raw.startTime ?? raw.startsAt
+  const parsed = rawDate ? new Date(rawDate) : null
+  const hasValidDate = Boolean(parsed && !Number.isNaN(parsed.getTime()))
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const monthText = raw.monthText || (hasValidDate ? `TH${parsed!.getMonth() + 1}` : '')
+  const dayText = raw.dayText || (hasValidDate ? pad(parsed!.getDate()) : '')
+  const dateText =
+    raw.dateText ||
+    (hasValidDate
+      ? `${pad(parsed!.getDate())}/${pad(parsed!.getMonth() + 1)}/${parsed!.getFullYear()} · ${pad(parsed!.getHours())}:${pad(parsed!.getMinutes())}`
+      : '')
+
+  return {
+    id: String(raw.id),
+    title,
+    monthText,
+    dayText,
+    registrationsCount: Number.isFinite(registrationsCount) ? registrationsCount : 0,
+    dateText,
+  }
+}
+
 const CTU_CRITERIA_CODE_MAP: Record<number, string> = {
   10: 'mục I.a',
   11: 'mục I.b',
@@ -161,44 +190,45 @@ export const fanpageAdminService = {
    * Retrieves all managed fanpages of the authenticated user (admin or student collaborator)
    */
   getAvailableFanpages: async (): Promise<FanpageSummary[]> => {
+    let res: any
     try {
-      let res: any
-      try {
-        res = await apiClient.get('/fanpages/my-fanpages')
-      } catch {
+      res = await apiClient.get('/fanpages/my-fanpages')
+    } catch (primaryErr: any) {
+      const status = primaryErr?.response?.status
+      if (status === 404 || status === 405) {
         res = await apiClient.get('/fanpages/fanpage-admin/my-fanpages')
+      } else {
+        throw primaryErr
       }
-      const list = Array.isArray(res) ? res : res?.data || []
-      return list.map((fp: any) => {
-        const id = String(fp.fanpageId || fp.id)
-        const name = fp.fanpageOrgName || fp.orgName || fp.fanpageName || fp.name || ''
-        const role =
-          fp.role === 'ADMIN'
-            ? 'Quản trị viên'
-            : fp.role === 'MEMBER'
-              ? 'Cộng tác viên'
-              : fp.role || 'Quản trị viên'
-
-        return {
-          id,
-          name,
-          fullName: fp.fanpageOrgName || fp.orgName || '',
-          avatarUrl: fp.fanpageAvatarUrl || fp.avatarUrl || '',
-          role,
-          isVerified: fp.status === 'ACTIVE',
-          email: fp.helpContact || fp.email || '',
-          phone: fp.helpPhone || fp.phone || '',
-          address: '',
-          followersCount: fp.followersCount || fp.followerCount || 0,
-          eventsCount: fp.eventsCount || fp.eventCount || 0,
-          description: fp.fanpageDescription || fp.description || '',
-          parentOrg: fp.parentOrg || '',
-          orgType: fp.orgType || '',
-        }
-      })
-    } catch {
-      return []
     }
+    const list = Array.isArray(res) ? res : res?.data || []
+    return list.map((fp: any) => {
+      const id = String(fp.fanpageId || fp.id)
+      const name = fp.fanpageOrgName || fp.orgName || fp.fanpageName || fp.name || ''
+      const role =
+        fp.role === 'ADMIN'
+          ? 'Quản trị viên'
+          : fp.role === 'MEMBER'
+            ? 'Cộng tác viên'
+            : fp.role || 'Quản trị viên'
+
+      return {
+        id,
+        name,
+        fullName: fp.fanpageOrgName || fp.orgName || '',
+        avatarUrl: fp.fanpageAvatarUrl || fp.avatarUrl || '',
+        role,
+        isVerified: fp.status === 'ACTIVE',
+        email: fp.helpContact || fp.email || '',
+        phone: fp.helpPhone || fp.phone || '',
+        address: '',
+        followersCount: fp.followersCount || fp.followerCount || 0,
+        eventsCount: fp.eventsCount || fp.eventCount || 0,
+        description: fp.fanpageDescription || fp.description || '',
+        parentOrg: fp.parentOrg || '',
+        orgType: fp.orgType || '',
+      }
+    })
   },
 
   /**
@@ -227,68 +257,133 @@ export const fanpageAdminService = {
   getUpcomingReminder: async (
     fanpageId?: string | number
   ): Promise<UpcomingEventReminder | null> => {
-    const targetId = fanpageId || '1'
+    if (!fanpageId) return null
     try {
-      const res: any = await apiClient.get(`/fanpages/${targetId}/upcoming-reminder`)
-      return res || null
+      const res: any = await apiClient.get(`/fanpages/${fanpageId}/upcoming-reminder`)
+      return formatUpcomingEventReminder(res)
     } catch {
       return null
     }
   },
 
   /**
+   * Fetches all raw events across pages once for feed posts, admin event table, and accurate total count
+   */
+  getFanpageEventsRaw: async (
+    fanpageId?: string | number
+  ): Promise<any[] & { __totalElements?: number }> => {
+    if (!fanpageId) return []
+    const all: any[] = []
+    let page = 0
+    let totalElements: number | undefined
+
+    while (true) {
+      const res: any = await apiClient.get(`/events/fanpage/${fanpageId}`, {
+        params: { page, size: 100 },
+      })
+      const data = res?.data ?? res
+      const rows = Array.isArray(res)
+        ? res
+        : res?.content || res?.data?.content || (Array.isArray(data) ? data : [])
+      if (totalElements === undefined) {
+        const rawTotal = res?.totalElements ?? data?.totalElements
+        if (typeof rawTotal === 'number') totalElements = rawTotal
+      }
+      if (!Array.isArray(rows)) break
+      all.push(...rows)
+
+      const totalPages =
+        typeof res?.totalPages === 'number'
+          ? res.totalPages
+          : typeof data?.totalPages === 'number'
+            ? data.totalPages
+            : undefined
+      const isLast = typeof res?.last === 'boolean' ? res.last : data?.last
+      const hasMore = totalPages !== undefined ? page + 1 < totalPages : isLast === false
+      if (Array.isArray(res) || Array.isArray(data) || !hasMore || rows.length === 0) break
+      page += 1
+    }
+
+    if (typeof totalElements === 'number') {
+      Object.defineProperty(all, '__totalElements', {
+        value: totalElements,
+        enumerable: false,
+      })
+    }
+    return all
+  },
+
+  mapEventsToFeedPosts: (list: any[], fanpageId?: string | number): FanpageFeedPost[] => {
+    const targetId = String(fanpageId || '')
+    const isCntt = targetId === '1'
+    return list.map((ev: any) => ({
+      id: `post-${ev.id}`,
+      eventId: String(ev.id),
+      authorName:
+        ev.authorName ||
+        (isCntt || ev.fanpageName?.includes('CNTT')
+          ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông'
+          : ev.fanpageName) ||
+        'Ban Tổ Chức',
+      authorAvatarUrl:
+        ev.authorAvatarUrl ||
+        ev.organizerAvatarUrl ||
+        (isCntt || ev.fanpageName?.includes('CNTT')
+          ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
+          : ''),
+      timeAgo: formatPostTimeAgo(ev.createdAt || ev.updatedAt || ev.dateOpen),
+      isPublic: true,
+      title: ev.name || ev.title,
+      summary: ev.description || '',
+      bannerUrl: ev.bannerUrl || '',
+      startTime: ev.startTime || ev.dateHappen,
+      endTime: ev.endTime,
+      location:
+        typeof ev.location === 'string'
+          ? ev.location
+          : ev.location?.address || 'Khu II, Đại học Cần Thơ',
+      pointsReward: formatEventPointsReward(ev),
+      capacity: ev.capacity,
+      quotaText: ev.capacityText || (ev.capacity ? `${ev.capacity} sinh viên` : 'Không giới hạn'),
+      likesCount: ev.likesCount ?? 0,
+      commentsCount: ev.commentsCount ?? 0,
+      sharesCount: ev.sharesCount ?? 0,
+      isLiked: Boolean(ev.isLiked),
+      eventTypeId: resolveEventTypeId(ev),
+      eventTypeName: ev.eventTypeName || ev.eventType?.name,
+      criteriaId: ev.criteriaId || ev.criteria?.id,
+      criteriaName: ev.criteriaName || ev.criteria?.name,
+      semesterId: ev.semester?.id || ev.semesterId,
+      academicYear: ev.semester?.academicYear || ev.academicYear,
+      eventPoints: Array.isArray(ev.eventPoints) ? ev.eventPoints : [],
+      dateOpen: ev.dateOpen,
+      dateClose: ev.dateClose,
+      status: ev.status,
+    }))
+  },
+
+  /**
    * Fetches feed of events belonging to a fanpage
    */
   getFeedPosts: async (fanpageId?: string | number): Promise<FanpageFeedPost[]> => {
-    const targetId = fanpageId || '1'
+    const list = await fanpageAdminService.getFanpageEventsRaw(fanpageId)
+    return fanpageAdminService.mapEventsToFeedPosts(list, fanpageId)
+  },
+
+  /**
+   * Fetches invitations for the current user to join/manage fanpages
+   */
+  getInvitations: async (): Promise<FanpageInvitation[]> => {
     try {
-      const res: any = await apiClient.get(`/events/fanpage/${targetId}?size=100`)
-      const list =
-        res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
-      const isCntt = String(targetId) === '1'
-      return list.map((ev: any) => ({
-        id: `post-${ev.id}`,
-        eventId: String(ev.id),
-        authorName:
-          ev.authorName ||
-          (isCntt || ev.fanpageName?.includes('CNTT')
-            ? 'Đoàn Trường Công Nghệ Thông Tin và Truyền Thông'
-            : ev.fanpageName) ||
-          'Ban Tổ Chức',
-        authorAvatarUrl:
-          ev.authorAvatarUrl ||
-          ev.organizerAvatarUrl ||
-          (isCntt || ev.fanpageName?.includes('CNTT')
-            ? 'https://res.cloudinary.com/depaiphq0/image/upload/v1793680012/ctu-event/fanpages/u_2_14fdaacdf2da4081.jpg'
-            : ''),
-        timeAgo: formatPostTimeAgo(ev.createdAt || ev.updatedAt || ev.dateOpen),
-        isPublic: true,
-        title: ev.name || ev.title,
-        summary: ev.description || '',
-        bannerUrl: ev.bannerUrl || '',
-        startTime: ev.startTime || ev.dateHappen,
-        endTime: ev.endTime,
-        location:
-          typeof ev.location === 'string'
-            ? ev.location
-            : ev.location?.address || 'Khu II, Đại học Cần Thơ',
-        pointsReward: formatEventPointsReward(ev),
-        capacity: ev.capacity,
-        quotaText: ev.capacityText || (ev.capacity ? `${ev.capacity} sinh viên` : 'Không giới hạn'),
-        likesCount: ev.likesCount ?? 0,
-        commentsCount: ev.commentsCount ?? 0,
-        sharesCount: ev.sharesCount ?? 0,
-        isLiked: Boolean(ev.isLiked),
-        eventTypeId: resolveEventTypeId(ev),
-        eventTypeName: ev.eventTypeName || ev.eventType?.name,
-        criteriaId: ev.criteriaId || ev.criteria?.id,
-        criteriaName: ev.criteriaName || ev.criteria?.name,
-        semesterId: ev.semester?.id || ev.semesterId,
-        academicYear: ev.semester?.academicYear || ev.academicYear,
-        eventPoints: Array.isArray(ev.eventPoints) ? ev.eventPoints : [],
-        dateOpen: ev.dateOpen,
-        dateClose: ev.dateClose,
-        status: ev.status,
+      const res: any = await apiClient.get('/fanpage-member-invitations/me')
+      const list = Array.isArray(res) ? res : res?.data || []
+      return list.map((inv: any) => ({
+        ...inv,
+        id: String(inv.id ?? ''),
+        email: inv.userEmail ?? inv.email ?? '',
+        name: inv.fanpageName ?? inv.name ?? '',
+        inviter: inv.inviterName ?? inv.inviter ?? inv.invitedBy ?? '',
+        avatarUrl: inv.fanpageAvatarUrl ?? inv.avatarUrl,
       }))
     } catch {
       return []
@@ -296,133 +391,120 @@ export const fanpageAdminService = {
   },
 
   /**
-   * Fetches pending invitations for staff to manage fanpages
-   */
-  getInvitations: async (): Promise<FanpageInvitation[]> => {
-    try {
-      const res: any = await apiClient.get('/fanpages/fanpage-admin/invitations')
-      return Array.isArray(res) ? res : res?.data || []
-    } catch {
-      return []
-    }
-  },
-
-  /**
-   * Responds to a fanpage invitation (accept or reject)
+   * Responds to a fanpage invitation (accept or decline)
    */
   respondInvitation: async (id: string, status: 'ACCEPTED' | 'REJECTED'): Promise<void> => {
-    await apiClient.patch(`/fanpages/fanpage-admin/invitations/${id}`, { status })
+    const action = status === 'ACCEPTED' ? 'accept' : 'decline'
+    await apiClient.post(`/fanpage-member-invitations/${id}/${action}`)
+  },
+
+  mapEventsToAdminEvents: (list: any[], fanpageId?: string | number): AdminEvent[] => {
+    const targetId = String(fanpageId || '')
+    return list.map((ev: any, idx: number) => {
+      const start = ev.startTime || ev.dateHappen || '2026-10-15T08:00:00Z'
+      const end = ev.dateEnd || ev.endTime || ev.dateHappen || '2026-10-15T11:30:00Z'
+      const startDate = new Date(start)
+      const endDate = new Date(end)
+      const pad = (n: number) => n.toString().padStart(2, '0')
+      const dateStart = !isNaN(startDate.getTime())
+        ? `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}`
+        : '2026-10-15'
+      const dateEnd = !isNaN(endDate.getTime())
+        ? `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}`
+        : dateStart
+      const timeStart = !isNaN(startDate.getTime())
+        ? `${pad(startDate.getHours())}:${pad(startDate.getMinutes())}`
+        : '08:00'
+      const timeEnd = !isNaN(endDate.getTime())
+        ? `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`
+        : '11:30'
+
+      const dateOpenStr = ev.dateOpen ? String(ev.dateOpen) : undefined
+      const dateCloseStr = ev.dateClose ? String(ev.dateClose) : undefined
+      const dateHappenStr = ev.dateHappen
+        ? typeof ev.dateHappen === 'string'
+          ? ev.dateHappen
+          : `${ev.dateHappen}`
+        : dateStart
+
+      return {
+        id: String(ev.id),
+        code: ev.code || `EVT-${String(ev.id || idx).padStart(4, '0')}`,
+        name: ev.name || ev.title,
+        description: ev.description || '',
+        eventTypeId: resolveEventTypeId(ev) || ev.eventTypeId || 1,
+        eventTypeName: ev.eventTypeName || ev.category || 'Học thuật · Công nghệ',
+        fanpageId: targetId,
+        organizerName: ev.authorName || ev.fanpageName || 'Đoàn Trường CNTT & TT',
+        dateStart,
+        dateEnd,
+        dateHappen: dateHappenStr,
+        startsAt: ev.startTime || ev.dateHappen || null,
+        endsAt: ev.dateEnd || ev.endTime || null,
+        dateOpen: dateOpenStr,
+        dateClose: dateCloseStr,
+        timeStart,
+        timeEnd,
+        format: ev.format || (ev.location?.type as any) || 'OFFLINE',
+        location:
+          typeof ev.location === 'string'
+            ? ev.location
+            : ev.location?.address || 'Hội trường Lớn Khu II ĐHCT',
+        capacity: ev.capacity ?? 200,
+        maleQuantity: ev.maleQuantity !== undefined ? ev.maleQuantity : 0,
+        femaleQuantity: ev.femaleQuantity !== undefined ? ev.femaleQuantity : 0,
+        registeredCount: ev.registeredCount || 0,
+        checkedInCount: ev.checkedInCount ?? 0,
+        status: (ev.status as any) || 'PUBLISHED',
+        bannerUrl: ev.bannerUrl || '',
+        requiresApproval: Boolean(ev.requiresApproval),
+        ...normalizeAttendanceConfig(ev),
+        autoEmail: true,
+        isPublic: true,
+        trainingPoints:
+          Array.isArray(ev.eventPoints) && ev.eventPoints.length > 0
+            ? ev.eventPoints.reduce((sum: number, p: any) => sum + (p.point || 0), 0)
+            : ev.trainingPoints !== undefined
+              ? ev.trainingPoints
+              : null,
+        trainingPointCategoryName:
+          ev.eventPoints?.[0]?.pointCategoryName || ev.trainingPointCategoryName || '',
+        trainingPointCategoryCode:
+          ev.eventPoints?.[0]?.pointCategoryCode || ev.trainingPointCategoryCode || '',
+        sv5tCriteriaIds: ev.criteriaIds?.length
+          ? ev.criteriaIds
+          : ev.criteriaId
+            ? [Number(ev.criteriaId)]
+            : [],
+        sv5tCriteriaId: ev.criteriaId ? Number(ev.criteriaId) : undefined,
+        sv5tCriteriaName: ev.criteriaName || ev.sv5tCriteriaName || null,
+        semesterId: ev.semester?.id
+          ? Number(ev.semester.id)
+          : ev.semesterId
+            ? Number(ev.semesterId)
+            : 1,
+        semesterName: ev.semester?.name || ev.semesterName,
+        hasCertificate: Boolean(ev.hasCertificate),
+        tags: Array.isArray(ev.tags) ? ev.tags : [],
+        eventPoints: Array.isArray(ev.eventPoints)
+          ? ev.eventPoints.map((p: any) => ({
+              pointCategoryId: p.pointCategoryId,
+              pointCategoryName: p.pointCategoryName || 'Điểm rèn luyện',
+              pointCategoryCode: p.pointCategoryCode || '',
+              point: Number(p.point ?? 0),
+            }))
+          : [],
+        createdAt: ev.createdAt || '2026-10-01',
+      }
+    })
   },
 
   /**
    * Fetches full event list for fanpage admin management
    */
   getAdminEvents: async (fanpageId?: string | number): Promise<AdminEvent[]> => {
-    const targetId = fanpageId || '1'
-    try {
-      const res: any = await apiClient.get(`/events/fanpage/${targetId}?size=100`)
-      const list =
-        res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : [])
-      return list.map((ev: any, idx: number) => {
-        const start = ev.startTime || ev.dateHappen || '2026-10-15T08:00:00Z'
-        const end = ev.dateEnd || ev.endTime || ev.dateHappen || '2026-10-15T11:30:00Z'
-        const startDate = new Date(start)
-        const endDate = new Date(end)
-        const pad = (n: number) => n.toString().padStart(2, '0')
-        const dateStart = !isNaN(startDate.getTime())
-          ? `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}`
-          : '2026-10-15'
-        const dateEnd = !isNaN(endDate.getTime())
-          ? `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}`
-          : dateStart
-        const timeStart = !isNaN(startDate.getTime())
-          ? `${pad(startDate.getHours())}:${pad(startDate.getMinutes())}`
-          : '08:00'
-        const timeEnd = !isNaN(endDate.getTime())
-          ? `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`
-          : '11:30'
-
-        const dateOpenStr = ev.dateOpen ? String(ev.dateOpen) : undefined
-        const dateCloseStr = ev.dateClose ? String(ev.dateClose) : undefined
-        const dateHappenStr = ev.dateHappen
-          ? typeof ev.dateHappen === 'string'
-            ? ev.dateHappen
-            : `${ev.dateHappen}`
-          : dateStart
-
-        return {
-          id: String(ev.id),
-          code: ev.code || `EVT-${String(ev.id || idx).padStart(4, '0')}`,
-          name: ev.name || ev.title,
-          description: ev.description || '',
-          eventTypeId: resolveEventTypeId(ev) || ev.eventTypeId || 1,
-          eventTypeName: ev.eventTypeName || ev.category || 'Học thuật · Công nghệ',
-          fanpageId: String(targetId),
-          organizerName: ev.authorName || ev.fanpageName || 'Đoàn Trường CNTT & TT',
-          dateStart,
-          dateEnd,
-          dateHappen: dateHappenStr,
-          startsAt: ev.startTime || ev.dateHappen || null,
-          endsAt: ev.dateEnd || ev.endTime || null,
-          dateOpen: dateOpenStr,
-          dateClose: dateCloseStr,
-          timeStart,
-          timeEnd,
-          format: ev.format || (ev.location?.type as any) || 'OFFLINE',
-          location:
-            typeof ev.location === 'string'
-              ? ev.location
-              : ev.location?.address || 'Hội trường Lớn Khu II ĐHCT',
-          capacity: ev.capacity ?? 200,
-          maleQuantity: ev.maleQuantity !== undefined ? ev.maleQuantity : 0,
-          femaleQuantity: ev.femaleQuantity !== undefined ? ev.femaleQuantity : 0,
-          registeredCount: ev.registeredCount || 0,
-          checkedInCount: ev.checkedInCount ?? 0,
-          status: (ev.status as any) || 'PUBLISHED',
-          bannerUrl: ev.bannerUrl || '',
-          requiresApproval: Boolean(ev.requiresApproval),
-          ...normalizeAttendanceConfig(ev),
-          autoEmail: true,
-          isPublic: true,
-          trainingPoints:
-            Array.isArray(ev.eventPoints) && ev.eventPoints.length > 0
-              ? ev.eventPoints.reduce((sum: number, p: any) => sum + (p.point || 0), 0)
-              : ev.trainingPoints !== undefined
-                ? ev.trainingPoints
-                : null,
-          trainingPointCategoryName:
-            ev.eventPoints?.[0]?.pointCategoryName || ev.trainingPointCategoryName || '',
-          trainingPointCategoryCode:
-            ev.eventPoints?.[0]?.pointCategoryCode || ev.trainingPointCategoryCode || '',
-          sv5tCriteriaIds: ev.criteriaIds?.length
-            ? ev.criteriaIds
-            : ev.criteriaId
-              ? [Number(ev.criteriaId)]
-              : [],
-          sv5tCriteriaId: ev.criteriaId ? Number(ev.criteriaId) : undefined,
-          sv5tCriteriaName: ev.criteriaName || ev.sv5tCriteriaName || null,
-          semesterId: ev.semester?.id
-            ? Number(ev.semester.id)
-            : ev.semesterId
-              ? Number(ev.semesterId)
-              : 1,
-          semesterName: ev.semester?.name || ev.semesterName,
-          hasCertificate: Boolean(ev.hasCertificate),
-          tags: Array.isArray(ev.tags) ? ev.tags : [],
-          eventPoints: Array.isArray(ev.eventPoints)
-            ? ev.eventPoints.map((p: any) => ({
-                pointCategoryId: p.pointCategoryId,
-                pointCategoryName: p.pointCategoryName || 'Điểm rèn luyện',
-                pointCategoryCode: p.pointCategoryCode || '',
-                point: Number(p.point ?? 0),
-              }))
-            : [],
-          createdAt: ev.createdAt || '2026-10-01',
-        }
-      })
-    } catch {
-      return []
-    }
+    const list = await fanpageAdminService.getFanpageEventsRaw(fanpageId)
+    return fanpageAdminService.mapEventsToAdminEvents(list, fanpageId)
   },
 
   /**

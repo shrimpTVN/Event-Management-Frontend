@@ -7,6 +7,12 @@ import { staffProfileSchema, type StaffProfileInput } from '../types/auth.schema
 import { RoleEnum } from '../types/auth.types'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
+import { sanitizeRedirectPath } from '../utils/authUtils'
+import {
+  extractApiFieldErrors,
+  getApiErrorCode,
+  resolveApiErrorMessage,
+} from '@/shared/utils/apiError'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -195,6 +201,7 @@ export const StaffProfileForm: React.FC = () => {
   const positionValue = watch('position')
 
   const onSubmit = async (data: StaffProfileInput) => {
+    if (isSubmitting) return
     try {
       setIsSubmitting(true)
       setApiError(null)
@@ -204,17 +211,26 @@ export const StaffProfileForm: React.FC = () => {
         role: updatedUser.role || RoleEnum.FANPAGE_ADMIN,
         isProfileComplete: true,
       })
-      const redirect = searchParams.get('redirect') || '/staff/fanpages'
+      const redirect = sanitizeRedirectPath(searchParams.get('redirect'), '/staff/fanpages')
       navigate(redirect, { replace: true })
     } catch (err: any) {
-      const errCode = err.response?.data?.code || err.response?.data?.exceptionCode || ''
-      const msg = err.response?.data?.message || err.message || ''
+      const errCode = getApiErrorCode(err)
+      const { fields: fieldErrors } = extractApiFieldErrors(err, {
+        allowedFields: [
+          'fullName',
+          'staffId',
+          'department',
+          'position',
+          'orgName',
+          'title',
+          'firstName',
+          'lastName',
+          'phoneNumber',
+        ],
+        aliases: { orgName: 'department', title: 'position' },
+      })
 
-      if (
-        errCode === 'STAFF_ID_ALREADY_EXISTS' ||
-        (typeof msg === 'string' &&
-          (msg.includes('Staff ID already exists') || msg.toLowerCase().includes('staff id')))
-      ) {
+      if (errCode === 'STAFF_ID_ALREADY_EXISTS' || errCode === '006') {
         setApiError(
           'Mã số cán bộ (CB) này đã tồn tại trong hệ thống. Vui lòng chỉnh sửa lại mã cán bộ bên dưới và bấm Lưu lại.'
         )
@@ -222,21 +238,20 @@ export const StaffProfileForm: React.FC = () => {
           type: 'manual',
           message: 'Mã số cán bộ này đã tồn tại trên hệ thống. Vui lòng kiểm tra lại.',
         })
-      } else if (
-        errCode === 'STAFF_PROFILE_ALREADY_EXISTS' ||
-        (typeof msg === 'string' && msg.includes('User already has a staff profile'))
-      ) {
+      } else if (errCode === 'STAFF_PROFILE_ALREADY_EXISTS') {
         updateUser({ isProfileComplete: true })
-        const redirect = searchParams.get('redirect') || '/staff/fanpages'
+        const redirect = sanitizeRedirectPath(searchParams.get('redirect'), '/staff/fanpages')
         navigate(redirect, { replace: true })
-      } else if (
-        typeof msg === 'string' &&
-        (msg.includes('already exists') || msg.toLowerCase().includes('email'))
-      ) {
-        setApiError('Email hoặc thông tin tài khoản này đã tồn tại trong hệ thống.')
+      } else if (Object.keys(fieldErrors).length > 0) {
+        Object.entries(fieldErrors).forEach(([field, message]) => {
+          setError(field as keyof StaffProfileInput, { type: 'manual', message })
+        })
       } else {
         setApiError(
-          msg || 'Không thể lưu hồ sơ cán bộ. Vui lòng kiểm tra lại các trường thông tin.'
+          resolveApiErrorMessage(
+            err,
+            'Không thể lưu hồ sơ cán bộ. Vui lòng kiểm tra lại các trường thông tin.'
+          )
         )
       }
     } finally {

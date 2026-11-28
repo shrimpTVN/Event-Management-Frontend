@@ -53,8 +53,7 @@ export const FanpageProfileEditView: React.FC<FanpageProfileEditViewProps> = ({
       return detail
     },
     placeholderData: currentFanpage,
-    staleTime: 0,
-    refetchOnMount: 'always',
+    staleTime: 30_000,
   })
   const fanpage = detailData || currentFanpage
 

@@ -47,13 +47,8 @@ export const SelfEvaluationModal: React.FC<SelfEvaluationModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (isNaN(points) || points < 0) {
-      setError('Số điểm không hợp lệ (phải >= 0).')
-      return
-    }
-
-    if (maxPoints > 0 && points > maxPoints) {
-      setError(`Số điểm tự đánh giá không được vượt quá ${maxPoints} điểm.`)
+    if (!Number.isInteger(points) || points <= 0) {
+      setError('Số điểm phải là số nguyên dương.')
       return
     }
 
@@ -149,8 +144,7 @@ export const SelfEvaluationModal: React.FC<SelfEvaluationModalProps> = ({
                       type="number"
                       aria-label="Số điểm tự chấm"
                       inputMode="decimal"
-                      min={0}
-                      max={maxPoints}
+                      min={1}
                       value={points}
                       onChange={(e) => {
                         const val = Number(e.target.value)
@@ -164,7 +158,7 @@ export const SelfEvaluationModal: React.FC<SelfEvaluationModalProps> = ({
                     />
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Nhập số điểm trong khoảng từ 0 đến {maxPoints} điểm.
+                    Nhập số điểm của ghi nhận này.
                   </p>
                 </div>
 

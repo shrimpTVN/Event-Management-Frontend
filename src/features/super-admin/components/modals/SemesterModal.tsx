@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { CatalogDialog } from '../CatalogDialog'
 import { adminStatisticsService } from '../../services/adminStatisticsService'
 import { Button } from '@/components/ui/button'
@@ -104,9 +105,7 @@ export function SemesterModal({
       })
       onClose()
     } catch (err: any) {
-      setError(
-        err?.response?.data?.message || err?.message || 'Không thể lưu học kỳ. Vui lòng thử lại.'
-      )
+      setError(resolveApiErrorMessage(err, 'Không thể lưu học kỳ. Vui lòng thử lại.'))
     } finally {
       setSaving(false)
     }

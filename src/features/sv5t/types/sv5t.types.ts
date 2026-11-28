@@ -1,5 +1,9 @@
 export interface CriteriaProgressNode {
   criteriaId: number
+  isLeaf?: boolean
+  isSystemCompleted?: boolean
+  completionPercentage?: number
+  manualTransactionId?: number | null
   name: string
   note?: string | null
   scope: string // 'UNIVERSITY' | 'FACULTY'
@@ -23,6 +27,9 @@ export interface CriteriaProgressNode {
 export interface StudentCriteriaProgressResponse {
   academicYearId: number
   academicYear: string
+  scope?: string
+  completionPercentage?: number
+  isEligible?: boolean
   completedLeafCriteria: number
   totalLeafCriteria: number
   completedMainCriteria: number
@@ -31,6 +38,7 @@ export interface StudentCriteriaProgressResponse {
 }
 
 export interface ManualCriteriaProgressRequest {
+  transactionId?: number
   academicYearId: number
   completed: boolean
   note?: string

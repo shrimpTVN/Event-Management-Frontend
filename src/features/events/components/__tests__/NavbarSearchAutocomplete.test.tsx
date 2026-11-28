@@ -151,6 +151,65 @@ describe('NavbarSearchAutocomplete', () => {
     expect(screen.getByText('Chưa tải được đầy đủ gợi ý.')).toBeInTheDocument()
   })
 
+  it('aborts earlier in-flight requests when typing rapidly and renders only the latest query suggestions', async () => {
+    const seenSignals: AbortSignal[] = []
+    let resolveFirst!: (value: any[]) => void
+    let resolveFirstPage!: (value: any[]) => void
+
+    vi.mocked(eventService.getEvents).mockImplementation((filters) => {
+      if (filters?.signal) seenSignals.push(filters.signal)
+      if (filters?.keyword === 'ab') {
+        return new Promise((resolve) => {
+          resolveFirst = resolve
+        })
+      }
+      return Promise.resolve([{ id: 'latest-ev', title: 'Sự kiện abc mới nhất' }] as any)
+    })
+
+    vi.mocked(fanpageSearchService.search).mockImplementation((keyword, _size, signal) => {
+      if (signal) seenSignals.push(signal)
+      if (keyword === 'ab') {
+        return new Promise((resolve) => {
+          resolveFirstPage = resolve
+        })
+      }
+      return Promise.resolve([{ id: 'latest-fp', name: 'Fanpage abc mới nhất' }])
+    })
+
+    renderComponent()
+    const input = screen.getByRole('combobox')
+
+    fireEvent.change(input, { target: { value: 'a' } })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    fireEvent.change(input, { target: { value: 'ab' } })
+
+    await waitFor(() => {
+      expect(eventService.getEvents).toHaveBeenCalledTimes(1)
+    })
+    expect(eventService.getEvents).toHaveBeenCalledWith(
+      expect.objectContaining({
+        keyword: 'ab',
+        size: 3,
+        statuses: ['PUBLISHED'],
+        signal: expect.any(AbortSignal),
+      })
+    )
+
+    fireEvent.change(input, { target: { value: 'abc' } })
+    expect(seenSignals.length).toBeGreaterThanOrEqual(2)
+    expect(seenSignals.every((sig) => sig.aborted)).toBe(true)
+
+    resolveFirst([{ id: 'stale-ev', title: 'Sự kiện ab cũ' }])
+    resolveFirstPage([{ id: 'stale-fp', name: 'Fanpage ab cũ' }])
+
+    expect(
+      await screen.findByRole('option', { name: 'Sự kiện abc mới nhất' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Fanpage abc mới nhất' })).toBeInTheDocument()
+    expect(screen.queryByText('Sự kiện ab cũ')).not.toBeInTheDocument()
+    expect(screen.queryByText('Fanpage ab cũ')).not.toBeInTheDocument()
+  })
+
   it.each(['/saved', '/notifications', '/history', '/profile', '/fanpage/1'])(
     'omits the header filter on %s',
     (path) => {

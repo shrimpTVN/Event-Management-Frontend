@@ -2,7 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import React, { useState, useEffect } from 'react'
-import { X, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react'
+import { X, AlertCircle, Trash2 } from 'lucide-react'
 
 interface Sv5tSelfEvaluationModalProps {
   isOpen: boolean
@@ -20,12 +20,10 @@ export const Sv5tSelfEvaluationModal: React.FC<Sv5tSelfEvaluationModalProps> = (
   onClose,
   criterionName,
   criteriaCode,
-  isCompleted: initialCompleted,
   currentNote = '',
   onSave,
   onDelete,
 }) => {
-  const [completed, setCompleted] = useState(initialCompleted)
   const [note, setNote] = useState(currentNote || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -33,26 +31,10 @@ export const Sv5tSelfEvaluationModal: React.FC<Sv5tSelfEvaluationModalProps> = (
 
   useEffect(() => {
     if (isOpen) {
-      setCompleted(initialCompleted)
-      const isGeneric = (str?: string | null) => {
-        if (!str) return true
-        const s = str.trim().toLowerCase()
-        return (
-          s === 'sinh viên tự đánh giá tiêu chuẩn' ||
-          s === 'sinh viên tự đánh giá đạt tiêu chuẩn' ||
-          s === 'sinh viên tự đánh giá đạt' ||
-          s === 'sinh viên tự đánh giá' ||
-          s === 'tự đánh giá'
-        )
-      }
-      if (!initialCompleted) {
-        setNote('')
-      } else {
-        setNote(isGeneric(currentNote) ? '' : currentNote || '')
-      }
+      setNote(currentNote || '')
       setError(null)
     }
-  }, [isOpen, initialCompleted, currentNote])
+  }, [isOpen, currentNote])
 
   if (!isOpen) return null
 
@@ -61,8 +43,7 @@ export const Sv5tSelfEvaluationModal: React.FC<Sv5tSelfEvaluationModalProps> = (
     setIsSubmitting(true)
     setError(null)
     try {
-      const finalNote = completed ? note.trim() : ''
-      await onSave(completed, finalNote)
+      await onSave(true, note.trim())
       onClose()
     } catch {
       setError('Có lỗi xảy ra khi lưu đánh giá. Vui lòng thử lại.')
@@ -136,48 +117,6 @@ export const Sv5tSelfEvaluationModal: React.FC<Sv5tSelfEvaluationModalProps> = (
                   </div>
                 )}
 
-                {/* Field: Trạng thái tự đánh giá */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-medium text-foreground block text-xs md:text-sm">
-                    Trạng thái tự đánh giá <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button
-                      variant="outline"
-                      type="button"
-                      aria-pressed={completed}
-                      onClick={() => setCompleted(true)}
-                      disabled={isSubmitting || isDeleting}
-                      className={`flex items-center justify-center gap-2 p-2.5 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
-                        completed
-                          ? 'bg-emerald-50 border-emerald-600 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-500 dark:text-emerald-300 shadow-2xs hover:bg-emerald-100 hover:text-emerald-800'
-                          : 'bg-background border-input text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                      }`}
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span>Đạt</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      type="button"
-                      aria-pressed={!completed}
-                      onClick={() => {
-                        setCompleted(false)
-                        setNote('')
-                      }}
-                      disabled={isSubmitting || isDeleting}
-                      className={`flex items-center justify-center gap-2 p-2.5 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
-                        !completed
-                          ? 'bg-muted border-foreground/30 text-foreground shadow-2xs hover:bg-muted/80'
-                          : 'bg-background border-input text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                      }`}
-                    >
-                      <AlertCircle className="h-4 w-4" />
-                      <span>Chưa đạt</span>
-                    </Button>
-                  </div>
-                </div>
-
                 {/* Field: Nội dung minh chứng / diễn giải */}
                 <div className="flex flex-col gap-1.5">
                   <label className="font-medium text-foreground block text-xs md:text-sm">
@@ -188,13 +127,9 @@ export const Sv5tSelfEvaluationModal: React.FC<Sv5tSelfEvaluationModalProps> = (
                     rows={3}
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    disabled={!completed || isSubmitting || isDeleting}
+                    disabled={isSubmitting || isDeleting}
                     className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs resize-none disabled:opacity-60 disabled:cursor-not-allowed"
-                    placeholder={
-                      !completed
-                        ? 'Tiêu chí đang ở trạng thái Chưa đạt (không có minh chứng).'
-                        : 'Nhập ghi chú, lý do tự đánh giá hoặc dẫn link minh chứng (VD: Điểm TB 3.5, link chứng chỉ, giải thưởng đạt được...)'
-                    }
+                    placeholder="Nhập lý do ghi nhận tiêu chí"
                   />
                 </div>
               </div>

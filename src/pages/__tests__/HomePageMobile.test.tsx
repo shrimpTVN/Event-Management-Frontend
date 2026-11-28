@@ -77,7 +77,7 @@ function renderMobileHome() {
     criterias: [],
     pointCategories: [],
   })
-  client.setQueryData(['events', 'feed'], sampleEvents)
+  client.setQueryData(['events', 'feed', 'PUBLISHED'], sampleEvents)
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>

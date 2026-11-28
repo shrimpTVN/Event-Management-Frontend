@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { AppProviders } from '@/app/providers'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { apiClient } from '@/shared/services/api'
 import { authService } from '../../services/authService'
 import { useAuthStore } from '../../store/authStore'
@@ -45,12 +45,13 @@ describe('StaffFanpageHub', () => {
       ])
     })
 
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
-      <AppProviders>
+      <QueryClientProvider client={client}>
         <MemoryRouter>
           <StaffFanpageHub />
         </MemoryRouter>
-      </AppProviders>
+      </QueryClientProvider>
     )
 
     expect(screen.getByText(/Chọn fanpage quản lý/i)).toBeInTheDocument()
@@ -59,23 +60,43 @@ describe('StaffFanpageHub', () => {
     expect(screen.getByText(/Fanpage của bạn \(1\)/i)).toBeInTheDocument()
     expect(
       screen.getByRole('link', { name: 'Vào quản lý Fanpage Thử Nghiệm API' })
-    ).toHaveAttribute('href', '/fanpage/admin')
+    ).toHaveAttribute('href', '/fanpage/admin?fanpageId=101')
   })
 
   it('renders empty state when staff has no fanpages yet', async () => {
     vi.mocked(apiClient.get).mockImplementation(() => Promise.resolve([]))
 
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
-      <AppProviders>
+      <QueryClientProvider client={client}>
         <MemoryRouter>
           <StaffFanpageHub />
         </MemoryRouter>
-      </AppProviders>
+      </QueryClientProvider>
     )
 
     expect(await screen.findByText(/Hiện tại bạn chưa có fanpage nào/i)).toBeInTheDocument()
     expect(screen.getByText(/Bạn hiện chưa tham gia hoặc sở hữu fanpage nào/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Đăng ký tạo fanpage ngay/i })).toBeInTheDocument()
+  })
+
+  it('shows error alert instead of empty fanpage message when /fanpages/my-fanpages rejects', async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url.includes('invitations')) return Promise.resolve([])
+      return Promise.reject(new Error('500'))
+    })
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <StaffFanpageHub />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('Không tải được danh sách fanpage')).toBeInTheDocument()
+    expect(screen.queryByText(/Hiện tại bạn chưa có fanpage nào/i)).not.toBeInTheDocument()
   })
 
   it('shows participating fanpages and registration for students', async () => {
@@ -96,16 +117,17 @@ describe('StaffFanpageHub', () => {
           : []
       )
     )
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
-      <AppProviders>
+      <QueryClientProvider client={client}>
         <MemoryRouter>
           <StaffFanpageHub />
         </MemoryRouter>
-      </AppProviders>
+      </QueryClientProvider>
     )
     expect(await screen.findByRole('link', { name: 'Vào quản lý Câu lạc bộ' })).toHaveAttribute(
       'href',
-      '/fanpage/workspace'
+      '/fanpage/workspace?fanpageId=member-page'
     )
     expect(screen.getByRole('link', { name: 'Đăng ký fanpage mới' })).toHaveAttribute(
       'href',
@@ -127,12 +149,13 @@ describe('StaffFanpageHub', () => {
       'mock-jwt-token'
     )
 
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
-      <AppProviders>
+      <QueryClientProvider client={client}>
         <MemoryRouter>
           <StaffFanpageHub />
         </MemoryRouter>
-      </AppProviders>
+      </QueryClientProvider>
     )
 
     expect(screen.getAllByRole('button', { name: 'Đăng xuất' })).toHaveLength(1)
@@ -143,5 +166,44 @@ describe('StaffFanpageHub', () => {
       expect(logoutSpy).toHaveBeenCalled()
       expect(useAuthStore.getState().isAuthenticated).toBe(false)
     })
+  })
+
+  it('loads invitations from /fanpage-member-invitations/me and accepts/declines via POST endpoints', async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/fanpage-member-invitations/me') {
+        return Promise.resolve([
+          {
+            id: 9,
+            fanpageId: 33,
+            fanpageName: 'CLB Kỹ năng CNTT',
+            fanpageAvatarUrl: 'https://cdn/fanpage.png',
+            inviterName: 'Nguyễn Văn An',
+            status: 'PENDING',
+          },
+        ])
+      }
+      return Promise.resolve([])
+    })
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <StaffFanpageHub />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('CLB Kỹ năng CNTT')).toBeInTheDocument()
+    expect(screen.getByText('Nguyễn Văn An')).toBeInTheDocument()
+    expect(apiClient.get).toHaveBeenCalledWith('/fanpage-member-invitations/me')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chấp nhận' }))
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith('/fanpage-member-invitations/9/accept')
+    })
+    expect(
+      await screen.findByText('Đã chấp nhận lời mời tham gia "CLB Kỹ năng CNTT"')
+    ).toBeInTheDocument()
   })
 })

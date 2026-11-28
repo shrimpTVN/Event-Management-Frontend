@@ -6,9 +6,14 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
 import { loginSchema, type LoginInput } from '../types/auth.schemas'
 import { authService } from '../services/authService'
-import { checkEmailRegistered } from '../services/accountVerificationService'
 import { useAuthStore } from '../store/authStore'
 import { getLoginDestination } from '../utils/authUtils'
+import { isMockMode } from '@/shared/utils/env'
+import {
+  extractApiFieldErrors,
+  getApiErrorCode,
+  resolveApiErrorMessage,
+} from '@/shared/utils/apiError'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 import { GoogleAuthButton } from './GoogleAuthButton'
 
@@ -48,6 +53,7 @@ export const LoginForm: React.FC = () => {
   })
 
   const onSubmit = async (data: LoginInput) => {
+    if (isSubmitting) return
     const rawEmail = data.email.trim()
     let normalizedEmail = rawEmail
     if (rawEmail.toLowerCase() === 'admin') {
@@ -71,93 +77,54 @@ export const LoginForm: React.FC = () => {
 
       navigate(getLoginDestination(res.user, redirectUrl), { replace: true })
     } catch (err: any) {
-      const errorData = err.response?.data
-      const rawMsg = (errorData?.message || err.message || '').toString()
-      const code = (errorData?.exceptionCode || '').toString()
-
+      const code = getApiErrorCode(err)
       const isInvalidCredentials =
-        code === 'AUTH.005' ||
-        rawMsg.toLowerCase().includes('invalid username or password') ||
-        rawMsg.toLowerCase().includes('invalid credentials') ||
-        rawMsg.toLowerCase().includes('bad credentials') ||
-        err.response?.status === 400 ||
-        err.response?.status === 401
+        ['AUTH.005', 'AUTH.001', 'AUTH.010', 'AUTH_USER_NOT_FOUND', 'AUTH_INVALID_CREDENTIALS'].includes(code || '') ||
+        err.response?.status === 401 ||
+        (err.response?.status === 400 && code !== '000' && code !== 'VALIDATION_ERROR')
 
-      const isUserNotFound =
-        rawMsg.toLowerCase().includes('user not found') ||
-        rawMsg.toLowerCase().includes('email not found') ||
-        rawMsg.toLowerCase().includes('account not found')
-
-      const isUserDisabled =
-        code === 'AUTH.010' ||
-        rawMsg.toLowerCase().includes('disabled') ||
-        rawMsg.toLowerCase().includes('inactive')
-
-      if (isUserNotFound) {
-        clearErrors('password')
-        setError('email', {
-          type: 'manual',
-          message: 'Email không tồn tại trong hệ thống.',
-        })
-      } else if (isUserDisabled) {
-        clearErrors('password')
-        setError('email', {
-          type: 'manual',
-          message: 'Tài khoản này đã bị khóa hoặc tạm ngưng hoạt động.',
-        })
-      } else if (isInvalidCredentials) {
-        // Phân loại chính xác: Nếu email sai (không tồn tại) thì chỉ báo lỗi ở email,
-        // ngược lại nếu email đúng nhưng mật khẩu sai thì chỉ báo lỗi ở mật khẩu.
-        const isRegistered =
-          (await checkEmailRegistered(normalizedEmail)) || (await checkEmailRegistered(data.email))
-        if (!isRegistered) {
-          clearErrors('password')
-          setError('email', {
-            type: 'manual',
-            message: 'Email không tồn tại trong hệ thống.',
+      if (isInvalidCredentials) {
+        setApiError('Email hoặc mật khẩu không đúng.')
+      } else if (code === '000' || code === 'VALIDATION_ERROR') {
+        const { fields } = extractApiFieldErrors(err, { allowedFields: ['email', 'password'] })
+        if (Object.keys(fields).length > 0) {
+          Object.entries(fields).forEach(([field, message]) => {
+            setError(field as 'email' | 'password', { type: 'manual', message })
           })
         } else {
-          clearErrors('email')
-          setError('password', {
-            type: 'manual',
-            message: 'Mật khẩu không chính xác. Vui lòng kiểm tra lại.',
-          })
+          setApiError('Thông tin đăng nhập chưa hợp lệ. Vui lòng kiểm tra lại.')
         }
       } else {
-        setApiError(rawMsg || 'Hệ thống đang bận hoặc mất kết nối mạng. Vui lòng thử lại sau.')
+        if (import.meta.env.DEV) console.error('Login request failed:', err)
+        setApiError(
+          resolveApiErrorMessage(err, 'Hệ thống đang bận hoặc mất kết nối mạng. Vui lòng thử lại sau.')
+        )
       }
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
+  const handleGoogleSuccess = async (credentialResponse: { credential?: string }) => {
+    if (isSubmitting) return
     try {
       setIsSubmitting(true)
       setApiError(null)
+      clearErrors()
       const idToken = credentialResponse?.credential
-      let res: any
-      if (idToken && !idToken.startsWith('mock-google-token')) {
-        res = await authService.exchangeGoogleToken({ idToken })
-      } else {
-        const email = credentialResponse?.profile?.email || 'student1@example.com'
-        res = await authService.login({
-          email,
-          password: 'password123',
-        })
+      if (!idToken || (!isMockMode() && idToken.startsWith('mock-google-token-'))) {
+        setApiError('Không nhận được thông tin xác thực từ Google. Vui lòng thử lại.')
+        return
       }
+      const res = await authService.exchangeGoogleToken({ idToken })
 
       queryClient.clear()
       setAuth(res.user, res.tokens?.accessToken || null)
 
       navigate(getLoginDestination(res.user, redirectUrl), { replace: true })
-    } catch (err: any) {
-      console.error('Google login exchange error:', err)
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        'Đăng nhập Google thất bại. Vui lòng thử lại.'
-      setApiError(msg)
+    } catch (err: unknown) {
+      if (import.meta.env.DEV) console.error('Google login exchange error:', err)
+      setApiError(resolveApiErrorMessage(err, 'Đăng nhập Google thất bại. Vui lòng thử lại.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -253,6 +220,7 @@ export const LoginForm: React.FC = () => {
             'Đăng nhập'
           )}
         </button>
+      </form>
 
         {/* Divider: Hoặc */}
         <div className="relative my-3">
@@ -271,12 +239,8 @@ export const LoginForm: React.FC = () => {
           text="Tiếp tục với Google"
           onSuccess={handleGoogleSuccess}
           onError={() => {
-            console.error(
-              'Google Auth SDK onError: Popup was closed or origin http://localhost:5173 is not configured in Authorized JavaScript origins.'
-            )
-            setApiError(
-              'Đăng nhập Google thất bại. Vui lòng kiểm tra cấu hình Authorized JavaScript origins trong Google Cloud Console.'
-            )
+            if (import.meta.env.DEV) console.error('Google Auth SDK failed to complete sign-in')
+            setApiError('Đăng nhập Google thất bại. Vui lòng thử lại.')
           }}
           disabled={isSubmitting}
         />
@@ -291,7 +255,6 @@ export const LoginForm: React.FC = () => {
             Đăng ký
           </Link>
         </div>
-      </form>
     </AuthLayoutWrapper>
   )
 }

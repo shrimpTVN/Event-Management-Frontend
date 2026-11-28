@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { CatalogDialog } from '../CatalogDialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -73,9 +74,7 @@ export function SchoolMajorModal({
         })
       onClose()
     } catch (err: any) {
-      setError(
-        err?.response?.data?.message || err?.message || 'Không thể lưu danh mục. Vui lòng thử lại.'
-      )
+      setError(resolveApiErrorMessage(err, 'Không thể lưu danh mục. Vui lòng thử lại.'))
     } finally {
       setSaving(false)
     }

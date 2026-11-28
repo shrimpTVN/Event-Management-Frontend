@@ -1,10 +1,11 @@
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { useTimeBoundary } from '@/shared/hooks/useTimeBoundary'
 import { isUpcomingRegistration, nextTimeBoundary } from '@/shared/utils/registrationEligibility'
 import { matchesPageSearch, useMobilePageSearch } from '@/shared/components/layout/MobileSubpageHeader'
 import React, { useState, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiClient } from '@/shared'
+import { academicYearsQueryOptions, semestersQueryOptions } from '@/shared/services/academicCatalog'
 import {
   HistoryTabBar,
   MobileHistoryTabBar,
@@ -48,30 +49,18 @@ export const EventHistoryPage: React.FC = () => {
   const [appliedYear, setAppliedYear] = useState('2026 - 2027')
   const [appliedSemester, setAppliedSemester] = useState('1')
 
-  // Fetch real Academic Years and Semesters from backend
-  const { data: academicYears = [] } = useQuery<any[]>({
-    queryKey: ['academic-years'],
-    queryFn: async () => {
-      try {
-        const res: any = await apiClient.get('/academic-years')
-        return res?.data || (Array.isArray(res) ? res : [])
-      } catch {
-        return []
-      }
-    },
-  })
+  // Fetch real Academic Years and Semesters using shared catalog queries without poisoning cache on error
+  const {
+    data: academicYears = [],
+    isError: isAcademicYearsError,
+    refetch: refetchAcademicYears,
+  } = useQuery(academicYearsQueryOptions())
 
-  const { data: semesters = [] } = useQuery<any[]>({
-    queryKey: ['semesters'],
-    queryFn: async () => {
-      try {
-        const res: any = await apiClient.get('/semesters')
-        return res?.data || (Array.isArray(res) ? res : [])
-      } catch {
-        return []
-      }
-    },
-  })
+  const {
+    data: semesters = [],
+    isError: isSemestersError,
+    refetch: refetchSemesters,
+  } = useQuery(semestersQueryOptions())
 
   // Generate Year options
   const yearOptions = useMemo(() => {
@@ -340,12 +329,10 @@ export const EventHistoryPage: React.FC = () => {
       showToast(`Đã hủy đăng ký thành công sự kiện "${title}".`, 'info')
     } catch (err: any) {
       console.error('Failed to cancel registration:', err)
-      const rawMsg = err?.response?.data?.message || err?.message || ''
-      let msg = 'Không thể hủy đăng ký sự kiện. Vui lòng thử lại sau!'
-      if (rawMsg.includes('after event close')) {
-        msg = 'Không thể hủy đăng ký sau khi sự kiện đã đóng hạn!'
-      }
-      showToast(msg, 'info')
+      showToast(
+        resolveApiErrorMessage(err, 'Không thể hủy đăng ký sự kiện. Vui lòng thử lại sau!'),
+        'info'
+      )
     }
   }
 
@@ -492,6 +479,25 @@ export const EventHistoryPage: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {(isAcademicYearsError || isSemestersError) && (
+              <div
+                role="alert"
+                className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between gap-2"
+              >
+                <span>Không tải được danh mục năm học/học kỳ từ máy chủ.</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isAcademicYearsError) void refetchAcademicYears()
+                    if (isSemestersError) void refetchSemesters()
+                  }}
+                  className="font-semibold underline cursor-pointer shrink-0"
+                >
+                  Tải lại danh mục
+                </button>
+              </div>
+            )}
 
             {/* Main Section: Desktop folder-style tab bar connected seamlessly to White Container */}
             <div className="flex flex-col mt-1 sm:mt-2">

@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AdminStatisticsDashboard } from '@/features/super-admin/components/AdminStatisticsDashboard'
 import { flattenTree } from '@/features/super-admin/components/catalogTree'
 import {
@@ -6,7 +6,7 @@ import {
   getSuperAdminRoles,
 } from '@/features/super-admin/services/superAdminService'
 import { Button } from '@/components/ui/button'
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   SuperAdminLayout,
@@ -29,9 +29,13 @@ import {
 import type {
   SuperAdminNavTab,
   SuperAdminUser,
+  UserRole,
+  UserStatus,
   UserSystemRole,
   SuperAdminFanpage,
+  FanpageStatus,
   SuperAdminEvent,
+  AdminEventStatus,
   SuperAdminSemester,
   SuperAdminPointCategory,
   SuperAdminSv5tCriteria,
@@ -39,24 +43,50 @@ import type {
   SuperAdminMajor,
 } from '@/features/super-admin'
 
+const PAGE_SIZE = 20
+
 export const SuperAdminPage: React.FC = () => {
   const queryClient = useQueryClient()
   // Navigation Tab State
   const [activeTab, setActiveTab] = useState<SuperAdminNavTab>('overview')
   const [globalSearchQuery, setGlobalSearchQuery] = useState('')
+  const [mutationError, setMutationError] = useState<string | null>(null)
 
-  // Loading & Error States
-  const [isLoading, setIsLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  // Server pagination & tab filter states
+  const [usersPage, setUsersPage] = useState(0)
+  const [usersTab, setUsersTab] = useState<'ALL' | UserRole | UserStatus>('ALL')
+  const [usersSearch, setUsersSearch] = useState('')
+  const [debouncedUsersSearch, setDebouncedUsersSearch] = useState('')
 
-  // Backend datasets; empty and failed responses never fall back to demo data
-  const [users, setUsers] = useState<SuperAdminUser[]>([])
-  const [fanpages, setFanpages] = useState<SuperAdminFanpage[]>([])
-  const [events, setEvents] = useState<SuperAdminEvent[]>([])
-  const [semesters, setSemesters] = useState<SuperAdminSemester[]>([])
-  const [pointCategories, setPointCategories] = useState<SuperAdminPointCategory[]>([])
-  const [sv5tCriterias, setSv5tCriterias] = useState<SuperAdminSv5tCriteria[]>([])
-  const [schools, setSchools] = useState<SuperAdminSchool[]>([])
+  const [fanpagesPage, setFanpagesPage] = useState(0)
+  const [fanpagesStatus, setFanpagesStatus] = useState<'ALL' | FanpageStatus>('ALL')
+  const [fanpagesSearch, setFanpagesSearch] = useState('')
+  const [debouncedFanpagesSearch, setDebouncedFanpagesSearch] = useState('')
+
+  const [eventsPage, setEventsPage] = useState(0)
+  const [eventsStatus, setEventsStatus] = useState<'ALL' | AdminEventStatus>('ALL')
+  const [eventsSearch, setEventsSearch] = useState('')
+  const [debouncedEventsSearch, setDebouncedEventsSearch] = useState('')
+
+  const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedUsersSearch(usersSearch.trim())
+      setUsersPage(0)
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [usersSearch])
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedFanpagesSearch(fanpagesSearch.trim()), 250)
+    return () => clearTimeout(timer)
+  }, [fanpagesSearch])
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedEventsSearch(eventsSearch.trim()), 250)
+    return () => clearTimeout(timer)
+  }, [eventsSearch])
 
   // Modals & Selection States
   const [selectedUser, setSelectedUser] = useState<SuperAdminUser | null>(null)
@@ -67,6 +97,7 @@ export const SuperAdminPage: React.FC = () => {
 
   const [selectedEvent, setSelectedEvent] = useState<SuperAdminEvent | null>(null)
   const [isEventModalOpen, setIsEventModalOpen] = useState(false)
+  const [eventModalHideMode, setEventModalHideMode] = useState(false)
 
   const [selectedSemester, setSelectedSemester] = useState<SuperAdminSemester | null>(null)
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false)
@@ -92,80 +123,127 @@ export const SuperAdminPage: React.FC = () => {
   )
   const [isSchoolMajorModalOpen, setIsSchoolMajorModalOpen] = useState(false)
 
-  // Derived counts for alerts & badges
-  const pendingFanpages = useMemo(() => fanpages.filter((f) => f.status === 'PENDING'), [fanpages])
-  const violatedEvents = useMemo(
-    () => events.filter((e) => e.status === 'VIOLATED' || e.status === 'HIDDEN'),
-    [events]
-  )
+  // --- Tab-scoped Queries (never pull unused datasets on overview) ---
+  const semestersQuery = useQuery({
+    queryKey: ['super-admin', 'semesters'],
+    queryFn: () => superAdminService.getSemesters(),
+    enabled: activeTab === 'overview' || activeTab === 'semesters',
+  })
 
-  // Load real data from Backend APIs on mount
-  const loadBackendData = useCallback(async () => {
-    setIsLoading(true)
-    setLoadError(null)
-    try {
-      const results = await Promise.allSettled([
-        superAdminService.getUsers({ size: Number.MAX_SAFE_INTEGER }),
-        superAdminService.getFanpages({ size: Number.MAX_SAFE_INTEGER }),
-        superAdminService.getEvents({ size: Number.MAX_SAFE_INTEGER }),
-        superAdminService.getSemesters(),
-        superAdminService.getPointCategories(),
-        superAdminService.getCriterias(),
-        superAdminService.getSchools(),
-      ])
-      const [
-        usersRes,
-        fanpagesRes,
-        eventsRes,
-        semestersRes,
-        pointCatsRes,
-        criteriasRes,
-        schoolsRes,
-      ] = results
-      const liveUsers = usersRes.status === 'fulfilled' ? usersRes.value.content : []
-      const liveEvents = eventsRes.status === 'fulfilled' ? eventsRes.value.content : []
-      const liveFanpages =
-        fanpagesRes.status === 'fulfilled'
-          ? fanpagesRes.value.content.map((fanpage) => ({
-              ...fanpage,
-              eventsCount:
-                eventsRes.status === 'fulfilled'
-                  ? liveEvents.filter((event) => event.fanpageId === fanpage.id).length
-                  : null,
-            }))
-          : []
-      setUsers(liveUsers)
-      setFanpages(liveFanpages)
-      setEvents(liveEvents)
-      setSemesters(semestersRes.status === 'fulfilled' ? semestersRes.value : [])
-      setPointCategories(pointCatsRes.status === 'fulfilled' ? pointCatsRes.value : [])
-      setSv5tCriterias(criteriasRes.status === 'fulfilled' ? criteriasRes.value : [])
-      setSchools(schoolsRes.status === 'fulfilled' ? schoolsRes.value : [])
-      const names = [
-        'người dùng / hồ sơ',
-        'fanpage',
-        'sự kiện',
-        'học kỳ',
-        'điểm rèn luyện',
-        'tiêu chí SV5T',
-        'khoa / ngành',
-      ]
-      const failed = results.flatMap((result, index) =>
-        result.status === 'rejected' ? [names[index]] : []
-      )
-      if (failed.length)
-        setLoadError('Không tải được dữ liệu: ' + failed.join(', ') + '. Vui lòng thử lại.')
-    } catch (err: unknown) {
-      console.warn('Super Admin API connection error:', err)
-      setLoadError('Không thể tải dữ liệu từ máy chủ. Vui lòng thử lại.')
-    } finally {
-      setIsLoading(false)
+  const pendingFanpagesQuery = useQuery({
+    queryKey: ['super-admin', 'pending-fanpages'],
+    queryFn: () => superAdminService.getFanpagesPage({ page: 0, size: PAGE_SIZE, status: 'PENDING' }),
+    enabled: activeTab === 'overview' || activeTab === 'fanpages',
+  })
+
+  const usersQuery = useQuery({
+    queryKey: ['super-admin', 'users', usersPage, usersTab, debouncedUsersSearch],
+    queryFn: () =>
+      superAdminService.getUsersPage({
+        page: usersPage,
+        size: PAGE_SIZE,
+        role: usersTab,
+        ...(usersTab === 'LOCKED' ? { isActive: false } : {}),
+        ...(debouncedUsersSearch ? { keyword: debouncedUsersSearch } : {}),
+      }),
+    enabled: activeTab === 'users',
+  })
+
+  const fanpagesQuery = useQuery({
+    queryKey: ['super-admin', 'fanpages', fanpagesPage, fanpagesStatus, debouncedFanpagesSearch],
+    queryFn: () =>
+      superAdminService.getFanpagesPage({
+        page: fanpagesPage,
+        size: PAGE_SIZE,
+        status: fanpagesStatus,
+        keyword: debouncedFanpagesSearch || undefined,
+      }),
+    enabled: activeTab === 'fanpages',
+  })
+
+  const eventsQuery = useQuery({
+    queryKey: ['super-admin', 'events', eventsPage, eventsStatus, debouncedEventsSearch],
+    queryFn: () =>
+      superAdminService.getEventsPage({
+        page: eventsPage,
+        size: PAGE_SIZE,
+        status: eventsStatus,
+        keyword: debouncedEventsSearch || undefined,
+      }),
+    enabled: activeTab === 'events',
+  })
+
+  const pointCategoriesQuery = useQuery({
+    queryKey: ['super-admin', 'point-categories'],
+    queryFn: () => superAdminService.getPointCategories(),
+    enabled: activeTab === 'point-categories',
+  })
+
+  const sv5tCriteriasQuery = useQuery({
+    queryKey: ['super-admin', 'sv5t-criterias'],
+    queryFn: () => superAdminService.getCriterias(),
+    enabled: activeTab === 'sv5t-criterias',
+  })
+
+  const schoolsQuery = useQuery({
+    queryKey: ['super-admin', 'schools'],
+    queryFn: () => superAdminService.getSchoolsWithMajors(),
+    enabled: activeTab === 'schools',
+  })
+
+  const schools = schoolsQuery.data ?? []
+  const effectiveSchoolId = selectedSchoolId ?? schools[0]?.id ?? null
+
+  const semesters = semestersQuery.data ?? []
+  const pendingFanpages: SuperAdminFanpage[] = pendingFanpagesQuery.data?.content ?? []
+  const users: SuperAdminUser[] = usersQuery.data?.content ?? []
+  const fanpages: SuperAdminFanpage[] = fanpagesQuery.data?.content ?? []
+  const events: SuperAdminEvent[] = eventsQuery.data?.content ?? []
+  const pointCategories = pointCategoriesQuery.data ?? []
+  const sv5tCriterias = sv5tCriteriasQuery.data ?? []
+
+  const activeQuery = useMemo(() => {
+    switch (activeTab) {
+      case 'overview':
+        return semestersQuery
+      case 'users':
+        return usersQuery
+      case 'fanpages':
+        return fanpagesQuery
+      case 'events':
+        return eventsQuery
+      case 'semesters':
+        return semestersQuery
+      case 'point-categories':
+        return pointCategoriesQuery
+      case 'sv5t-criterias':
+        return sv5tCriteriasQuery
+      case 'schools':
+        return schoolsQuery
     }
-  }, [])
+  }, [
+    activeTab,
+    semestersQuery,
+    usersQuery,
+    fanpagesQuery,
+    eventsQuery,
+    pointCategoriesQuery,
+    sv5tCriteriasQuery,
+    schoolsQuery,
+  ])
 
-  useEffect(() => {
-    loadBackendData()
-  }, [loadBackendData])
+  const isLoading = activeQuery.isLoading
+  const loadError =
+    mutationError ||
+    (activeQuery.isError ? 'Không thể tải dữ liệu từ máy chủ. Vui lòng thử lại.' : null)
+
+  const handleRetryActiveTab = () => {
+    setMutationError(null)
+    void activeQuery.refetch()
+    if (activeTab === 'overview') {
+      void pendingFanpagesQuery.refetch()
+    }
+  }
 
   // --- Handlers: Users ---
   const handleOpenUserDetail = (user: SuperAdminUser) => {
@@ -175,43 +253,39 @@ export const SuperAdminPage: React.FC = () => {
 
   const handleToggleUserStatus = async (userId: string) => {
     try {
+      setMutationError(null)
       await superAdminService.toggleUserStatus(userId)
+      void queryClient.invalidateQueries({ queryKey: ['super-admin', 'users'] })
       void queryClient.invalidateQueries({ queryKey: ['admin-statistics-dashboard'] })
     } catch (err) {
       console.warn('API error toggling user status:', err)
-      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      setMutationError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
       return
     }
 
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === userId) {
-          const nextStatus = u.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE'
-          if (selectedUser?.id === userId) {
-            setSelectedUser({ ...u, status: nextStatus })
-          }
-          return { ...u, status: nextStatus }
-        }
-        return u
-      })
-    )
+    if (selectedUser?.id === userId) {
+      setSelectedUser((prev) =>
+        prev ? { ...prev, status: prev.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE' } : prev
+      )
+    }
   }
 
   const handleToggleUserSuperAdmin = async (userId: string, enabled: boolean): Promise<boolean> => {
     let roles: UserSystemRole[]
     try {
-      const target = users.find((user) => user.id === userId)
+      setMutationError(null)
+      const target = users.find((user) => user.id === userId) ?? selectedUser
       if (!target) return false
       roles = getSuperAdminRoles(target, enabled)
       await superAdminService.changeUserRoles(userId, roles)
+      void queryClient.invalidateQueries({ queryKey: ['super-admin', 'users'] })
     } catch (err) {
       console.warn('API error changing user role:', err)
-      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      setMutationError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
       return false
     }
 
     const permissions = { role: normalizeAdminRole({ roles }), systemRoles: roles }
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...permissions } : u)))
     setSelectedUser((current) =>
       current?.id === userId ? { ...current, ...permissions } : current
     )
@@ -226,15 +300,17 @@ export const SuperAdminPage: React.FC = () => {
 
   const handleApproveFanpage = async (fanpageId: string) => {
     try {
+      setMutationError(null)
       await superAdminService.acceptFanpage(fanpageId)
+      void queryClient.invalidateQueries({ queryKey: ['super-admin', 'fanpages'] })
+      void queryClient.invalidateQueries({ queryKey: ['super-admin', 'pending-fanpages'] })
       void queryClient.invalidateQueries({ queryKey: ['admin-statistics-dashboard'] })
     } catch (err) {
       console.warn('API error approving fanpage:', err)
-      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      setMutationError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
       return
     }
 
-    setFanpages((prev) => prev.map((f) => (f.id === fanpageId ? { ...f, status: 'ACTIVE' } : f)))
     if (selectedFanpage?.id === fanpageId) {
       setSelectedFanpage((prev) => (prev ? { ...prev, status: 'ACTIVE' } : null))
     }
@@ -242,19 +318,17 @@ export const SuperAdminPage: React.FC = () => {
 
   const handleRejectFanpage = async (fanpageId: string, reason: string) => {
     try {
+      setMutationError(null)
       await superAdminService.rejectFanpage(fanpageId, reason)
+      void queryClient.invalidateQueries({ queryKey: ['super-admin', 'fanpages'] })
+      void queryClient.invalidateQueries({ queryKey: ['super-admin', 'pending-fanpages'] })
       void queryClient.invalidateQueries({ queryKey: ['admin-statistics-dashboard'] })
     } catch (err) {
       console.warn('API error rejecting fanpage:', err)
-      setLoadError('Không thể gửi lý do từ chối đăng ký. Vui lòng thử lại.')
+      setMutationError('Không thể gửi lý do từ chối đăng ký. Vui lòng thử lại.')
       return
     }
 
-    setFanpages((prev) =>
-      prev.map((f) =>
-        f.id === fanpageId ? { ...f, status: 'REJECTED' as any, rejectionReason: reason } : f
-      )
-    )
     if (selectedFanpage?.id === fanpageId) {
       setSelectedFanpage((prev) =>
         prev ? { ...prev, status: 'REJECTED' as any, rejectionReason: reason } : null
@@ -263,45 +337,74 @@ export const SuperAdminPage: React.FC = () => {
   }
 
   const handleToggleLockFanpage = async (fanpageId: string) => {
-    const currentFanpage = fanpages.find((f) => f.id === fanpageId)
+    const currentFanpage =
+      fanpages.find((f) => f.id === fanpageId) ??
+      (selectedFanpage?.id === fanpageId ? selectedFanpage : undefined)
     try {
+      setMutationError(null)
       if (currentFanpage?.status === 'ACTIVE') {
         await superAdminService.banFanpage(fanpageId)
-        void queryClient.invalidateQueries({ queryKey: ['admin-statistics-dashboard'] })
       } else {
         await superAdminService.unbanFanpage(fanpageId)
-        void queryClient.invalidateQueries({ queryKey: ['admin-statistics-dashboard'] })
       }
+      void queryClient.invalidateQueries({ queryKey: ['super-admin', 'fanpages'] })
+      void queryClient.invalidateQueries({ queryKey: ['super-admin', 'pending-fanpages'] })
+      void queryClient.invalidateQueries({ queryKey: ['admin-statistics-dashboard'] })
     } catch (err) {
       console.warn('API error toggling lock for fanpage:', err)
-      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      setMutationError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
       return
     }
 
-    setFanpages((prev) =>
-      prev.map((f) => {
-        if (f.id === fanpageId) {
-          const nextStatus = f.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE'
-          if (selectedFanpage?.id === fanpageId) {
-            setSelectedFanpage({ ...f, status: nextStatus })
-          }
-          return { ...f, status: nextStatus }
-        }
-        return f
-      })
-    )
+    if (selectedFanpage?.id === fanpageId) {
+      setSelectedFanpage((prev) =>
+        prev ? { ...prev, status: prev.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE' } : null
+      )
+    }
   }
 
   // --- Handlers: Events ---
   const handleOpenEventModeration = (event: SuperAdminEvent) => {
+    setEventModalHideMode(false)
     setSelectedEvent(event)
     setIsEventModalOpen(true)
   }
 
-  const handleToggleHideEvent = async (eventId: string, reason?: string) => {
-    void eventId
-    void reason
-    setLoadError('API hiện chưa hỗ trợ superadmin ẩn hoặc khôi phục sự kiện.')
+  const handleRequestHideEvent = (event: SuperAdminEvent) => {
+    setEventModalHideMode(true)
+    setSelectedEvent(event)
+    setIsEventModalOpen(true)
+  }
+
+  const handleToggleHideEvent = async (eventId: string, reason?: string): Promise<boolean> => {
+    const target =
+      events.find((e) => e.id === eventId) ??
+      (selectedEvent?.id === eventId ? selectedEvent : undefined)
+    const willHide = target ? target.status !== 'HIDDEN' : Boolean(reason?.trim())
+    try {
+      setMutationError(null)
+      await superAdminService.updateEventVisibility(eventId, willHide, reason)
+      void queryClient.invalidateQueries({ queryKey: ['super-admin', 'events'] })
+      void queryClient.invalidateQueries({ queryKey: ['super-admin', 'global-search'] })
+      void queryClient.invalidateQueries({ queryKey: ['admin-statistics-dashboard'] })
+    } catch (err) {
+      console.warn('API error updating event visibility:', err)
+      setMutationError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      return false
+    }
+
+    if (selectedEvent?.id === eventId) {
+      setSelectedEvent((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: willHide ? 'HIDDEN' : 'OPEN',
+              violationReason: willHide ? reason?.trim() : undefined,
+            }
+          : null
+      )
+    }
+    return true
   }
 
   // --- Handlers: Semesters ---
@@ -317,6 +420,7 @@ export const SuperAdminPage: React.FC = () => {
 
   const handleSaveSemester = async (semesterData: Partial<SuperAdminSemester>) => {
     try {
+      setMutationError(null)
       if (semesterData.id) {
         await superAdminService.updateSemester(semesterData.id, {
           number: semesterData.number || 1,
@@ -334,18 +438,13 @@ export const SuperAdminPage: React.FC = () => {
           academicYearId: semesterData.academicYearId,
         })
       }
-      const refreshed = await superAdminService.getSemesters()
-      setSemesters(refreshed)
+      await queryClient.invalidateQueries({ queryKey: ['super-admin', 'semesters'] })
       return
     } catch (err) {
       console.warn('API error saving semester:', err)
-      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      setMutationError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
       throw err
     }
-  }
-
-  const handleSetCurrentSemester = async (_semesterId: number) => {
-    setLoadError('Chưa thể thay đổi học kỳ hiện hành từ trang này.')
   }
 
   // --- Handlers: Point Categories ---
@@ -364,6 +463,7 @@ export const SuperAdminPage: React.FC = () => {
   }
 
   const handleSavePointCategory = async (catData: Partial<SuperAdminPointCategory>) => {
+    setMutationError(null)
     if (catData.id) {
       await superAdminService.updatePointCategory(catData.id, catData)
     } else {
@@ -378,32 +478,35 @@ export const SuperAdminPage: React.FC = () => {
         isMaxChild: catData.isMaxChild,
       })
     }
-    setPointCategories(await superAdminService.getPointCategories())
+    await queryClient.invalidateQueries({ queryKey: ['super-admin', 'point-categories'] })
   }
 
   const handleTogglePointCategoryActive = async (categoryId: number) => {
+    setMutationError(null)
     const target = flattenTree(pointCategories).find((item) => item.id === categoryId)
     if (!target) throw new Error('Không tìm thấy tiêu chí.')
     await superAdminService.updatePointCategory(categoryId, {
       ...target,
       isActive: !target.isActive,
     })
-    setPointCategories(await superAdminService.getPointCategories())
+    await queryClient.invalidateQueries({ queryKey: ['super-admin', 'point-categories'] })
   }
 
   const handleTogglePointCategoryMaxChild = async (categoryId: number) => {
+    setMutationError(null)
     const target = flattenTree(pointCategories).find((item) => item.id === categoryId)
     if (!target) throw new Error('Không tìm thấy tiêu chí.')
     await superAdminService.updatePointCategory(categoryId, {
       ...target,
       isMaxChild: !target.isMaxChild,
     })
-    setPointCategories(await superAdminService.getPointCategories())
+    await queryClient.invalidateQueries({ queryKey: ['super-admin', 'point-categories'] })
   }
 
   const handleDeletePointCategory = async (id: number) => {
+    setMutationError(null)
     await superAdminService.deletePointCategory(id)
-    setPointCategories(await superAdminService.getPointCategories())
+    await queryClient.invalidateQueries({ queryKey: ['super-admin', 'point-categories'] })
   }
 
   // --- Handlers: SV5T Criteria ---
@@ -422,6 +525,7 @@ export const SuperAdminPage: React.FC = () => {
   }
 
   const handleSaveSv5tCriteria = async (critData: Partial<SuperAdminSv5tCriteria>) => {
+    setMutationError(null)
     if (critData.id) {
       await superAdminService.updateCriteria(critData.id, critData)
     } else {
@@ -436,19 +540,21 @@ export const SuperAdminPage: React.FC = () => {
         requiredOccurrences: critData.requiredOccurrences,
       })
     }
-    setSv5tCriterias(await superAdminService.getCriterias())
+    await queryClient.invalidateQueries({ queryKey: ['super-admin', 'sv5t-criterias'] })
   }
 
   const handleToggleSv5tCriteriaActive = async (criteriaId: number) => {
+    setMutationError(null)
     await superAdminService.toggleCriteriaStatus(criteriaId)
-    setSv5tCriterias(await superAdminService.getCriterias())
+    await queryClient.invalidateQueries({ queryKey: ['super-admin', 'sv5t-criterias'] })
   }
 
   const handleDeleteSv5tCriteria = async (id: number) => {
+    setMutationError(null)
     const target = flattenTree(sv5tCriterias).find((item) => item.id === id)
     // Both endpoints soft-delete; changing status preserves the existing parent relation.
     if (target?.isActive) await superAdminService.toggleCriteriaStatus(id)
-    setSv5tCriterias(await superAdminService.getCriterias())
+    await queryClient.invalidateQueries({ queryKey: ['super-admin', 'sv5t-criterias'] })
   }
 
   // --- Handlers: Schools & Majors ---
@@ -484,6 +590,7 @@ export const SuperAdminPage: React.FC = () => {
 
   const handleSaveSchool = async (schoolData: Partial<SuperAdminSchool>) => {
     try {
+      setMutationError(null)
       if (schoolData.id) {
         await superAdminService.updateSchool(schoolData.id, {
           name: schoolData.name || '',
@@ -496,13 +603,12 @@ export const SuperAdminPage: React.FC = () => {
           description: schoolData.description,
         })
       }
-      const refreshed = await superAdminService.getSchools()
-      setSchools(refreshed)
+      await queryClient.invalidateQueries({ queryKey: ['super-admin', 'schools'] })
       void queryClient.invalidateQueries({ queryKey: ['education'] })
       return
     } catch (err) {
       console.warn('API error saving school:', err)
-      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      setMutationError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
       throw err
     }
   }
@@ -511,6 +617,7 @@ export const SuperAdminPage: React.FC = () => {
     const schoolId = majorData.schoolId
     if (!schoolId) throw new Error('Vui lòng chọn khoa/trường cho ngành học.')
     try {
+      setMutationError(null)
       if (majorData.id) {
         await superAdminService.updateMajor(majorData.id, {
           code: majorData.code || '',
@@ -525,13 +632,12 @@ export const SuperAdminPage: React.FC = () => {
           schoolId,
         })
       }
-      const refreshed = await superAdminService.getSchools()
-      setSchools(refreshed)
+      await queryClient.invalidateQueries({ queryKey: ['super-admin', 'schools'] })
       void queryClient.invalidateQueries({ queryKey: ['education'] })
       return
     } catch (err) {
       console.warn('API error saving major:', err)
-      setLoadError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
+      setMutationError('Không thể lưu thay đổi vào máy chủ. Vui lòng thử lại.')
       throw err
     }
   }
@@ -539,11 +645,28 @@ export const SuperAdminPage: React.FC = () => {
   return (
     <SuperAdminLayout
       activeTab={activeTab}
-      onSelectTab={setActiveTab}
-      pendingFanpagesCount={pendingFanpages.length}
-      violatedEventsCount={violatedEvents.length}
+      onSelectTab={(tab) => {
+        setMutationError(null)
+        setActiveTab(tab)
+      }}
+      pendingFanpagesCount={pendingFanpagesQuery.data?.totalElements ?? pendingFanpages.length}
       searchQuery={globalSearchQuery}
       onSearchChange={setGlobalSearchQuery}
+      onSelectUserResult={(user) => {
+        setActiveTab('users')
+        setGlobalSearchQuery('')
+        handleOpenUserDetail(user)
+      }}
+      onSelectFanpageResult={(fanpage) => {
+        setActiveTab('fanpages')
+        setGlobalSearchQuery('')
+        handleOpenFanpageReview(fanpage)
+      }}
+      onSelectEventResult={(event) => {
+        setActiveTab('events')
+        setGlobalSearchQuery('')
+        handleOpenEventModeration(event)
+      }}
     >
       {!isLoading && loadError && (
         <div
@@ -551,7 +674,7 @@ export const SuperAdminPage: React.FC = () => {
           className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
         >
           <span>{loadError}</span>
-          <Button variant="outline" size="sm" onClick={loadBackendData}>
+          <Button variant="outline" size="sm" onClick={handleRetryActiveTab}>
             Thử lại
           </Button>
         </div>
@@ -616,10 +739,8 @@ export const SuperAdminPage: React.FC = () => {
             <AdminStatisticsDashboard
               semesters={semesters}
               pendingFanpages={pendingFanpages}
-              violatedEvents={violatedEvents}
               onNavigateTab={setActiveTab}
               onReviewFanpage={handleOpenFanpageReview}
-              onModerateEvent={handleOpenEventModeration}
             />
           )}
 
@@ -628,6 +749,17 @@ export const SuperAdminPage: React.FC = () => {
               users={users}
               onSelectUser={handleOpenUserDetail}
               onToggleStatus={handleToggleUserStatus}
+              page={usersPage}
+              totalPages={usersQuery.data?.totalPages ?? 1}
+              totalElements={usersQuery.data?.totalElements ?? users.length}
+              onPageChange={setUsersPage}
+              roleFilter={usersTab}
+              onRoleFilterChange={(nextTab) => {
+                setUsersTab(nextTab)
+                setUsersPage(0)
+              }}
+              searchQuery={usersSearch}
+              onSearchChange={setUsersSearch}
             />
           )}
 
@@ -637,6 +769,21 @@ export const SuperAdminPage: React.FC = () => {
               onSelectFanpage={handleOpenFanpageReview}
               onApproveFanpage={handleApproveFanpage}
               onToggleLockFanpage={handleToggleLockFanpage}
+              page={fanpagesPage}
+              totalPages={fanpagesQuery.data?.totalPages ?? 1}
+              totalElements={fanpagesQuery.data?.totalElements ?? fanpages.length}
+              pendingCount={pendingFanpagesQuery.data?.totalElements}
+              onPageChange={setFanpagesPage}
+              statusFilter={fanpagesStatus}
+              onStatusFilterChange={(nextStatus) => {
+                setFanpagesStatus(nextStatus)
+                setFanpagesPage(0)
+              }}
+              searchQuery={fanpagesSearch}
+              onSearchChange={(kw) => {
+                setFanpagesSearch(kw)
+                setFanpagesPage(0)
+              }}
             />
           )}
 
@@ -645,6 +792,21 @@ export const SuperAdminPage: React.FC = () => {
               events={events}
               onSelectEvent={handleOpenEventModeration}
               onToggleHideEvent={handleToggleHideEvent}
+              onRequestHideEvent={handleRequestHideEvent}
+              page={eventsPage}
+              totalPages={eventsQuery.data?.totalPages ?? 1}
+              totalElements={eventsQuery.data?.totalElements ?? events.length}
+              onPageChange={setEventsPage}
+              statusFilter={eventsStatus}
+              onStatusFilterChange={(nextStatus) => {
+                setEventsStatus(nextStatus)
+                setEventsPage(0)
+              }}
+              searchQuery={eventsSearch}
+              onSearchChange={(kw) => {
+                setEventsSearch(kw)
+                setEventsPage(0)
+              }}
             />
           )}
 
@@ -653,7 +815,6 @@ export const SuperAdminPage: React.FC = () => {
               semesters={semesters}
               onOpenCreateModal={handleOpenCreateSemester}
               onOpenEditModal={handleOpenEditSemester}
-              onSetCurrentSemester={handleSetCurrentSemester}
             />
           )}
 
@@ -685,6 +846,8 @@ export const SuperAdminPage: React.FC = () => {
               onOpenEditSchoolModal={handleOpenEditSchoolModal}
               onOpenCreateMajorModal={handleOpenCreateMajorModal}
               onOpenEditMajorModal={handleOpenEditMajorModal}
+              selectedSchoolId={effectiveSchoolId}
+              onSelectSchool={setSelectedSchoolId}
             />
           )}
         </>
@@ -711,7 +874,11 @@ export const SuperAdminPage: React.FC = () => {
       <EventModerationModal
         event={selectedEvent}
         isOpen={isEventModalOpen}
-        onClose={() => setIsEventModalOpen(false)}
+        initialHiding={eventModalHideMode}
+        onClose={() => {
+          setIsEventModalOpen(false)
+          setEventModalHideMode(false)
+        }}
         onToggleHideEvent={handleToggleHideEvent}
       />
 

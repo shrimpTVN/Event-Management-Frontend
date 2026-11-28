@@ -1,20 +1,12 @@
 import React from 'react'
-import { GoogleLogin, useGoogleOAuth } from '@react-oauth/google'
+import { GoogleLogin } from '@react-oauth/google'
+import { getGoogleAuthConfig } from '@/shared/utils/env'
 
 interface GoogleAuthButtonProps {
   text: 'Tiếp tục với Google' | 'Đăng ký bằng Google'
-  onSuccess: (credentialResponse: any) => void
+  onSuccess: (credentialResponse: { credential?: string }) => void
   onError?: () => void
   disabled?: boolean
-}
-
-function useHasGoogleOAuth(): boolean {
-  try {
-    const context = useGoogleOAuth()
-    return Boolean(context?.clientId && context.clientId !== 'mock-client-id')
-  } catch {
-    return false
-  }
 }
 
 export const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
@@ -23,27 +15,36 @@ export const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
   onError,
   disabled = false,
 }) => {
-  const hasProvider = useHasGoogleOAuth()
+  const googleAuth = getGoogleAuthConfig()
 
   const handleMockClick = () => {
     if (disabled) return
-    onSuccess({
-      credential: 'mock-google-token-' + Date.now(),
-      profile: { email: 'student1@example.com', name: 'Sinh viên CTU (Mock)' },
-    })
+    onSuccess({ credential: 'mock-google-token-' + Date.now() })
+  }
+
+  if (googleAuth.mode === 'ready') {
+    return (
+      <div className={`flex w-full justify-center ${disabled ? 'pointer-events-none opacity-60' : ''}`}>
+        <GoogleLogin
+          onSuccess={onSuccess}
+          onError={onError}
+          text={text === 'Đăng ký bằng Google' ? 'signup_with' : 'continue_with'}
+          theme="outline"
+          size="large"
+          width="400"
+        />
+      </div>
+    )
   }
 
   return (
-    <div className="relative w-full h-11 overflow-hidden rounded-lg">
-      {/* 1. Underlying visual button with 100% full width matching inputs & submit button */}
+    <div className="w-full">
       <button
         type="button"
-        onClick={hasProvider ? undefined : handleMockClick}
-        disabled={disabled}
-        tabIndex={hasProvider ? -1 : 0}
+        onClick={googleAuth.mode === 'mock' ? handleMockClick : undefined}
+        disabled={disabled || googleAuth.mode === 'unavailable'}
         className="w-full h-11 rounded-lg border border-[#D1D5DB] dark:border-border bg-white dark:bg-card hover:bg-[#F9FAFB] dark:hover:bg-muted/80 text-foreground font-semibold text-sm transition-all shadow-xs flex items-center justify-center gap-3 cursor-pointer disabled:opacity-60"
       >
-        {/* Official Multi-colored Google "G" Icon */}
         <svg width="20" height="20" className="w-5 h-5 shrink-0 block" viewBox="0 0 24 24">
           <path
             fill="#4285F4"
@@ -64,19 +65,10 @@ export const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
         </svg>
         <span>{text}</span>
       </button>
-
-      {/* 2. Transparent GoogleLogin overlay catching genuine clicks to trigger Google Identity Services */}
-      {hasProvider && (
-        <div className="absolute inset-0 opacity-[0.0001] overflow-hidden flex items-center justify-center cursor-pointer pointer-events-auto scale-150">
-          <GoogleLogin
-            onSuccess={onSuccess}
-            onError={onError}
-            text={text === 'Đăng ký bằng Google' ? 'signup_with' : 'continue_with'}
-            theme="outline"
-            size="large"
-            width="400"
-          />
-        </div>
+      {googleAuth.mode === 'unavailable' && (
+        <p role="alert" className="mt-2 text-sm text-destructive">
+          Chưa cấu hình Google: thiếu VITE_GOOGLE_CLIENT_ID trong .env.local. Vui lòng liên hệ quản trị viên.
+        </p>
       )}
     </div>
   )

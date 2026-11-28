@@ -139,4 +139,34 @@ describe('FanpageDetailPage Filters', () => {
     // Events are still visible
     expect(screen.getByText('Hội thi tuyên truyền an toàn giao thông')).toBeInTheDocument()
   })
+
+  it('distinguishes 500 server error from 404 not found and keeps header when only events fail', async () => {
+    vi.mocked(fanpageService.getFanpageById).mockRejectedValueOnce({ response: { status: 500 } })
+    const renderDetail = () =>
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={['/fanpage/1']}>
+            <Routes>
+              <Route path="/fanpage/:id" element={<FanpageDetailPage />} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>
+      )
+
+    const view1 = renderDetail()
+    expect(await screen.findByText('Không thể tải thông tin Fanpage')).toBeInTheDocument()
+    expect(screen.queryByText('Không tìm thấy thông tin Fanpage')).not.toBeInTheDocument()
+    view1.unmount()
+
+    vi.mocked(fanpageService.getFanpageById).mockRejectedValueOnce({ response: { status: 404 } })
+    const view2 = renderDetail()
+    expect(await screen.findByText('Không tìm thấy thông tin Fanpage')).toBeInTheDocument()
+    view2.unmount()
+
+    vi.mocked(fanpageService.getEventsByFanpage).mockRejectedValueOnce(new Error('500'))
+    renderDetail()
+    expect(await screen.findByTestId('public-header')).toBeInTheDocument()
+    expect(await screen.findByText('Không thể tải danh sách sự kiện')).toBeInTheDocument()
+    expect(screen.queryByText('Chưa có sự kiện nào')).not.toBeInTheDocument()
+  })
 })

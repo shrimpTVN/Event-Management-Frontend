@@ -6,7 +6,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Plus, Menu, X, MessageSquare, Bell } from 'lucide-react'
 import logoSvg from '@/assets/logo.svg'
 import { useAuthStore, isStaffUser } from '@/features/auth'
+import { authService } from '@/features/auth/services/authService'
 import { useFanpageUnreadNotificationCount } from '@/features/notifications'
+import { useNotificationStream } from '@/features/notifications/hooks/useNotifications'
 import { AccountNavigationPopup } from '@/shared/components/layout/AccountNavigationPopup'
 import { FanpageNotificationDropdown } from './FanpageNotificationDropdown'
 import type { FanpageSummary } from '../types/fanpageAdmin.types'
@@ -50,18 +52,25 @@ export const FanpageAdminTopNav: React.FC<FanpageAdminTopNavProps> = ({
     (user ? isStaffUser(user) : false)
   const homePath = isCurrentUserAdmin ? '/fanpage/admin' : '/fanpage/workspace'
 
-  // Số lượng thông báo chưa đọc của Fanpage (chỉ truy vấn khi người dùng có quyền Quản trị viên)
+  // Kết nối SSE realtime và số lượng thông báo chưa đọc của Fanpage
+  useNotificationStream()
   const { data: unreadNotificationsCount = 0 } = useFanpageUnreadNotificationCount(
     currentFanpageId,
     isCurrentUserAdmin
   )
 
-  const handleLogout = () => {
-    // Xóa toàn bộ TanStack query cache khi đăng xuất
-    queryClient.clear()
-    clearAuth()
-    setShowAccountPopup(false)
-    navigate('/login')
+  const handleLogout = async () => {
+    try {
+      await authService.logout()
+    } catch {
+      // Proceed local cleanup even if backend request fails
+    } finally {
+      // Xóa toàn bộ TanStack query cache khi đăng xuất
+      queryClient.clear()
+      clearAuth()
+      setShowAccountPopup(false)
+      navigate('/login', { replace: true })
+    }
   }
 
   return (

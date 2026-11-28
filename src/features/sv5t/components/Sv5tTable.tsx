@@ -8,7 +8,7 @@ import type { CriteriaProgressNode } from '../types/sv5t.types'
 interface Sv5tTableProps {
   standards: CriteriaProgressNode[]
   academicYearId?: number
-  onSaveProgress: (criteriaId: number, completed: boolean, note: string) => Promise<void> | void
+  onSaveProgress: (criteriaId: number, completed: boolean, note: string, transactionId?: number) => Promise<void> | void
   onDeleteProgress?: (criteriaTransactionId: number, criteriaId: number) => Promise<void> | void
   isLoading?: boolean
   resetKey?: string | number
@@ -52,6 +52,9 @@ export const Sv5tTable: React.FC<Sv5tTableProps> = ({
               defaultExpanded={Boolean(query.trim())}
             />
           ))}
+      {!isLoading && standards.length === 0 && (
+        <p role="status" className="p-6 text-center text-sm text-muted-foreground">Chưa có tiêu chí cho phạm vi và năm học đã chọn.</p>
+      )}
       {!isLoading && query.trim() && !standards.some((standard) => matchesPageSearchTree(query, standard)) && (
         <div role="status" className="p-6 text-center rounded-xl bg-card border border-border flex flex-col items-center gap-3">
           <p className="text-sm text-muted-foreground">

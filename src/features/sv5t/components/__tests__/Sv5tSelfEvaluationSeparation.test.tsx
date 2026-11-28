@@ -29,6 +29,9 @@ vi.mock('../Sv5tSelfEvaluationModal', () => ({
 afterEach(cleanup)
 const recordedNode: CriteriaProgressNode = {
   criteriaId: 403,
+  isLeaf: true,
+  isSystemCompleted: true,
+  completionPercentage: 100,
   name: 'Hiến máu',
   scope: 'UNIVERSITY',
   level: 2,
@@ -86,7 +89,7 @@ describe('system progress and manual evaluation UI', () => {
       <Sv5tDetailModal
         isOpen
         onClose={vi.fn()}
-        node={{ ...recordedNode, isSelfEvaluated: true, selfEvaluationNote: 'Minh chứng riêng' }}
+        node={{ ...recordedNode, isSelfEvaluated: true, manualTransactionId: 47, selfEvaluationNote: 'Minh chứng riêng' }}
         criteriaCode="4.3"
         onOpenSelfEvaluation={vi.fn()}
       />

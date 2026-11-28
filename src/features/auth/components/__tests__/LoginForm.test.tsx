@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -19,6 +19,7 @@ vi.mock('react-router-dom', async () => {
 vi.mock('../../services/authService', () => ({
   authService: {
     login: vi.fn(),
+    exchangeGoogleToken: vi.fn(),
   },
 }))
 
@@ -27,10 +28,16 @@ describe('LoginForm error handling', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubEnv('MODE', 'development')
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '')
     useAuthStore.getState().clearAuth()
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   const renderComponent = () =>
@@ -42,7 +49,7 @@ describe('LoginForm error handling', () => {
       </QueryClientProvider>
     )
 
-  it('displays error ONLY under email when email does not exist in system (e.g. organize@ctu.edu.vn)', async () => {
+  it('shows the generic credential error when an email is not registered', async () => {
     vi.mocked(authService.login).mockRejectedValueOnce({
       response: {
         status: 400,
@@ -65,22 +72,14 @@ describe('LoginForm error handling', () => {
     fireEvent.click(submitButton)
 
     await waitFor(() => {
-      // Must show error under email
-      expect(
-        screen.getByText('Email không tồn tại trong hệ thống.')
-      ).toBeInTheDocument()
+      expect(screen.getByText('Email hoặc mật khẩu không đúng.')).toBeInTheDocument()
     })
 
-    // Must NOT show error under password
-    expect(
-      screen.queryByText('Mật khẩu không chính xác. Vui lòng kiểm tra lại.')
-    ).toBeNull()
-
-    // The generic English alert banner should NOT appear
+    expect(screen.queryByText('Email không tồn tại trong hệ thống.')).toBeNull()
     expect(screen.queryByText('Invalid username or password')).toBeNull()
   })
 
-  it('displays error ONLY under password when email exists (e.g. organizer@ctu.edu.vn) but password is wrong', async () => {
+  it('shows the same credential error when the password is wrong', async () => {
     vi.mocked(authService.login).mockRejectedValueOnce({
       response: {
         status: 400,
@@ -103,25 +102,14 @@ describe('LoginForm error handling', () => {
     fireEvent.click(submitButton)
 
     await waitFor(() => {
-      // Must show error under password
-      expect(
-        screen.getByText('Mật khẩu không chính xác. Vui lòng kiểm tra lại.')
-      ).toBeInTheDocument()
+      expect(screen.getByText('Email hoặc mật khẩu không đúng.')).toBeInTheDocument()
     })
 
-    // Must NOT show error under email
-    expect(
-      screen.queryByText('Email không tồn tại trong hệ thống.')
-    ).toBeNull()
-    expect(
-      screen.queryByText('Email không tồn tại hoặc thông tin đăng nhập chưa đúng.')
-    ).toBeNull()
-
-    // Generic alert banner must not appear
+    expect(screen.queryByText('Mật khẩu không chính xác. Vui lòng kiểm tra lại.')).toBeNull()
     expect(screen.queryByText('Invalid username or password')).toBeNull()
   })
 
-  it('displays user not found message under email input when backend explicitly returns user not found', async () => {
+  it('does not reveal account existence when backend returns a user-not-found message', async () => {
     vi.mocked(authService.login).mockRejectedValueOnce({
       response: {
         status: 400,
@@ -142,17 +130,13 @@ describe('LoginForm error handling', () => {
     fireEvent.click(submitButton)
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Email không tồn tại trong hệ thống.')
-      ).toBeInTheDocument()
+      expect(screen.getByText('Email hoặc mật khẩu không đúng.')).toBeInTheDocument()
     })
 
-    expect(
-      screen.queryByText('Mật khẩu không chính xác. Vui lòng kiểm tra lại.')
-    ).toBeNull()
+    expect(screen.queryByText(/User not found with email/)).toBeNull()
   })
 
-  it('clears field errors when the user edits the input', async () => {
+  it('clears the credential error when the user edits the input', async () => {
     vi.mocked(authService.login).mockRejectedValueOnce({
       response: {
         status: 400,
@@ -174,16 +158,50 @@ describe('LoginForm error handling', () => {
     fireEvent.click(submitButton)
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Email không tồn tại trong hệ thống.')
-      ).toBeInTheDocument()
+      expect(screen.getByText('Email hoặc mật khẩu không đúng.')).toBeInTheDocument()
     })
 
-    // Editing email input clears the error
     fireEvent.change(emailInput, { target: { value: 'organize_corrected@ctu.edu.vn' } })
-    expect(
-      screen.queryByText('Email không tồn tại trong hệ thống.')
-    ).toBeNull()
+    expect(screen.queryByText('Email hoặc mật khẩu không đúng.')).toBeNull()
+  })
+
+  it('shows a configuration error without calling an auth endpoint when Google client ID is missing', () => {
+    vi.stubEnv('MODE', 'development')
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '')
+
+    renderComponent()
+
+    expect(screen.getByRole('button', { name: 'Tiếp tục với Google' })).toBeDisabled()
+    expect(screen.getByText(/thiếu VITE_GOOGLE_CLIENT_ID/)).toBeInTheDocument()
+    expect(authService.login).not.toHaveBeenCalled()
+    expect(authService.exchangeGoogleToken).not.toHaveBeenCalled()
+  })
+
+  it('uses the Google endpoint in mock mode without requiring email or password', async () => {
+    vi.stubEnv('MODE', 'mock')
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '')
+    vi.mocked(authService.exchangeGoogleToken).mockResolvedValueOnce({
+      user: {
+        id: '1',
+        email: 'loc@student.ctu.edu.vn',
+        name: 'Sinh viên CTU',
+        role: 'STUDENT',
+        createdAt: '2026-01-01T00:00:00Z',
+        isProfileComplete: true,
+      },
+      tokens: { accessToken: 'mock-jwt-token-1' },
+    } as any)
+
+    renderComponent()
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục với Google' }))
+
+    await waitFor(() => {
+      expect(authService.exchangeGoogleToken).toHaveBeenCalledWith({
+        idToken: expect.stringMatching(/^mock-google-token-/),
+      })
+    })
+    expect(authService.login).not.toHaveBeenCalled()
+    expect(screen.queryByText('Vui lòng nhập email')).toBeNull()
   })
 
   it('navigates directly to /admin when logging in as superadmin with a dedicated non-ctu email', async () => {

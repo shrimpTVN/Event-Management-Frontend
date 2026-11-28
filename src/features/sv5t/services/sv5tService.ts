@@ -5,30 +5,23 @@ import type {
   StudentCriteriaProgressResponse,
   ManualCriteriaProgressRequest,
   CriteriaProgressNode,
+  EvaluationScope,
 } from '../types/sv5t.types'
 
 function normalizeCriteriaNode(node: any): CriteriaProgressNode {
-  const criteriaId = Number(node.criteriaId ?? node.id ?? 0)
-  const children = Array.isArray(node.children) ? node.children.map(normalizeCriteriaNode) : []
+  if (!node || typeof node.id !== 'number' || !Array.isArray(node.children) ||
+      ['isCompleted', 'isLeaf', 'isSystemRecorded', 'isSystemCompleted', 'isSelfEvaluated']
+        .some((key) => typeof node[key] !== 'boolean') ||
+      ['requiredOccurrences', 'completedOccurrences', 'completedChildrenCount', 'totalChildren', 'completionPercentage']
+        .some((key) => typeof node[key] !== 'number' || !Number.isFinite(node[key]))) {
+    throw new Error('Dữ liệu tiến độ SV5T không hợp lệ')
+  }
   return {
     ...node,
-    criteriaId,
-    name: node.name || '',
-    note: node.note ?? null,
-    scope: node.scope || 'UNIVERSITY',
-    level: Number(node.level ?? 1),
-    childrenOrder: Number(node.childrenOrder || 1),
-    requiredChildren: node.requiredChildren ?? null,
-    requiredOccurrences: Number(node.requiredOccurrences ?? 1),
-    recordedOccurrences: Number(node.recordedOccurrences ?? 0),
-    isCompleted: Boolean(node.isCompleted),
-    isSystemRecorded: Boolean(node.isSystemRecorded),
-    isSelfEvaluated: Boolean(node.isSelfEvaluated),
-    completedChildren: Number(node.completedChildren ?? node.completedChildrenCount ?? 0),
-    totalChildren: Number(node.totalChildren ?? children.length),
-    completionSource: node.completionSource ?? null,
-    completedAt: node.completedAt ?? null,
-    children,
+    criteriaId: node.id,
+    recordedOccurrences: node.completedOccurrences,
+    completedChildren: node.completedChildrenCount,
+    children: node.children.map(normalizeCriteriaNode),
   }
 }
 
@@ -37,54 +30,30 @@ export const sv5tService = {
    * Lấy danh sách các năm học
    */
   async getAcademicYears(): Promise<AcademicYearOption[]> {
-    try {
-      const res = await apiClient.get<unknown, AcademicYearOption[]>('/academic-years')
-      return Array.isArray(res) ? res : []
-    } catch {
-      return []
-    }
+    const res: any = await apiClient.get<unknown, AcademicYearOption[]>('/academic-years')
+    const list = Array.isArray(res) ? res : res?.data || []
+    return Array.isArray(list) ? list : []
   },
 
   /**
    * Lấy cây tiến độ tiêu chuẩn Sinh viên 5 tốt của sinh viên theo năm học
    */
   async getStudentCriteriaProgress(
-    academicYearId?: number
+    academicYearId?: number,
+    scope: EvaluationScope = 'UNIVERSITY'
   ): Promise<StudentCriteriaProgressResponse> {
-    try {
-      if (academicYearId) {
-        // Backend endpoint: /criteria-progress/me/academic-years/{academicYearId}
-        const res = await apiClient.get<unknown, any>(
-          `/criteria-progress/me/academic-years/${academicYearId}`
-        )
-        if (res) {
-          const rawCriteria = res.criteria || res.criterias || []
-          const normalizedCriteria: CriteriaProgressNode[] = Array.isArray(rawCriteria)
-            ? rawCriteria.map(normalizeCriteriaNode)
-            : []
-          return {
-            academicYearId: Number(res.academicYearId || academicYearId),
-            academicYear: res.academicYear || '',
-            completedLeafCriteria: Number(res.completedLeafCriteria || 0),
-            totalLeafCriteria: Number(res.totalLeafCriteria || 0),
-            completedMainCriteria: Number(res.completedMainCriteria || 0),
-            totalMainCriteria: Number(res.totalMainCriteria || 0),
-            criteria: normalizedCriteria,
-          }
-        }
-      }
-    } catch {
-      // Graceful fallback for new students with no progress records yet
+    if (!academicYearId) throw new Error('Vui lòng chọn năm học')
+    const backendScope = scope
+    const res = await apiClient.get<unknown, any>(
+      `/criteria-progress/me/academic-years/${academicYearId}?scope=${backendScope}`
+    )
+    if (!res || !Array.isArray(res.criterias) || res.scope !== backendScope ||
+        typeof res.isEligible !== 'boolean' ||
+        ['completedMainCriteria', 'totalMainCriteria', 'completionPercentage']
+          .some((key) => typeof res[key] !== 'number' || !Number.isFinite(res[key]))) {
+      throw new Error('Dữ liệu tiến độ SV5T không hợp lệ')
     }
-    return {
-      academicYearId: academicYearId || 0,
-      academicYear: '',
-      completedLeafCriteria: 0,
-      totalLeafCriteria: 0,
-      completedMainCriteria: 0,
-      totalMainCriteria: 0,
-      criteria: [],
-    }
+    return { ...res, criteria: res.criterias.map(normalizeCriteriaNode) }
   },
 
   /**
@@ -95,34 +64,14 @@ export const sv5tService = {
     criteriaId: number,
     payload: ManualCriteriaProgressRequest
   ): Promise<void> {
-    const targetYearId =
-      payload.academicYearId && payload.academicYearId > 0 ? payload.academicYearId : 2
-
-    // Khi sinh viên chọn "Chưa đạt", cần xóa các bản ghi manual transaction đã lưu
-    // Backend sẽ tự động gọi markUncompleted để hạ trạng thái tiêu chuẩn
+    const targetYearId = payload.academicYearId
+    if (!targetYearId) throw new Error('Vui lòng chọn năm học')
     if (!payload.completed) {
-      try {
-        const existingTxs = await this.getCriteriaTransactions(criteriaId, targetYearId)
-        const manualTxs = existingTxs.filter(
-          (t: any) =>
-            t.completionSource === 'MANUAL' ||
-            (!t.eventId &&
-              (t.completionSource === null ||
-                t.completionSource === undefined ||
-                t.completionSource === 'MANUAL'))
-        )
-        if (manualTxs.length > 0) {
-          for (const tx of manualTxs) {
-            try {
-              await this.deleteCriteriaTransaction(tx.id)
-            } catch (err) {
-              console.warn(`Transaction ${tx.id} already deleted or not found:`, err)
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Lỗi khi hạ trạng thái tiêu chí về chưa đạt:', err)
-      }
+      if (payload.transactionId) await this.deleteCriteriaTransaction(payload.transactionId)
+      return
+    }
+    if (payload.transactionId) {
+      await apiClient.patch(`/criteria-transactions/me/${payload.transactionId}`, { note: payload.note ?? '' })
       return
     }
 

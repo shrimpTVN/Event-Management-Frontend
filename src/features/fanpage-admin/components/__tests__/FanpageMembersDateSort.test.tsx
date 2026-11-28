@@ -3,9 +3,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { FanpageMembersView } from '../FanpageMembersView'
+import { fanpageAdminService } from '../../services/fanpageAdminService'
 import type { FanpageSummary } from '../../types/fanpageAdmin.types'
 
-vi.mock('@/store/authStore', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) => selector({ user: { id: '2' } }),
 }))
 vi.mock('../../services/fanpageAdminService', () => ({
@@ -81,5 +82,23 @@ describe('member and invitation date sorting', () => {
     expect(before('old-invite@example.edu.vn', 'new-invite@example.edu.vn')).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: /^Thành viên/ }))
     expect(screen.getByRole('button', { name: 'Ngày tham gia: cũ nhất trước' })).toBeInTheDocument()
+  })
+
+  it('does not loop or render mock members when non-admin receives empty member list', async () => {
+    vi.mocked(fanpageAdminService.getFanpageMembers).mockResolvedValueOnce([])
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={client}>
+          <FanpageMembersView currentFanpage={{ id: '1', role: 'COLLABORATOR' } as FanpageSummary} />
+        </QueryClientProvider>
+      </MemoryRouter>
+    )
+
+    expect(
+      await screen.findByText('Không tìm thấy thành viên nào phù hợp với bộ lọc.')
+    ).toBeInTheDocument()
+    expect(screen.getByText(/0\s*quản trị viên/)).toBeInTheDocument()
+    expect(fanpageAdminService.getFanpageInvitations).not.toHaveBeenCalled()
   })
 })

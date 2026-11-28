@@ -125,6 +125,7 @@ export interface EventFilters {
   limit?: number
   sortBy?: string
   sortDir?: 'asc' | 'desc'
+  signal?: AbortSignal
 }
 
 export interface PageResponse<T> {

@@ -8,6 +8,12 @@ import { studentProfileSchema, type StudentProfileInput } from '../types/auth.sc
 import { RoleEnum } from '../types/auth.types'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
+import { sanitizeRedirectPath } from '../utils/authUtils'
+import {
+  extractApiFieldErrors,
+  getApiErrorCode,
+  resolveApiErrorMessage,
+} from '@/shared/utils/apiError'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -76,11 +82,12 @@ export const StudentProfileForm: React.FC = () => {
   const academicYearValue = watch('academicYear')
 
   const handleSkip = () => {
-    const redirectUrl = searchParams.get('redirect') || '/'
+    const redirectUrl = sanitizeRedirectPath(searchParams.get('redirect'), '/')
     navigate(redirectUrl, { replace: true })
   }
 
   const onSubmit = async (data: StudentProfileInput) => {
+    if (isSubmitting) return
     try {
       setIsSubmitting(true)
       setApiError(null)
@@ -95,13 +102,25 @@ export const StudentProfileForm: React.FC = () => {
         role: updatedUser.role || RoleEnum.STUDENT,
         isProfileComplete: true,
       })
-      navigate(searchParams.get('redirect') || '/', { replace: true })
+      navigate(sanitizeRedirectPath(searchParams.get('redirect'), '/'), { replace: true })
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || ''
-      if (
-        typeof msg === 'string' &&
-        (msg.includes('Student ID already exists') || msg.toLowerCase().includes('student id'))
-      ) {
+      const errCode = getApiErrorCode(err)
+      const { fields: fieldErrors } = extractApiFieldErrors(err, {
+        allowedFields: [
+          'fullName',
+          'studentId',
+          'gender',
+          'faculty',
+          'major',
+          'schoolId',
+          'majorId',
+          'className',
+          'academicYear',
+        ],
+        aliases: { schoolId: 'faculty', majorId: 'major' },
+      })
+
+      if (errCode === 'STUDENT.002' || errCode === '006') {
         setApiError(
           'Mã số sinh viên (MSSV) này đã tồn tại trong hệ thống. Vui lòng chỉnh sửa lại mã số sinh viên bên dưới và bấm Lưu lại.'
         )
@@ -109,14 +128,18 @@ export const StudentProfileForm: React.FC = () => {
           type: 'manual',
           message: 'Mã số sinh viên này đã tồn tại trên hệ thống. Vui lòng kiểm tra lại.',
         })
-      } else if (
-        typeof msg === 'string' &&
-        (msg.includes('already exists') || msg.toLowerCase().includes('email'))
-      ) {
-        setApiError('Email hoặc thông tin tài khoản này đã tồn tại trong hệ thống.')
+      } else if (errCode === 'STUDENT.003') {
+        setApiError('Tài khoản này đã được liên kết với một hồ sơ sinh viên khác.')
+      } else if (Object.keys(fieldErrors).length > 0) {
+        Object.entries(fieldErrors).forEach(([field, message]) => {
+          setError(field as keyof StudentProfileInput, { type: 'manual', message })
+        })
       } else {
         setApiError(
-          msg || 'Không thể lưu hồ sơ sinh viên. Vui lòng kiểm tra lại các trường thông tin.'
+          resolveApiErrorMessage(
+            err,
+            'Không thể lưu hồ sơ sinh viên. Vui lòng kiểm tra lại các trường thông tin.'
+          )
         )
       }
     } finally {
@@ -132,7 +155,7 @@ export const StudentProfileForm: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              const redirectUrl = searchParams.get('redirect') || '/'
+              const redirectUrl = sanitizeRedirectPath(searchParams.get('redirect'), '/')
               navigate(redirectUrl, { replace: true })
             }}
             className="inline-flex items-center gap-2 text-sm font-medium text-[#4B5563] dark:text-muted-foreground hover:text-foreground transition-colors cursor-pointer"

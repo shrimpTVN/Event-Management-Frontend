@@ -111,7 +111,11 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
     location.pathname.startsWith('/fanpage-admin')
 
   // Lấy ĐÚNG danh sách Fanpage thực tế trong DB mà người dùng này có tham gia (Admin hoặc Thành viên/Cộng tác viên)
-  const { data: dbFanpages = [] } = useQuery({
+  const {
+    data: dbFanpages = [],
+    isError: isFanpagesError,
+    refetch: refetchDbFanpages,
+  } = useQuery({
     queryKey: ['my-participating-fanpages', user.id, user.email],
     queryFn: async () => {
       const fanpageMap = new Map<
@@ -127,29 +131,26 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
       >()
 
       // 1. Lấy danh sách fanpage từ backend API (/fanpages/my-fanpages)
-      try {
-        const adminPages = await fanpageAdminService.getAvailableFanpages()
-        if (Array.isArray(adminPages)) {
-          for (const fp of adminPages) {
-            const role = fp.role || 'Quản trị viên'
-            const displayName = fp.fullName || fp.name
-            fanpageMap.set(String(fp.id), {
-              id: String(fp.id),
-              name: displayName,
-              fullName: displayName,
-              avatarUrl: fp.avatarUrl,
-              role,
-              isAdmin: role === 'Quản trị viên' || role === 'ADMIN',
-            })
-          }
+      // Không nuốt lỗi để tránh ghi [] đè lên store khi 401/lỗi mạng
+      const adminPages = await fanpageAdminService.getAvailableFanpages()
+      if (Array.isArray(adminPages)) {
+        for (const fp of adminPages) {
+          const role = fp.role || 'Quản trị viên'
+          const displayName = fp.fullName || fp.name
+          fanpageMap.set(String(fp.id), {
+            id: String(fp.id),
+            name: displayName,
+            fullName: displayName,
+            avatarUrl: fp.avatarUrl,
+            role,
+            isAdmin: role === 'Quản trị viên' || role === 'ADMIN',
+          })
         }
-      } catch (err) {
-        console.warn('Could not fetch admin fanpages:', err)
       }
 
       const result = Array.from(fanpageMap.values())
 
-      // Tự động đồng bộ và dọn dẹp các fanpage không còn thuộc về người dùng khỏi userFanpagesStore
+      // Tự động đồng bộ store chỉ khi fetch thành công
       try {
         useUserFanpagesStore.getState().setMyFanpages(
           result.map((f) => ({
@@ -609,38 +610,52 @@ export const AccountNavigationPopup: React.FC<AccountNavigationPopupProps> = ({
           <div className="w-full h-px bg-[#EDF0F4] dark:bg-border/60 my-2" />
 
           {/* Danh sách Fanpage tham gia (Admin hoặc Cộng tác viên) với avatar tròn */}
-          {allFanpages.length > 0 && (
-            <>
-              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                Chuyển sang fanpage
-              </div>
-              <div className="flex min-h-0 max-h-[40dvh] flex-col gap-1 overflow-y-auto overscroll-contain">
-                {visibleSwitchFanpages.map((fp) => (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    key={fp.id}
-                    type="button"
-                    onClick={() => handleSwitchToFanpage(fp)}
-                    className="w-full h-auto min-h-10 shrink-0 whitespace-normal justify-start flex items-center gap-3 p-2 rounded-lg hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left focus-visible:ring-primary focus-visible:ring-offset-2 group"
-                    role="menuitem"
-                  >
-                    <SwitchAvatar avatarUrl={fp.avatarUrl} name={fp.name} />
-
-                    <div className="min-w-0 flex-1">
-                      <span className="font-medium text-sm text-foreground line-clamp-2 break-words group-hover:text-primary transition-colors">
-                        {fp.name}
-                      </span>
-                      <span className="text-xs font-normal text-muted-foreground block truncate">
-                        {fp.role || (fp.isAdmin ? 'Quản trị viên' : 'Cộng tác viên')}
-                      </span>
-                    </div>
-                  </Button>
-                ))}
-              </div>
-
+          {isFanpagesError && allFanpages.length === 0 ? (
+            <div className="px-2 py-2 space-y-1.5" role="alert">
+              <p className="text-xs text-destructive">Không tải được danh sách fanpage.</p>
+              <button
+                type="button"
+                onClick={() => void refetchDbFanpages()}
+                className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+              >
+                Thử lại
+              </button>
               <div className="w-full h-px bg-[#EDF0F4] dark:bg-border/60 my-2" />
-            </>
+            </div>
+          ) : (
+            allFanpages.length > 0 && (
+              <>
+                <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+                  Chuyển sang fanpage
+                </div>
+                <div className="flex min-h-0 max-h-[40dvh] flex-col gap-1 overflow-y-auto overscroll-contain">
+                  {visibleSwitchFanpages.map((fp) => (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      key={fp.id}
+                      type="button"
+                      onClick={() => handleSwitchToFanpage(fp)}
+                      className="w-full h-auto min-h-10 shrink-0 whitespace-normal justify-start flex items-center gap-3 p-2 rounded-lg hover:bg-[#F2F4F7] dark:hover:bg-muted/60 transition-colors cursor-pointer text-left focus-visible:ring-primary focus-visible:ring-offset-2 group"
+                      role="menuitem"
+                    >
+                      <SwitchAvatar avatarUrl={fp.avatarUrl} name={fp.name} />
+
+                      <div className="min-w-0 flex-1">
+                        <span className="font-medium text-sm text-foreground line-clamp-2 break-words group-hover:text-primary transition-colors">
+                          {fp.name}
+                        </span>
+                        <span className="text-xs font-normal text-muted-foreground block truncate">
+                          {fp.role || (fp.isAdmin ? 'Quản trị viên' : 'Cộng tác viên')}
+                        </span>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="w-full h-px bg-[#EDF0F4] dark:bg-border/60 my-2" />
+              </>
+            )
           )}
         </>
       )}

@@ -93,4 +93,32 @@ describe('SearchPage', () => {
     expect(await screen.findByText('Không tìm thấy sự kiện phù hợp')).toBeInTheDocument()
     expect(screen.getByText('Về trang chủ')).toBeInTheDocument()
   })
+
+  it('shows partial-result alert when some event statuses fail while displaying available events', async () => {
+    const partialList: any = [
+      {
+        id: 'ev-partial',
+        title: 'Sự kiện tải được một phần',
+        description: 'Mô tả',
+        organizerId: '1',
+        organizerName: 'CLB',
+        status: 'PUBLISHED',
+        startTime: '2026-10-10T08:00:00',
+        endTime: '2026-10-10T10:00:00',
+        location: { type: 'OFFLINE', address: 'Lab 1' },
+      },
+    ]
+    Object.defineProperty(partialList, '__failedStatuses', {
+      value: ['CLOSED'],
+      enumerable: false,
+    })
+    vi.mocked(eventService.getEvents).mockResolvedValueOnce(partialList)
+
+    renderPage(['/search?keyword=Sự%20kiện&tab=events'])
+
+    expect(await screen.findByText('Sự kiện tải được một phần')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Một số trạng thái sự kiện không tải được/i)
+    ).toBeInTheDocument()
+  })
 })

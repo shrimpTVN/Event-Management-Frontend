@@ -161,5 +161,102 @@ describe('OtpVerificationForm navigation', () => {
       expect(sessionStorage.getItem('pending_registration')).toBeNull()
     })
   })
+
+  it('completes staff registration via register + login and routes to /onboarding/staff', async () => {
+    sessionStorage.setItem(
+      'pending_registration',
+      JSON.stringify({
+        email: 'lecturer@ctu.edu.vn',
+        password: 'Password123',
+        fullName: 'Trần Minh',
+        firstName: 'Minh',
+        lastName: 'Trần',
+      })
+    )
+
+    vi.mocked(authService.register).mockResolvedValueOnce({
+      success: true,
+      email: 'lecturer@ctu.edu.vn',
+    })
+
+    vi.mocked(authService.login).mockResolvedValueOnce({
+      user: {
+        id: '20',
+        email: 'lecturer@ctu.edu.vn',
+        name: 'Trần Minh',
+        role: 'FANPAGE_ADMIN',
+        roles: ['FANPAGE_ADMIN'],
+        isProfileComplete: false,
+      } as any,
+      tokens: {},
+    } as any)
+
+    render(
+      <MemoryRouter initialEntries={['/verify-otp?email=lecturer@ctu.edu.vn']}>
+        <OtpVerificationForm />
+      </MemoryRouter>
+    )
+
+    const inputs = screen.getAllByRole('textbox')
+    inputs.forEach((input, index) => {
+      fireEvent.change(input, { target: { value: String(index + 1) } })
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Xác thực/i }))
+
+    await waitFor(() => {
+      expect(authService.register).toHaveBeenCalledWith({
+        email: 'lecturer@ctu.edu.vn',
+        password: 'Password123',
+        otpCode: '123456',
+        firstName: 'Minh',
+        lastName: 'Trần',
+      })
+      expect(authService.login).toHaveBeenCalledWith({
+        email: 'lecturer@ctu.edu.vn',
+        password: 'Password123',
+      })
+      expect(mockNavigate).toHaveBeenCalledWith('/onboarding/staff', { replace: true })
+      expect(sessionStorage.getItem('pending_registration')).toBeNull()
+    })
+  })
+
+  it('does not fabricate a fake auth session when pending registration is missing and verifyOtp returns boolean', async () => {
+    sessionStorage.removeItem('pending_registration')
+    vi.mocked(authService.verifyOtp).mockResolvedValueOnce(true as any)
+
+    render(
+      <MemoryRouter initialEntries={['/verify-otp?email=student@student.ctu.edu.vn']}>
+        <OtpVerificationForm />
+      </MemoryRouter>
+    )
+
+    const inputs = screen.getAllByRole('textbox')
+    inputs.forEach((input, index) => {
+      fireEvent.change(input, { target: { value: String(index + 1) } })
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Xác thực/i }))
+
+    await waitFor(() => {
+      expect(authService.verifyOtp).toHaveBeenCalled()
+      expect(useAuthStore.getState().isAuthenticated).toBe(false)
+      expect(useAuthStore.getState().user).toBeNull()
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
+  })
+
+  it('disables OTP actions and does not fall back to a dummy email when ?email= is missing', () => {
+    render(
+      <MemoryRouter initialEntries={['/verify-otp']}>
+        <OtpVerificationForm />
+      </MemoryRouter>
+    )
+
+    expect(screen.queryByText('user@student.ctu.edu.vn')).not.toBeInTheDocument()
+    expect(screen.getByText(/Thiếu địa chỉ email cần xác thực/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Xác thực/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Gửi lại mã/i })).toBeDisabled()
+  })
 })
 

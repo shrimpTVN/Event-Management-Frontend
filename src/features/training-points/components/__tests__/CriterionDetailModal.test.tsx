@@ -74,10 +74,10 @@ describe('training point evidence details', () => {
         {...props}
         onClose={close}
         selfScore={3}
-        selfDescription="Ghi chú riêng"
+        manualTransactions={[{ ...records[0], type: 'MANUAL', description: 'Ghi chú riêng' }]}
       />
     )
-    expect(screen.getByText('Ghi chú riêng')).toBeInTheDocument()
+    expect(screen.getByText(/Ghi chú riêng/)).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(close).toHaveBeenCalledOnce()
   })

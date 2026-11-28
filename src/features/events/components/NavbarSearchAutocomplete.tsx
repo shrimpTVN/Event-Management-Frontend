@@ -53,13 +53,34 @@ export function NavbarSearchAutocomplete({
   useEffect(() => {
     if (!open || !query.trim() || composing) return
     let cancelled = false
+    const controller = new AbortController()
+    const isAbortError = (err: unknown) => {
+      if (err instanceof DOMException && err.name === 'AbortError') return true
+      if (typeof err === 'object' && err !== null) {
+        const record = err as { name?: string; code?: string }
+        return (
+          record.name === 'AbortError' ||
+          record.name === 'CanceledError' ||
+          record.code === 'ERR_CANCELED'
+        )
+      }
+      return false
+    }
     const timer = setTimeout(async () => {
+      const trimmed = query.trim()
       const [events, pages] = await Promise.allSettled([
-        eventService.getEvents({ keyword: query.trim(), size: 3 }),
-        fanpageSearchService.search(query.trim(), 3),
+        eventService.getEvents({
+          keyword: trimmed,
+          size: 3,
+          statuses: ['PUBLISHED'],
+          signal: controller.signal,
+        }),
+        fanpageSearchService.search(trimmed, 3, controller.signal),
       ])
-      if (cancelled) return
-      setFailed(events.status === 'rejected' || pages.status === 'rejected')
+      if (cancelled || controller.signal.aborted) return
+      const eventFailed = events.status === 'rejected' && !isAbortError(events.reason)
+      const pageFailed = pages.status === 'rejected' && !isAbortError(pages.reason)
+      setFailed(eventFailed || pageFailed)
       setSuggestions([
         ...(events.status === 'fulfilled'
           ? events.value.slice(0, 3).map((event): Suggestion => ({
@@ -89,6 +110,7 @@ export function NavbarSearchAutocomplete({
     }, 250)
     return () => {
       cancelled = true
+      controller.abort()
       clearTimeout(timer)
     }
   }, [query, open, composing])

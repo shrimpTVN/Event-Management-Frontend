@@ -75,4 +75,26 @@ describe('complete event feed source', () => {
       isFollowed: true,
     })
   })
+
+  it('rejects when all 3 status requests fail (0/3) and flags partialError when 1/3 succeeds', async () => {
+    vi.spyOn(apiClient, 'get').mockImplementation(async (url) => {
+      if (url === '/fanpages?size=100') return [] as any
+      return Promise.reject(new Error('500'))
+    })
+    await expect(eventService.getEvents()).rejects.toThrow()
+
+    vi.restoreAllMocks()
+    vi.spyOn(apiClient, 'get').mockImplementation(async (url, config: any) => {
+      if (url === '/fanpages?size=100') return [] as any
+      if (config?.params?.status === 'PUBLISHED') {
+        return { content: [{ id: 9, name: 'Chỉ published thành công', status: 'PUBLISHED' }], totalPages: 1 } as any
+      }
+      return Promise.reject(new Error('503'))
+    })
+
+    const partial = await eventService.getEventsWithStatus()
+    expect(partial.partialError).toBe(true)
+    expect(partial.failedStatuses).toEqual(['COMPLETED', 'CLOSED'])
+    expect(partial.events.map((e) => e.id)).toEqual(['9'])
+  })
 })

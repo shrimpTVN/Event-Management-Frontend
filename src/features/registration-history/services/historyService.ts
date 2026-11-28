@@ -325,71 +325,88 @@ export const historyService = {
    * Fetches registration history of current student
    */
   async getMyHistory(): Promise<RegisteredEventItem[]> {
-    try {
-      const [res, criterias, pointCategories]: any[] = await Promise.all([
-        apiClient.get('/registrations/me/history', { params: { page: 0, size: 100 } }),
-        apiClient.get('/criterias').catch(() => []),
-        apiClient.get('/point-categories').catch(() => []),
-      ])
-      let rawList: any[] = []
-      if (Array.isArray(res)) {
-        rawList = res
-      } else if (res && Array.isArray(res.content)) {
-        rawList = res.content
-      } else if (res && Array.isArray(res.items)) {
-        rawList = res.items
-      } else if (res && res.data && Array.isArray(res.data.content)) {
-        rawList = res.data.content
-      } else if (res && Array.isArray(res.data)) {
-        rawList = res.data
-      }
-      const formatCriteria = createSv5tLabelFormatter(
-        Array.isArray(criterias) ? criterias : Array.isArray(criterias?.data) ? criterias.data : [],
-        { compact: true, shortMajor: true }
-      )
-      const formatCriteriaDetail = createSv5tLabelFormatter(
-        Array.isArray(criterias) ? criterias : Array.isArray(criterias?.data) ? criterias.data : [],
-        { shortMajor: true, codeWithChild: true }
-      )
-      // Registration eventInfo may omit the fanpage avatar. Fetch each missing fanpage once.
-      const missingFanpageIds = [
-        ...new Set(rawList.filter((raw) => !getOrganizerAvatar(raw)).map(getFanpageId)),
-      ].filter(Boolean)
-      const fanpages = new Map(
-        await Promise.all(
-          missingFanpageIds.map(async (id) => {
-            try {
-              const response: any = await apiClient.get(`/fanpages/${id}`)
-              const fanpage = response?.data ?? response
-              return [id, String(fanpage?.id) === id ? fanpage : null] as const
-            } catch {
-              return [id, null] as const
-            }
-          })
-        )
-      )
-      return rawList.map((raw) => {
-        const fanpage = fanpages.get(getFanpageId(raw))
-        return normalizeRegisteredEvent(
-          {
-            ...raw,
-            eventInfo: {
-              ...raw.eventInfo,
-              fanpageName: raw.eventInfo?.fanpageName || fanpage?.name,
-              fanpageAvatarUrl: getOrganizerAvatar(raw) || fanpage?.avatarUrl,
-            },
-          },
-          formatCriteria,
-          formatCriteriaDetail,
-          Array.isArray(pointCategories)
-            ? pointCategories
-            : Array.isArray(pointCategories?.data) ? pointCategories.data : []
-        )
-      })
-    } catch (err) {
-      console.error('Failed to fetch registration history:', err)
+    const readPageRows = (res: any): any[] => {
+      if (Array.isArray(res)) return res
+      if (res && Array.isArray(res.content)) return res.content
+      if (res && Array.isArray(res.items)) return res.items
+      if (res && res.data && Array.isArray(res.data.content)) return res.data.content
+      if (res && Array.isArray(res.data)) return res.data
       return []
     }
+
+    const fetchAllHistoryPages = async (): Promise<any[]> => {
+      const all: any[] = []
+      let page = 0
+      while (true) {
+        const res: any = await apiClient.get('/registrations/me/history', {
+          params: { page, size: 100 },
+        })
+        const rows = readPageRows(res)
+        all.push(...rows)
+        const data = res?.data ?? res
+        if (Array.isArray(res) || Array.isArray(data) || rows.length === 0) break
+        const totalPages =
+          typeof res?.totalPages === 'number'
+            ? res.totalPages
+            : typeof data?.totalPages === 'number'
+              ? data.totalPages
+              : undefined
+        const isLast = typeof res?.last === 'boolean' ? res.last : data?.last
+        const hasMore = totalPages !== undefined ? page + 1 < totalPages : isLast === false
+        if (!hasMore) break
+        page += 1
+      }
+      return all
+    }
+
+    const [rawList, criterias, pointCategories]: [any[], any, any] = await Promise.all([
+      fetchAllHistoryPages(),
+      apiClient.get('/criterias').catch(() => []),
+      apiClient.get('/point-categories').catch(() => []),
+    ])
+    const formatCriteria = createSv5tLabelFormatter(
+      Array.isArray(criterias) ? criterias : Array.isArray(criterias?.data) ? criterias.data : [],
+      { compact: true, shortMajor: true }
+    )
+    const formatCriteriaDetail = createSv5tLabelFormatter(
+      Array.isArray(criterias) ? criterias : Array.isArray(criterias?.data) ? criterias.data : [],
+      { shortMajor: true, codeWithChild: true }
+    )
+    // Registration eventInfo may omit the fanpage avatar. Fetch each missing fanpage once.
+    const missingFanpageIds = [
+      ...new Set(rawList.filter((raw) => !getOrganizerAvatar(raw)).map(getFanpageId)),
+    ].filter(Boolean)
+    const fanpages = new Map(
+      await Promise.all(
+        missingFanpageIds.map(async (id) => {
+          try {
+            const response: any = await apiClient.get(`/fanpages/${id}`)
+            const fanpage = response?.data ?? response
+            return [id, String(fanpage?.id) === id ? fanpage : null] as const
+          } catch {
+            return [id, null] as const
+          }
+        })
+      )
+    )
+    return rawList.map((raw) => {
+      const fanpage = fanpages.get(getFanpageId(raw))
+      return normalizeRegisteredEvent(
+        {
+          ...raw,
+          eventInfo: {
+            ...raw.eventInfo,
+            fanpageName: raw.eventInfo?.fanpageName || fanpage?.name,
+            fanpageAvatarUrl: getOrganizerAvatar(raw) || fanpage?.avatarUrl,
+          },
+        },
+        formatCriteria,
+        formatCriteriaDetail,
+        Array.isArray(pointCategories)
+          ? pointCategories
+          : Array.isArray(pointCategories?.data) ? pointCategories.data : []
+      )
+    })
   },
 
   /**

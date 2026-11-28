@@ -7,6 +7,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/shared/utils/cn'
 import type {
   AdminEventStatus,
@@ -79,7 +80,6 @@ export function EventStatusBadge({ status }: { status: AdminEventStatus }) {
     OPEN: 'Đang mở',
     HAPPENING: 'Đang diễn ra',
     COMPLETED: 'Đã đóng',
-    VIOLATED: 'Vi phạm',
     HIDDEN: 'Đã ẩn',
     DRAFT: 'Bản nháp',
     CANCELLED: 'Đã hủy',
@@ -92,7 +92,7 @@ export function EventStatusBadge({ status }: { status: AdminEventStatus }) {
           ? 'success'
           : status === 'HAPPENING'
             ? 'primary'
-            : ['VIOLATED', 'HIDDEN', 'CANCELLED'].includes(status)
+            : ['HIDDEN', 'CANCELLED'].includes(status)
               ? 'danger'
               : 'neutral'
       }
@@ -213,6 +213,49 @@ export function AdminDetailField({
       <dd className="m-0 break-words text-sm font-medium leading-relaxed text-foreground [overflow-wrap:anywhere]">
         {children == null || children === '' ? 'Chưa có dữ liệu' : children}
       </dd>
+    </div>
+  )
+}
+
+export function AdminPaginationBar({
+  page,
+  totalPages,
+  totalElements,
+  onPageChange,
+}: {
+  page: number
+  totalPages: number
+  totalElements: number
+  onPageChange: (nextPage: number) => void
+}) {
+  const safeTotalPages = Math.max(1, totalPages)
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border/60 text-xs text-muted-foreground">
+      <span>
+        Trang {page + 1} / {safeTotalPages} · Tổng {totalElements} mục
+      </span>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={page <= 0}
+          onClick={() => onPageChange(page - 1)}
+          className="h-8 px-3 text-xs"
+        >
+          Trang trước
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={page + 1 >= safeTotalPages}
+          onClick={() => onPageChange(page + 1)}
+          className="h-8 px-3 text-xs"
+        >
+          Trang sau
+        </Button>
+      </div>
     </div>
   )
 }

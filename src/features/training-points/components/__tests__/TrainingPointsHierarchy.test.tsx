@@ -8,7 +8,7 @@ import type { StudentSemesterPointGroupedTree } from '../../types/trainingPoints
 afterEach(cleanup)
 
 describe('TrainingPoints isMaxChild rendering', () => {
-  it('renders parent max-child scores on III.b.1 and aggregates self=13, total=16 in section footer', () => {
+  it('renders backend totals and max-child selection without recomputing', () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
@@ -86,6 +86,7 @@ describe('TrainingPoints isMaxChild rendering', () => {
         },
         {
           id: 3111,
+          contributesToParent: false,
           name: 'Cấp Bộ môn/Khoa, Chi đoàn, Chi hội',
           note: null,
           maximum: 3,
@@ -100,6 +101,7 @@ describe('TrainingPoints isMaxChild rendering', () => {
         },
         {
           id: 3112,
+          contributesToParent: true,
           name: 'Cấp ĐHCT; Đơn vị đào tạo và tương đương',
           note: null,
           maximum: 5,
@@ -155,7 +157,7 @@ describe('TrainingPoints isMaxChild rendering', () => {
       </QueryClientProvider>
     )
 
-    expect(screen.getByText('16/20 điểm')).toBeInTheDocument()
+    expect(screen.getByText('19/20 điểm')).toBeInTheDocument()
     expect(screen.queryByText('Lấy max mục con')).not.toBeInTheDocument()
     expect(screen.queryByText('Mã tiêu chí: III.b.1')).not.toBeInTheDocument()
     const infoTrigger = screen.getByLabelText('Giải thích cách tính điểm mục con')
@@ -180,8 +182,105 @@ describe('TrainingPoints isMaxChild rendering', () => {
     const footer = screen.getByText('Cộng điểm mục III').parentElement!
     expect(footer.children[1]).toHaveTextContent(/20$/)
     expect(footer.children[2]).toHaveTextContent(/3$/)
-    expect(footer.children[3]).toHaveTextContent(/13$/)
-    expect(footer.children[4]).toHaveTextContent(/16$/)
+    expect(footer.children[3]).toHaveTextContent(/16$/)
+    expect(footer.children[4]).toHaveTextContent(/19$/)
+  })
+
+  it('shows raw source points on leaves and capped source points on parents', () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const section: StudentSemesterPointGroupedTree = {
+      id: 1,
+      name: 'Mục I',
+      note: null,
+      maximum: 20,
+      level: 0,
+      parentCategoryId: null,
+      isActive: true,
+      childrenOrder: 1,
+      totalPoint: 16,
+      systemPointRecord: 16,
+      manualPointRecord: 16,
+      items: [
+        {
+          id: 2,
+          name: 'Nhóm hệ thống',
+          note: null,
+          maximum: 8,
+          level: 1,
+          parentCategoryId: 1,
+          isActive: true,
+          childrenOrder: 1,
+          isLeaf: false,
+          totalPoint: 8,
+          systemPointRecord: 16,
+          manualPointRecord: 0,
+        },
+        {
+          id: 3,
+          name: 'Lá hệ thống',
+          note: null,
+          maximum: 8,
+          level: 2,
+          parentCategoryId: 2,
+          isActive: true,
+          childrenOrder: 1,
+          isLeaf: true,
+          totalPoint: 16,
+          systemPointRecord: 16,
+          manualPointRecord: 0,
+        },
+        {
+          id: 4,
+          name: 'Nhóm tự đánh giá',
+          note: null,
+          maximum: 8,
+          level: 1,
+          parentCategoryId: 1,
+          isActive: true,
+          childrenOrder: 2,
+          isLeaf: false,
+          totalPoint: 8,
+          systemPointRecord: 0,
+          manualPointRecord: 16,
+        },
+        {
+          id: 5,
+          name: 'Lá tự đánh giá',
+          note: null,
+          maximum: 8,
+          level: 2,
+          parentCategoryId: 4,
+          isActive: true,
+          childrenOrder: 1,
+          isLeaf: true,
+          totalPoint: 16,
+          systemPointRecord: 0,
+          manualPointRecord: 16,
+        },
+      ],
+    }
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TrainingPointsSectionAccordion
+          section={section}
+          sectionRoman="I"
+          onSaveSelfScore={vi.fn()}
+          defaultExpanded
+        />
+      </QueryClientProvider>
+    )
+    const row = (code: string) =>
+      screen.getByText(code).closest('.student-score-row') as HTMLElement
+    expect(row('I.a').children[3]).toHaveTextContent('8')
+    expect(row('I.a.1').children[3]).toHaveTextContent('16')
+    expect(row('I.b').children[4]).toHaveTextContent('8')
+    expect(row('I.b.1').children[4]).toHaveTextContent('16')
+    expect(row('I.a.1').children[5]).toHaveTextContent('8')
+    expect(row('I.b.1').children[5]).toHaveTextContent('8')
+    const footer = screen.getByText('Cộng điểm mục I').parentElement!
+    expect(footer.children[2]).toHaveTextContent('16')
+    expect(footer.children[3]).toHaveTextContent('16')
+    expect(footer.children[4]).toHaveTextContent('16')
   })
 
   it('hides duplicate notes matching title while keeping rule notes in TrainingPointsTable', () => {
@@ -251,11 +350,7 @@ describe('TrainingPoints isMaxChild rendering', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <TrainingPointsTable
-          sections={sections}
-          studentScores={{}}
-          onSaveSelfScore={vi.fn()}
-        />
+        <TrainingPointsTable sections={sections} studentScores={{}} onSaveSelfScore={vi.fn()} />
       </QueryClientProvider>
     )
 

@@ -14,6 +14,7 @@ import {
   Building,
 } from 'lucide-react'
 import { apiClient } from '@/shared'
+import { getApiErrorCode, resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
 import { Input } from '@/components/ui/input'
@@ -171,21 +172,22 @@ export const FanpageRegistrationForm: React.FC = () => {
       setIsSuccess(true)
     } catch (err: any) {
       console.error('Fanpage registration error:', err)
-      const errCode = err?.response?.data?.code || err?.response?.data?.exceptionCode
-      const errMsg = (err?.response?.data?.message || err?.message || '').toString()
+      const errCode = getApiErrorCode(err)
 
       if (errCode === 'USER.001') {
         setProfilePrompt('student')
       } else if (
         errCode === 'USER.002' ||
-        errCode === 'FANPAGE_ADMIN_PROFILE_REQUIRED' ||
-        errMsg.toLowerCase().includes('fanpage admin profile') ||
-        errMsg.toLowerCase().includes('profile') ||
-        errMsg.toLowerCase().includes('hồ sơ')
+        errCode === 'FANPAGE_ADMIN_PROFILE_REQUIRED'
       ) {
         setProfilePrompt('staff')
       } else {
-        setSubmitError(errMsg || 'Đã có lỗi xảy ra khi gửi hồ sơ đăng ký. Vui lòng thử lại.')
+        setSubmitError(
+          resolveApiErrorMessage(
+            err,
+            'Đã có lỗi xảy ra khi gửi hồ sơ đăng ký. Vui lòng thử lại.'
+          )
+        )
       }
     } finally {
       setIsSubmitting(false)

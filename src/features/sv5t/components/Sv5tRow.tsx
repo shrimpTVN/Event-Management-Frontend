@@ -14,7 +14,12 @@ interface Sv5tRowProps {
   isLeaf: boolean
   isGroupBanner?: boolean
   academicYearId?: number
-  onSaveProgress: (criteriaId: number, completed: boolean, note: string) => Promise<void> | void
+  onSaveProgress: (
+    criteriaId: number,
+    completed: boolean,
+    note: string,
+    transactionId?: number
+  ) => Promise<void> | void
   onDeleteProgress?: (criteriaTransactionId: number, criteriaId: number) => Promise<void> | void
 }
 
@@ -53,10 +58,7 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
     )
   }
 
-  const isEventRecorded =
-    Boolean(node.isSystemRecorded) ||
-    node.completionSource === 'EVENT_CHECKOUT' ||
-    node.completionSource === 'SYSTEM'
+  const isEventRecorded = node.isCompleted
 
   return (
     <>
@@ -73,12 +75,12 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
                 ? 'Đạt'
                 : 'Chưa ghi nhận'
           }
-          evaluation={isSelfEvaluated ? 'Đạt' : 'Chưa đánh giá'}
-          evaluated={isSelfEvaluated}
+          evaluation={isSelfEvaluated ? (node.isCompleted ? 'Đạt' : 'Chưa đạt') : 'Chưa đánh giá'}
+          evaluated={isSelfEvaluated && node.isCompleted}
           onEvaluate={() => {
             setSelfModalInitialNote(isSelfEvaluated ? node.selfEvaluationNote || '' : '')
             setSelfModalInitialCompleted(isSelfEvaluated)
-            setSelfModalTransactionId(null)
+            setSelfModalTransactionId(node.manualTransactionId ?? null)
             setIsSelfModalOpen(true)
           }}
           onDetail={() => setIsDetailModalOpen(true)}
@@ -102,13 +104,13 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
 
           {/* 3. Dữ liệu ghi nhận (136px) */}
           <div className="w-[136px] min-w-[136px] max-w-[136px] px-2 py-2.5 flex items-center justify-center border-r border-border shrink-0 text-center">
-            <span className="student-score-label">Hệ thống ghi nhận</span>
+            <span className="student-score-label">Ghi nhận</span>
             {(node.requiredOccurrences || 1) > 1 ? (
               <span
-                className={`text-xs font-medium ${(node.recordedOccurrences || 0) >= (node.requiredOccurrences || 1) ? 'text-emerald-700 dark:text-emerald-400' : 'text-primary'}`}
+                className={`text-xs font-medium ${node.isCompleted ? 'text-emerald-700 dark:text-emerald-400' : 'text-primary'}`}
               >
                 {node.recordedOccurrences || 0}/{node.requiredOccurrences} lần
-                {(node.recordedOccurrences || 0) >= (node.requiredOccurrences || 1) ? ' · Đạt' : ''}
+                {node.isCompleted ? ' · Đạt' : ''}
               </span>
             ) : isEventRecorded ? (
               <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 block">
@@ -131,20 +133,20 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
                   onClick={() => {
                     setSelfModalInitialNote(isSelfEvaluated ? node.selfEvaluationNote || '' : '')
                     setSelfModalInitialCompleted(isSelfEvaluated)
-                    setSelfModalTransactionId(null)
+                    setSelfModalTransactionId(node.manualTransactionId ?? null)
                     setIsSelfModalOpen(true)
                   }}
                   className="h-8 px-0 hover:bg-transparent"
                 >
-                  {isSelfEvaluated ? (
-                    <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 block">
-                      Đạt
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-muted text-muted-foreground border border-border block">
-                      Chưa đánh giá
-                    </span>
-                  )}
+                  <span
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold block ${
+                      isSelfEvaluated && node.isCompleted
+                        ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        : 'bg-muted text-muted-foreground border border-border'
+                    }`}
+                  >
+                    {isSelfEvaluated ? (node.isCompleted ? 'Đạt' : 'Chưa đạt') : 'Chưa đánh giá'}
+                  </span>
                 </Button>
               </Tooltip>
             ) : (
@@ -190,16 +192,19 @@ export const Sv5tRow: React.FC<Sv5tRowProps> = ({
           }
           onSave={async (completed, note) => {
             const finalNote = completed ? note : ''
-            await onSaveProgress(node.criteriaId, completed, finalNote)
-            setSelfModalInitialNote(finalNote)
-            setSelfModalInitialCompleted(completed)
+            await onSaveProgress(
+              node.criteriaId,
+              completed,
+              finalNote,
+              selfModalTransactionId ?? undefined
+            )
+            setIsSelfModalOpen(false)
           }}
           onDelete={
             selfModalTransactionId && onDeleteProgress
               ? async () => {
                   await onDeleteProgress(selfModalTransactionId, node.criteriaId)
-                  setSelfModalInitialCompleted(false)
-                  setSelfModalInitialNote('')
+                  setIsSelfModalOpen(false)
                 }
               : undefined
           }
