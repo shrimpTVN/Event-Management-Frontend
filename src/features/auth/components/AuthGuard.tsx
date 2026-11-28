@@ -32,10 +32,11 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   const location = useLocation()
 
   if (!isAuthenticated || !user) {
-    const isRoot = location.pathname === '/'
+    const fullPath = location.pathname + location.search + location.hash
+    const isRoot = location.pathname === '/' && !location.search && !location.hash
     const targetUrl = isRoot
       ? '/login'
-      : `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`
+      : `/login?redirect=${encodeURIComponent(fullPath)}`
     return <Navigate to={targetUrl} replace />
   }
 

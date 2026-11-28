@@ -1,5 +1,7 @@
 import { educationCatalogService } from '@/shared/services/educationCatalogService'
 import { apiClient } from '@/shared'
+import { beginLogoutTransition, endLogoutTransition } from '@/shared/services/authRefresh'
+import { isMockMode } from '@/shared/utils/env'
 import {
   type User,
   type AuthTokens,
@@ -18,6 +20,14 @@ import { useAuthStore } from '../store/authStore'
 
 async function formatAuthUser(response: any, fallbackEmail: string): Promise<AuthResponse> {
   const data = response?.data || response
+  if (!isMockMode()) {
+    const validUserId = Number.isSafeInteger(Number(data?.userId)) && Number(data.userId) > 0
+    const validEmail = typeof data?.email === 'string' && data.email.trim().length > 0
+    const validRoles = Array.isArray(data?.roles) && data.roles.length > 0
+    if (!validUserId || !validEmail || !validRoles || !normalizeRole(data?.role)) {
+      throw new Error('Invalid authentication response from backend: userId, email or role is missing')
+    }
+  }
   const rawRole = data?.role || data?.roles?.[0] || data?.user?.role || RoleEnum.STUDENT
   const normalizedRole = normalizeRole(rawRole) || RoleEnum.STUDENT
   const emailUsername = (data?.email || fallbackEmail).split('@')[0] || ''
@@ -80,9 +90,11 @@ async function formatAuthUser(response: any, fallbackEmail: string): Promise<Aut
     }
   }
 
-  const tokens: AuthTokens = data?.tokens || {
-    accessToken: data?.accessToken || undefined,
-  }
+  const tokens: AuthTokens = isMockMode()
+    ? data?.tokens || {
+        accessToken: data?.accessToken || undefined,
+      }
+    : {}
 
   return {
     ...data,
@@ -298,6 +310,9 @@ export const authService = {
     payload: GoogleAuthPayload | { idToken: string }
   ): Promise<AuthResponse> {
     const idToken = 'idToken' in payload ? payload.idToken : payload.credential
+    if (!idToken || (!isMockMode() && idToken.startsWith('mock-google-token-'))) {
+      throw new Error('Google credential is unavailable')
+    }
     const response: any = await apiClient.post('/auth/login/google', { idToken })
     return formatAuthUser(response, 'student.google@ctu.edu.vn')
   },
@@ -313,6 +328,11 @@ export const authService = {
    * Logs out user and invalidates session token on backend
    */
   async logout(): Promise<void> {
-    return apiClient.post('/auth/logout')
+    beginLogoutTransition()
+    try {
+      await apiClient.post('/auth/logout')
+    } finally {
+      endLogoutTransition()
+    }
   },
 }

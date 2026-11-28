@@ -6,6 +6,12 @@ import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, User as UserIcon } from 
 import { registerSchema, type RegisterInput } from '../types/auth.schemas'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
+import { isMockMode } from '@/shared/utils/env'
+import {
+  extractApiFieldErrors,
+  getApiErrorCode,
+  resolveApiErrorMessage,
+} from '@/shared/utils/apiError'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 import { GoogleAuthButton } from './GoogleAuthButton'
 
@@ -59,23 +65,23 @@ export const RegisterForm: React.FC = () => {
       // Direct user to OTP Verification Step (Figma 968:5594)
       navigate(`/verify-otp?email=${encodeURIComponent(data.email)}`)
     } catch (err: any) {
-      const msg = (err.response?.data?.message || err.message || '').toString()
-      const code = (err.response?.data?.exceptionCode || '').toString()
+      const code = getApiErrorCode(err)
+      const { fields: fieldErrors } = extractApiFieldErrors(err, {
+        allowedFields: ['fullName', 'email', 'password', 'confirmPassword'],
+      })
 
-      if (
-        code === 'AUTH.003' ||
-        code === 'AUTH.015' ||
-        msg.toLowerCase().includes('already exists') ||
-        msg.toLowerCase().includes('duplicate') ||
-        msg.toLowerCase().includes('email')
-      ) {
+      if (code === 'AUTH.003' || code === 'AUTH.015' || code === '006') {
         setError('email', {
           type: 'manual',
           message: 'Email này đã được đăng ký trong hệ thống. Vui lòng đăng nhập hoặc sử dụng email khác.',
         })
+      } else if (Object.keys(fieldErrors).length > 0) {
+        Object.entries(fieldErrors).forEach(([field, message]) => {
+          setError(field as keyof RegisterInput, { type: 'manual', message })
+        })
       } else {
         setApiError(
-          msg || 'Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.'
+          resolveApiErrorMessage(err, 'Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.')
         )
       }
     } finally {
@@ -83,7 +89,7 @@ export const RegisterForm: React.FC = () => {
     }
   }
 
-  const handleGoogleSuccess = async (credentialResponse?: any) => {
+  const handleGoogleSuccess = async (credentialResponse: { credential?: string }) => {
     try {
       setIsSubmitting(true)
       setApiError(null)
@@ -93,20 +99,16 @@ export const RegisterForm: React.FC = () => {
         ? `/onboarding/student?redirect=${encodeURIComponent(redirectParam)}`
         : '/onboarding/student'
 
-      if (idToken && !idToken.startsWith('mock-google-token')) {
-        const res = await authService.exchangeGoogleToken({ idToken })
-        setAuth(res.user, res.tokens?.accessToken || null)
-        navigate(targetUrl, { replace: true })
-      } else {
-        navigate(targetUrl)
+      if (!idToken || (!isMockMode() && idToken.startsWith('mock-google-token-'))) {
+        setApiError('Không nhận được thông tin xác thực từ Google. Vui lòng thử lại.')
+        return
       }
-    } catch (err: any) {
-      console.error('Google sign-up exchange error:', err)
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        'Đăng ký bằng Google không thành công. Vui lòng thử lại.'
-      setApiError(msg)
+      const res = await authService.exchangeGoogleToken({ idToken })
+      setAuth(res.user, res.tokens?.accessToken || null)
+      navigate(targetUrl, { replace: true })
+    } catch (err: unknown) {
+      if (import.meta.env.DEV) console.error('Google sign-up exchange error:', err)
+      setApiError('Đăng ký bằng Google không thành công. Vui lòng thử lại.')
     } finally {
       setIsSubmitting(false)
     }
@@ -252,6 +254,7 @@ export const RegisterForm: React.FC = () => {
             'Đăng ký'
           )}
         </button>
+      </form>
 
         {/* Divider: Hoặc */}
         <div className="relative my-3">
@@ -270,12 +273,8 @@ export const RegisterForm: React.FC = () => {
           text="Đăng ký bằng Google"
           onSuccess={handleGoogleSuccess}
           onError={() => {
-            console.error(
-              'Google Auth SDK onError: Popup was closed or origin http://localhost:5173 is not configured in Authorized JavaScript origins.'
-            )
-            setApiError(
-              'Đăng ký bằng Google không thành công. Vui lòng kiểm tra cấu hình Authorized JavaScript origins trong Google Cloud Console.'
-            )
+            if (import.meta.env.DEV) console.error('Google Auth SDK failed to complete sign-up')
+            setApiError('Đăng ký bằng Google không thành công. Vui lòng thử lại.')
           }}
           disabled={isSubmitting}
         />
@@ -290,7 +289,6 @@ export const RegisterForm: React.FC = () => {
             Đăng nhập
           </Link>
         </div>
-      </form>
     </AuthLayoutWrapper>
   )
 }

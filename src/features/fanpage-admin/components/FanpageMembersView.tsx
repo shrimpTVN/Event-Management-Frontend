@@ -1,4 +1,5 @@
 import { Tooltip } from '@/components/ui/tooltip'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -525,8 +526,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       showFeedback('success', `Đã gửi lời mời tham gia tới ${cleanEmail} thành công!`)
     } catch (err: any) {
       console.warn('Backend invite-member call error', err)
-      const msg = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi gửi lời mời'
-      showFeedback('error', msg)
+      showFeedback('error', resolveApiErrorMessage(err, 'Có lỗi xảy ra khi gửi lời mời'))
     } finally {
       setIsSendingInvite(false)
     }
@@ -567,9 +567,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       )
     } catch (err: any) {
       console.error('Failed to appoint fanpage admin', err)
-      const msg =
-        err?.response?.data?.message || err?.message || 'Không thể chuyển quyền Quản trị viên!'
-      showFeedback('error', msg)
+      showFeedback('error', resolveApiErrorMessage(err, 'Không thể chuyển quyền Quản trị viên!'))
     }
 
     setTransferTarget(null)
@@ -696,8 +694,7 @@ export const FanpageMembersView: React.FC<FanpageMembersViewProps> = ({
       showFeedback('success', `Đã gửi lại lời mời tham gia tới email ${email}.`)
     } catch (err: any) {
       console.error('Error resending invite', err)
-      const msg = err?.response?.data?.message || `Không thể gửi lại lời mời tới ${email}.`
-      showFeedback('error', msg)
+      showFeedback('error', resolveApiErrorMessage(err, `Không thể gửi lại lời mời tới ${email}.`))
     }
   }
 

@@ -5,6 +5,7 @@ import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
 import { isStaffEmail, isStaffUser } from '../utils/authUtils'
+import { extractApiFieldErrors, resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { RoleEnum, type User } from '../types/auth.types'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 
@@ -194,19 +195,11 @@ export const OtpVerificationForm: React.FC = () => {
         }
       }
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || ''
-      if (typeof msg === 'string' && (msg.includes("can't be blank") || msg.includes('otpCode'))) {
-        setApiError('Mã OTP không được để trống.')
-      } else if (
-        typeof msg === 'string' &&
-        (msg.toLowerCase().includes('invalid') ||
-          msg.toLowerCase().includes('expired') ||
-          msg.toLowerCase().includes('wrong') ||
-          msg.toLowerCase().includes('used'))
-      ) {
-        setApiError('Mã OTP không chính xác hoặc đã hết hạn.')
+      const { fields } = extractApiFieldErrors(err, { allowedFields: ['otpCode'] })
+      if (fields.otpCode) {
+        setApiError(fields.otpCode)
       } else {
-        setApiError(msg || 'Mã OTP không chính xác hoặc đã hết hạn.')
+        setApiError(resolveApiErrorMessage(err, 'Mã OTP không chính xác hoặc đã hết hạn.'))
       }
     } finally {
       setIsSubmitting(false)

@@ -1,3 +1,9 @@
+import {
+  extractApiFieldErrors,
+  resolveApiErrorMessage,
+  translateServerMessage,
+} from '@/shared/utils/apiError'
+
 export type EventFormErrors = Record<string, string>
 export interface EventFormValues {
   name: string
@@ -78,7 +84,6 @@ export function eventApiErrors(error: unknown): { fields: EventFormErrors; messa
     message?: string
   }
   const body = response?.response?.data
-  const fields: EventFormErrors = {}
   const aliases: Record<string, string> = { dateEnd: 'timeEnd', criteriaId: 'criteriaIds' }
   const known = [
     'name',
@@ -86,6 +91,7 @@ export function eventApiErrors(error: unknown): { fields: EventFormErrors; messa
     'location',
     'semesterId',
     'eventTypeId',
+    'schoolId',
     'capacity',
     'maleQuantity',
     'femaleQuantity',
@@ -101,30 +107,40 @@ export function eventApiErrors(error: unknown): { fields: EventFormErrors; messa
     'eventPoints',
     'criteriaIds',
     'fanpageId',
+    'timeEnd',
   ]
-  const add = (field: string, message: unknown) => {
-    const root = field.split(/[.\[]/)[0]
-    const key = aliases[root] || root
-    if (known.includes(key) || key === 'timeEnd')
-      fields[key] = Array.isArray(message) ? message.join(' ') : String(message)
-  }
-  const details = body?.fieldErrors ?? body?.errors ?? body?.data
-  if (Array.isArray(details))
-    details.forEach((item) => {
-      if (item?.field) add(item.field, item.message ?? item.defaultMessage)
-    })
-  else if (details && typeof details === 'object')
-    Object.entries(details).forEach(([field, message]) => add(field, message))
-  const message = body?.message || response?.message || 'Không thể lưu sự kiện. Vui lòng thử lại.'
+
+  const { fields, hasUnmappedFields } = extractApiFieldErrors(error, {
+    allowedFields: known,
+    aliases,
+    defaultFieldFallback: 'Giá trị nhập vào chưa hợp lệ.',
+  })
+
+  const rawBodyMessage = typeof body?.message === 'string' ? body.message.trim() : ''
   // Compatibility with older backends returning Java Map.toString() as the message.
-  for (const match of message.matchAll(/([\w.\[\]]+)=([^=]+?)(?=,\s*[\w.\[\]]+=|}$)/g))
-    add(match[1], match[2].trim())
-  const lower = message.toLowerCase()
-  if (lower.includes('registration open date must be before'))
-    fields.dateClose = 'Thời gian đóng đăng ký phải sau thời gian mở đăng ký.'
-  if (lower.includes('registration close date must be before'))
-    fields.dateClose = 'Thời gian đóng đăng ký không được sau giờ bắt đầu sự kiện.'
-  if (lower.includes('event end must be after'))
-    fields.timeEnd = 'Giờ kết thúc phải sau giờ bắt đầu.'
+  for (const match of rawBodyMessage.matchAll(/([\w.\[\]]+)=([^=]+?)(?=,\s*[\w.\[\]]+=|}$)/g)) {
+    const root = match[1].split(/[.\[]/)[0]
+    const key = aliases[root] || root
+    if (known.includes(key)) {
+      fields[key] = translateServerMessage(match[2].trim(), 'Giá trị nhập vào chưa hợp lệ.')
+    }
+  }
+
+  // Only infer date field from message text if BE did not already provide structured field errors.
+  if (!Object.keys(fields).length && rawBodyMessage) {
+    const lower = rawBodyMessage.toLowerCase()
+    if (lower.includes('registration open date must be before'))
+      fields.dateClose = 'Thời gian đóng đăng ký phải sau thời gian mở đăng ký.'
+    if (lower.includes('registration close date must be before'))
+      fields.dateClose = 'Thời gian đóng đăng ký không được sau giờ bắt đầu sự kiện.'
+    if (lower.includes('event end must be after'))
+      fields.timeEnd = 'Giờ kết thúc phải sau giờ bắt đầu.'
+  }
+
+  const message =
+    hasUnmappedFields && !Object.keys(fields).length
+      ? 'Dữ liệu sự kiện chưa hợp lệ. Vui lòng kiểm tra lại thông tin.'
+      : resolveApiErrorMessage(error, 'Không thể lưu sự kiện. Vui lòng thử lại.')
+
   return { fields, message }
 }

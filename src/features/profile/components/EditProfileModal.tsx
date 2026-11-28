@@ -11,6 +11,7 @@ import {
   Camera,
 } from 'lucide-react'
 import { mediaService } from '@/shared/services/mediaService'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import type { StudentProfile } from '../types/profile.types'
 
 interface EditProfileModalProps {
@@ -61,7 +62,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setFormData((prev) => ({ ...prev, avatarUrl: secureUrl }))
     } catch (err: any) {
       console.error('Lỗi khi tải ảnh đại diện lên Cloudinary:', err)
-      setUploadError(err?.message || 'Không thể tải ảnh lên Cloudinary. Vui lòng thử lại.')
+      setUploadError(
+        resolveApiErrorMessage(err, 'Không thể tải ảnh lên Cloudinary. Vui lòng thử lại.')
+      )
     } finally {
       setIsUploadingAvatar(false)
       if (fileInputRef.current) {

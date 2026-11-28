@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { EyeOff, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -51,7 +52,7 @@ export function EventModerationModal({
         onClose()
       }
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Không thể ẩn sự kiện. Vui lòng thử lại.')
+      setError(resolveApiErrorMessage(err, 'Không thể ẩn sự kiện. Vui lòng thử lại.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -66,9 +67,7 @@ export function EventModerationModal({
         onClose()
       }
     } catch (err: any) {
-      setError(
-        err?.response?.data?.message || err?.message || 'Không thể khôi phục sự kiện. Vui lòng thử lại.'
-      )
+      setError(resolveApiErrorMessage(err, 'Không thể khôi phục sự kiện. Vui lòng thử lại.'))
     } finally {
       setIsSubmitting(false)
     }

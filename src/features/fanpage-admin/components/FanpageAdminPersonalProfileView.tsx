@@ -1,4 +1,5 @@
 import { PasswordSettings } from '@/features/auth/components/PasswordSettings'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import React, { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -212,7 +213,7 @@ export const FanpageAdminPersonalProfileView: React.FC<FanpageAdminPersonalProfi
     } catch (err) {
       setFeedback({
         type: 'error',
-        message: (err as { response?: { data?: { message?: string } } })?.response?.data?.message || (err instanceof Error ? err.message : 'Chưa lưu được thông tin. Vui lòng thử lại.'),
+        message: resolveApiErrorMessage(err, 'Chưa lưu được thông tin. Vui lòng thử lại.'),
       })
     } finally {
       setIsSaving(false)

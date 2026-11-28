@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { authService } from '../../services/authService'
 import { RegisterForm } from '../RegisterForm'
+import { useAuthStore } from '../../store/authStore'
 
 const mockNavigate = vi.fn()
 
@@ -19,13 +20,21 @@ vi.mock('../../services/authService', () => ({
     sendOtp: vi.fn(),
     register: vi.fn(),
     login: vi.fn(),
+    exchangeGoogleToken: vi.fn(),
   },
 }))
 
 describe('RegisterForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubEnv('MODE', 'development')
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '')
     sessionStorage.clear()
+    useAuthStore.getState().clearAuth()
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('renders fullName, email, password and confirmPassword fields', () => {
@@ -101,5 +110,33 @@ describe('RegisterForm', () => {
       expect(screen.getByText('Mật khẩu nhập lại không khớp')).toBeInTheDocument()
       expect(authService.sendOtp).not.toHaveBeenCalled()
     })
+  })
+
+  it('creates a mock Google session before navigating to onboarding', async () => {
+    vi.stubEnv('MODE', 'mock')
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '')
+    vi.mocked(authService.exchangeGoogleToken).mockResolvedValueOnce({
+      user: {
+        id: '1',
+        email: 'loc@student.ctu.edu.vn',
+        name: 'Sinh viên CTU',
+        role: 'STUDENT',
+        createdAt: '2026-01-01T00:00:00Z',
+        isProfileComplete: false,
+      },
+      tokens: { accessToken: 'mock-jwt-token-1' },
+    } as any)
+
+    render(<MemoryRouter><RegisterForm /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng ký bằng Google' }))
+
+    await waitFor(() => {
+      expect(authService.exchangeGoogleToken).toHaveBeenCalledWith({
+        idToken: expect.stringMatching(/^mock-google-token-/),
+      })
+      expect(mockNavigate).toHaveBeenCalledWith('/onboarding/student', { replace: true })
+    })
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+    expect(authService.login).not.toHaveBeenCalled()
   })
 })

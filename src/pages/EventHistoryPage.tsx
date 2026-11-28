@@ -1,4 +1,5 @@
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { useTimeBoundary } from '@/shared/hooks/useTimeBoundary'
 import { isUpcomingRegistration, nextTimeBoundary } from '@/shared/utils/registrationEligibility'
 import { matchesPageSearch, useMobilePageSearch } from '@/shared/components/layout/MobileSubpageHeader'
@@ -328,12 +329,10 @@ export const EventHistoryPage: React.FC = () => {
       showToast(`Đã hủy đăng ký thành công sự kiện "${title}".`, 'info')
     } catch (err: any) {
       console.error('Failed to cancel registration:', err)
-      const rawMsg = err?.response?.data?.message || err?.message || ''
-      let msg = 'Không thể hủy đăng ký sự kiện. Vui lòng thử lại sau!'
-      if (rawMsg.includes('after event close')) {
-        msg = 'Không thể hủy đăng ký sau khi sự kiện đã đóng hạn!'
-      }
-      showToast(msg, 'info')
+      showToast(
+        resolveApiErrorMessage(err, 'Không thể hủy đăng ký sự kiện. Vui lòng thử lại sau!'),
+        'info'
+      )
     }
   }
 

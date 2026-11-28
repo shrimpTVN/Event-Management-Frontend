@@ -167,4 +167,43 @@ describe('StaffFanpageHub', () => {
       expect(useAuthStore.getState().isAuthenticated).toBe(false)
     })
   })
+
+  it('loads invitations from /fanpage-member-invitations/me and accepts/declines via POST endpoints', async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/fanpage-member-invitations/me') {
+        return Promise.resolve([
+          {
+            id: 9,
+            fanpageId: 33,
+            fanpageName: 'CLB Kỹ năng CNTT',
+            fanpageAvatarUrl: 'https://cdn/fanpage.png',
+            inviterName: 'Nguyễn Văn An',
+            status: 'PENDING',
+          },
+        ])
+      }
+      return Promise.resolve([])
+    })
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <StaffFanpageHub />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText('CLB Kỹ năng CNTT')).toBeInTheDocument()
+    expect(screen.getByText('Nguyễn Văn An')).toBeInTheDocument()
+    expect(apiClient.get).toHaveBeenCalledWith('/fanpage-member-invitations/me')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chấp nhận' }))
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith('/fanpage-member-invitations/9/accept')
+    })
+    expect(
+      await screen.findByText('Đã chấp nhận lời mời tham gia "CLB Kỹ năng CNTT"')
+    ).toBeInTheDocument()
+  })
 })

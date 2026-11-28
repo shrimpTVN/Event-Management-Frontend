@@ -6,6 +6,7 @@ import { authService } from '../services/authService'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
+import { getApiErrorCode, resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { Loader2, RefreshCw } from 'lucide-react'
 
 export function PasswordSettings() {
@@ -80,13 +81,19 @@ export function PasswordSettings() {
         return
       }
     } catch (err) {
+      const code = getApiErrorCode(err)
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? ''
-      if (/already has a password|change-password/i.test(message)) {
+      if (
+        code === 'PASSWORD_ALREADY_SET' ||
+        /already has a password|change-password/i.test(message)
+      ) {
         await queryClient.invalidateQueries({ queryKey: ['account-security'] })
         reset('change')
         setError('Tài khoản đã có mật khẩu. Vui lòng dùng chức năng đổi mật khẩu.')
-      } else setError(message || 'Không cập nhật được mật khẩu. Vui lòng thử lại.')
+      } else {
+        setError(resolveApiErrorMessage(err, 'Không cập nhật được mật khẩu. Vui lòng thử lại.'))
+      }
     } finally {
       setBusy(false)
     }

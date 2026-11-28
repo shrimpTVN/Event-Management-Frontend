@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { X, Trash2, AlertCircle } from 'lucide-react'
 import { AttendancePhotoPicker } from './AttendancePhotoPicker'
 import { sanitizeImageSrc } from '@/shared'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { mediaService } from '@/shared/services/mediaService'
 import type { RegisteredEventItem } from '../types/history.types'
 import { historyService } from '../services/historyService'
@@ -104,27 +105,9 @@ const StudentAttendanceForm: React.FC<StudentAttendanceModalProps> = ({
       handleClose()
     } catch (err: any) {
       console.error('Attendance error:', err)
-      const rawMsg = err?.response?.data?.message || err?.message || ''
-
-      let friendlyMsg = 'Có lỗi xảy ra khi gửi điểm danh. Vui lòng thử lại.'
-      if (rawMsg.includes('Self check-') && rawMsg.includes('not allowed')) {
-        friendlyMsg = 'Sự kiện đã tắt tự điểm danh. Vui lòng liên hệ ban tổ chức.'
-      } else if (rawMsg.includes('not started yet')) {
-        friendlyMsg =
-          'Sự kiện này chưa bắt đầu hoặc hôm nay chưa phải ngày diễn ra sự kiện (hệ thống chỉ mở điểm danh vào ngày diễn ra sự kiện).'
-      } else if (rawMsg.includes('not registered')) {
-        friendlyMsg = 'Bạn chưa đăng ký tham gia sự kiện này.'
-      } else if (rawMsg.includes('has not checked in') || rawMsg.includes('cannot check out')) {
-        friendlyMsg = 'Bạn chưa điểm danh vào (check-in) nên chưa thể điểm danh ra (check-out).'
-      } else if (rawMsg.includes('pending confirmation') || rawMsg.includes('already checkout')) {
-        friendlyMsg = 'Bạn đã gửi ảnh cuối buổi và đang chờ ban tổ chức xác nhận.'
-      } else if (rawMsg.includes('already completed')) {
-        friendlyMsg = 'Bạn đã hoàn tất điểm danh sự kiện này rồi!'
-      } else if (rawMsg) {
-        friendlyMsg = rawMsg
-      }
-
-      setError(friendlyMsg)
+      setError(
+        resolveApiErrorMessage(err, 'Có lỗi xảy ra khi gửi điểm danh. Vui lòng thử lại.')
+      )
     } finally {
       setIsSubmitting(false)
     }

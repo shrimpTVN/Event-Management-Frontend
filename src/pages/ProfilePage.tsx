@@ -1,8 +1,9 @@
 import { PasswordSettings } from '@/features/auth/components/PasswordSettings'
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Check, X } from 'lucide-react'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { StudentLeftSidebar } from '@/features/events'
 import { useAuthStore } from '@/features/auth/store/authStore'
 import {
@@ -20,7 +21,14 @@ export const ProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState<StudentProfile | null>(null)
   const [isSaving, setIsSaving] = useState(false)
-  const [successToast, setSuccessToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showToast = (type: 'success' | 'error', message: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    setToast({ type, message })
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000)
+  }
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile', 'me'],
@@ -53,15 +61,11 @@ export const ProfilePage: React.FC = () => {
         avatarUrl: saved.avatarUrl,
         name: saved.fullName,
       })
-      setSuccessToast('Đã lưu thông tin hồ sơ sinh viên thành công!')
-      setTimeout(() => setSuccessToast(null), 3000)
+      showToast('success', 'Đã lưu thông tin hồ sơ sinh viên thành công!')
       setIsEditing(false)
       setFormData(null)
     } catch (err: any) {
-      setSuccessToast(
-        err?.response?.data?.message || err?.message || 'Đã có lỗi khi lưu, vui lòng thử lại!'
-      )
-      setTimeout(() => setSuccessToast(null), 3000)
+      showToast('error', resolveApiErrorMessage(err, 'Đã có lỗi khi lưu, vui lòng thử lại!'))
     } finally {
       setIsSaving(false)
     }
@@ -70,9 +74,16 @@ export const ProfilePage: React.FC = () => {
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       {/* Toast Feedback */}
-      {successToast && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-foreground text-background px-4 py-2.5 text-xs font-semibold shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2">
-          {successToast}
+      {toast && (
+        <div
+          role={toast.type === 'error' ? 'alert' : 'status'}
+          className={
+            toast.type === 'error'
+              ? 'fixed bottom-6 right-6 z-50 rounded-xl bg-destructive text-destructive-foreground px-4 py-2.5 text-xs font-semibold shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2'
+              : 'fixed bottom-6 right-6 z-50 rounded-xl bg-foreground text-background px-4 py-2.5 text-xs font-semibold shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2'
+          }
+        >
+          {toast.message}
         </div>
       )}
 

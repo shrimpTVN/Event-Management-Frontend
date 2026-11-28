@@ -15,6 +15,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { eventService, type Event } from '@/features/events'
 import { profileService } from '@/features/profile'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { registrationService } from '../services/registrationService'
 
 interface RegistrationFormProps {
@@ -91,8 +92,10 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ eventId, onS
       onSubmitSuccess?.()
     } catch (err: any) {
       setErrorMessage(
-        err?.response?.data?.message ||
+        resolveApiErrorMessage(
+          err,
           'Không thể đăng ký sự kiện lúc này. Có thể bạn đã đăng ký hoặc sự kiện đã đủ số lượng.'
+        )
       )
     } finally {
       setIsSubmitting(false)

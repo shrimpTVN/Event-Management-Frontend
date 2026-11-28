@@ -371,22 +371,31 @@ export const fanpageAdminService = {
   },
 
   /**
-   * Fetches pending invitations for staff to manage fanpages
+   * Fetches invitations for the current user to join/manage fanpages
    */
   getInvitations: async (): Promise<FanpageInvitation[]> => {
     try {
-      const res: any = await apiClient.get('/fanpages/fanpage-admin/invitations')
-      return Array.isArray(res) ? res : res?.data || []
+      const res: any = await apiClient.get('/fanpage-member-invitations/me')
+      const list = Array.isArray(res) ? res : res?.data || []
+      return list.map((inv: any) => ({
+        ...inv,
+        id: String(inv.id ?? ''),
+        email: inv.userEmail ?? inv.email ?? '',
+        name: inv.fanpageName ?? inv.name ?? '',
+        inviter: inv.inviterName ?? inv.inviter ?? inv.invitedBy ?? '',
+        avatarUrl: inv.fanpageAvatarUrl ?? inv.avatarUrl,
+      }))
     } catch {
       return []
     }
   },
 
   /**
-   * Responds to a fanpage invitation (accept or reject)
+   * Responds to a fanpage invitation (accept or decline)
    */
   respondInvitation: async (id: string, status: 'ACCEPTED' | 'REJECTED'): Promise<void> => {
-    await apiClient.patch(`/fanpages/fanpage-admin/invitations/${id}`, { status })
+    const action = status === 'ACCEPTED' ? 'accept' : 'decline'
+    await apiClient.post(`/fanpage-member-invitations/${id}/${action}`)
   },
 
   mapEventsToAdminEvents: (list: any[], fanpageId?: string | number): AdminEvent[] => {

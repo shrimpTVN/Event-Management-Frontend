@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { matchesPageSearch, useMobilePageSearch } from '@/shared/components/layout/MobileSubpageHeader'
 import { useParams } from 'react-router-dom'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/features/auth'
 import { userRegistrationsQueryOptions } from '@/shared/services/userRegistrations'
@@ -223,7 +224,7 @@ export const FanpageDetailPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['events'] })
     } catch (err: any) {
       queryClient.invalidateQueries({ queryKey: ['fanpage', fanpageId] })
-      showToast(err?.response?.data?.message || 'Có lỗi xảy ra khi thực hiện thao tác!', 'info')
+      showToast(resolveApiErrorMessage(err, 'Có lỗi xảy ra khi thực hiện thao tác!'), 'info')
     }
   }
 

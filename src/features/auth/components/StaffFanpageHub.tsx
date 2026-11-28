@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/shared'
+import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { profileService } from '@/features/profile'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
@@ -81,6 +82,7 @@ export const StaffFanpageHub: React.FC = () => {
   const queryClient = useQueryClient()
   const { user, clearAuth } = useAuthStore()
   const [actionNotice, setActionNotice] = useState<string | null>(null)
+  const [respondError, setRespondError] = useState<string | null>(null)
 
   // Fetch real profile from backend to ensure avatar is loaded
   const { data: staffProfile } = useQuery({
@@ -117,11 +119,14 @@ export const StaffFanpageHub: React.FC = () => {
   } = useQuery<FanpageInvitation[]>({
     queryKey: ['staff-fanpage-invitations'],
     queryFn: async () => {
-      const res: any = await apiClient.get('/fanpages/fanpage-admin/invitations')
+      const res: any = await apiClient.get('/fanpage-member-invitations/me')
       const list = Array.isArray(res) ? res : res?.data || []
       return list.map((inv: any) => ({
         ...inv,
-        avatarUrl: inv.avatarUrl,
+        id: String(inv.id ?? ''),
+        name: inv.fanpageName ?? inv.name ?? '',
+        inviter: inv.inviterName ?? inv.inviter ?? inv.invitedBy ?? '',
+        avatarUrl: inv.fanpageAvatarUrl ?? inv.avatarUrl,
       }))
     },
   })
@@ -170,16 +175,22 @@ export const StaffFanpageHub: React.FC = () => {
 
   const respondMutation = useMutation({
     mutationFn: ({ id, accept }: { id: string; accept: boolean }) =>
-      apiClient.patch(`/fanpages/fanpage-admin/invitations/${id}`, {
-        status: accept ? 'ACCEPTED' : 'REJECTED',
-      }),
+      apiClient.post(`/fanpage-member-invitations/${id}/${accept ? 'accept' : 'decline'}`),
+    onMutate: () => {
+      setRespondError(null)
+    },
     onSuccess: (_, { id, accept }) => {
       queryClient.setQueryData<FanpageInvitation[]>(['staff-fanpage-invitations'], (old = []) =>
         old.map((inv) =>
-          inv.id === id ? { ...inv, status: accept ? 'ACCEPTED' : 'REJECTED' } : inv
+          String(inv.id) === id ? { ...inv, status: accept ? 'ACCEPTED' : 'REJECTED' } : inv
         )
       )
-      const target = invitations.find((i) => i.id === id)
+      queryClient.invalidateQueries({ queryKey: ['my-fanpage-member-invitations'] })
+      if (accept) {
+        queryClient.invalidateQueries({ queryKey: ['staff-my-fanpages'] })
+        queryClient.invalidateQueries({ queryKey: ['user-fanpages'] })
+      }
+      const target = invitations.find((i) => String(i.id) === id)
       if (target) {
         setActionNotice(
           accept
@@ -188,6 +199,11 @@ export const StaffFanpageHub: React.FC = () => {
         )
         setTimeout(() => setActionNotice(null), 4000)
       }
+    },
+    onError: (err) => {
+      setRespondError(
+        resolveApiErrorMessage(err, 'Không thể phản hồi lời mời tham gia fanpage. Vui lòng thử lại.')
+      )
     },
   })
 
@@ -283,6 +299,15 @@ export const StaffFanpageHub: React.FC = () => {
               >
                 Thử lại
               </Button>
+            </div>
+          )}
+
+          {respondError && (
+            <div
+              role="alert"
+              className="rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-xs text-destructive"
+            >
+              {respondError}
             </div>
           )}
 

@@ -1,5 +1,10 @@
 import { create } from 'zustand'
 import { setAuthTokenGetter, setOnUnauthorized } from '@/shared/services/api'
+import {
+  markSessionAuthenticated,
+  setAuthStatusGetter,
+} from '@/shared/services/authRefresh'
+import { isMockMode } from '@/shared/utils/env'
 import type { User } from '../types/auth.types'
 
 interface AuthStoreState {
@@ -14,8 +19,17 @@ interface AuthStoreState {
 const STORAGE_KEY_TOKEN = 'event_mgmt_access_token'
 const STORAGE_KEY_USER = 'event_mgmt_user'
 
+function shouldUseStoredBearerToken(): boolean {
+  return isMockMode() || import.meta.env.MODE === 'test'
+}
+
 function getInitialToken(): string | null {
   if (typeof window === 'undefined') return null
+  if (!shouldUseStoredBearerToken()) {
+    // Real backend relies exclusively on HttpOnly cookies; purge stale Bearer tokens.
+    localStorage.removeItem(STORAGE_KEY_TOKEN)
+    return null
+  }
   const stored = localStorage.getItem(STORAGE_KEY_TOKEN)
   // Google ID tokens (RS256) are for auth verification only, not backend session tokens
   if (stored && stored.startsWith('eyJhbGciOiJSUzI1Ni')) {
@@ -44,8 +58,10 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
   isAuthenticated: Boolean(initialUser),
 
   setAuth: (user: User, token?: string | null) => {
-    // Ignore Google ID tokens (RS256) as backend Bearer tokens (real backend uses Cookie session)
-    const validToken = token && !token.startsWith('eyJhbGciOiJSUzI1Ni') ? token : null
+    markSessionAuthenticated()
+    // Real backend authenticates via HttpOnly cookies; keep Bearer storage for mock/test mode only.
+    const validToken =
+      shouldUseStoredBearerToken() && token && !token.startsWith('eyJhbGciOiJSUzI1Ni') ? token : null
     if (typeof window !== 'undefined') {
       if (validToken) {
         localStorage.setItem(STORAGE_KEY_TOKEN, validToken)
@@ -85,6 +101,7 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
   },
 }))
 
-// Connect token and 401 callbacks to shared API client
+// Connect token, auth status, and 401 callbacks to shared API client
 setAuthTokenGetter(() => useAuthStore.getState().token)
+setAuthStatusGetter(() => useAuthStore.getState().isAuthenticated)
 setOnUnauthorized(() => useAuthStore.getState().clearAuth())

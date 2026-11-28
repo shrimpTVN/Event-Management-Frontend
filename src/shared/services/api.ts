@@ -1,6 +1,17 @@
-import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
+import axios, { type AxiosError, type AxiosInstance } from 'axios'
 import type { ApiResponse } from '../types/api.types'
 import { isMockMode } from '../utils/env'
+import {
+  getAuthGeneration,
+  hasActiveSession,
+  isCredentialOrPublicAuthPath,
+  isSessionLoggingOut,
+  isTerminalRefreshError,
+  redirectToLoginOnce,
+  runSingleFlightRefresh,
+  shouldAttemptTokenRefresh,
+  type RetryableRequestConfig,
+} from './authRefresh'
 
 let tokenGetter: () => string | null = () => null
 let unauthorizedHandler: () => void = () => {}
@@ -28,24 +39,36 @@ export const apiClient: AxiosInstance = axios.create({
   },
 })
 
-// Request Interceptor: attach Bearer token only if valid for current mode
+function stripBearerHeader(config: RetryableRequestConfig): void {
+  if (!config.headers) return
+  if (typeof config.headers.delete === 'function') {
+    config.headers.delete('Authorization')
+  } else {
+    delete (config.headers as Record<string, unknown>).Authorization
+  }
+}
+
+// Request Interceptor: only attach Bearer token in mock mode; real BE relies solely on HttpOnly cookies
 apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const token = tokenGetter()
-    const mock = isMockMode()
-    // Do not attach fake mock tokens or Google ID tokens when connecting to real backend (uses Cookie session)
-    if (token && config.headers) {
-      const isGoogleIdToken = token.startsWith('eyJhbGciOiJSUzI1Ni')
-      if (!isGoogleIdToken && (mock || (!token.startsWith('mock-') && token.trim().length > 0))) {
-        config.headers.Authorization = `Bearer ${token}`
+  (config: RetryableRequestConfig) => {
+    config._authGeneration = getAuthGeneration()
+    if (isMockMode()) {
+      const token = tokenGetter()
+      if (token && config.headers) {
+        const isGoogleIdToken = token.startsWith('eyJhbGciOiJSUzI1Ni')
+        if (!isGoogleIdToken && token.trim().length > 0) {
+          config.headers.Authorization = `Bearer ${token}`
+        }
       }
+    } else if (!config._retry) {
+      stripBearerHeader(config)
     }
     return config
   },
   (error: AxiosError) => Promise.reject(error)
 )
 
-// Response Interceptor: unwrap envelope & handle 401
+// Response Interceptor: unwrap envelope & handle 401 refresh + retry once
 apiClient.interceptors.response.use(
   (response) => {
     if (response.data && typeof response.data === 'object' && 'data' in response.data) {
@@ -54,31 +77,61 @@ apiClient.interceptors.response.use(
     return response.data
   },
   async (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      const errData = error.response?.data as any
-      const exceptionCode = errData?.exceptionCode
-      const errMsg = (errData?.message || '').toLowerCase()
+    const originalConfig = error.config as RetryableRequestConfig | undefined
 
-      // Backend returns 401 (instead of 403) for domain authorization/permission errors
-      // such as AUTH.007 ("You are not admin of the fanpage"), AUTH.003 ("Access denied"),
-      // or fanpage/club member permission restrictions.
-      // Do NOT log out or redirect to /login for resource permission issues!
-      const isPermissionDenied =
-        exceptionCode === 'AUTH.007' ||
-        exceptionCode === 'AUTH.003' ||
-        exceptionCode === 'AUTH.006' ||
-        errMsg.includes('not admin') ||
-        errMsg.includes('not an admin') ||
-        errMsg.includes('permission') ||
-        errMsg.includes('access denied')
+    if (error.response?.status === 401 && originalConfig) {
+      const exceptionCode = (error.response?.data as { exceptionCode?: string } | undefined)
+        ?.exceptionCode
+      const isPublicAuth = isCredentialOrPublicAuthPath(originalConfig.url)
+      const isNonSessionAuthCode = exceptionCode === 'AUTH.001' || exceptionCode === 'AUTH.010'
 
-      if (!isPermissionDenied) {
+      if (shouldAttemptTokenRefresh(error, originalConfig)) {
+        const startGeneration = getAuthGeneration()
+        const hadSession = hasActiveSession()
+        try {
+          await runSingleFlightRefresh()
+        } catch (refreshError) {
+          if (isTerminalRefreshError(refreshError) && !isSessionLoggingOut()) {
+            unauthorizedHandler()
+            if (hadSession) {
+              redirectToLoginOnce()
+            }
+          }
+          return Promise.reject(isTerminalRefreshError(refreshError) ? error : refreshError)
+        }
+
+        // If user logged out or switched session while refresh was in flight, abort retry cleanly.
+        if (
+          isSessionLoggingOut() ||
+          startGeneration !== getAuthGeneration() ||
+          originalConfig.signal?.aborted
+        ) {
+          return Promise.reject(error)
+        }
+
+        originalConfig._retry = true
+        originalConfig._authGeneration = getAuthGeneration()
+        stripBearerHeader(originalConfig)
+        return apiClient(originalConfig)
+      }
+
+      // Retry after refresh failed with 401 (stop, do not refresh twice) or non-refreshable protected 401
+      if (
+        !isPublicAuth &&
+        !isNonSessionAuthCode &&
+        !isSessionLoggingOut() &&
+        !originalConfig.signal?.aborted &&
+        (originalConfig._authGeneration === undefined ||
+          originalConfig._authGeneration === getAuthGeneration())
+      ) {
+        const hadSession = hasActiveSession()
         unauthorizedHandler()
-        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-          window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+        if (hadSession) {
+          redirectToLoginOnce()
         }
       }
     }
+
     return Promise.reject(error)
   }
 )
