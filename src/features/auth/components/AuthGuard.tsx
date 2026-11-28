@@ -1,10 +1,11 @@
 import React from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import type { UserRole } from '../types/auth.types'
 import {
   getAccountHomePath,
-  isStaffRole,
+  getLoginDestination,
+  getNormalizedUserRoles,
   isStaffUser,
   isStudentUser,
   isSuperAdminUser,
@@ -40,56 +41,112 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
     return <Navigate to={targetUrl} replace />
   }
 
-  const userRoleNorm = normalizeRole(user?.role)
+  const userRoles = getNormalizedUserRoles(user)
+
+  const renderForbidden = (label?: string) => (
+    <div className="flex flex-col items-center justify-center py-20 text-center">
+      <h2 className="text-2xl font-bold text-destructive">Truy cập bị giới hạn</h2>
+      <p className="mt-2 text-muted-foreground">
+        {label ? `Bạn cần quyền ${label} để truy cập khu vực này.` : 'Bạn không có quyền truy cập khu vực này.'}
+      </p>
+    </div>
+  )
+
+  const safeRedirect = (target: string, forbiddenLabel?: string) => {
+    if (target !== location.pathname) {
+      return <Navigate to={target} replace />
+    }
+    const safeHome = isStudentUser(user) ? '/' : '/login'
+    if (safeHome !== location.pathname) {
+      return <Navigate to={safeHome} replace />
+    }
+    return renderForbidden(forbiddenLabel)
+  }
 
   if (
     (audience === 'student' && (!isStudentUser(user) || isSuperAdminUser(user))) ||
     (audience === 'staff' && (!isStaffUser(user) || isSuperAdminUser(user)))
   ) {
-    return <Navigate to={getAccountHomePath(user)} replace />
+    return safeRedirect(getAccountHomePath(user))
   }
 
   // Handle disallowed roles (e.g. staff disallowed on student home page)
-  if (disallowedRoles && userRoleNorm) {
-    const isDisallowed = disallowedRoles.some((r) => normalizeRole(r) === userRoleNorm)
+  if (disallowedRoles && userRoles.length > 0) {
+    const disallowedNormalized = disallowedRoles
+      .map((r) => normalizeRole(r))
+      .filter((r): r is NonNullable<typeof r> => Boolean(r))
+    const isDisallowed = userRoles.some((role) => disallowedNormalized.includes(role))
     if (isDisallowed) {
       if (isSuperAdminUser(user)) {
-        return <Navigate to="/admin" replace />
+        return safeRedirect('/admin')
       }
-      const fallbackPath = isStaffRole(user?.role) ? '/staff/fanpages' : '/'
-      return <Navigate to={roleRedirectPath || fallbackPath} replace />
+      const fallbackPath = isStaffUser(user) ? '/staff/fanpages' : '/'
+      return safeRedirect(roleRedirectPath || fallbackPath)
     }
   }
 
-  // Handle allowed roles whitelist
+  // Handle allowed roles whitelist across all assigned roles
   if (allowedRoles) {
-    const isAllowed = allowedRoles.some((r) => normalizeRole(r) === userRoleNorm)
+    const allowedNormalized = allowedRoles
+      .map((r) => normalizeRole(r))
+      .filter((r): r is NonNullable<typeof r> => Boolean(r))
+    const isAllowed = userRoles.some((role) => allowedNormalized.includes(role))
     if (!isAllowed) {
       if (isSuperAdminUser(user)) {
-        return <Navigate to="/admin" replace />
+        return safeRedirect('/admin')
       }
-      const fallbackPath = userRoleNorm ? getAccountHomePath(user) : '/login'
-      return <Navigate to={roleRedirectPath || fallbackPath} replace />
+      const fallbackPath = userRoles.length > 0 ? getAccountHomePath(user) : '/login'
+      return safeRedirect(roleRedirectPath || fallbackPath)
     }
   }
 
-  // Handle single requiredRole check
-  if (requiredRole && normalizeRole(requiredRole) !== userRoleNorm) {
-    if (isSuperAdminUser(user)) {
-      return <Navigate to="/admin" replace />
+  // Handle single requiredRole check across all assigned roles
+  if (requiredRole) {
+    const requiredNormalized = normalizeRole(requiredRole)
+    if (!requiredNormalized || !userRoles.includes(requiredNormalized)) {
+      if (isSuperAdminUser(user)) {
+        return safeRedirect('/admin', requiredRole)
+      }
+      if (isStaffUser(user)) {
+        return safeRedirect('/staff/fanpages', requiredRole)
+      }
+      return renderForbidden(requiredRole)
     }
-    if (isStaffRole(user?.role)) {
-      return <Navigate to="/staff/fanpages" replace />
-    }
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <h2 className="text-2xl font-bold text-destructive">Truy cập bị giới hạn</h2>
-        <p className="mt-2 text-muted-foreground">
-          Bạn cần quyền {requiredRole} để truy cập khu vực này.
-        </p>
-      </div>
-    )
   }
 
   return <>{children}</>
+}
+
+interface GuestRouteProps {
+  children: React.ReactNode
+  allowWithPendingRegistration?: boolean
+}
+
+export const GuestRoute: React.FC<GuestRouteProps> = ({
+  children,
+  allowWithPendingRegistration = false,
+}) => {
+  const { isAuthenticated, user } = useAuthStore()
+  const [searchParams] = useSearchParams()
+
+  if (isAuthenticated && user) {
+    if (allowWithPendingRegistration && typeof window !== 'undefined') {
+      try {
+        if (sessionStorage.getItem('pending_registration')) {
+          return <>{children}</>
+        }
+      } catch {
+        // Ignore storage read errors
+      }
+    }
+    const redirect = searchParams.get('redirect')
+    return <Navigate to={getLoginDestination(user, redirect)} replace />
+  }
+
+  return <>{children}</>
+}
+
+export const RoleHomeRedirect: React.FC = () => {
+  const { user } = useAuthStore()
+  return <Navigate to={getAccountHomePath(user)} replace />
 }

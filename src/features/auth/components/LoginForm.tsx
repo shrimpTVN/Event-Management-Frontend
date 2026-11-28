@@ -12,6 +12,7 @@ import { isMockMode } from '@/shared/utils/env'
 import {
   extractApiFieldErrors,
   getApiErrorCode,
+  resolveApiErrorMessage,
 } from '@/shared/utils/apiError'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 import { GoogleAuthButton } from './GoogleAuthButton'
@@ -52,6 +53,7 @@ export const LoginForm: React.FC = () => {
   })
 
   const onSubmit = async (data: LoginInput) => {
+    if (isSubmitting) return
     const rawEmail = data.email.trim()
     let normalizedEmail = rawEmail
     if (rawEmail.toLowerCase() === 'admin') {
@@ -94,7 +96,9 @@ export const LoginForm: React.FC = () => {
         }
       } else {
         if (import.meta.env.DEV) console.error('Login request failed:', err)
-        setApiError('Hệ thống đang bận hoặc mất kết nối mạng. Vui lòng thử lại sau.')
+        setApiError(
+          resolveApiErrorMessage(err, 'Hệ thống đang bận hoặc mất kết nối mạng. Vui lòng thử lại sau.')
+        )
       }
     } finally {
       setIsSubmitting(false)
@@ -102,6 +106,7 @@ export const LoginForm: React.FC = () => {
   }
 
   const handleGoogleSuccess = async (credentialResponse: { credential?: string }) => {
+    if (isSubmitting) return
     try {
       setIsSubmitting(true)
       setApiError(null)
@@ -119,7 +124,7 @@ export const LoginForm: React.FC = () => {
       navigate(getLoginDestination(res.user, redirectUrl), { replace: true })
     } catch (err: unknown) {
       if (import.meta.env.DEV) console.error('Google login exchange error:', err)
-      setApiError('Đăng nhập Google thất bại. Vui lòng thử lại.')
+      setApiError(resolveApiErrorMessage(err, 'Đăng nhập Google thất bại. Vui lòng thử lại.'))
     } finally {
       setIsSubmitting(false)
     }

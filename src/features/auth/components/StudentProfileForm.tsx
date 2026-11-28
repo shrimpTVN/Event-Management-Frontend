@@ -8,6 +8,7 @@ import { studentProfileSchema, type StudentProfileInput } from '../types/auth.sc
 import { RoleEnum } from '../types/auth.types'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
+import { sanitizeRedirectPath } from '../utils/authUtils'
 import {
   extractApiFieldErrors,
   getApiErrorCode,
@@ -81,11 +82,12 @@ export const StudentProfileForm: React.FC = () => {
   const academicYearValue = watch('academicYear')
 
   const handleSkip = () => {
-    const redirectUrl = searchParams.get('redirect') || '/'
+    const redirectUrl = sanitizeRedirectPath(searchParams.get('redirect'), '/')
     navigate(redirectUrl, { replace: true })
   }
 
   const onSubmit = async (data: StudentProfileInput) => {
+    if (isSubmitting) return
     try {
       setIsSubmitting(true)
       setApiError(null)
@@ -100,11 +102,22 @@ export const StudentProfileForm: React.FC = () => {
         role: updatedUser.role || RoleEnum.STUDENT,
         isProfileComplete: true,
       })
-      navigate(searchParams.get('redirect') || '/', { replace: true })
+      navigate(sanitizeRedirectPath(searchParams.get('redirect'), '/'), { replace: true })
     } catch (err: any) {
       const errCode = getApiErrorCode(err)
       const { fields: fieldErrors } = extractApiFieldErrors(err, {
-        allowedFields: ['fullName', 'studentId', 'gender', 'schoolId', 'majorId', 'className', 'academicYear'],
+        allowedFields: [
+          'fullName',
+          'studentId',
+          'gender',
+          'faculty',
+          'major',
+          'schoolId',
+          'majorId',
+          'className',
+          'academicYear',
+        ],
+        aliases: { schoolId: 'faculty', majorId: 'major' },
       })
 
       if (errCode === 'STUDENT.002' || errCode === '006') {
@@ -142,7 +155,7 @@ export const StudentProfileForm: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              const redirectUrl = searchParams.get('redirect') || '/'
+              const redirectUrl = sanitizeRedirectPath(searchParams.get('redirect'), '/')
               navigate(redirectUrl, { replace: true })
             }}
             className="inline-flex items-center gap-2 text-sm font-medium text-[#4B5563] dark:text-muted-foreground hover:text-foreground transition-colors cursor-pointer"

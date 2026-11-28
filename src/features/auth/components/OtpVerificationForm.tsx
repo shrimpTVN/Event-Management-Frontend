@@ -4,9 +4,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
-import { isStaffEmail, isStaffUser } from '../utils/authUtils'
+import { isStaffEmail, isStaffUser, isStudentUser } from '../utils/authUtils'
+import { isMockMode } from '@/shared/utils/env'
 import { extractApiFieldErrors, resolveApiErrorMessage } from '@/shared/utils/apiError'
-import { RoleEnum, type User } from '../types/auth.types'
+import { type User } from '../types/auth.types'
 import { AuthLayoutWrapper } from './AuthLayoutWrapper'
 
 export const OtpVerificationForm: React.FC = () => {
@@ -14,15 +15,25 @@ export const OtpVerificationForm: React.FC = () => {
   const [searchParams] = useSearchParams()
   const { setAuth } = useAuthStore()
 
-  const email = searchParams.get('email') || 'user@student.ctu.edu.vn'
+  const email = searchParams.get('email')?.trim() || ''
 
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', ''])
   const [timer, setTimer] = useState<number>(300) // 5 minutes countdown (Figma: 5 phút)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isResending, setIsResending] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const [resendSuccess, setResendSuccess] = useState(false)
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const resendTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (resendTimeoutRef.current) {
+        clearTimeout(resendTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Countdown timer effect
   useEffect(() => {
@@ -98,20 +109,32 @@ export const OtpVerificationForm: React.FC = () => {
   }
 
   const handleResendOtp = async () => {
+    if (!email || isResending) return
     try {
+      setIsResending(true)
       setResendSuccess(false)
       setApiError(null)
       await authService.resendOtp(email)
       setTimer(300)
       setResendSuccess(true)
-      setTimeout(() => setResendSuccess(false), 4000)
-    } catch {
-      setApiError('Không thể gửi lại mã OTP. Vui lòng thử lại sau.')
+      if (resendTimeoutRef.current) {
+        clearTimeout(resendTimeoutRef.current)
+      }
+      resendTimeoutRef.current = setTimeout(() => setResendSuccess(false), 4000)
+    } catch (err: unknown) {
+      setApiError(resolveApiErrorMessage(err, 'Không thể gửi lại mã OTP. Vui lòng thử lại sau.'))
+    } finally {
+      setIsResending(false)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isSubmitting) return
+    if (!email) {
+      setApiError('Không tìm thấy địa chỉ email cần xác thực. Vui lòng đăng ký lại.')
+      return
+    }
     const otpCode = otpDigits.join('')
     if (otpCode.length !== 6) {
       setApiError('Vui lòng nhập đủ 6 chữ số mã xác thực')
@@ -126,10 +149,11 @@ export const OtpVerificationForm: React.FC = () => {
       const pending = pendingRaw ? JSON.parse(pendingRaw) : null
       const isStaff = isStaffEmail(email)
 
-      if (pending && pending.password && !isStaff) {
-        // Complete student registration via backend POST /auth/register
+      if (pending && pending.password) {
+        // Complete registration via backend POST /auth/register for both student and staff dev accounts
         const parts = (pending.fullName || '').trim().split(/\s+/)
-        const lastName = pending.lastName || (parts.length > 1 ? parts[0] : 'Sinh viên')
+        const lastName =
+          pending.lastName || (parts.length > 1 ? parts[0] : isStaff ? 'Cán bộ' : 'Sinh viên')
         const firstName =
           pending.firstName || (parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'CTU')
 
@@ -141,13 +165,16 @@ export const OtpVerificationForm: React.FC = () => {
           lastName,
         })
 
-        // Auto login immediately
+        // Auto login immediately to obtain real HttpOnly session cookies
         const loginRes = await authService.login({
           email,
           password: pending.password,
         })
 
         sessionStorage.removeItem('pending_registration')
+        const shouldGoStaffOnboarding =
+          !isStudentUser(loginRes.user) && (isStaffUser(loginRes.user) || isStaff)
+
         setAuth(
           {
             ...loginRes.user,
@@ -156,43 +183,39 @@ export const OtpVerificationForm: React.FC = () => {
           loginRes.tokens?.accessToken || null
         )
 
-        navigate('/onboarding/student', { replace: true })
+        navigate(shouldGoStaffOnboarding ? '/onboarding/staff' : '/onboarding/student', {
+          replace: true,
+        })
       } else {
         const res: any = await authService.verifyOtp({ email, otp: otpCode })
+        const returnedUser = res && typeof res === 'object' ? (res.user as User | undefined) : undefined
 
-        const emailUsername = email.split('@')[0] || ''
-        const staffDetected = isStaffUser(res?.user) || isStaff
-        const newUserId = Date.now()
-        const defaultUser: User = res?.user || {
-          id: 'usr-' + newUserId,
-          email,
-          name:
-            emailUsername.replace(/[._]/g, ' ') || (staffDetected ? 'Cán bộ CTU' : 'Sinh viên CTU'),
-          studentId: !staffDetected ? emailUsername.toUpperCase() : undefined,
-          role: staffDetected ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT,
-          createdAt: new Date().toISOString(),
-          isProfileComplete: false,
+        if (!returnedUser) {
+          if (!isMockMode() && import.meta.env.MODE !== 'test') {
+            setApiError(
+              'Phiên đăng ký đã hết hạn hoặc không còn thông tin tạm thời. Vui lòng đăng ký lại để tiếp tục.'
+            )
+            return
+          }
+          setApiError('Phiên đăng ký không hợp lệ. Vui lòng quay lại trang đăng ký.')
+          return
         }
 
+        const staffDetected = !isStudentUser(returnedUser) && (isStaffUser(returnedUser) || isStaff)
         const verifiedToken =
-          (res as any)?.tokens?.accessToken || `mock-jwt-token-${newUserId}-${Date.now()}`
+          isMockMode() || import.meta.env.MODE === 'test'
+            ? (res as any)?.tokens?.accessToken || null
+            : null
 
         setAuth(
           {
-            ...defaultUser,
-            role: staffDetected ? RoleEnum.FANPAGE_ADMIN : RoleEnum.STUDENT,
+            ...returnedUser,
             isProfileComplete: false,
           },
           verifiedToken
         )
 
-        if (staffDetected) {
-          // Staff phải yêu cầu nhập thông tin cán bộ trước, rồi mới sang trang quản lý fanpage
-          navigate('/onboarding/staff', { replace: true })
-        } else {
-          // Sinh viên yêu cầu hoàn tất thông tin sinh viên ngay sau khi xác thực OTP
-          navigate('/onboarding/student', { replace: true })
-        }
+        navigate(staffDetected ? '/onboarding/staff' : '/onboarding/student', { replace: true })
       }
     } catch (err: any) {
       const { fields } = extractApiFieldErrors(err, { allowedFields: ['otpCode'] })
@@ -214,9 +237,16 @@ export const OtpVerificationForm: React.FC = () => {
     >
       <form onSubmit={handleSubmit} className="space-y-6 text-center" noValidate>
         {/* Email highlight */}
-        <div className="inline-block px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-medium text-sm">
-          {email}
-        </div>
+        {email ? (
+          <div className="inline-block px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-medium text-sm">
+            {email}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm text-left">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>Thiếu địa chỉ email cần xác thực. Vui lòng quay lại trang đăng ký.</span>
+          </div>
+        )}
 
         {apiError && (
           <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm text-left">
@@ -270,7 +300,7 @@ export const OtpVerificationForm: React.FC = () => {
         {/* Action Button */}
         <button
           type="submit"
-          disabled={isSubmitting || otpDigits.join('').length !== 6}
+          disabled={isSubmitting || !email || otpDigits.join('').length !== 6}
           className="w-full h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
         >
           {isSubmitting ? (
@@ -290,7 +320,7 @@ export const OtpVerificationForm: React.FC = () => {
             <button
               type="button"
               onClick={handleResendOtp}
-              disabled={timer > 240} // Cooldown 60s
+              disabled={timer > 240 || isResending || !email} // Cooldown 60s
               className="font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-4 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               Gửi lại mã

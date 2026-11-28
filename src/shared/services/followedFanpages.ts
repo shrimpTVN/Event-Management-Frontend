@@ -24,8 +24,13 @@ export const normalizeSidebarFanpage = (fp: any): SidebarFanpageItem => {
   }
 }
 
-export const followedFanpagesQueryKey = (isAuthenticated: boolean) =>
-  ['fanpages', 'sidebar', isAuthenticated] as const
+export const followedFanpagesQueryKey = (
+  isAuthenticated: boolean,
+  userId?: string | number | null
+) =>
+  userId !== undefined && userId !== null
+    ? (['fanpages', 'sidebar', isAuthenticated, userId] as const)
+    : (['fanpages', 'sidebar', isAuthenticated] as const)
 
 export async function fetchFollowedFanpages(): Promise<SidebarFanpageItem[]> {
   const items: SidebarFanpageItem[] = []

@@ -26,6 +26,25 @@ export const normalizeRole = (role?: UserRole | string | null): RoleEnum | null 
 }
 
 /**
+ * Collects and normalizes all roles assigned to a user across both `user.role` and `user.roles`.
+ */
+export const getNormalizedUserRoles = (
+  user?: { role?: UserRole | string | null; roles?: string[] | null } | null
+): RoleEnum[] => {
+  if (!user) return []
+  const result = new Set<RoleEnum>()
+  const primary = normalizeRole(user.role)
+  if (primary) result.add(primary)
+  if (Array.isArray(user.roles)) {
+    user.roles.forEach((r) => {
+      const normalized = normalizeRole(r)
+      if (normalized) result.add(normalized)
+    })
+  }
+  return Array.from(result)
+}
+
+/**
  * Checks if a given role is the super admin role.
  */
 export const isSuperAdminRole = (role?: UserRole | string | null): boolean => {
@@ -42,6 +61,7 @@ export const isSuperAdminRole = (role?: UserRole | string | null): boolean => {
 export const isSuperAdminEmail = (email?: string | null): boolean => {
   if (!email) return false
   const normalized = email.trim().toLowerCase()
+  if (normalized.endsWith('@student.ctu.edu.vn')) return false
   return (
     normalized === 'superadmin@gmail.com' ||
     normalized === 'admin@gmail.com' ||
@@ -49,8 +69,7 @@ export const isSuperAdminEmail = (email?: string | null): boolean => {
     normalized === 'admin@ctu.edu.vn' ||
     normalized === 'superadmin' ||
     normalized === 'admin' ||
-    normalized.startsWith('superadmin@') ||
-    normalized.includes('superadmin')
+    normalized.startsWith('superadmin@')
   )
 }
 
@@ -101,11 +120,9 @@ export const isStudentUser = (
 ): boolean => {
   if (!user) return false
   const email = (user.email || '').trim().toLowerCase()
-  if (email.startsWith('student') || email.endsWith('@student.ctu.edu.vn')) return true
+  if (email.endsWith('@student.ctu.edu.vn')) return true
   if (user.studentId) return true
-  if (isStudentRole(user.role)) return true
-  if (Array.isArray(user.roles) && user.roles.some((r) => isStudentRole(r))) return true
-  return false
+  return getNormalizedUserRoles(user).includes(RoleEnum.STUDENT)
 }
 
 /**
@@ -121,8 +138,7 @@ export const isStaffUser = (
 ): boolean => {
   if (!user) return false
   if (isStudentUser(user)) return false
-  if (isStaffRole(user.role)) return true
-  if (Array.isArray(user.roles) && user.roles.some((r) => isStaffRole(r))) return true
+  if (getNormalizedUserRoles(user).some((r) => isStaffRole(r))) return true
   return isStaffEmail(user.email)
 }
 
@@ -135,22 +151,31 @@ export const getAccountHomePath = (user: Parameters<typeof isStudentUser>[0]): s
   return '/login'
 }
 
+export const sanitizeRedirectPath = (
+  redirect?: string | null,
+  fallback: string = '/'
+): string => {
+  if (
+    !redirect ||
+    !redirect.startsWith('/') ||
+    redirect.startsWith('//') ||
+    /[\\\s]/.test(redirect)
+  ) {
+    return fallback
+  }
+  return redirect
+}
+
 export const getLoginDestination = (
   user: Parameters<typeof isStudentUser>[0] & { isProfileComplete?: boolean },
   redirect?: string | null
 ): string => {
   const home = getAccountHomePath(user)
   if (home !== '/') return home
-  if (isStudentRole(user?.role) && !user?.isProfileComplete) return '/onboarding/student'
-  // Only accept local application paths from the login query string.
-  if (
-    !redirect ||
-    !redirect.startsWith('/') ||
-    redirect.startsWith('//') ||
-    /[\\\s]/.test(redirect)
-  )
-    return home
-  const pathname = redirect.split(/[?#]/)[0]
+  if (isStudentUser(user) && !user?.isProfileComplete) return '/onboarding/student'
+  const safeRedirect = sanitizeRedirectPath(redirect, '')
+  if (!safeRedirect) return home
+  const pathname = safeRedirect.split(/[?#]/)[0]
   if (
     [
       '/login',
@@ -165,7 +190,7 @@ export const getLoginDestination = (
     ].includes(pathname)
   )
     return home
-  return redirect
+  return safeRedirect
 }
 
 /**
@@ -176,7 +201,7 @@ export const getLoginDestination = (
 export const isStaffEmail = (email?: string | null): boolean => {
   if (!email) return false
   const normalized = email.trim().toLowerCase()
-  if (normalized.startsWith('student') || normalized.endsWith('@student.ctu.edu.vn')) {
+  if (normalized.endsWith('@student.ctu.edu.vn')) {
     return false
   }
   return (

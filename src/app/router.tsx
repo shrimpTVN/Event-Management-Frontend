@@ -1,6 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { PageShell, RootLayout } from '@/shared'
-import { AuthGuard } from '@/features/auth/components/AuthGuard'
+import { AuthGuard, GuestRoute, RoleHomeRedirect } from '@/features/auth/components/AuthGuard'
 import { STAFF_ROLES, ADMIN_ROLES, STUDENT_ROLES } from '@/features/auth/types/auth.types'
 import { HomePage } from '../pages/HomePage'
 import { EventDetailPage } from '../pages/EventDetailPage'
@@ -33,15 +33,27 @@ export const appRoutes = [
       // 1. Standalone Authentication & Onboarding Routes
       {
         path: '/login',
-        element: <LoginPage />,
+        element: (
+          <GuestRoute>
+            <LoginPage />
+          </GuestRoute>
+        ),
       },
       {
         path: '/register',
-        element: <RegisterPage />,
+        element: (
+          <GuestRoute>
+            <RegisterPage />
+          </GuestRoute>
+        ),
       },
       {
         path: '/verify-otp',
-        element: <VerifyOtpPage />,
+        element: (
+          <GuestRoute allowWithPendingRegistration>
+            <VerifyOtpPage />
+          </GuestRoute>
+        ),
       },
       {
         path: '/onboarding/student',
@@ -128,12 +140,28 @@ export const appRoutes = [
         element: <Navigate to="/fanpage/workspace" replace />,
       },
       {
+        path: '/dashboard',
+        element: (
+          <AuthGuard>
+            <RoleHomeRedirect />
+          </AuthGuard>
+        ),
+      },
+      {
         path: '/dang-nhap',
-        element: <LoginPage />,
+        element: (
+          <GuestRoute>
+            <LoginPage />
+          </GuestRoute>
+        ),
       },
       {
         path: '/dang-ky',
-        element: <RegisterPage />,
+        element: (
+          <GuestRoute>
+            <RegisterPage />
+          </GuestRoute>
+        ),
       },
       {
         path: '/dang-ky-fanpage',
@@ -268,10 +296,6 @@ export const appRoutes = [
                 <Sv5tPage />
               </AuthGuard>
             ),
-          },
-          {
-            path: 'dashboard',
-            element: <Navigate to="/staff/fanpages" replace />,
           },
           {
             path: 'fanpage',

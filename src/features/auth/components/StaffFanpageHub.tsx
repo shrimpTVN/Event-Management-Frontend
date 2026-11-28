@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/shared'
 import { resolveApiErrorMessage } from '@/shared/utils/apiError'
 import { profileService } from '@/features/profile'
+import { useNotificationStream } from '@/features/notifications/hooks/useNotifications'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
 
@@ -81,6 +82,7 @@ export const StaffFanpageHub: React.FC = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user, clearAuth } = useAuthStore()
+  useNotificationStream()
   const [actionNotice, setActionNotice] = useState<string | null>(null)
   const [respondError, setRespondError] = useState<string | null>(null)
 

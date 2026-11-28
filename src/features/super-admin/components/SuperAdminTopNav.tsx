@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import logoSvg from '@/assets/logo.svg'
 import { useAuthStore } from '@/features/auth'
+import { authService } from '@/features/auth/services/authService'
 import { AccountNavigationPopup } from '@/shared/components/layout/AccountNavigationPopup'
 import { NotificationDropdown } from '@/shared/components/layout/NotificationDropdown'
 import { useUnreadNotificationCount, useNotificationStream } from '@/features/notifications'
@@ -96,11 +97,17 @@ export const SuperAdminTopNav: React.FC<SuperAdminTopNavProps> = ({
       (searchResults.users.length || searchResults.fanpages.length || searchResults.events.length)
   )
 
-  const handleLogout = () => {
-    queryClient.clear()
-    clearAuth()
-    setShowAccountPopup(false)
-    navigate('/login')
+  const handleLogout = async () => {
+    try {
+      await authService.logout()
+    } catch {
+      // Proceed local cleanup even if backend request fails
+    } finally {
+      queryClient.clear()
+      clearAuth()
+      setShowAccountPopup(false)
+      navigate('/login', { replace: true })
+    }
   }
 
   return (

@@ -6,7 +6,7 @@ import { FanpageMembersView } from '../FanpageMembersView'
 import { fanpageAdminService } from '../../services/fanpageAdminService'
 import type { FanpageSummary } from '../../types/fanpageAdmin.types'
 
-vi.mock('@/store/authStore', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) => selector({ user: { id: '2' } }),
 }))
 vi.mock('../../services/fanpageAdminService', () => ({

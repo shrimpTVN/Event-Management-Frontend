@@ -9,6 +9,7 @@ import {
   isSuperAdminUser,
   getAccountHomePath,
   getLoginDestination,
+  sanitizeRedirectPath,
 } from '../authUtils'
 import { RoleEnum } from '../../types/auth.types'
 
@@ -172,6 +173,18 @@ describe('authUtils with Spring Security ROLE_ prefix', () => {
           role: 'ROLE_STUDENT' as any,
         })
       ).toBe(false)
+
+      expect(isSuperAdminEmail('test.superadmin@student.ctu.edu.vn')).toBe(false)
+      expect(
+        getAccountHomePath({
+          email: 'student@student.ctu.edu.vn',
+          role: RoleEnum.FANPAGE_ADMIN,
+          roles: ['ROLE_FANPAGE_ADMIN', 'ROLE_STUDENT'],
+        })
+      ).toBe('/')
+      expect(sanitizeRedirectPath('/events/1?tab=1')).toBe('/events/1?tab=1')
+      expect(sanitizeRedirectPath('//evil.com', '/staff/fanpages')).toBe('/staff/fanpages')
+      expect(sanitizeRedirectPath('https://evil.com')).toBe('/')
     })
   })
 })

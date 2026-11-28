@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { setAuthTokenGetter, setOnUnauthorized } from '@/shared/services/api'
 import {
+  clearRegisteredQueryCache,
+  invalidateAuthSession,
   markSessionAuthenticated,
   setAuthStatusGetter,
 } from '@/shared/services/authRefresh'
@@ -39,12 +41,29 @@ function getInitialToken(): string | null {
   return stored
 }
 
+function isValidStoredUser(value: unknown): value is User {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Record<string, unknown>
+  const hasEmail = typeof candidate.email === 'string' && candidate.email.trim().length > 0
+  const hasId =
+    (typeof candidate.id === 'string' && candidate.id.trim().length > 0) ||
+    typeof candidate.id === 'number'
+  return hasEmail && hasId
+}
+
 function getInitialUser(): User | null {
   if (typeof window === 'undefined') return null
   try {
     const raw = localStorage.getItem(STORAGE_KEY_USER)
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    const parsed: unknown = JSON.parse(raw)
+    if (!isValidStoredUser(parsed)) {
+      localStorage.removeItem(STORAGE_KEY_USER)
+      return null
+    }
+    return parsed
   } catch {
+    localStorage.removeItem(STORAGE_KEY_USER)
     return null
   }
 }
@@ -52,12 +71,16 @@ function getInitialUser(): User | null {
 const initialToken = getInitialToken()
 const initialUser = getInitialUser()
 
-export const useAuthStore = create<AuthStoreState>((set) => ({
+export const useAuthStore = create<AuthStoreState>((set, get) => ({
   user: initialUser,
   token: initialToken,
   isAuthenticated: Boolean(initialUser),
 
   setAuth: (user: User, token?: string | null) => {
+    const prevUser = get().user
+    if (prevUser && (prevUser.id !== user.id || prevUser.email !== user.email)) {
+      clearRegisteredQueryCache()
+    }
     markSessionAuthenticated()
     // Real backend authenticates via HttpOnly cookies; keep Bearer storage for mock/test mode only.
     const validToken =
@@ -78,6 +101,8 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
   },
 
   clearAuth: () => {
+    invalidateAuthSession()
+    clearRegisteredQueryCache()
     if (typeof window !== 'undefined') {
       localStorage.removeItem(STORAGE_KEY_TOKEN)
       localStorage.removeItem(STORAGE_KEY_USER)

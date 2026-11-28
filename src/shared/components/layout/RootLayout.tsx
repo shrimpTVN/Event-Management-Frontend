@@ -1,5 +1,8 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import { Outlet } from 'react-router-dom'
+import { apiClient } from '@/shared/services/api'
+import { isMockMode } from '@/shared/utils/env'
+import { useAuthStore } from '@/features/auth/store/authStore'
 import { TopProgressBar } from './TopProgressBar'
 import { FullscreenTransitionLoader } from './FullscreenTransitionLoader'
 
@@ -11,6 +14,21 @@ import { FullscreenTransitionLoader } from './FullscreenTransitionLoader'
  *    (Đăng nhập -> Trang chủ, Đăng xuất, Mở/Đổi Fanpage workspace, Vào Super Admin).
  */
 export const RootLayout: React.FC = () => {
+  const verifiedBootRef = useRef(false)
+
+  useEffect(() => {
+    if (verifiedBootRef.current || isMockMode() || import.meta.env.MODE === 'test') {
+      return
+    }
+    verifiedBootRef.current = true
+    const state = useAuthStore.getState()
+    if (!state.isAuthenticated || !state.user) {
+      return
+    }
+    // Validate hydrated local session against real backend cookie once on app mount.
+    apiClient.get('/users/me/profile').catch(() => undefined)
+  }, [])
+
   return (
     <>
       <TopProgressBar />

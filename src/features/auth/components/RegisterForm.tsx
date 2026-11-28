@@ -6,6 +6,8 @@ import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, User as UserIcon } from 
 import { registerSchema, type RegisterInput } from '../types/auth.schemas'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
+import { getLoginDestination } from '../utils/authUtils'
+import { clearRegisteredQueryCache } from '@/shared/services/authRefresh'
 import { isMockMode } from '@/shared/utils/env'
 import {
   extractApiFieldErrors,
@@ -41,11 +43,13 @@ export const RegisterForm: React.FC = () => {
   })
 
   const onSubmit = async (data: RegisterInput) => {
+    if (isSubmitting) return
     try {
       setIsSubmitting(true)
       setApiError(null)
       clearErrors()
 
+      const normalizedEmail = data.email.trim().toLowerCase()
       const parts = data.fullName.trim().split(/\s+/)
       const lastName = parts.length > 1 ? parts[0] : 'Sinh viên'
       const firstName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || 'CTU'
@@ -53,17 +57,17 @@ export const RegisterForm: React.FC = () => {
       sessionStorage.setItem(
         'pending_registration',
         JSON.stringify({
-          email: data.email,
+          email: normalizedEmail,
           password: data.password,
           fullName: data.fullName,
           firstName,
           lastName,
         })
       )
-      await authService.sendOtp(data.email)
+      await authService.sendOtp(normalizedEmail)
 
       // Direct user to OTP Verification Step (Figma 968:5594)
-      navigate(`/verify-otp?email=${encodeURIComponent(data.email)}`)
+      navigate(`/verify-otp?email=${encodeURIComponent(normalizedEmail)}`)
     } catch (err: any) {
       const code = getApiErrorCode(err)
       const { fields: fieldErrors } = extractApiFieldErrors(err, {
@@ -90,25 +94,24 @@ export const RegisterForm: React.FC = () => {
   }
 
   const handleGoogleSuccess = async (credentialResponse: { credential?: string }) => {
+    if (isSubmitting) return
     try {
       setIsSubmitting(true)
       setApiError(null)
       const idToken = credentialResponse?.credential
       const redirectParam = searchParams.get('redirect')
-      const targetUrl = redirectParam
-        ? `/onboarding/student?redirect=${encodeURIComponent(redirectParam)}`
-        : '/onboarding/student'
 
       if (!idToken || (!isMockMode() && idToken.startsWith('mock-google-token-'))) {
         setApiError('Không nhận được thông tin xác thực từ Google. Vui lòng thử lại.')
         return
       }
       const res = await authService.exchangeGoogleToken({ idToken })
+      clearRegisteredQueryCache()
       setAuth(res.user, res.tokens?.accessToken || null)
-      navigate(targetUrl, { replace: true })
+      navigate(getLoginDestination(res.user, redirectParam), { replace: true })
     } catch (err: unknown) {
       if (import.meta.env.DEV) console.error('Google sign-up exchange error:', err)
-      setApiError('Đăng ký bằng Google không thành công. Vui lòng thử lại.')
+      setApiError(resolveApiErrorMessage(err, 'Đăng ký bằng Google không thành công. Vui lòng thử lại.'))
     } finally {
       setIsSubmitting(false)
     }

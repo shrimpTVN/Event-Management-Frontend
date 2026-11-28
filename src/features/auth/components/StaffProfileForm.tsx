@@ -7,6 +7,7 @@ import { staffProfileSchema, type StaffProfileInput } from '../types/auth.schema
 import { RoleEnum } from '../types/auth.types'
 import { authService } from '../services/authService'
 import { useAuthStore } from '../store/authStore'
+import { sanitizeRedirectPath } from '../utils/authUtils'
 import {
   extractApiFieldErrors,
   getApiErrorCode,
@@ -200,6 +201,7 @@ export const StaffProfileForm: React.FC = () => {
   const positionValue = watch('position')
 
   const onSubmit = async (data: StaffProfileInput) => {
+    if (isSubmitting) return
     try {
       setIsSubmitting(true)
       setApiError(null)
@@ -209,12 +211,23 @@ export const StaffProfileForm: React.FC = () => {
         role: updatedUser.role || RoleEnum.FANPAGE_ADMIN,
         isProfileComplete: true,
       })
-      const redirect = searchParams.get('redirect') || '/staff/fanpages'
+      const redirect = sanitizeRedirectPath(searchParams.get('redirect'), '/staff/fanpages')
       navigate(redirect, { replace: true })
     } catch (err: any) {
       const errCode = getApiErrorCode(err)
       const { fields: fieldErrors } = extractApiFieldErrors(err, {
-        allowedFields: ['fullName', 'staffId', 'department', 'position', 'phoneNumber'],
+        allowedFields: [
+          'fullName',
+          'staffId',
+          'department',
+          'position',
+          'orgName',
+          'title',
+          'firstName',
+          'lastName',
+          'phoneNumber',
+        ],
+        aliases: { orgName: 'department', title: 'position' },
       })
 
       if (errCode === 'STAFF_ID_ALREADY_EXISTS' || errCode === '006') {
@@ -227,7 +240,7 @@ export const StaffProfileForm: React.FC = () => {
         })
       } else if (errCode === 'STAFF_PROFILE_ALREADY_EXISTS') {
         updateUser({ isProfileComplete: true })
-        const redirect = searchParams.get('redirect') || '/staff/fanpages'
+        const redirect = sanitizeRedirectPath(searchParams.get('redirect'), '/staff/fanpages')
         navigate(redirect, { replace: true })
       } else if (Object.keys(fieldErrors).length > 0) {
         Object.entries(fieldErrors).forEach(([field, message]) => {

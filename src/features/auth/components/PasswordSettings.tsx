@@ -82,11 +82,11 @@ export function PasswordSettings() {
       }
     } catch (err) {
       const code = getApiErrorCode(err)
-      const message =
+      const rawMessage =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? ''
       if (
         code === 'PASSWORD_ALREADY_SET' ||
-        /already has a password|change-password/i.test(message)
+        /already has a password|change-password/i.test(rawMessage)
       ) {
         await queryClient.invalidateQueries({ queryKey: ['account-security'] })
         reset('change')

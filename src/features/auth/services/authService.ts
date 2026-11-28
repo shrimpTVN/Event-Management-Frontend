@@ -320,8 +320,8 @@ export const authService = {
   /**
    * Retrieves current authenticated user profile
    */
-  async getCurrentUser(): Promise<User> {
-    return apiClient.get('/auth/me')
+  async getCurrentUser(): Promise<any> {
+    return apiClient.get('/users/me/profile')
   },
 
   /**

@@ -139,4 +139,45 @@ describe('RegisterForm', () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
     expect(authService.login).not.toHaveBeenCalled()
   })
+
+  it('shows inline email error and stays on /register when sendOtp rejects with AUTH.003', async () => {
+    vi.mocked(authService.sendOtp).mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          exceptionCode: 'AUTH.003',
+          message: 'User with email existing@student.ctu.edu.vn already exists.',
+        },
+      },
+    })
+
+    render(
+      <MemoryRouter>
+        <RegisterForm />
+      </MemoryRouter>
+    )
+
+    fireEvent.change(screen.getByPlaceholderText(/Ví dụ: Nguyễn Văn A/i), {
+      target: { value: 'Nguyễn Văn An' },
+    })
+    fireEvent.change(screen.getByPlaceholderText(/example@student.ctu.edu.vn/i), {
+      target: { value: 'Existing@student.ctu.edu.vn' },
+    })
+    fireEvent.change(screen.getByPlaceholderText(/^Nhập mật khẩu$/i), {
+      target: { value: 'Password123' },
+    })
+    fireEvent.change(screen.getByPlaceholderText(/^Nhập lại mật khẩu$/i), {
+      target: { value: 'Password123' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^Đăng ký$/i }))
+
+    await waitFor(() => {
+      expect(authService.sendOtp).toHaveBeenCalledWith('existing@student.ctu.edu.vn')
+      expect(
+        screen.getByText('Email này đã được đăng ký trong hệ thống. Vui lòng đăng nhập hoặc sử dụng email khác.')
+      ).toBeInTheDocument()
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
+  })
 })

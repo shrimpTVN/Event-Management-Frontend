@@ -1,4 +1,5 @@
 import { apiClient } from '@/shared'
+import { isMockMode } from '@/shared/utils/env'
 import { isSuperAdminEmail } from '../utils/authUtils'
 
 /**
@@ -40,7 +41,7 @@ const STORAGE_KEY = 'ctu_registered_emails'
  * Lưu email vào danh sách đã đăng ký khi người dùng tạo tài khoản mới thành công
  */
 export const addRegisteredEmail = (email: string): void => {
-  if (!email || typeof window === 'undefined') return
+  if (!isMockMode() || !email || typeof window === 'undefined') return
   try {
     const normalized = email.trim().toLowerCase()
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -105,7 +106,7 @@ export const fetchFanpageMembersEmails = async (): Promise<string[]> => {
  * Kiểm tra xem một email có tồn tại trong hệ thống hay không
  */
 export const checkEmailRegistered = async (email: string): Promise<boolean> => {
-  if (!email) return false
+  if (!isMockMode() || !email) return false
   const normalized = email.trim().toLowerCase()
 
   // 0. Kiểm tra tài khoản Super Admin (bao gồm cả tài khoản ngoài domain @ctu.edu.vn)

@@ -12,6 +12,7 @@ const AUTH_SKIP_PATHS = [
   '/auth/register',
   '/auth/register/fanpage-admin',
   '/auth/send-otp',
+  '/auth/resend-otp',
   '/auth/verify-otp',
   '/auth/refresh-token',
   '/auth/logout',
@@ -31,6 +32,20 @@ let isLoggingOut = false
 let authGeneration = 0
 let isRedirectingToLogin = false
 let authStatusGetter: () => boolean = () => true
+let queryCacheClearer: (() => void) | null = null
+
+export function registerQueryCacheClearer(clearer: () => void): () => void {
+  queryCacheClearer = clearer
+  return () => {
+    if (queryCacheClearer === clearer) {
+      queryCacheClearer = null
+    }
+  }
+}
+
+export function clearRegisteredQueryCache(): void {
+  queryCacheClearer?.()
+}
 
 export function setAuthStatusGetter(getter: () => boolean): void {
   authStatusGetter = getter
@@ -57,6 +72,11 @@ export function beginLogoutTransition(): void {
 
 export function endLogoutTransition(): void {
   isLoggingOut = false
+}
+
+export function invalidateAuthSession(): void {
+  authGeneration += 1
+  isRedirectingToLogin = false
 }
 
 export function isSessionLoggingOut(): boolean {
@@ -107,12 +127,18 @@ export function runSingleFlightRefresh(): Promise<void> {
 export function isTerminalRefreshError(error: unknown): boolean {
   const err = error as AxiosError | null | undefined
   const status = err?.response?.status
-  return status === 400 || status === 401
+  return status === 400 || status === 401 || status === 403
 }
+
+const AUTH_SKIP_REDIRECT_PREFIXES = ['/login', '/dang-nhap', '/register', '/dang-ky', '/verify-otp']
 
 export function redirectToLoginOnce(): void {
   if (typeof window === 'undefined') return
-  if (window.location.pathname.startsWith('/login') || isRedirectingToLogin) {
+  const pathname = window.location.pathname || '/'
+  if (
+    AUTH_SKIP_REDIRECT_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)) ||
+    isRedirectingToLogin
+  ) {
     return
   }
   isRedirectingToLogin = true

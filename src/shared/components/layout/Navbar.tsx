@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/features/auth'
+import { authService } from '@/features/auth/services/authService'
 import { MessageSquare, Bell, Search } from 'lucide-react'
 import logoImg from '@/assets/logo.svg'
 import { AccountNavigationPopup } from './AccountNavigationPopup'
@@ -48,12 +49,18 @@ export const Navbar: React.FC<{ mobileSubpage?: boolean }> = ({ mobileSubpage = 
     : 0
   const totalUnreadCount = (unreadNotificationsCount || 0) + pendingInvitationsCount
 
-  const handleLogout = () => {
-    // Xóa toàn bộ TanStack query cache khi đăng xuất
-    queryClient.clear()
-    clearAuth()
-    setShowDropdown(false)
-    navigate('/login')
+  const handleLogout = async () => {
+    try {
+      await authService.logout()
+    } catch {
+      // Proceed local cleanup even if backend request fails
+    } finally {
+      // Xóa toàn bộ TanStack query cache khi đăng xuất
+      queryClient.clear()
+      clearAuth()
+      setShowDropdown(false)
+      navigate('/login', { replace: true })
+    }
   }
 
   return (

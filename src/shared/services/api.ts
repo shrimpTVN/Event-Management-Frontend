@@ -52,6 +52,13 @@ function stripBearerHeader(config: RetryableRequestConfig): void {
 apiClient.interceptors.request.use(
   (config: RetryableRequestConfig) => {
     config._authGeneration = getAuthGeneration()
+    if (config.data instanceof FormData && config.headers) {
+      if (typeof config.headers.delete === 'function') {
+        config.headers.delete('Content-Type')
+      } else {
+        delete (config.headers as Record<string, unknown>)['Content-Type']
+      }
+    }
     if (isMockMode()) {
       const token = tokenGetter()
       if (token && config.headers) {
